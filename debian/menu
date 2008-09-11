@@ -1,0 +1,2 @@
+?package(git-cola):needs="X11" section="Applications/Programming"\
+  title="Cola" command="/usr/bin/git-cola"

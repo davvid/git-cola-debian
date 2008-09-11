@@ -1,0 +1,61 @@
+Format-Specification: http://wiki.debian.org/Proposals/CopyrightFormat?action=recall&rev=178
+Upstream-Name: Git Cola
+Upstream-Maintainer: David Aguilar <davvid@gmail.com>
+Upstream-Source: http://cola.tuxfamily.org/
+
+Files: *
+Copyright: Copyright 2008 David Aguilar <davvid@gmail.com>
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License version 2 as
+ published by the Free Software Foundation.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+
+Files: debian/*
+Copyright: Copyright 2008 Iulian Udrea <iulian@ubuntu.com>
+License: GPL-2
+ See above.
+
+Files: bin/git-difftool
+Copyright: Copyright 2006 Theodore Y. Ts'o
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify it 
+ under the terms of the GNU General Public License version 2 or (at your
+ option) any later version as published by the Free Software Foundation.
+
+ This program is distributed in the hope that it will be useful, but 
+ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY 
+ or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for 
+ more details.
+
+Files: share/cola/icons/binary.png,c.png,dir.png,generic.png,git.png,
+image.png,removed.png,script.png,untracked.png
+Copyright: Copyright 2008 The Apache Software Foundation
+License: Apache License, Version 2.0
+ Licensed under the Apache License, Version 2.0 (the "License"); you 
+ may not use this file except in compliance with the License. You may 
+ obtain a copy of the License at `/usr/share/common-licenses/Apache-2.0' 
+
+ Unless required by applicable law or agreed to in writing, software 
+ distributed under the License is distributed on an "AS IS" BASIS, 
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+ See the License for the specific language governing permissions and 
+ limitations under the License. 
+
+Files: share/cola/icons/staged.png
+Copyright: Copyright 2003 Sean Parsons
+License: GPL-any
+ Unspecified GPL license.
+
+Files: cola/git.py
+Copyright: Copyright 2008 Michael Trier <mtrier@gmail.com> and contributors
+License: BSD
+ Please see `/usr/share/common-licenses/BSD'

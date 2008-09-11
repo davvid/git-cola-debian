@@ -1,0 +1,6 @@
+git-cola (1.2.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #498656)
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Thu, 11 Sep 2008 22:21:30 +0100
+
