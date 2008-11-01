@@ -10,8 +10,8 @@ XS-Python-Version: all
 
 Package: git-cola
 Architecture: all
-XB-Python-Version: ${python:Versions}
 Depends: ${python:Depends}, python-qt4, git-core (>= 1.5)
+XB-Python-Version: ${python:Versions}
 Suggests: python-pyinotify, python-simplejson
 Description: highly caffeinated git gui
  Git-cola is a git GUI optimized for working with the git index. It 

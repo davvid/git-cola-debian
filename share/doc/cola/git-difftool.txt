@@ -3,7 +3,7 @@ git-difftool(1)
 
 NAME
 ----
-git-difftool - stage and compare changes using git merge tools
+git-difftool - compare changes using standard git merge tools
 
 SYNOPSIS
 --------
@@ -22,9 +22,7 @@ the index.
 
 'git-difftool' shows differences between the work tree and the index by
 default but can also show differences between arbitrary commits by using
-the --start and --end options.  When operating on the index, saving the
-merged file from within the merge tool (and a successful exit code) will
-instruct 'git-difftool' to stage the new content for commit.
+the --start and --end options.
 
 OPTIONS
 -------
@@ -93,6 +91,10 @@ merge.tool::
 +
 See the `--tool=<tool>` option above for more details.
 
+merge.keepBackup::
+	The original, unedited file content can be saved to a file with
+	a `.orig` extension.  Defaults to `true` (i.e. keep the backup files).
+
 mergetool.<tool>.path::
 	Override the path for the given tool.  This is useful in case
 	your tool is not in the PATH.
@@ -109,10 +111,6 @@ mergetool.<tool>.trustExitCode::
 	timestamp is checked and the merge assumed to have been successful
 	if the file has been updated, otherwise the user is prompted to
 	indicate the success of the merge.
-
-mergetool.keepBackup::
-	The original, unedited file content can be saved to a file with
-	a `.orig` extension.  Defaults to `true` (i.e. keep the backup files).
 
 
 SEE ALSO

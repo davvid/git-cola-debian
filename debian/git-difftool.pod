@@ -67,6 +67,6 @@ git-config(7)
 =head1 AUTHOR
 Written by David Aguilar <davvid@gmail.com>.
 
-This manual page was written by Iulian Udrea <iulian@ubuntu.com>.
+This manual page was written for Debian by Iulian Udrea <iulian@ubuntu.com>.
 
 =cut

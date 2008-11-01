@@ -1,3 +1,9 @@
+git-cola (1.2.68-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Sat, 01 Nov 2008 13:08:13 +0000
+
 git-cola (1.2.0-1) unstable; urgency=low
 
   * Initial release (Closes: #498656)

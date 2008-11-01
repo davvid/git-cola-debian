@@ -35,6 +35,7 @@ from bookmark import save_bookmark
 from bookmark import manage_bookmarks
 from stash import stash
 from compare import compare
+from compare import branch_compare
 
 
 class Controller(QObserver):
@@ -56,6 +57,12 @@ class Controller(QObserver):
             worktree -> selectively add working changes to the index
             index  -> selectively remove changes from the index
         """
+        model.create(
+            project = os.path.basename(model.git.get_work_tree()),
+            window_geom = utils.parse_geom(model.get_cola_config('geometry')),
+            git_version = model.git.version(),
+        )
+
         self.reset_mode()
         # Load window settings
         settings = QtCore.QSettings('git', 'cola');
@@ -63,6 +70,10 @@ class Controller(QObserver):
         self.view.restoreState(geom)
         # Parent-less log window
         qtutils.LOGGER = logger()
+
+        # double-click callbacks
+        self.unstaged_doubleclick = self.stage_selected
+        self.staged_doubleclick = self.unstage_selected
 
         # Unstaged changes context menu
         view.unstaged.contextMenuEvent = self.unstaged_context_menu_event
@@ -72,7 +83,8 @@ class Controller(QObserver):
         view.display_text.contextMenuEvent = self.diff_context_menu_event
 
         # Binds model params to their equivalent view widget
-        self.add_observables('commitmsg', 'staged', 'unstaged')
+        self.add_observables('commitmsg', 'staged', 'unstaged',
+                             'show_untracked')
 
         # When a model attribute changes, this runs a specific action
         self.add_actions(staged = self.action_staged)
@@ -92,7 +104,7 @@ class Controller(QObserver):
             staged = self.diff_staged,
             unstaged = self.diff_unstaged,
             # Checkboxes
-            untracked_checkbox = self.rescan,
+            show_untracked = self.rescan,
             amend_radio = self.load_prev_msg_and_rescan,
             new_commit_radio = self.clear_and_rescan,
 
@@ -104,6 +116,7 @@ class Controller(QObserver):
             menu_save_bookmark = save_bookmark,
             menu_load_commitmsg = self.load_commitmsg,
             menu_get_prev_commitmsg = model.get_prev_commitmsg,
+            menu_load_commitmsg_template = model.load_commitmsg_template,
 
             # Edit Menu
             menu_options = self.options,
@@ -151,13 +164,12 @@ class Controller(QObserver):
             menu_create_branch = self.branch_create,
             menu_checkout_branch = self.checkout_branch,
             menu_diff_branch = self.diff_branch,
-            menu_difftool_branch = self.difftool_branch,
+            menu_branch_compare = self.branch_compare,
 
             # Commit Menu
             menu_rescan = self.rescan,
             menu_delete_branch = self.branch_delete,
             menu_rebase_branch = self.rebase,
-            menu_commit = self.commit,
             menu_stage_selected = self.stage_selected,
             menu_unstage_selected = self.unstage_selected,
             menu_show_diffstat = self.show_diffstat,
@@ -166,7 +178,7 @@ class Controller(QObserver):
             menu_cherry_pick = self.cherry_pick,
             menu_stash =
                 lambda: stash(self.model, self.view),
-            menu_compare =
+            menu_commit_compare =
                 lambda: compare(self.model, self.view),
             menu_stage_modified =
                 lambda: self.log(self.model.stage_modified()),
@@ -186,15 +198,6 @@ class Controller(QObserver):
         view.closeEvent = self.quit_app
         view.staged.mousePressEvent = self.click_staged
         view.unstaged.mousePressEvent = self.click_unstaged
-
-        # These are vanilla signal/slots since QObserver
-        # is already handling these signals.
-        self.connect(view.unstaged,
-                     'itemDoubleClicked(QListWidgetItem*)',
-                     self.stage_selected)
-        self.connect(view.staged,
-                     'itemDoubleClicked(QListWidgetItem*)',
-                     self.unstage_selected)
 
         # Toolbar log button
         self.connect(view.toolbar_show_log,
@@ -235,26 +238,30 @@ class Controller(QObserver):
 
     #####################################################################
     # Actions triggered during model updates
-
     def action_staged(self, widget):
-        qtutils.update_listwidget(widget,
+        qtutils.update_file_icons(widget,
                                   self.model.get_staged(),
                                   staged=True)
         self.view.show_editor()
 
     def action_unstaged(self, widget):
-        qtutils.update_listwidget(widget,
-                                  self.model.get_modified(),
+        modified = self.model.get_modified()
+        unmerged = self.model.get_unmerged()
+        unstaged = modified + unmerged
+        qtutils.update_file_icons(widget,
+                                  unstaged,
                                   staged=False)
-        if self.view.untracked_checkbox.isChecked():
-            qtutils.update_listwidget(widget,
+        if self.model.get_show_untracked():
+            qtutils.update_file_icons(widget,
                                       self.model.get_untracked(),
                                       staged=False,
-                                      append=True,
-                                      untracked=True)
+                                      untracked=True,
+                                      offset=len(unstaged))
 
     #####################################################################
     # Qt callbacks
+    def tr(self, fortr):
+        return qtutils.tr(fortr)
     def goto_grep(self):
         line = self.view.selected_line()
         filename, lineno, contents = line.split(':', 2)
@@ -318,7 +325,9 @@ class Controller(QObserver):
                                    self.model.get_local_branches())
         if not branch:
             return
-        self.log(self.model.git.checkout(branch))
+        status, out, err = self.model.git.checkout(branch,
+                                                   with_extended_output=True)
+        self.log(out+err)
 
     def browse_commits(self):
         self.select_commits_gui('Browse Commits',
@@ -343,7 +352,6 @@ class Controller(QObserver):
                 '- Remaining lines: Describe why this change is good.\n')
             self.log(error_msg)
             return
-
         files = self.model.get_staged()
         if not files and not self.view.amend_is_checked():
             error_msg = self.tr(''
@@ -354,7 +362,8 @@ class Controller(QObserver):
 
         # Perform the commit
         amend = self.view.amend_is_checked()
-        status, output = self.model.commit_with_msg(msg, amend=amend)
+        umsg = msg.encode('utf-8')
+        status, output = self.model.commit_with_msg(umsg, amend=amend)
         if status == 0:
             self.view.reset_checkboxes()
             self.model.set_commitmsg('')
@@ -368,13 +377,9 @@ class Controller(QObserver):
 
     def get_selected_filename(self, staged=False):
         if staged:
-            widget = self.view.staged
+            return self.model.get_staged_item()
         else:
-            widget = self.view.unstaged
-        idx, selected = qtutils.get_selected_row(widget)
-        if not selected:
-            return None
-        return self.model.get_filename(idx, staged=staged)
+            return self.model.get_unstaged_item()
 
     def view_diff(self, staged=True):
         if staged:
@@ -395,7 +400,7 @@ class Controller(QObserver):
         diff, status, filename = self.model.get_diff_details(row, ref,
                                                              staged=staged)
         self.view.set_display(diff)
-        self.view.set_info(status)
+        self.view.set_info(self.tr(status))
         self.view.show_diff()
         qtutils.set_clipboard(filename)
 
@@ -406,7 +411,7 @@ class Controller(QObserver):
         utils.fork('xterm', '-e',
                    'git', 'mergetool',
                    '-t', self.model.get_mergetool(),
-                   '--', filename)
+                   filename)
 
     def edit_file(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
@@ -416,9 +421,14 @@ class Controller(QObserver):
     def edit_diff(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
         if filename:
-            utils.fork('git', 'difftool', '--no-prompt',
-                       '-t', self.model.get_mergetool(),
-                       '--', filename)
+            args = ['git', 'difftool', '--no-prompt',
+                    '-t', self.model.get_mergetool()]
+            if (self.view.amend_is_checked()
+                    or (staged and
+                        filename not in self.model.partially_staged)):
+                args.extend(['-c', 'HEAD^'])
+            args.extend(['--', filename])
+            utils.fork(*args)
 
     # use *rest to handle being called from different signals
     def diff_staged(self, *rest):
@@ -604,28 +614,9 @@ class Controller(QObserver):
         self.view.set_display(self.model.diffindex())
 
     #####################################################################
-    def difftool_branch(self):
+    def branch_compare(self):
         self.reset_mode()
-        branch = choose_from_combo('Select Branch, Tag, or Commit-ish',
-                                   self.view,
-                                   ['HEAD^']
-                                   + self.model.get_all_branches()
-                                   + self.model.get_tags())
-        if not branch:
-            return
-        zfiles_str = self.model.git.diff(branch, name_only=True, z=True)
-        if not zfiles_str:
-            qtutils.information('Nothing to do',
-                                'git-cola did not find any changes.')
-            return
-        files = zfiles_str.split('\0')
-        filename = choose_from_list('Select File', self.view, files)
-        if not filename:
-            return
-        utils.fork('git', 'difftool', '--no-prompt',
-                   '-t', self.model.get_mergetool(),
-                   '-c', branch,
-                   '--', filename)
+        branch_compare(self.model, self.view)
 
     #####################################################################
     # diff gui
@@ -637,7 +628,8 @@ class Controller(QObserver):
                                    + self.model.get_tags())
         if not branch:
             return
-        zfiles_str = self.model.git.diff(branch, name_only=True, z=True)
+        zfiles_str = self.model.git.diff(branch, name_only=True,
+                                         z=True).rstrip('\0')
         files = zfiles_str.split('\0')
         filename = choose_from_list('Select File', self.view, files)
         if not filename:
@@ -833,8 +825,6 @@ class Controller(QObserver):
         menu.exec_(staged.mapToGlobal(event.pos()))
 
     def staged_context_menu_setup(self):
-        staged_item = qtutils.get_selected_item(self.view.staged,
-                                                self.model.get_staged())
         menu = QMenu(self.view)
         menu.addAction(self.tr('Unstage Selected'), self.unstage_selected)
         menu.addSeparator()
@@ -858,7 +848,7 @@ class Controller(QObserver):
         enable_undo = enable_staging and is_tracked
 
         menu = QMenu(self.view)
-        if enable_staging:
+        if enable_staging and not is_unmerged:
             menu.addAction(self.tr('Stage Selected'), self.stage_selected)
             menu.addSeparator()
         if is_unmerged and not utils.is_broken():
@@ -869,7 +859,7 @@ class Controller(QObserver):
         if enable_staging and not is_unmerged:
             menu.addAction(self.tr('Launch Diff Tool'),
                            lambda: self.edit_diff(staged=False))
-        if enable_undo:
+        if enable_undo and not is_unmerged:
             menu.addSeparator()
             menu.addAction(self.tr('Undo All Changes'), self.undo_changes)
         return menu
@@ -962,5 +952,5 @@ class Controller(QObserver):
             return
 
         # Start the notification thread
-        self.inotify_thread = GitNotifier(self, os.getcwd())
+        self.inotify_thread = GitNotifier(self, self.model.git)
         self.inotify_thread.start()

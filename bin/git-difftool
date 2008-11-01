@@ -9,52 +9,67 @@
 #
 # This file is licensed under the GPL v2, or a later version
 #
-USAGE='[--tool=tool] [--commit=ref] [--start=ref --end=ref] [--no-prompt] [file to merge] ...'
+USAGE='
+[--tool=tool] [--no-prompt]
+[--commit=ref] [--start=ref --end=ref]
+[--] [file to view] ...'
 SUBDIRECTORY_OK=Yes
 OPTIONS_SPEC=
 . git-sh-setup
 require_work_tree
 cd_to_toplevel
-dirname=
-keep_backup_mode="$(git config --bool mergetool.keepBackup || echo true)"
+
+keep_backup_mode="$(git config --bool merge.keepBackup || echo true)"
+PREFIX=.git-difftool."$$"."$(date +%N)".
+FILEDIR=
 
 keep_backup () {
+	# whether to keep the .orig file
 	test "$keep_backup_mode" = "true"
 }
 
 parse_arg () {
+	# parses --foo=BAR
 	expr "z$1" : 'z-[^=]*=\(.*\)'
 }
 
 index_present () {
-    test -n "$index_mode"
+	#  does the index contain staged changes?
+	test -n "$index_mode"
 }
 
 modified_present () {
-    test -n "$modified_mode"
+	# are there changes in the requested comparison?
+	test -n "$modified_mode"
 }
 
 commitish_present () {
+	# are we comparing against an arbitrary commit?
 	test -n "$commitish"
 }
 
 should_prompt () {
+	# are we running interactively?
 	! test -n "$no_prompt"
 }
 
 use_rev_range () {
+	# are we using --start=REF and --end=REF
 	test -n "$start" && test -n "$end"
 }
 
-handle_dir () {
+merge_dir_missing () {
+	# does dirname($MERGED) exist in the work tree?
 	test -n "$non_existant_dir"
 }
 
-merge_three () {
+base_present () {
+	# whether we have 3 things to compare (index, worktree, other)
 	index_present && modified_present && ! use_rev_range
 }
 
 modified_files () {
+	# returns the appopriate list of differences based on the mode
 	if use_rev_range; then
 		git diff --name-only "$start".."$end" -- "$@" 2>/dev/null
 	elif commitish_present; then
@@ -65,42 +80,31 @@ modified_files () {
 }
 
 staged_files() {
+	# returns any staged changes
 	git diff --name-only --cached "$@" 2>/dev/null
 }
 
 cleanup_temp_files () {
-	if keep_backup && test "$MERGED" -nt "$BACKUP"; then
-		test -f "$BACKUP" && mv -- "$BACKUP" "$MERGED.orig"
-		rm -f -- "$LOCAL" "$REMOTE" "$BASE"
-	else
-		rm -f -- "$LOCAL" "$REMOTE" "$BASE" "$BACKUP"
-	fi
-	handle_dir && rmdir -p "$dirname"
-}
-
-check_unchanged () {
-	if test "$MERGED" -nt "$BACKUP"; then
-		status=0
-	else
-		status=1
-		use_rev_range && status=0 # we don't 'git add' in rev-range mode
-		if ! use_rev_range && should_prompt; then
-			while true
-			do
-				printf "\n$MERGED seems unchanged.\n"
-				printf "Was the merge successful? [y/n] "
-				read answer < /dev/tty
-				case "$answer" in
-				y*|Y*) status=0; break ;;
-				n*|N*) status=1; break ;;
-				esac
-			done
+	# removes temporary files
+	if test -n "$MERGED"; then
+		if keep_backup && test "$MERGED" -nt "$BACKUP"; then
+			test -f "$BACKUP" && mv -- "$BACKUP" "$MERGED.orig"
+			rm -f -- "$LOCAL" "$REMOTE" "$BASE"
+		else
+			rm -f -- "$LOCAL" "$REMOTE" "$BASE" "$BACKUP"
 		fi
+		test -n "$MERGEDIR" && rmdir -p "$MERGEDIR"
 	fi
 }
 
-merge_file ()
-{
+sigint_handler () {
+	echo
+	cleanup_temp_files
+	exit 1
+}
+
+merge_file () {
+	# prepares temporary files and launches the appropriate merge tool
 	MERGED="$1"
 
 	modified_mode=$(modified_files "$MERGED")
@@ -118,100 +122,149 @@ merge_file ()
 		exit 1
 	fi
 
-	dirname=$(dirname "$MERGED")
-	test -d "$dirname" || non_existant_dir=true
-	handle_dir && mkdir -p "$dirname"
+	# handle comparing a file that doesn't exist in the current checkout
+	MERGEDIR=$(dirname "$MERGED")
+	non_existant_dir=
+	test -d "$MERGEDIR" || non_existant_dir=true
+	if merge_dir_missing; then
+		mkdir -p -- "$MERGEDIR"
+	else
+		MERGEDIR=
+	fi
 
 	ext="$$$(expr "$MERGED" : '.*\(\.[^/]*\)$')"
 	BACKUP="./$MERGED.BACKUP.$ext"
-
-	test -f "$MERGED" &&
-	mv -- "$MERGED" "$BACKUP" &&
-	cp -- "$BACKUP" "$MERGED"
+	test -f "$MERGED" && cp -- "$MERGED" "$BACKUP"
 
 	if use_rev_range; then
-		BASE="./$MERGED.LOCAL.$ext"
+		# we're comparing two arbitrary commits
+		BASE="./$MERGED.CURRENT.$ext"
 		LOCAL="./$MERGED.START.$ext"
 		REMOTE="./$MERGED.END.$ext"
-		base=local
+		base=current
 		local=start
 		remote=end
+		touch "$BASE"
+		touch "$LOCAL"
+		touch "$REMOTE"
 
-		if ! git show "$start":"$MERGED" > "$LOCAL" 2>/dev/null; then
-			cleanup_temp_files;
-			if ! should_prompt; then
-				echo "$MERGED does not exist at $start"
-				exit 1
+		# detects renames.. sweet!
+		oldname=$(git diff --follow "$start".."$end" -- "$MERGED" |
+			head -n9 |
+			grep '^rename from' |
+			sed -e 's/rename from //')
+		startname="$MERGED"
+		test -n "$oldname" && startname="$oldname"
+
+		if ! git show "$start":"$startname" > "$LOCAL" 2>/dev/null; then
+			if should_prompt; then
+				echo
+				echo -n "Warning: "
+				echo -n "'$startname' does not exist at $start."
 			fi
-			return
+		else
+			cp -- "$LOCAL" "$BASE"
 		fi
 		if ! git show "$end":"$MERGED" > "$REMOTE" 2>/dev/null; then
-			cleanup_temp_files;
-			if ! should_prompt; then
-				echo "$MERGED does not exist at $end"
-				exit 1
+			if should_prompt; then
+				echo
+				echo -n "Warning: "
+				echo -n "'$MERGED' does not exist at $end."
 			fi
-			return
+		else
+			! test -f "$BASE" && cp -- "$REMOTE" "$BASE"
 		fi
 
-		# $BASE could be used by custom mergetool commands, so provide it.
-		# $MERGED might not exist in the worktree, start or end so commit
-		# so check in that order.
+		# $BASE could be used by custom mergetool commands
 		if test -f "$MERGED"; then
 			cp -- "$MERGED" "$BASE"
-		elif test -f "$REMOTE"; then
-			cp -- "$REMOTE" "$BASE"
-		elif test -f "$LOCAL"; then
-			cp -- "$LOCAL" "$BASE"
-		else
-			touch "$BASE"
 		fi
 	else
-		base=index
-		local=local
-		remote=${commitish-HEAD}
-		LOCAL="./$MERGED.LOCAL.$ext"
-		REMOTE="./$MERGED.HEAD.$ext"
-		BASE="./$MERGED.INDEX.$ext"
-		cp -- "$MERGED" "$LOCAL"
-		git show "$remote":"$MERGED" > "$REMOTE" 2>&1
-		# If changes are present in the index use them as $BASE
-		git checkout-index --prefix=.index- "$MERGED"
-		mv -- .index-"$MERGED" "$BASE"
+		# We're either comparing against the index or an
+		# arbitrary commit.
+		# The goal is to re-use existing mergetool.$tool.cmd
+		# configurations so we provide $BASE $LOCAL and $REMOTE
+		if commitish_present; then
+			HEAD=OTHER
+			local=Other
+		else
+			HEAD=HEAD
+			local=Index
+		fi
+		base=${commitish-HEAD}
+		remote=Current
+		BASE="./$MERGED.$HEAD.$ext"
+		LOCAL="./$MERGED.INDEX.$ext"
+		REMOTE="./$MERGED.CURRENT.$ext"
+		touch "$BASE"
+		touch "$LOCAL"
+		touch "$REMOTE"
+		if ! git show "$base":"$MERGED" > "$BASE" 2>&1; then
+			echo
+			echo -n "Warning: "
+			echo "'$MERGED' does not exist at $base."
+		else
+			cp "$BASE" "$LOCAL"
+			if commitish_present; then
+				rm -f "$LOCAL"
+				LOCAL="$BASE"
+			fi
+		fi
+		# If changes are present in the index use them as $LOCAL
+		# but only if $MERGED exists at $base
+		if ! commitish_present; then
+			git checkout-index --prefix="$PREFIX" "$MERGED"
+			if test -f "$PREFIX""$MERGED"; then
+				mv -- "$PREFIX""$MERGED" "$LOCAL"
+				tmpdir=$(dirname "$PREFIX""$MERGED")
+				test -d "$tmpdir" &&
+				test "$tmpdir" != "." &&
+				rmdir -p "$tmpdir"
+			else
+				index_mode=
+			fi
+		else
+			index_mode=
+		fi
+		if test -f "$MERGED"; then
+			cp -- "$MERGED" "$REMOTE"
+		fi
 	fi
 
+	# ensure that we clean up after ourselves
+	trap sigint_handler SIGINT
+
 	if should_prompt; then
-		printf "\nEditing '$MERGED':\n"
-		printf "Hit return to start merge tool (%s): " "$merge_tool"
+		printf "\nEditing: '$MERGED'\n"
+		printf "Hit return to launch '%s': " "$merge_tool"
 		read ans
 	fi
 
 	case "$merge_tool" in
 	kdiff3)
 		basename=$(basename "$MERGED")
-		if merge_three; then
+		if base_present; then
 		(
 			"$merge_tool_path" --auto \
-				--L1 "[$base] $basename" \
-				--L2 "[$local] $basename" \
-				--L3 "[$remote] $basename" \
+				--L1 "($base) $basename" \
+				--L2 "($local) $basename" \
+				--L3 "($remote) $basename" \
 				-o "$MERGED" "$BASE" "$LOCAL" "$REMOTE" \
 				> /dev/null 2>&1
 		)
 		else
 		(
 			"$merge_tool_path" --auto \
-				--L1 "[$local] $basename" \
-				--L2 "[$remote] $basename" \
+				--L1 "($local) $basename" \
+				--L2 "($remote) $basename" \
 				-o "$MERGED" "$LOCAL" "$REMOTE" \
 				> /dev/null 2>&1
 		)
 		fi
-		status=$?
 		;;
 
 	tkdiff)
-		if merge_three; then
+		if base_present; then
 			"$merge_tool_path" \
 				-a "$BASE" \
 				-o "$MERGED" "$LOCAL" "$REMOTE"
@@ -219,27 +272,36 @@ merge_file ()
 			"$merge_tool_path" \
 				-o "$MERGED" "$LOCAL" "$REMOTE"
 		fi
-		status=$?
 		;;
 
-	meld|vimdiff)
-		"$merge_tool_path" "$LOCAL" "$MERGED" "$REMOTE"
-		check_unchanged
+	meld)
+		"$merge_tool_path" "$LOCAL" "$MERGED"
+		;;
+
+	vimdiff)
+		if base_present; then
+			"$merge_tool_path" "$BASE" "$LOCAL" "$MERGED"
+		else
+			"$merge_tool_path" "$LOCAL" "$MERGED"
+		fi
 		;;
 
 	gvimdiff)
-		"$merge_tool_path" -f "$LOCAL" "$MERGED" "$REMOTE"
-		check_unchanged
+		if base_present; then
+			"$merge_tool_path" -f "$BASE" "$LOCAL" "$MERGED"
+		else
+			"$merge_tool_path" -f "$LOCAL" "$MERGED"
+		fi
 		;;
 
 	xxdiff)
-		if merge_three; then
+		if base_present; then
 			"$merge_tool_path" -X --show-merged-pane \
 				-R 'Accel.SaveAsMerged: "Ctrl-S"' \
 				-R 'Accel.Search: "Ctrl+F"' \
 				-R 'Accel.SearchForward: "Ctrl-G"' \
 				--merged-file "$MERGED" \
-				"$LOCAL" "$BASE" "$REMOTE"
+				"$BASE" "$LOCAL" "$REMOTE"
 		else
 			"$merge_tool_path" -X --show-merged-pane \
 				-R 'Accel.SaveAsMerged: "Ctrl-S"' \
@@ -248,11 +310,10 @@ merge_file ()
 				--merged-file "$MERGED" \
 				"$LOCAL" "$REMOTE"
 		fi
-		check_unchanged
 		;;
 
 	opendiff)
-		if merge_three; then
+		if base_present; then
 			"$merge_tool_path" "$LOCAL" "$REMOTE" \
 				-ancestor "$BASE" \
 				-merge "$MERGED" | cat
@@ -260,22 +321,20 @@ merge_file ()
 			"$merge_tool_path" "$LOCAL" "$REMOTE" \
 				-merge "$MERGED" | cat
 		fi
-		check_unchanged
 		;;
 
 	ecmerge)
-		if merge_three; then
+		if base_present; then
 			"$merge_tool_path" "$BASE" "$LOCAL" "$REMOTE" \
 				--default --mode=merge3 --to="$MERGED"
 		else
 			"$merge_tool_path" "$LOCAL" "$REMOTE" \
 				--default --mode=merge2 --to="$MERGED"
 		fi
-		check_unchanged
 		;;
 
 	emerge)
-		if merge_three; then
+		if base_present; then
 			"$merge_tool_path" \
 				-f emerge-files-with-ancestor-command \
 				"$LOCAL" "$REMOTE" "$BASE" \
@@ -284,31 +343,17 @@ merge_file ()
 			"$merge_tool_path" -f emerge-files-command \
 				"$LOCAL" "$REMOTE" "$(basename "$MERGED")"
 		fi
-		status=$?
 		;;
 	*)
 		if test -n "$merge_tool_cmd"; then
 			if test "$merge_tool_trust_exit_code" = "false"; then
 				( eval $merge_tool_cmd )
-				check_unchanged
 			else
 				( eval $merge_tool_cmd )
-				status=$?
 			fi
 		fi
 		;;
 	esac
-
-	if ! use_rev_range; then
-		if test "$status" -ne 0; then
-			if should_prompt; then
-				echo "merge of $MERGED failed" 1>&2
-			fi
-			cleanup_temp_files
-			exit 1
-		fi
-		git add -- "$MERGED"
-	fi
 	cleanup_temp_files
 }
 
@@ -396,14 +441,12 @@ do
 	esac
 done
 
-valid_custom_tool()
-{
-    merge_tool_cmd="$(git config mergetool.$1.cmd)"
-    test -n "$merge_tool_cmd"
+valid_custom_tool() {
+	merge_tool_cmd="$(git config mergetool.$1.cmd)"
+	test -n "$merge_tool_cmd"
 }
 
-valid_tool()
-{
+valid_tool() {
 	case "$1" in
 	kdiff3 | tkdiff | xxdiff | meld | opendiff | emerge | vimdiff | gvimdiff | ecmerge)
 		;; # happy
@@ -416,8 +459,7 @@ valid_tool()
 	esac
 }
 
-init_merge_tool_path()
-{
+init_merge_tool_path() {
 	merge_tool_path=$(git config mergetool."$1".path)
 	if test -z "$merge_tool_path"; then
 		case "$1" in
@@ -507,8 +549,9 @@ if test $# -eq 0; then
 
 	if test -z "$files"; then
 		echo "No modified files exist."
-		exit 0
+		exit 1
 	fi
+
 
 	if test $use_index -eq 0; then
 		modified_files |
@@ -524,7 +567,7 @@ if test $# -eq 0; then
 		done
 	else
 		echo "Nothing to compare."
-		exit 0
+		exit 1
 	fi
 else
 	while test $# -gt 0
@@ -533,4 +576,4 @@ else
 		shift
 	done
 fi
-exit $status
+exit 0
