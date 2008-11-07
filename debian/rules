@@ -1,11 +1,11 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
-include /usr/share/dpatch/dpatch.make
+#include /usr/share/dpatch/dpatch.make
 
 package=git-cola
 
-build: patch build-indep
+build: build-indep
 
 build-indep:
 	dh_testdir
@@ -15,7 +15,7 @@ build-indep:
 
 	touch $@
 
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-indep
