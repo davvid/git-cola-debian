@@ -1,13 +1,10 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
-#include /usr/share/dpatch/dpatch.make
-
 package=git-cola
 
-build: build-indep
-
-build-indep:
+build: build-stamp
+build-stamp:
 	dh_testdir
 	$(MAKE) all doc
 	pod2man --section=1 --release="" --center "" debian/cola.pod > debian/cola.1
@@ -18,16 +15,13 @@ build-indep:
 clean:
 	dh_testdir
 	dh_testroot
-	rm -f build-indep
-	rm -f debian/cola.1
-	rm -f debian/git-difftool.1
-	dh_clean
+	dh_clean build-stamp debian/cola.1 debian/git-difftool.1
 	[ ! -f Makefile ] || $(MAKE) clean
 
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k
+	dh_install
 	dh_installdirs
 	$(MAKE) DESTDIR=$(CURDIR)/debian/$(package) prefix=/usr install install-doc install-html
 	find . -name "*.pyc" -delete
@@ -36,7 +30,6 @@ install: build
 binary-indep: build install
 	dh_testdir
 	dh_testroot
-	dh_install
 	dh_installchangelogs 
 	dh_installdocs
 	dh_installexamples
@@ -56,7 +49,6 @@ binary-indep: build install
 
 # Build architecture-dependent files here.
 binary-arch: build install
-# We have nothing to do by default.
 
 binary: binary-indep binary-arch
 

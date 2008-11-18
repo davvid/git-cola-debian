@@ -7,7 +7,12 @@ import re
 import os
 import sys
 import subprocess
-from cola.exception import GitCommandError
+import errno
+from cola.core import encode
+
+class GitCommandError(Exception):
+    """Exception class for failed commands."""
+    pass
 
 def dashify(string):
     return string.replace('_', '-')
@@ -23,12 +28,15 @@ class Git(object):
     The Git class manages communication with the Git binary
     """
     def __init__(self):
-        self._git_cwd = None
+        """Constructs a Git command object."""
+        self._git_cwd = None #: The working directory used by execute()
 
     def set_cwd(self, path):
+        """Sets the current directory."""
         self._git_cwd = path
 
     def __getattr__(self, name):
+        """Handles the self.git_command(..) dispatching."""
         if name[0] == '_':
             raise AttributeError(name)
         return lambda *args, **kwargs: self._call_process(name, *args, **kwargs)
@@ -86,20 +94,23 @@ class Git(object):
                                 stdin=istream,
                                 stderr=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
-        count = 0
-        max_count = 4
-        while count < max_count:
-            count += 1
+        while True:
             try:
                 stdout_value = proc.stdout.read()
                 stderr_value = proc.stderr.read()
                 status = proc.wait()
-                count = max_count
                 break
-            except:
-                stdout_value = None
-                stderr_value = None
-                status = 42
+            except IOError, e:
+                # OSX and others are known to interrupt system calls
+                # http://en.wikipedia.org/wiki/PCLSRing
+                # http://en.wikipedia.org/wiki/Unix_philosophy#Worse_is_better
+                if e.errno == errno.EINTR:
+                    continue
+                else:
+                    stdout_value = None
+                    stderr_value = None
+                    status = 42
+                    break
 
         if with_exceptions and status:
             raise GitCommandError(command, status, stderr_value)
@@ -183,7 +194,7 @@ class Git(object):
 
         # Prepare the argument list
         opt_args = self.transform_kwargs(**kwargs)
-        ext_args = [a.encode('utf-8') for a in args]
+        ext_args = map(encode, args)
         args = opt_args + ext_args
 
         call = ['git', dashify(method)]
