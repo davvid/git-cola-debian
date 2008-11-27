@@ -1,7 +1,61 @@
-git-cola: 1.3.2
-bottled-on: Tue Nov 18 03:32:53 PST 2008
+git-cola: 1.3.2.5.gdd8c
+bottled-on: Fri Nov 21 00:05:49 PST 2008
 
-commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: refs/tags/v1.3.2, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit dd8cd024e10f575285d659253960a91958e4ed36 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Marti­nez MartÃi <deavidsedice@gmail.com>
+Date:   Thu Nov 20 19:20:30 2008 +0100
+
+    search: fix bug that blocks searching
+    
+    When trying to search something, git-cola complains:
+     > AttributeError: Parameter 'commit_list' not available for Model
+    
+    Attributes for class "Model" must not be null to be detected as a parameter.
+    Model.get_param_names has the related code to check if it is a parameter
+    or not.
+    
+    So, the solution here is initialize model.commit_list with an empty array,
+    because it is similar to the data used there.
+    
+    Signed-off-by: David Martínez Martí <deavidsedice@gmail.com>
+
+commit 6d8bbd16bd72cf1c1ba8384d46a6beda23b3cb81
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 20 12:40:23 2008 -0800
+
+    models: properly detect merge conflicts with deleted files
+    
+    When a file is deleted locally and changed on the remote side diff-index
+    reports the state as 'A' (added) since it's going to add it during the merge.
+    We now detect this and list it as an unmerged file.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0fe0bd382878bb3c7c1bb58448d1dee0f78e2cee
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 20 02:56:59 2008 -0800
+
+    inotify: fix a bug introduced when removing the defaults module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6d04408ecc2e5f63759d0365b9fef60658e89182
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 20 02:46:00 2008 -0800
+
+    INSTALL: fix a typo in the pyuic4 section
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 04def89eb2dbcc9cd297419312c7efa22a9c5f53
+Author: Barry Roberts <blr@robertsr.us>
+Date:   Wed Nov 19 16:36:02 2008 -0700
+
+    Simple blame
+    
+    Signed-off-by: Barry Roberts <blr@robertsr.us>
+
+commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: refs/tags/v1.3.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Nov 18 03:35:25 2008 -0800
 
