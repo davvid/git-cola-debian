@@ -1,7 +1,376 @@
-git-cola: 1.3.2.5.gdd8c
-bottled-on: Fri Nov 21 00:05:49 PST 2008
+git-cola: 1.3.4.4.gbe70
+bottled-on: Fri Dec 26 01:34:17 PST 2008
 
-commit dd8cd024e10f575285d659253960a91958e4ed36 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit be70329b11f7a611db63e13255c9f9b74b76ab01 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 01:26:49 2008 -0800
+
+    setup.py: work around the pyuic4 setSortingEnabled bug
+    
+    We work around the bug by suppressing all lines that mention
+    'sortingenabled' in the generated .py files.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8a1ecb87437eb946064a782dfe6e879ebce0e15f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 00:15:10 2008 -0800
+
+    INSTALL: remove references to the old pyuic4 shebang issue
+    
+    The previous commit works around pyuic4 installations that are
+    missing shebangs, so we shouldn't mention it in INSTALL anymore.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8d8922f52bf7c743e47613acaf627eaee17ef59a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 00:14:04 2008 -0800
+
+    setup.py: guard against pyuic4 that are missing #!/bin/sh
+    
+    Some installations of pyqt4 have a copy of pyuic4 that's
+    missing the shebang line.  Guard against this by using
+    popen() instead.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 88ad1302c77ed33c16db78b2659867c12fbb21e0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 25 17:20:46 2008 -0800
+
+    git-difftool: prepend $(git --exec-path) to $PATH
+    
+    git-sh-setup is no longer in $PATH as of git 1.6.0.
+    Prepend PATH with git-sh-setup so that git-difftool
+    can use git-sh-setup.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fd3a43bef15b51350256e31d6ae2a1df996a3497 (tag: refs/tags/v1.3.4)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 25 14:05:12 2008 -0800
+
+    remote: add a rebase checkbox to the pull dialog
+    
+    The pull dialog now has a 'Rebase' checkbox that tells cola
+    to pass the --rebase option to pull.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 90e23ce2fd57960cbb2a68538b524cbf24915128
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 25 05:03:08 2008 -0800
+
+    INSTALL: fix a typo in the windows installation section
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 250282933a3d905248993a372c7121f9d29b1034
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 25 03:51:27 2008 -0800
+
+    win32: add a win32/ folder for storing all of the win32 hacks
+    
+    Building cola for windows involves a little bit of voodoo.
+    We now keep all of the windows-specific scripts and such
+    in the win32/ folder to help make living in windows-land
+    a little easier.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 27a7e19a1ed2137f27c5f8612f054701c374bdce
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 24 13:42:32 2008 -0800
+
+    INSTALL: remove references to the now unused 'file' command
+    
+    We no longer mention the 'file' command now that
+    utils.ident_file_type() uses only mimetypes and filenames
+    when guessing file types.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f18b101db02adc98cdbc07837c990133a25828e1
+Author: Barry Roberts <blr@robertsr.us>
+Date:   Wed Dec 10 09:29:24 2008 -0700
+
+    Speed up file identification
+    
+    This is for all platforms and is probably more flexible
+    
+    Signed-off-by: Barry Roberts <blr@robertsr.us>
+
+commit 88e9431a62e4eb952e9de8c8861c20257795fa76
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Dec 22 08:29:12 2008 -0800
+
+    rebase: list all branches in the branch chooser, not just local ones
+    
+    The rebase dialog only listed local branches.  It now lists all
+    branches, including remote ones.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3ed716233b650ff3c6f3310b4c80fcc57a4a892b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Dec 22 08:12:22 2008 -0800
+
+    models: call 'git update-index --refresh' in get_workdir_state()
+    
+    There was an earlier version of git that would report files as
+    being modified when only their modification times changed.
+    This causes cola to report false-positives in its modified
+    files list.  We now guard against this by refreshing the index
+    in cola's get_workdir_state() method.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 09b43847052314211072a11f9a168a576d09bf84
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 19 10:15:44 2008 -0800
+
+    Use 'utf-8' instead of 'utf8' in core.encode()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f31d7bd3b9334c123039dc325068e0740fb25452
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Dec 14 14:26:25 2008 -0800
+
+    compare: fix an edge case when decreasing the number of log results
+    
+    When changing the number of results in the compare dialog down
+    to a number less than the index of the currently selected
+    filename then it would generate a traceback.  We now detect
+    this condition and behave accordingly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ddb19ffee595156744d516c092b86c4b0b18a78b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Dec 14 14:23:50 2008 -0800
+
+    options dialog: fix some annoyances with the font handling
+    
+    The font handling in the options dialog had some small
+    annoyances that have now been fixed.  The dialog should now
+    show instantaneous results and properly react to all user
+    input.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 95bd9b73d7169871b95ba69323060dd782fb48ab
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 12 11:37:16 2008 -0800
+
+    controllers: fix a typo when restoring the scrollbar values on rescan
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cffa5f48943f772d801a2b0725dda5572587be38
+Author: Barry Roberts <blr@robertsr.us>
+Date:   Thu Dec 11 10:45:58 2008 -0700
+
+    Context menu items for Commits list
+    
+    This adds checkout, cherry-pick, and create branch
+    to the commit list context menu.
+    
+    Signed-off-by: Barry Roberts <blr@robertsr.us>
+
+commit 117aa32f129b3fd89342eeebf80229d6e8632b9a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 11 02:59:22 2008 -0800
+
+    cola: pass --no-color to 'git diff' to avoid receiving ANSI sequences
+    
+    If someone has a git config such as:
+    
+    [color]
+    	ui = on
+    
+    Then git might ignore whether a TTY is attached when printing diffs.
+    We now guard against this by passing --no-color to all 'git diff'
+    invocations.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4c218fe4c1c69ed1ff1deccee2b1dc7ba5409286
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 10 02:56:12 2008 -0800
+
+    diff gui: properly restore the scroll bar values on update
+    
+    We now properly restore the vertical scrollbar values when interactively
+    staging content for commit.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e2efc30125a671f88af87145301ca412772b55c6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 9 22:26:31 2008 -0800
+
+    views: fix obsolete references to the old dockwidgets
+    
+    The main view needed to be updated to reflect the changes to the
+    main.ui interface file.  This fixes a bug in the stash view.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit aecfd3dbd99fafa67aa5755284c38d425adcdd31
+Author: Barry Roberts <blr@robertsr.us>
+Date:   Tue Dec 9 19:52:35 2008 -0700
+
+    Fix stash typo
+    
+    Signed-off-by: Barry Roberts <blr@robertsr.us>
+
+commit 2612b3a3d9efa5d77e0ce415efee13c4174f00dc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 9 16:37:41 2008 -0800
+
+    compare: reinstate the Commit -> Compare File... menu action
+    
+    We recently lost the ability to compare changes to just a single file
+    across commits.  This has been reinstated.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dda2f8380599edc8acce60aec644a9dcb58070df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Dec 7 22:02:38 2008 -0800
+
+    i18n: fix a few more places where we weren't unicode-safe
+    
+    The search dialog and the commit browser now properly decode
+    git's output before handing it off to Qt.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c8c4838f488be76751457275ae32eac2fe603d8f (tag: refs/tags/v1.3.3)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 4 23:13:36 2008 -0800
+
+    qobserver: fix a bug where we would respond to redundant notifications
+    
+    When setting a text field Qt triggers a callback.  We catch this callback
+    and update our model accordingly.  When the model updates, it triggers
+    another callback which causes a feedback loop that eventually resolves
+    with the text field getting set twice.  This is problematic since
+    it makes entering text problematic.
+    
+    We now detect this situation and stop the notification loop accordingly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1e352393667c73766b2e1178d03095c0439e26d5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 4 01:52:41 2008 -0800
+
+    win32: Updated INSTALL to mention dirname.exe
+    
+    The INSTALL file now points users to the cola website for file.exe
+    and dirname.exe.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2e52b5735d578a0b3cf657768a68c5e00e4c30f5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 4 00:57:31 2008 -0800
+
+    models: guard against broken git configs
+    
+    Users could enter erroneous settings in their .git/config.
+    
+    For example:
+    
+    [merge.tool]
+    	meld
+    
+    git config --list returns that entry without an "=" sign, which
+    was crashing cola.  We now ignore these entries.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 07bd56e25c755eebdbb1f61e777df942fad40d24
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 4 00:47:12 2008 -0800
+
+    create branch: fix gui bugs when entering branch names by hand
+    
+    We were resetting the user input whenever it changed, so we now
+    only reset it when it was changed as a result of clicking on a
+    remote branch.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 28f2099bc26f97d41ba8520d0dfabe0e8a5adbbc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 4 00:13:52 2008 -0800
+
+    clone: handle massaging .git strings in URLs when guessing the clone dir
+    
+    This improves the cola behavior when cloning foo/.git and foo.git URLs.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a8ce54473ce39fe40cdf7733f1eed81b1f728100
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 3 23:43:10 2008 -0800
+
+    clone: assume that git url = the new destination directory
+    
+    Previously we used QFileDialog.getSaveFileName() and restricted
+    users from selecting existing directories.
+    
+    We now use getExistingDirectory and assume that the destionation
+    directory should just be the basename of the git url.
+    
+    We could prompt again, but that would be annoying.  Unfortunately
+    Qt doesn't have a convenient dialog to allow both existing
+    directories and new directory names (most of the world is centered
+    around files, it seems, unlike git which is more dir tree-ish).
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3631deb20c7759533b43426b88e180b16e36fe8b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 3 22:39:54 2008 -0800
+
+    controllers: use the --repo option in menu_clone
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 854e1cb81db94fb3efb19555610ee2bb28551bd8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 3 22:11:22 2008 -0800
+
+    opendialog: upddate to use the --repo option
+    
+    oops, 605a2ba7 changed the option parsing but forgot to update the open dialog
+    which actually uses it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7a49d47d86da5669633442eaa6df34961065baec
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 28 04:43:46 2008 -0800
+
+    interactive staging: workaround a qt quirk where \r\n is lost in qtextedits
+    
+    qtextedits unconditionally eat \r\n when returning the selection.
+    This breaks the interactive staging on files that contain \r\n.
+    If we're not able to find the selection in the diff then we know
+    that this has happened so simply replace \n with \r\n and try
+    again.
+    
+    This fixes interactive staging on repositories that contain
+    windows/dos text files.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dd8cd024e10f575285d659253960a91958e4ed36
 Author: David Marti­nez MartÃi <deavidsedice@gmail.com>
 Date:   Thu Nov 20 19:20:30 2008 +0100
 

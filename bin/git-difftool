@@ -15,6 +15,8 @@ USAGE='
 [--] [file to view] ...'
 SUBDIRECTORY_OK=Yes
 OPTIONS_SPEC=
+# git-sh-setup is no longer in $PATH as of git 1.6.0
+PATH="$(git --exec-path)":"$PATH"
 . git-sh-setup
 require_work_tree
 cd_to_toplevel
@@ -149,7 +151,7 @@ merge_file () {
 		touch "$REMOTE"
 
 		# detects renames.. sweet!
-		oldname=$(git diff --follow "$start".."$end" -- "$MERGED" |
+		oldname=$(git diff --no-color --follow "$start".."$end" -- "$MERGED" |
 			head -n9 |
 			grep '^rename from' |
 			sed -e 's/rename from //')

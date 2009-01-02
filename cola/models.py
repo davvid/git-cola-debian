@@ -199,9 +199,9 @@ class Model(model.Model):
         self.__global_defaults = {
             'cola_geometry':'',
             'cola_fontui': '',
-            'cola_fontuisize': 12,
+            'cola_fontui_size': 12,
             'cola_fontdiff': '',
-            'cola_fontdiffsize': 12,
+            'cola_fontdiff_size': 12,
             'cola_savewindowsettings': False,
             'merge_keepbackup': True,
             'merge_tool': os.getenv('MERGETOOL', 'xxdiff'),
@@ -228,10 +228,10 @@ class Model(model.Model):
                 if font:
                     setdefault = False
                     size = int(font.split(',')[1])
-                    self.set_param(param+'size', size)
+                    self.set_param(param+'_size', size)
                     param = param[len('global_'):]
                     global_dict[param] = font
-                    global_dict[param+'size'] = size
+                    global_dict[param+'_size'] = size
 
         # Load defaults for all undefined items
         local_and_global_defaults = self.__local_and_global_defaults
@@ -303,7 +303,7 @@ class Model(model.Model):
                           self.__local_and_global_defaults.keys()))
         params.extend(map(lambda x: 'global_' + x,
                           self.__global_defaults.keys()))
-        return [ p for p in params if not p.endswith('size') ]
+        return [ p for p in params if not p.endswith('_size') ]
 
     def save_config_param(self, param):
         if param not in self.get_config_params():
@@ -525,7 +525,7 @@ class Model(model.Model):
         old_font = self.get_param(param)
         if not old_font:
             old_font = default
-        size = self.get_param(param+'size')
+        size = self.get_param(param+'_size')
         props = old_font.split(',')
         props[1] = str(size)
         new_font = ','.join(props)
@@ -536,12 +536,12 @@ class Model(model.Model):
         commit = self.git.show(sha1)
         first_newline = commit.index('\n')
         if commit[first_newline+1:].startswith('Merge:'):
-            return (commit + '\n\n'
-                    + self.diff_helper(commit=sha1,
-                                       cached=False,
-                                       suppress_header=False))
+            return (decode(commit) + '\n\n' +
+                    decode(self.diff_helper(commit=sha1,
+                                            cached=False,
+                                            suppress_header=False)))
         else:
-            return commit
+            return decode(commit)
 
     def get_filename(self, idx, staged=True):
         try:
@@ -661,7 +661,11 @@ class Model(model.Model):
         config_lines = self.git.config(**kwargs).splitlines()
         newdict = {}
         for line in config_lines:
-            k, v = line.split('=', 1)
+            try:
+                k, v = line.split('=', 1)
+            except:
+                # the user has an invalid entry in their git config
+                continue
             v = decode(v)
             k = k.replace('.','_') # git -> model
             if v == 'true' or v == 'false':
@@ -700,6 +704,7 @@ class Model(model.Model):
 
     def diffindex(self):
         return self.git.diff(unified=self.diff_context,
+                             no_color=True,
                              stat=True,
                              cached=True)
 
@@ -727,7 +732,7 @@ class Model(model.Model):
         summaries = []
         regex = REV_LIST_REGEX
         output = self.git.log(pretty='oneline', all=all)
-        for line in output.splitlines():
+        for line in map(decode, output.splitlines()):
             match = regex.match(line)
             if match:
                 revs.append(match.group(1))
@@ -736,7 +741,7 @@ class Model(model.Model):
 
     def parse_rev_list(self, raw_revs):
         revs = []
-        for line in raw_revs.splitlines():
+        for line in map(decode, raw_revs.splitlines()):
             match = REV_LIST_REGEX.match(line)
             if match:
                 rev_id = match.group(1)
@@ -786,20 +791,21 @@ class Model(model.Model):
         deleted = cached and not os.path.exists(encode(filename))
 
         diffoutput = self.git.diff(R=reverse,
+                                   no_color=True,
                                    cached=cached,
                                    patch_with_raw=patch_with_raw,
                                    unified=self.diff_context,
                                    with_raw_output=True,
                                    *argv)
-        diff = diffoutput.splitlines()
+        diff = diffoutput.split('\n')
         for line in map(decode, diff):
             if not start and '@@' == line[:2] and '@@' in line[2:]:
                 start = True
-            if start or(deleted and del_tag in line):
+            if start or (deleted and del_tag in line):
                 output.write(encode(line) + '\n')
             else:
                 if with_diff_header:
-                    headers.append(line)
+                    headers.append(encode(line))
                 elif not suppress_header:
                     output.write(encode(line) + '\n')
 
@@ -844,6 +850,7 @@ class Model(model.Model):
         """RETURNS: A tuple of staged, unstaged untracked, and unmerged
         file lists.
         """
+        self.git.update_index(refresh=True)
         self.partially_staged = set()
         head = 'HEAD'
         if amend:
@@ -928,8 +935,11 @@ class Model(model.Model):
         return self.git.config('remote.%s.url' % name, get=True)
 
     def get_remote_args(self, remote,
-                        local_branch='', remote_branch='',
-                        ffwd=True, tags=False):
+                        local_branch='',
+                        remote_branch='',
+                        ffwd=True,
+                        tags=False,
+                        rebase=False):
         if ffwd:
             branch_arg = '%s:%s' % ( remote_branch, local_branch )
         else:
@@ -940,6 +950,7 @@ class Model(model.Model):
         kwargs = {
             'verbose': True,
             'tags': tags,
+            'rebase': rebase,
         }
         return (args, kwargs)
 
@@ -1042,6 +1053,7 @@ class Model(model.Model):
         return self.git.diff(
                 'HEAD^',
                 unified=self.diff_context,
+                no_color=True,
                 stat=True)
 
     def pad(self, pstr, num=22):
@@ -1090,6 +1102,8 @@ class Model(model.Model):
 
     def get_renamed_files(self, start, end):
         files = []
-        difflines = self.git.diff('%s..%s' % (start, end), M=True).splitlines()
+        difflines = self.git.diff('%s..%s' % (start, end),
+                                  no_color=True,
+                                  M=True).splitlines()
         return [ eval_path(r[12:].rstrip())
                     for r in difflines if r.startswith('rename from ') ]
