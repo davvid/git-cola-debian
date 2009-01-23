@@ -20,7 +20,7 @@ def dashify(string):
 # Enables debugging of GitPython's git commands
 GIT_PYTHON_TRACE = os.environ.get("GIT_PYTHON_TRACE", False)
 
-execute_kwargs = ('istream', 'with_keep_cwd', 'with_extended_output',
+execute_kwargs = ('istream', 'with_keep_cwd', 'with_extended_output', 'with_stderr',
                   'with_exceptions', 'with_raw_output')
 
 class Git(object):
@@ -47,6 +47,7 @@ class Git(object):
                 istream=None,
                 with_keep_cwd=False,
                 with_extended_output=False,
+                with_stderr=False,
                 with_exceptions=False,
                 with_raw_output=False):
         """
@@ -59,12 +60,17 @@ class Git(object):
         ``istream``
             Standard input filehandle passed to subprocess.Popen.
 
+        The following option all default to False.
+
         ``with_keep_cwd``
             Whether to use the current working directory from os.getcwd().
             GitPython uses the cwd set by set_cwd() by default.
 
         ``with_extended_output``
-            Whether to return a (status, stdout, stderr) tuple.
+            Whether to return a (status, output) tuple.
+
+        ``with_stderr``
+            Whether to include stderr in the output.
 
         ``with_exceptions``
             Whether to raise an exception when git returns a non-zero status.
@@ -82,7 +88,12 @@ class Git(object):
 
         # Allow the user to have the command executed in their working dir.
         if with_keep_cwd or not cwd:
-          cwd = os.getcwd()
+            cwd = os.getcwd()
+
+        # Ignore stderr unless with_extended_output is provided
+        stderr = None
+        if with_stderr:
+            stderr = subprocess.STDOUT
 
         # Start the process
         use_shell = sys.platform in ('win32')
@@ -92,12 +103,12 @@ class Git(object):
                                 cwd=cwd,
                                 shell=use_shell,
                                 stdin=istream,
-                                stderr=subprocess.PIPE,
+                                stderr=stderr,
                                 stdout=subprocess.PIPE)
         while True:
             try:
                 stdout_value = proc.stdout.read()
-                stderr_value = proc.stderr.read()
+                proc.stdout.close()
                 status = proc.wait()
                 break
             except IOError, e:
@@ -107,40 +118,24 @@ class Git(object):
                 if e.errno == errno.EINTR:
                     continue
                 else:
-                    stdout_value = None
-                    stderr_value = None
+                    stdout_value = ''
                     status = 42
                     break
 
         if with_exceptions and status:
-            raise GitCommandError(command, status, stderr_value)
+            raise GitCommandError(command, status, stdout_value)
 
-        if not stdout_value:
-            stdout_value = ''
-        if not stderr_value:
-            stderr_value = ''
         if not with_raw_output:
             stdout_value = stdout_value.strip()
-            stderr_value = stderr_value.strip()
 
         if GIT_PYTHON_TRACE == 'full':
-            if stderr_value:
-              print "%s -> %d: '%s' !! '%s'" % (command, status, stdout_value, stderr_value)
-            elif stdout_value:
-              print "%s -> %d: '%s'" % (command, status, stdout_value)
-            else:
-              print "%s -> %d" % (command, status)
+            print "%s -> %d: '%s'" % (command, status, stdout_value)
 
         # Allow access to the command's status code
         if with_extended_output:
-            return (status, stdout_value, stderr_value)
+            return status, stdout_value
         else:
-            if stdout_value and stderr_value:
-                return stderr_value + '\n' + stdout_value
-            elif stdout_value:
-                return stdout_value
-            else:
-                return stderr_value
+            return stdout_value
 
     def transform_kwargs(self, **kwargs):
         """

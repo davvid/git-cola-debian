@@ -37,7 +37,7 @@ binary-indep: build install
 	dh_installmenu
 	dh_desktop
 	dh_pysupport
-	dh_link
+	dh_link usr/share/man/man1/git-difftool.1 usr/share/man/man1/git-difftool-helper.1
 	dh_strip
 	dh_compress
 	dh_fixperms

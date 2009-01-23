@@ -16,7 +16,6 @@ def create_new_branch(model,parent,revision=''):
     ctl = CreateBranchController(model, view)
     model.set_revision(revision)
     view.show()
-    return view.exec_() == QDialog.Accepted
 
 class CreateBranchController(QObserver):
     def init(self, model, view):
@@ -92,10 +91,8 @@ class CreateBranchController(QObserver):
         output = self.model.create_branch(branch, revision, track=track)
         qtutils.show_output(output)
         if chkout:
-            status, out, err = self.model.git.checkout(branch,
-                                                       with_extended_output=True)
-            qtutils.show_output(out+err)
-
+            qtutils.show_output(self.model.git.checkout(branch,
+                                                        with_stderr=True))
         self.view.accept()
 
     def item_changed(self, *rest):

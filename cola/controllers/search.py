@@ -21,7 +21,7 @@ class SearchEngine(object):
         pass
     def get_rev_args(self):
         max = self.model.get_max_results()
-        return { "max-count": max, "pretty": "oneline" }
+        return { 'max-count': max, 'pretty': 'format:%H %aN - %s - %ar' }
     def get_common_args(self):
         return (self.model.get_input(), self.get_rev_args())
     def search(self):
@@ -31,7 +31,7 @@ class SearchEngine(object):
     def validate(self):
         return len(self.model.get_input()) > 1
     def get_revisions(self, *args, **kwargs):
-        revlist = self.model.git.rev_list(*args, **kwargs)
+        revlist = self.model.git.log(*args, **kwargs)
         return self.model.parse_rev_list(revlist)
     def get_results(self):
         pass
@@ -233,7 +233,7 @@ class SearchController(QObserver):
                     doraise=True,
                     quiet=False)
 
-def search_commits(model, mode, browse):
+def search_commits(model, parent, mode, browse):
     def get_date(timespec):
         return '%04d-%02d-%02d' % time.localtime(timespec)[:3]
 
@@ -243,7 +243,7 @@ def search_commits(model, mode, browse):
                  start_date='',
                  end_date='',
                  commit_list=[])
-    view = SearchView(None)
+    view = SearchView(parent)
     ctl = SearchController(model, view)
     ctl.set_mode(mode)
     model.set_start_date(get_date(time.time()-(87640*7)))
@@ -251,4 +251,3 @@ def search_commits(model, mode, browse):
     view.show()
     if browse:
         ctl.browse_callback()
-    view.exec_()
