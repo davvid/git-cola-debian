@@ -10,11 +10,14 @@ from cola.views import RemoteView
 from cola.qobserver import QObserver
 
 def remote_action(model, parent, action):
+    # TODO: subclass model
     model = model.clone()
-    model.create(remotename='',
-                 tags_checkbox=False,
-                 rebase_checkbox=False,
-                 ffwd_only_checkbox=True)
+    model.generate_remote_helpers()
+    model.remotename = ''
+    model.tags_checkbox = False
+    model.rebase_checkbox = False
+    model.ffwd_only_checkbox = True
+
     view = RemoteView(parent, action)
     if action == 'Fetch' or action == 'Pull':
         model.set_tags_checkbox(False)
@@ -26,7 +29,8 @@ def remote_action(model, parent, action):
     view.show()
 
 class RemoteController(QObserver):
-    def init(self, model, view, action):
+    def __init__(self, model, view, action):
+        QObserver.__init__(self, model, view)
         self.add_observables('remotename',
                              'remotes',
                              'local_branch',
@@ -48,8 +52,15 @@ class RemoteController(QObserver):
                            local_branches = self.update_local_branches,
                            remote_branches = self.update_remote_branches)
         self.refresh_view()
-        if self.view.select_first_remote():
-            self.model.set_remotename(self.model.get_remotes()[0])
+        remotes = self.model.get_remotes()
+        if 'origin' in remotes:
+            idx = remotes.index('origin')
+            if self.view.select_remote(idx):
+                self.model.set_remotename('origin')
+        else:
+            if self.view.select_first_remote():
+                self.model.set_remotename(remotes[0])
+
 
     def display_remotes(self, widget):
         displayed = []

@@ -16,9 +16,6 @@ from cola import qtutils
 class SearchEngine(object):
     def __init__(self, model):
         self.model = model
-        self.init()
-    def init(self):
-        pass
     def get_rev_args(self):
         max = self.model.get_max_results()
         return { 'max-count': max, 'pretty': 'format:%H %aN - %s - %ar' }
@@ -44,7 +41,8 @@ class RevisionSearch(SearchEngine):
         return [ r for r in revs if expr.match(r[0]) ]
 
 class RevisionRangeSearch(SearchEngine):
-    def init(self):
+    def __init__(self, model):
+        SearchEngine.__init__(self, model)
         self.RE = re.compile(r'[^.]*\.\..*')
     def validate(self):
         return bool(self.RE.match(self.model.get_input()))
@@ -116,7 +114,8 @@ SEARCH_ENGINES = {
 }
 
 class SearchController(QObserver):
-    def init(self, model, view):
+    def __init__(self, model, view):
+        QObserver.__init__(self, model, view)
         self.add_observables('input',
                              'max_results',
                              'start_date',
@@ -237,12 +236,14 @@ def search_commits(model, parent, mode, browse):
     def get_date(timespec):
         return '%04d-%02d-%02d' % time.localtime(timespec)[:3]
 
+    # TODO subclass model for search only
     model = model.clone()
-    model.create(input='',
-                 max_results=500,
-                 start_date='',
-                 end_date='',
-                 commit_list=[])
+    model.input = ''
+    model.max_results = 500
+    model.start_date = ''
+    model.end_date = ''
+    model.commit_list = []
+
     view = SearchView(parent)
     ctl = SearchController(model, view)
     ctl.set_mode(mode)

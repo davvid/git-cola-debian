@@ -1,7 +1,318 @@
-git-cola: 1.3.5
-bottled-on: Thu Jan 22 00:48:56 PST 2009
+git-cola: 1.3.5.28.gc1e4
+bottled-on: Mon Feb 16 21:53:16 PST 2009
 
-commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: refs/tags/v1.3.5, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit c1e464be6df138f46ccc95c2db75b009d20fd14c (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Feb 11 04:19:52 2009 -0800
+
+    models: detect modifications in newly-added files
+    
+    This teaches cola to detect the case where an untracked file is added
+    and then modified prior to commit.
+    
+    cola now displays the path as both staged and modified, which matches
+    git status.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0e66ab17888d7dd6d6ac463b44a780ec8b1520a6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:26:00 2009 -0800
+
+    INSTALL: don't mention simplejson since it's a cola built-in
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8c7b88ae60683ace73d20358c13270bf5b397d08
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:21:19 2009 -0800
+
+    models: refactor the model api
+    
+    This makes things "more pythonic" by removing the create()
+    method.  We let jsonpickle handle serialization stuff so that
+    the model has to know less about how to translate python
+    objects into dictionaries.
+    
+    The next thing to do is factor out the common git properties
+    and subclass models.Model for different controllers:
+    	models.search, models.compare, etc.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bac0eba54436fc6d2460b8db8e016d5d20e1f278
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:15:13 2009 -0800
+
+    controllers: refactor the init() method out of the controllers api
+    
+    We no longer use the init() stuff so subclasses just override __init__ now.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 504012ac092ccb43d556174b9293c7ab2a22b4cf
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:08:11 2009 -0800
+
+    views: simplify the views api
+    
+    This removes the init() methods in the view internals and makes
+    things look a bit more pythonic style-wise.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 64b728ffcfbc4a1ca542e3c8d510d6db01228754
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:06:40 2009 -0800
+
+    syntax: refactor the api to be more pythonic
+    
+    We're removing all of the funny init() methods since they just made
+    things not-simple-enough.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 35df8357b4245d0384c71307f264d39b324e46fa
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:04:37 2009 -0800
+
+    tests: lesson the buffer sizes in the test_git tests
+    
+    We probably only need to be bigger than PAGE_SIZE so to catch
+    deadlock so set our buffers to PAGE_SIZE * 2
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ee535439391e42a0176caef3779f1118a4750e45
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:00:42 2009 -0800
+
+    tests: refactor tests to use a single helper.py file
+    
+    Renaming moving testlib into helper stopped nose from trying to execute
+    testlib as a test itself.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 63a317d948ee7448d13df723dfafac333a1c9d4b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 19:09:00 2009 -0800
+
+    settings: remove the import checks in the settings module
+    
+    Now that json is built-in we don't have to check whether or not we
+    have them available.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c9c595eb2a0522d0cc8180e9036ae6c23cca0e78
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 18:54:17 2009 -0800
+
+    cola: add json and jsonpickle to make things easier on our users
+    
+    This'll make installation easier for users and allow us to remove
+    more dependencies.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit def8023acee9ab921c9ec7e504b9d18d04941319
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 17:46:49 2009 -0800
+
+    inotify: refactor inotify to simplify its pyinotify usage
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2e6a42623b7c558d6e2228948f231843fae46f7e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 17:23:46 2009 -0800
+
+    controllers: use absolute imports for better portability
+    
+    PEP-8 recommends using absolute imports to improve portability with
+    older versions of Python.  Relative imports can also be ambiguous
+    so don't use them.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 71d24ba1d977b981aa0c95607433282e17af28ee
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 16:05:07 2009 -0800
+
+    controllers/remote: select 'origin' by default if it's available
+    
+    We used to select blindly select the first remote.
+    We now default to 'origin' if it exists and fallback to the
+    first remote otherwise.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5a5658ce82186b3a4c3eb6dfcc729c741c072f49
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 15:58:09 2009 -0800
+
+    Makefile: run nose with more verbosity, doctests, and test ids
+    
+    This makes it easier to see what's going on when running 'make test'.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 44691c5f8ad14fa4aead9b04c433ab61ca3831dc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 15:56:26 2009 -0800
+
+    ui/options: use a colspan in the diff context
+    
+    The local repository options had text fields that were too small because
+    the diff context field wasn't using a colspan.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a4d96a1cba09ad8cf2371e418620c6b3ff2fc9f0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Feb 7 15:54:21 2009 -0800
+
+    compare: hide the file list when comparing a single file
+    
+    When showing history for a single file then there's no need to
+    show the file list in the compare view.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5ef3b3179e9ef4ef2ec33a88032c40831494aeb6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jan 31 12:27:56 2009 -0800
+
+    difftool: Don't repeat merge tool candidates
+    
+    git difftool listed some candidates for mergetools twice, depending on
+    the environment.
+    
+    This slightly changes the behavior when both KDE_FULL_SESSION and
+    GNOME_DESKTOP_SESSION_ID are set at the same time; in such a case
+    meld is used in favor of kdiff3 (the old code favored kdiff3 in such a
+    case), but it should not matter in practice.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 31da27aeb74f58b62ff93014f0c28f304cad2849
+Author: Markus Heidelberg <markus.heidelberg@web.de>
+Date:   Sat Jan 31 00:19:29 2009 +0100
+
+    difftool: add support for Kompare
+    
+    Signed-off-by: Markus Heidelberg <markus.heidelberg@web.de>
+    Acked-by: David Aguilar <davvid@gmail.com>
+
+commit 891858716deed8afe772c002ee1be899f4b596d5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jan 31 01:40:08 2009 -0800
+
+    controllers: move all of module __init__ into main in prep for refactoring
+    
+    We'll be doing some big changes soon, so get everything out of __init__
+    because we really shouldn't be doing much in there at all.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a240d5724470f0f2ff7712b051cc18323d011db1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jan 31 01:38:39 2009 -0800
+
+    bin/git-cola: add build/lib/cola to sys.path to find builtin_version.py
+    
+    Without this we get vuknown-version when running cola out of its source tree.
+    
+    Reported-by: Mechazawa <zedside@gmail.com>
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a5cf5183ce913b07bb8933535bd329c274be8871
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 30 21:36:10 2009 -0800
+
+    cola/version: capture stderr to avoid printing bogus errors to the shell
+    
+    We weren't capturing stderr which meant that cola was printing
+    	fatal: could not describe <sha1>
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 19b7e9ad9bdbf6dd945c91429beb3c717cf15656
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jan 27 15:02:03 2009 -0800
+
+    ui: set the point size to '6' for the cola 'about' dialog
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 842e96e2ede4e73f447c0eff4f5959ba4a526e0a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 26 04:03:32 2009 -0800
+
+    INSTALL: mention the Windows installer
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 77072775ca69613f2229b4fb6ee87be850093033
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 26 00:20:48 2009 -0800
+
+    cola.desktop: add 'RevisionControl' to cola's registered categories
+    
+    This is in compliance with:
+    http://standards.freedesktop.org/menu-spec/menu-spec-1.0.html#category-registry
+    
+    Reported-by: shaforostoff <shaforostoff@kde.ru>
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e07e073b7111a63721d449fbae717202382b8900
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 26 00:14:16 2009 -0800
+
+    win32: add a binary installer for Windows
+    
+    We can now create binary installers for Windows.
+    create-installer.sh drives InnoSetup and generates Cola-$VERSION.exe.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6aacd26e5fae0e346aeb28e2fb6d1956ff63d94b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 30 11:40:14 2008 -0800
+
+    main: add support for '--git-path=<path>'
+    
+    Launching cola from Windows ends up with an environment where 'git.exe'
+    is not in the $PATH.  The Windows installer will supply --git-path
+    which solves this issue.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8349bcdaf530b8988e873dd58f47df284c0b6aeb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Jan 25 21:40:37 2009 -0800
+
+    win32/cola: update to support the Windows installer
+    
+    The 'dirname' function did not properly handle paths with
+    embedded spaces.  Also, Windows uses git-cola.pyw instead
+    of the default git-cola startup script.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 906c079524c0cfb7a9c2fdef88b1b01952ff5bcd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Jan 25 16:27:24 2009 -0800
+
+    git-cola: add support for the win32 installation layout
+    
+    Windows uses a slightly modified installation layout that does
+    not include the 'python2.x' directory in its site-packages path.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: refs/tags/v1.3.5)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jan 19 19:09:46 2009 -0800
 

@@ -104,11 +104,72 @@ def eval_path(path):
 class Model(model.Model):
     """Provides a friendly wrapper for doing commit git operations."""
 
-    def clone(self):
-        worktree = self.git.get_work_tree()
-        clone = model.Model.clone(self)
-        clone.use_worktree(worktree)
-        return clone
+    def __init__(self):
+        """Reads git repository settings and sets several methods
+        so that they refer to the git module.  This object
+        encapsulates cola's interaction with git."""
+        model.Model.__init__(self)
+
+        # Initialize the git command object
+        self.git = GitCola()
+        self.partially_staged = set()
+
+        #####################################################
+        # Used in various places
+        self.currentbranch = ''
+        self.directory = ''
+        self.remotes = []
+        self.remotename = ''
+        self.local_branch = ''
+        self.remote_branch = ''
+        self.search_text = ''
+
+        #####################################################
+        # Used primarily by the main UI
+        self.commitmsg = ''
+        self.modified = []
+        self.staged = []
+        self.unstaged = []
+        self.untracked = []
+        self.unmerged = []
+
+        #####################################################
+        # Used by the create branch dialog
+        self.revision = ''
+        self.local_branches = []
+        self.remote_branches = []
+        self.tags = []
+
+        #####################################################
+        # Used by the commit/repo browser
+        self.revisions = []
+        self.summaries = []
+
+        # These are parallel lists
+        self.types = []
+        self.sha1s = []
+        self.names = []
+
+        # All items below here are re-calculated in
+        # init_browser_data()
+        self.directories = []
+        self.directory_entries = {}
+
+        # These are also parallel lists
+        self.subtree_types = []
+        self.subtree_sha1s = []
+        self.subtree_names = []
+
+        self.fetch_helper = None
+        self.push_helper = None
+        self.pull_helper = None
+        self.generate_remote_helpers()
+
+    def generate_remote_helpers(self):
+        """Generates helper methods for fetch, push and pull"""
+        self.fetch_helper = self.gen_remote_helper(self.git.fetch)
+        self.push_helper = self.gen_remote_helper(self.git.push)
+        self.pull_helper = self.gen_remote_helper(self.git.pull)
 
     def use_worktree(self, worktree):
         self.git.load_worktree(worktree)
@@ -116,67 +177,6 @@ class Model(model.Model):
         if is_valid:
             self.__init_config_data()
         return is_valid
-
-    def init(self):
-        """Reads git repository settings and sets several methods
-        so that they refer to the git module.  This object
-        encapsulates cola's interaction with git."""
-
-        # Initialize the git command object
-        self.git = GitCola()
-        self.partially_staged = set()
-
-        self.fetch_helper = self.gen_remote_helper(self.git.fetch)
-        self.push_helper = self.gen_remote_helper(self.git.push)
-        self.pull_helper = self.gen_remote_helper(self.git.pull)
-
-        self.create(
-            #####################################################
-            # Used in various places
-            currentbranch = '',
-            directory = '',
-            remotes = [],
-            remotename = '',
-            local_branch = '',
-            remote_branch = '',
-            search_text = '',
-
-            #####################################################
-            # Used primarily by the main UI
-            commitmsg = '',
-            modified = [],
-            staged = [],
-            unstaged = [],
-            untracked = [],
-            unmerged = [],
-
-            #####################################################
-            # Used by the create branch dialog
-            revision = '',
-            local_branches = [],
-            remote_branches = [],
-            tags = [],
-
-            #####################################################
-            # Used by the commit/repo browser
-            revisions = [],
-            summaries = [],
-
-            # These are parallel lists
-            types = [],
-            sha1s = [],
-            names = [],
-
-            # All items below here are re-calculated in
-            # init_browser_data()
-            directories = [],
-            directory_entries = {},
-
-            # These are also parallel lists
-            subtree_types = [],
-            subtree_sha1s = [],
-            subtree_names = [],
-            )
 
     def __init_config_data(self):
         """Reads git config --list and creates parameters
@@ -329,7 +329,8 @@ class Model(model.Model):
         directories, directory_entries, and subtree_*"""
 
         # Collect data for the model
-        if not self.get_currentbranch(): return
+        if not self.get_currentbranch():
+            return
 
         self.subtree_types = []
         self.subtree_sha1s = []
@@ -844,6 +845,12 @@ class Model(model.Model):
             os.unlink(merge_msg_path)
             merge_msg_path = self.get_merge_message_path()
 
+    def _is_modified(self, name):
+        status, out = self.git.diff('--', name,
+                                    name_only=True, exit_code=True,
+                                    with_extended_output=True)
+        return status != 0
+
     def get_workdir_state(self, amend=False):
         """RETURNS: A tuple of staged, unstaged untracked, and unmerged
         file lists.
@@ -857,11 +864,14 @@ class Model(model.Model):
         try:
             for line in self.git.diff_index(head).splitlines():
                 rest, name = line.split('\t')
+                name = eval_path(name)
                 status = rest[-1]
                 if status == 'M' or status == 'D':
                     modified.append(eval_path(name))
                 elif status == 'A':
-                    unmerged.append(eval_path(name))
+                    # newly-added yet modified
+                    if self._is_modified(name):
+                        modified.append(name)
         except:
             # handle git init
             for name in (self.git.ls_files(modified=True, z=True)
@@ -878,17 +888,12 @@ class Model(model.Model):
                 if status  == 'M':
                     staged.append(name)
                     # is this file partially staged?
-                    status, out = self.git.diff('--', name,
-                                                name_only=True, exit_code=True,
-                                                with_extended_output=True)
-                    if status == 0:
-                        modified.remove(name)
-                    else:
+                    if self._is_modified(name):
                         self.partially_staged.add(name)
+                    else:
+                        modified.remove(name)
                 elif status == 'A':
                     staged.append(name)
-                    if name in unmerged:
-                        unmerged.remove(name)
                 elif status == 'D':
                     staged.append(name)
                     modified.remove(name)
@@ -1097,7 +1102,6 @@ class Model(model.Model):
         return [ decode(enc) for enc in zfiles_str.split('\0') if enc ]
 
     def get_renamed_files(self, start, end):
-        files = []
         difflines = self.git.diff('%s..%s' % (start, end),
                                   no_color=True,
                                   M=True).splitlines()
