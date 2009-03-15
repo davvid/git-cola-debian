@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Iulian Udrea <iulian@ubuntu.com>
 Build-Depends: debhelper (>= 7)
 Build-Depends-Indep: python-all-dev, python-support (>= 0.5.3), pyqt4-dev-tools (>= 4.3), git-core (>= 1.5), gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 3.8.0
+Standards-Version: 3.8.1.0
 Homepage: http://cola.tuxfamily.org/
 XS-Python-Version: all
 Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git

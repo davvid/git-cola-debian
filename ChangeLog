@@ -1,7 +1,165 @@
-git-cola: 1.3.5.28.gc1e4
-bottled-on: Mon Feb 16 21:53:16 PST 2009
+git-cola: 1.3.5.42.gfe01
+bottled-on: Sat Mar 14 16:28:01 PDT 2009
 
-commit c1e464be6df138f46ccc95c2db75b009d20fd14c (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit fe010d0e298d2e6f989d5fabeffbb4712d41bf4c (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Mar 13 02:21:52 2009 -0700
+
+    controllers: warn users when amending a published commit
+    
+    This makes cola more user-friendly by warning users when
+    rewriting published history.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7f28c9e2fc486587497f57b6b34e7a8f33dadea7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Mar 13 02:20:42 2009 -0700
+
+    models: add is_commit_published()
+    
+    This allows us to check whether our HEAD has already been
+    published.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e093aacaf5e450155260988d066cbc6f1652e1d8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Mar 13 02:19:57 2009 -0700
+
+    models: add get_local_config() and use it when reading gui.diffcontext
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9b212f95da8a2d9c7bcb3bfba93d5716206f8a02
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Mar 13 02:17:15 2009 -0700
+
+    models/get_global_config(): add support for default values
+    
+    We now use get_param() so that we can pass default values to
+    the get_global_config().  load_commitmsg_template() was updated
+    accordingly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 23000b5a1e9d0455c139b1c72c0d0bb2fcc5ae6b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Mar 13 02:12:52 2009 -0700
+
+    models/current_branch(): catch stderr and return '' for detached HEADs
+    
+    We now return the empty string when our head is detached in
+    current_branch().  This also improves detached head usability
+    by capturing the stderr message that was being printed to the
+    console at startup.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5a1a08536095dcd836030b563e087f16adf5c6b4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Feb 24 01:31:46 2009 -0800
+
+    difftool: sync with the proposed git.git patch
+    
+    This updates the documentation to match the proposed git.git patch.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 96f6064bd74932f1ed76d058c38d51893c47436b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Feb 24 01:30:15 2009 -0800
+
+    difftool: use "wincmd l" when launching vimdiff
+    
+    Oops, this must have been dropped when syncing with the git.git version.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bde4e51eec80da5fe7d53984ad622711df62a8a3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Feb 24 00:52:01 2009 -0800
+
+    difftool: fix a bug when reading $GIT_MERGE_TOOL
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e5e325ba95443091f7e29fe188d30ab5d1f801e6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Feb 24 00:16:58 2009 -0800
+
+    difftool: use the old variable names for inclusion in git.git
+    
+    We should probably keep LOCAL/REMOTE since that's consistent with
+    the rest of git.  This also adds fallbacks for the old mergetool
+    variables for user convenience.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d3c0823b21645be9c92477d41f3d01e22c7e5ae7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Feb 23 21:32:38 2009 -0800
+
+    stash: add a keep_index checkbox to allow 'git stash save --keep-index'
+    
+    This adds a keep_index checkbox to the stash dialog so that
+    users can save stashes and and keep the index state.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c0ff00490583b53aa2aff160294613f5386078d6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Feb 23 21:31:02 2009 -0800
+
+    stash: add docstrings to the stash controller
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit eaa7bb0f183f60c00ce4a2a7dab04fe41c06e656
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Feb 23 20:55:58 2009 -0800
+
+    cleanup: remove shebang lines from cola modules
+    
+    Fedora reported that non-executable python modules should
+    not have shebang lines:
+    
+    https://bugzilla.redhat.com/show_bug.cgi?id=461483
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d7be10284b883fe8fc8f46cfa2a2999eaffe1b5c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Feb 23 02:46:16 2009 -0800
+
+    cola: add support for diff.tool
+    
+    Now that difftool uses diff.tool instead of merge.tool
+    we teach cola to use merge.tool.
+    
+    This also removes all usage of the --tool=<tool> parameter
+    to git-mergetool and git-difftool since the assumption is
+    that users will use the appropriate diff/merge.tool config variable.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d18bcadddfcfd04683101ad069f6d1d50385932c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Feb 23 02:25:04 2009 -0800
+
+    difftool: use a different config namespace then git-mergetool
+    
+    Users might want to have different settings for merging and
+    diffing, so difftool should use its own config variables
+    for setting defaults.  We now use the difftool.* config names
+    instead of mergetool.*.
+    
+    We still fallback to merge.tool to make it easier on users
+    who haven't yet defined the new diff.tool config variable.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c1e464be6df138f46ccc95c2db75b009d20fd14c
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Feb 11 04:19:52 2009 -0800
 
@@ -3098,7 +3256,7 @@ Date:   Wed Jul 30 03:57:50 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit 3678e1619ee77d18e77f5b2e00f9355410e633b7 (tag: refs/tags/v1.1.1)
-Merge: 68bfb55... c39e836...
+Merge: 68bfb55 c39e836
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Jul 30 03:23:10 2008 -0700
 
@@ -3304,7 +3462,7 @@ Date:   Mon Jul 14 00:55:44 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit b3fc04654ca5d32aa224230c51dc95512261f353
-Merge: 979fcd4... fde6ced...
+Merge: 979fcd4 fde6ced
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jul 14 00:54:01 2008 -0700
 
@@ -3384,7 +3542,7 @@ Date:   Wed Jul 9 02:22:30 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit cd6ad92fb5e358731ab012e5ae722be66062eaff
-Merge: 761314e... 786132c...
+Merge: 761314e 786132c
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Jul 9 02:20:23 2008 -0700
 
@@ -3452,7 +3610,7 @@ Date:   Tue Jul 1 01:33:44 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit 0dd3e1d66682c0b7cec3d444ab6b77f089ad1254
-Merge: f7b7dbb... 97b1749...
+Merge: f7b7dbb 97b1749
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Jul 1 01:30:45 2008 -0700
 
@@ -3548,7 +3706,7 @@ Date:   Thu Jun 26 00:15:28 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit 195b9bd01dc2d20a8ab566916529f7fa9a0acde2
-Merge: c9a104a... cf3d0f3...
+Merge: c9a104a cf3d0f3
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Jun 26 00:13:24 2008 -0700
 
@@ -3573,7 +3731,7 @@ Date:   Thu Jun 26 00:11:49 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit c9a104a83296f6ecb8b0843e42e5f565dd61acf9
-Merge: 688deb1... bda109a...
+Merge: 688deb1 bda109a
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Jun 24 02:24:56 2008 -0700
 
@@ -3591,7 +3749,7 @@ Date:   Tue Jun 24 02:24:34 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit 688deb1fd17bf92ef899a19a7dea455189809ae6
-Merge: 028dcfa... 8738342...
+Merge: 028dcfa 8738342
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Jun 24 02:23:08 2008 -0700
 
@@ -3617,7 +3775,7 @@ Date:   Mon Jun 23 23:52:10 2008 -0700
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
 commit 0c9b5e01fc839d76be28f2b6e4fa1fd1d936a61d
-Merge: b934382... a29d12d...
+Merge: b934382 a29d12d
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jun 23 23:50:53 2008 -0700
 
@@ -7041,7 +7199,7 @@ Date:   Sun Dec 16 13:40:20 2007 -0800
     Signed-off by: David Aguilar <davvid@gmail.com>
 
 commit d1a2392211b044af4d80d12898a96f0688d46329
-Merge: 0d679d9... a5d9007...
+Merge: 0d679d9 a5d9007
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sun Dec 16 13:36:48 2007 -0800
 
@@ -7389,7 +7547,7 @@ Date:   Tue Dec 11 05:16:09 2007 -0800
         Signed-off by: David Aguilar <davvid@gmail.com>
 
 commit 0067cca128cfad159302cf21aedf911089423106
-Merge: 1037665... 8bbb074...
+Merge: 1037665 8bbb074
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Dec 11 05:14:51 2007 -0800
 

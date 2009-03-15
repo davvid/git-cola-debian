@@ -205,7 +205,8 @@ class Model(model.Model):
             'cola_savewindowsettings': False,
             'cola_tabwidth': 8,
             'merge_keepbackup': True,
-            'merge_tool': os.getenv('MERGETOOL', 'xxdiff'),
+            'diff_tool': os.getenv('GIT_DIFF_TOOL', 'xxdiff'),
+            'merge_tool': os.getenv('GIT_MERGE_TOOL', 'xxdiff'),
             'gui_editor': os.getenv('EDITOR', 'gvim'),
             'gui_historybrowser': 'gitk',
         }
@@ -248,10 +249,15 @@ class Model(model.Model):
                 self.set_param('global_'+k, v)
 
         # Load the diff context
-        self.diff_context = self.local_gui_diffcontext
+        self.diff_context = self.get_local_config('gui.diffcontext', 3)
 
-    def get_global_config(self, key):
-        return getattr(self, 'global_'+key.replace('.', '_'))
+    def get_global_config(self, key, default=None):
+        return self.get_param('global_'+key.replace('.', '_'),
+                              default=default)
+
+    def get_local_config(self, key, default=None):
+        return self.get_param('local_'+key.replace('.', '_'),
+                              default=default)
 
     def get_cola_config(self, key):
         return getattr(self, 'global_cola_'+key)
@@ -261,12 +267,8 @@ class Model(model.Model):
 
     def get_default_remote(self):
         branch = self.get_currentbranch()
-        branchconfig = 'local_branch_%s_remote' % branch
-        if branchconfig in self.get_param_names():
-            remote = self.get_param(branchconfig)
-        else:
-            remote = 'origin'
-        return remote
+        branchconfig = 'branch.%s.remote' % branch
+        return self.get_local_config(branchconfig, 'origin')
 
     def get_corresponding_remote_ref(self):
         remote = self.get_default_remote()
@@ -418,9 +420,6 @@ class Model(model.Model):
     def get_editor(self):
         return self.get_gui_config('editor')
 
-    def get_mergetool(self):
-        return self.get_global_config('merge.tool')
-
     def get_history_browser(self):
         return self.get_gui_config('historybrowser')
 
@@ -486,11 +485,9 @@ class Model(model.Model):
         self.set_commitmsg('\n'.join(commit_msg).rstrip())
 
     def load_commitmsg_template(self):
-        try:
-            template = self.get_global_config('commit.template')
-        except AttributeError:
-            return
-        self.load_commitmsg(template)
+        template = self.get_global_config('commit.template')
+        if template:
+            self.load_commitmsg(template)
 
     def update_status(self, amend=False):
         # This allows us to defer notification until the
@@ -1020,11 +1017,11 @@ class Model(model.Model):
 
     def current_branch(self):
         """Parses 'git symbolic-ref' to find the current branch."""
-        headref = self.git.symbolic_ref('HEAD')
+        headref = self.git.symbolic_ref('HEAD', with_stderr=True)
         if headref.startswith('refs/heads/'):
             return headref[11:]
         elif headref.startswith('fatal: '):
-            return 'Not currently on any branch'
+            return ''
         return headref
 
     def create_branch(self, name, base, track=False):
@@ -1107,3 +1104,7 @@ class Model(model.Model):
                                   M=True).splitlines()
         return [ eval_path(r[12:].rstrip())
                     for r in difflines if r.startswith('rename from ') ]
+
+    def is_commit_published(self):
+        head = self.git.rev_parse('HEAD')
+        return bool(self.git.branch(r=True, contains=head))
