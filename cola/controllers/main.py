@@ -2,48 +2,40 @@
 
 import os
 import sys
-import time
 import glob
-import platform
 
-from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4.QtGui import QDialog
-from PyQt4.QtGui import QMessageBox
-from PyQt4.QtGui import QMenu
-from PyQt4.QtGui import QFont
 
+from cola import core
 from cola import utils
 from cola import qtutils
 from cola import version
-from cola.core import encode
+from cola import inotify
+from cola import difftool
+from cola import resources
 from cola.qobserver import QObserver
-
-try: # linux-only
-    from cola import inotify
-except ImportError:
-    pass
+from cola.views import AboutView
+from cola.views.drawer import Drawer
 
 # controllers namespace
-from cola.controllers import search
-from cola.controllers.remote import remote_action
-from cola.controllers.util import logger
-from cola.controllers.util import choose_from_list
-from cola.controllers.util import choose_from_combo
-from cola.controllers.util import select_commits
-from cola.controllers.util import update_options
-from cola.controllers.repobrowser import browse_git_branch
-from cola.controllers.createbranch import create_new_branch
-from cola.controllers.search import search_commits
-from cola.controllers.merge import local_merge
-from cola.controllers.merge import abort_merge
 from cola.controllers.bookmark import save_bookmark
 from cola.controllers.bookmark import manage_bookmarks
-from cola.controllers.stash import stash
 from cola.controllers.compare import compare
 from cola.controllers.compare import compare_file
 from cola.controllers.compare import branch_compare
-from cola.views import AboutView
+from cola.controllers.createbranch import create_new_branch
+from cola.controllers.log import logger
+from cola.controllers.merge import local_merge
+from cola.controllers.merge import abort_merge
+from cola.controllers.options import update_options
+from cola.controllers.remote import remote_action
+from cola.controllers.repobrowser import browse_git_branch
+from cola.controllers import search
+from cola.controllers.search import search_commits
+from cola.controllers.selectcommits import select_commits
+from cola.controllers.stash import stash
+from cola.controllers.util import choose_from_list
+from cola.controllers.util import choose_from_combo
 
 class Controller(QObserver):
     """Manages the interaction between models and views."""
@@ -73,7 +65,8 @@ class Controller(QObserver):
         self.reset_mode()
 
         # Parent-less log window
-        qtutils.LOGGER = logger()
+        qtutils.LOGGER = logger(model, view)
+        view.add_drawer(Drawer.LOCATION_BOTTOM, qtutils.LOGGER.view)
 
         # Unstaged changes context menu
         view.status_tree.contextMenuEvent = self.tree_context_menu_event
@@ -178,17 +171,17 @@ class Controller(QObserver):
             menu_commit_compare_file =
                 lambda: compare_file(self.model, self.view),
             menu_stage_modified =
-                lambda: self.log(self.model.stage_modified()),
+                lambda: self.log(*self.model.stage_modified()),
             menu_stage_untracked =
-                lambda: self.log(self.model.stage_untracked()),
+                lambda: self.log(*self.model.stage_untracked()),
             menu_unstage_all =
-                lambda: self.log(self.model.unstage_all()),
-            menu_view_log = self.view_log,
+                lambda: self.log(*self.model.unstage_all()),
+            menu_view_log = self.view.display_log,
 
             # Help Menu
             menu_help_about = self.about,
             menu_help_docs =
-                lambda: self.model.git.web__browse(utils.get_htmldocs()),
+                lambda: self.model.git.web__browse(resources.html_docs()),
             )
 
         # Delegate window events here
@@ -262,11 +255,11 @@ class Controller(QObserver):
     def doubleclick_tree(self, item, column):
         staged, modified, unmerged, untracked = self.get_selection()
         if staged:
-            self.model.reset_helper(staged)
+            self.log(*self.model.reset_helper(staged))
         elif modified:
-            self.model.add_or_remove(modified)
+            self.log(*self.model.add_or_remove(modified))
         elif untracked:
-            self.model.add_or_remove(untracked)
+            self.log(*self.model.add_or_remove(untracked))
         else:
             return
         self.rescan()
@@ -321,7 +314,7 @@ class Controller(QObserver):
             if staged:
                 items = self.model.get_staged()
                 selected = self.view.get_staged(items)
-                self.model.reset_helper(selected)
+                self.log(*self.model.reset_helper(selected))
                 self.rescan()
             else:
                 items = self.model.get_unstaged()
@@ -330,13 +323,15 @@ class Controller(QObserver):
                     if unmerged in selected:
                         selected.remove(unmerged)
                 if selected:
-                    self.model.add_or_remove(selected)
+                    self.log(*self.model.add_or_remove(selected))
                     self.rescan()
         return result
 
     #####################################################################
     # event() is called in response to messages from the inotify thread
     def event(self, msg):
+        if not inotify.AVAILABLE:
+            return
         if msg.type() == inotify.INOTIFY_EVENT:
             self.rescan()
             return True
@@ -373,7 +368,7 @@ class Controller(QObserver):
         if style:
             view.setStyleSheet(style)
         view.show()
-        view.set_version(version.version)
+        view.set_version(version.get_version())
 
     def tr(self, fortr):
         return qtutils.tr(fortr)
@@ -385,9 +380,9 @@ class Controller(QObserver):
             return
         editor = self.model.get_editor()
         if 'vi' in editor:
-            utils.fork(self.model.get_editor(), filename, '+'+lineno)
+            utils.fork([self.model.get_editor(), filename, '+'+lineno])
         else:
-            utils.fork(self.model.get_editor(), filename)
+            utils.fork([self.model.get_editor(), filename])
 
     def gen_search(self, searchtype, browse=False):
         def search_handler():
@@ -403,15 +398,11 @@ class Controller(QObserver):
         self.view.display_text.setText(stuff)
         self.view.show_diff()
 
-    def view_log(self, *rest):
-        qtutils.show_logger()
-
     def options(self):
         update_options(self.model, self.view)
 
     def branch_create(self):
-        if create_new_branch(self.model, self.view):
-            self.rescan()
+        create_new_branch(self.model, self.view)
 
     def branch_delete(self):
         branch = choose_from_combo('Delete Branch',
@@ -419,7 +410,7 @@ class Controller(QObserver):
                                    self.model.get_local_branches())
         if not branch:
             return
-        self.log(self.model.delete_branch(branch))
+        self.log(*self.model.delete_branch(branch))
 
     def browse_current(self):
         branch = self.model.get_currentbranch()
@@ -441,7 +432,9 @@ class Controller(QObserver):
                                    self.model.get_local_branches())
         if not branch:
             return
-        self.log(self.model.git.checkout(branch, with_stderr=True))
+        self.log(*self.model.git.checkout(branch,
+                                          with_stderr=True,
+                                          with_status=True))
 
     def browse_commits(self):
         self.select_commits_gui('Browse Commits',
@@ -452,7 +445,7 @@ class Controller(QObserver):
                                           *self.model.log_helper(all=True))
         if not commits:
             return
-        self.log(self.model.cherry_pick_list(commits))
+        self.log(*self.model.cherry_pick_list(commits))
 
     def commit(self):
         self.reset_mode()
@@ -464,14 +457,14 @@ class Controller(QObserver):
                 '- First line: Describe in one sentence what you did.\n'
                 '- Second line: Blank\n'
                 '- Remaining lines: Describe why this change is good.\n')
-            self.log(error_msg)
+            qtutils.log(1, error_msg)
             return
         files = self.model.get_staged()
         if not files and not self.view.amend_is_checked():
             error_msg = self.tr(''
                 'No changes to commit.\n\n'
                 'You must stage at least 1 file before you can commit.\n')
-            self.log(error_msg)
+            qtutils.log(1, error_msg)
             return
         amend = self.view.amend_is_checked()
         if (amend and self.model.is_commit_published() and
@@ -484,12 +477,12 @@ class Controller(QObserver):
                                  default=False)):
             return
         # Perform the commit
-        umsg = encode(msg)
+        umsg = core.encode(msg)
         status, output = self.model.commit_with_msg(umsg, amend=amend)
         if status == 0:
             self.view.reset_checkboxes()
             self.model.set_commitmsg('')
-        self.log(output)
+        self.log(status, output)
 
     def get_diff_ref(self):
         if self.view.amend_is_checked():
@@ -526,34 +519,37 @@ class Controller(QObserver):
     def view_diff_for_row(self, idx, staged):
         self.set_mode(staged)
         ref = self.get_diff_ref()
-        diff, status, filename = self.model.get_diff_details(idx, ref,
-                                                             staged=staged)
+        diff, filename = self.model.get_diff_details(idx, ref, staged=staged)
         self.view.set_display(diff)
-        self.view.set_info(self.tr(status))
         self.view.show_diff()
         qtutils.set_clipboard(filename)
 
     def mergetool(self):
+        """Launches git-mergetool on a file path"""
         filename = self.get_selected_filename(staged=False)
         if not filename or filename not in self.model.get_unmerged():
             return
-        utils.fork('xterm', '-e', 'git', 'mergetool', filename)
+        if version.check('mergetool-no-prompt',
+                         self.model.git.version().split()[2]):
+            utils.fork(['git', 'mergetool', '--no-prompt', '--', filename])
+        else:
+            utils.fork(['xterm', '-e', 'git', 'mergetool', '--', filename])
 
     def edit_file(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
         if filename:
-            utils.fork(self.model.get_editor(), filename)
+            utils.fork([self.model.get_editor(), filename])
 
     def edit_diff(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
         if filename:
-            args = ['perl', utils.get_libexec('git-difftool'), '--no-prompt']
+            args = []
             if staged:
                 args.append('--cached')
             if self.view.amend_is_checked():
                 args.append('HEAD^')
             args.extend(['--', filename])
-            utils.fork(*args)
+            difftool.launch(args)
 
     def delete_files(self, staged=False):
         rescan=False
@@ -563,7 +559,7 @@ class Controller(QObserver):
                 try:
                     os.remove(filename)
                 except Exception:
-                    self.log("Error deleting file " + filename)
+                    qtutils.log(1, self.tr('Error deleting "%s"') % filename)
                 else:
                     rescan=True
         if rescan:
@@ -578,15 +574,14 @@ class Controller(QObserver):
         self.view_diff(staged=False)
 
     def export_patches(self):
-        (revs, summaries) = self.model.log_helper()
+        revs, summaries = self.model.log_helper()
         to_export = self.select_commits_gui('Export Patches', revs, summaries)
         if not to_export:
             return
         to_export.reverse()
         revs.reverse()
-        self.log(self.model.format_patch_helper(to_export,
-                                                revs,
-                                                output='patches'))
+        qtutils.log(*self.model.format_patch_helper(to_export, revs,
+                                                    output='patches'))
 
     def _quote_repopath(self, repopath):
         if os.name in ('nt', 'dos'):
@@ -600,8 +595,8 @@ class Controller(QObserver):
                                          os.getcwd())
         if not dirname:
             return
-        utils.fork('python', sys.argv[0],
-                   '--repo', self._quote_repopath(dirname))
+        utils.fork(['python', sys.argv[0],
+                    '--repo', self._quote_repopath(dirname)])
 
     def clone_repo(self):
         """Clones a git repository"""
@@ -621,7 +616,7 @@ class Controller(QObserver):
             if not default:
                 raise
         except:
-            self.log('Oops, could not parse git url: "%s"' % url)
+            qtutils.log(1, 'Oops, could not parse git url: "%s"' % url)
             return
 
         msg = 'Select a parent directory for the new clone'
@@ -639,9 +634,11 @@ class Controller(QObserver):
             destdir = olddestdir + str(count)
             count += 1
 
-        self.log(self.model.git.clone(url, destdir))
-        utils.fork('python', sys.argv[0],
-                   '--repo', self._quote_repopath(destdir))
+        qtutils.log(*self.model.git.clone(url, destdir,
+                                          with_stderr=True,
+                                          with_status=True))
+        utils.fork(['python', sys.argv[0],
+                    '--repo', self._quote_repopath(destdir)])
 
     def has_inotify(self):
         return self.inotify_thread and self.inotify_thread.isRunning()
@@ -651,12 +648,12 @@ class Controller(QObserver):
         if self.model.remember_gui_settings():
             self.model.set_window_geom(self.view.width(), self.view.height(),
                                        self.view.x(), self.view.y())
-        qtutils.close_log_window()
         pattern = self.model.get_tmp_file_pattern()
         for filename in glob.glob(pattern):
             os.unlink(filename)
         if self.has_inotify():
             self.inotify_thread.abort = True
+            self.inotify_thread.terminate()
             self.inotify_thread.wait()
         self.view.close()
 
@@ -676,7 +673,9 @@ class Controller(QObserver):
                                    self.model.get_all_branches())
         if not branch:
             return
-        self.log(self.model.git.rebase(branch))
+        self.log(*self.model.git.rebase(branch,
+                                        with_stderr=True,
+                                        with_status=True))
 
     def reset_mode(self):
         """Sets the mode to the default NONE mode."""
@@ -790,23 +789,21 @@ class Controller(QObserver):
             self.model.load_commitmsg(merge_msg_path)
 
     def fetch(self):
-        remote_action(self.model, self.view, 'Fetch')
+        remote_action(self.model, self.view, 'fetch')
 
     def push(self):
-        remote_action(self.model, self.view, 'Push')
+        remote_action(self.model, self.view, 'push')
 
     def pull(self):
-        remote_action(self.model, self.view, 'Pull')
+        remote_action(self.model, self.view, 'pull')
 
     def show_diffstat(self):
         """Show the diffstat from the latest commit."""
         self.reset_mode()
-        self.view.set_info('Diffstat')
         self.view.set_display(self.model.diffstat())
 
     def show_index(self):
         self.reset_mode()
-        self.view.set_info('Index')
         self.view.set_display(self.model.diffindex())
 
     #####################################################################
@@ -839,7 +836,6 @@ class Controller(QObserver):
                                       reverse=True,
                                       branch=branch)
         self.view.set_display(diff)
-        self.view.set_info(status)
         self.view.show_diff()
 
         # Set state machine to branch mode
@@ -914,21 +910,19 @@ class Controller(QObserver):
 
     # *rest handles being called from different signals
     def stage_selected(self,*rest):
-        """Use "git add" to add items to the git index.
-        This is a thin wrapper around map_to_listwidget."""
+        """Use 'git add/rm' to add or remove content from the index"""
         unstaged = self.model.get_unstaged()
         selected = self.view.get_unstaged(unstaged)
         if not selected:
             return
-        self.log(self.model.add_or_remove(selected), quiet=True)
+        self.log(*self.model.add_or_remove(selected))
 
     # *rest handles being called from different signals
     def unstage_selected(self, *rest):
-        """Use "git reset" to remove items from the git index.
-        This is a thin wrapper around map_to_listwidget."""
+        """Use 'git reset/rm' to remove content from the index"""
         staged = self.model.get_staged()
         selected = self.view.get_staged(staged)
-        self.log(self.model.reset_helper(selected), quiet=True)
+        self.log(*self.model.reset_helper(selected))
 
     def undo_changes(self):
         """Reverts local changes back to whatever's in HEAD."""
@@ -943,23 +937,23 @@ class Controller(QObserver):
                                     default=False):
                 return
 
-            output = self.model.git.checkout('HEAD', '--', *items_to_undo)
-            self.log('git checkout HEAD -- '
-                    +' '.join(items_to_undo)
-                    +'\n' + output)
+            self.log(*self.model.git.checkout('HEAD', '--',
+                                              with_stderr=True,
+                                              with_status=True,
+                                              *items_to_undo))
         else:
-            msg = 'No files selected for checkout from HEAD.'
-            self.log(self.tr(msg))
+            qtutils.log(1, self.tr('No files selected for '
+                                   'checkout from HEAD.'))
 
     def viz_all(self):
         """Visualizes the entire git history using gitk."""
         browser = self.model.get_history_browser()
-        utils.fork('sh', '-c', browser, '--all')
+        utils.fork(['sh', '-c', browser, '--all'])
 
     def viz_current(self):
         """Visualizes the current branch's history using gitk."""
         browser = self.model.get_history_browser()
-        utils.fork('sh', '-c', browser, self.model.get_currentbranch())
+        utils.fork(['sh', '-c', browser, self.model.get_currentbranch()])
 
     def load_gui_settings(self):
         try:
@@ -969,20 +963,11 @@ class Controller(QObserver):
         except:
             pass
 
-    def log(self, output, rescan=True, quiet=False):
+    def log(self, status, output, rescan=True):
         """Logs output and optionally rescans for changes."""
-        qtutils.log(output, quiet=quiet, doraise=False)
+        qtutils.log(status, output)
         if rescan:
             self.rescan()
-
-    def map_to_listwidget(self, command, widget, items):
-        """This is a helper method that retrieves the current
-        selection list, applies a command to that list,
-        displays a dialog showing the output of that command,
-        and calls rescan to pickup changes."""
-        apply_items = qtutils.get_selection_list(widget, items)
-        output = command(*apply_items)
-        self.log(output, quiet=True)
 
     def tree_context_menu_event(self, event):
         menu = self.tree_context_menu_setup()
@@ -991,7 +976,7 @@ class Controller(QObserver):
     def tree_context_menu_setup(self):
         staged, modified, unmerged, untracked = self.get_single_selection()
 
-        menu = QMenu(self.view)
+        menu = QtGui.QMenu(self.view)
 
         if staged:
             menu.addAction(self.tr('Unstage Selected'), self.unstage_selected)
@@ -1038,7 +1023,7 @@ class Controller(QObserver):
         menu.exec_(textedit.mapToGlobal(event.pos()))
 
     def diff_context_menu_setup(self):
-        menu = QMenu(self.view)
+        menu = QtGui.QMenu(self.view)
         staged, modified, unmerged, untracked = self.get_single_selection()
 
         if self.mode == Controller.MODE_WORKTREE:
@@ -1074,7 +1059,7 @@ class Controller(QObserver):
         font = self.model.get_cola_config('fontdiff')
         if not font:
             return
-        qfont = QFont()
+        qfont = QtGui.QFont()
         qfont.fromString(font)
         self.view.display_text.setFont(qfont)
         self.view.commitmsg.setFont(qfont)
@@ -1083,7 +1068,7 @@ class Controller(QObserver):
         font = self.model.get_cola_config('fontui')
         if not font:
             return
-        qfont = QFont()
+        qfont = QtGui.QFont()
         qfont.fromString(font)
         QtGui.qApp.setFont(qfont)
 
@@ -1095,30 +1080,29 @@ class Controller(QObserver):
 
     def init_log_window(self):
         branch = self.model.get_currentbranch()
-        qtutils.log(self.model.get_git_version()
-                   +'\ncola version '+ version.version
-                   +'\nCurrent Branch: '+ branch)
+        qtutils.log(0, self.model.get_git_version()
+                       +'\ncola version ' + version.get_version()
+                       +'\nCurrent Branch: ' + branch)
 
     def start_inotify_thread(self):
         # Do we have inotify?  If not, return.
         # Recommend installing inotify if we're on Linux.
         self.inotify_thread = None
-        try:
-            from cola.inotify import GitNotifier
-            qtutils.log(self.tr('inotify support: enabled'))
-        except ImportError:
-            if utils.is_linux():
-                msg = self.tr('inotify: disabled\n'
-                              'Note: To enable inotify, '
-                              'install python-pyinotify.\n')
+        if not inotify.AVAILABLE:
+            if not utils.is_linux():
+                return
+            msg = self.tr('inotify: disabled\n'
+                          'Note: To enable inotify, '
+                          'install python-pyinotify.\n')
 
-                if utils.is_debian():
-                    msg += self.tr('On Debian systems, '
-                                   'try: sudo apt-get install '
-                                   'python-pyinotify')
-                qtutils.log(msg)
+            if utils.is_debian():
+                msg += self.tr('On Debian systems, '
+                               'try: sudo apt-get install '
+                               'python-pyinotify')
+            qtutils.log(0, msg)
             return
 
         # Start the notification thread
-        self.inotify_thread = GitNotifier(self, self.model.git)
+        qtutils.log(0, self.tr('inotify support: enabled'))
+        self.inotify_thread = inotify.GitNotifier(self, self.model.git)
         self.inotify_thread.start()

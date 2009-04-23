@@ -34,13 +34,11 @@ TARGET="$ROOT".exe
 echo "Building installer for git-cola v$VERSION"
 
 python setup.py --quiet install \
-	--prefix='.' \
 	--root="$ROOT" \
-	--install-scripts=bin \
-	--install-lib=lib/site-packages
+	--prefix='.' \
+	--install-scripts=bin
+rm -rf "$ROOT"/lib "$ROOT"/Lib build
 
-find $BASENAME -name '*.egg-info' | xargs rm
-find $BASENAME -name '*.py[co]' | xargs rm
 mv $BASENAME/bin/git-cola $BASENAME/bin/git-cola.pyw
 mkdir -p $ETC 2>/dev/null
 cp win32/git.bmp win32/gpl-2.0.rtf win32/git.ico $ETC

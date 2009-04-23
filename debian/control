@@ -1,5 +1,5 @@
 Source: git-cola
-Section: devel
+Section: vcs
 Priority: optional
 Maintainer: Iulian Udrea <iulian@ubuntu.com>
 Build-Depends: debhelper (>= 7)
