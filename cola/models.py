@@ -13,6 +13,7 @@ from cola import git
 from cola import core
 from cola import utils
 from cola import model
+from cola import observable
 
 #+-------------------------------------------------------------------------
 #+ A regex for matching the output of git(log|rev-list) --pretty=oneline
@@ -101,7 +102,7 @@ def eval_path(path):
     else:
         return path
 
-class Model(model.Model):
+class Model(model.Model, observable.Observable):
     """Provides a friendly wrapper for doing commit git operations."""
 
     def __init__(self):
@@ -109,6 +110,7 @@ class Model(model.Model):
         so that they refer to the git module.  This object
         encapsulates cola's interaction with git."""
         model.Model.__init__(self)
+        observable.Observable.__init__(self)
 
         # Initialize the git command object
         self.git = GitCola()
@@ -164,6 +166,22 @@ class Model(model.Model):
         self.push_helper = None
         self.pull_helper = None
         self.generate_remote_helpers()
+
+    def clone(self):
+        """Override Model.clone() to handle observers"""
+        # Go in and out of jsonpickle to create a clone
+        observers = self.get_observers()
+        self.set_observers([])
+        clone = Model.clone(self)
+        self.set_observers(observers)
+        return clone
+
+    def set_param(self, param, value, notify=True, check_params=False):
+        """Override Model.set_param() to handle notification"""
+        model.Model.set_param(self, param, value, check_params=check_params)
+        # Perform notifications
+        if notify:
+            self.notify_observers(param)
 
     def generate_remote_helpers(self):
         """Generates helper methods for fetch, push and pull"""
@@ -517,7 +535,7 @@ class Model(model.Model):
         if template:
             self.load_commitmsg(template)
 
-    def update_status(self, amend=False):
+    def update_status(self, head='HEAD'):
         # This allows us to defer notification until the
         # we finish processing data
         notify_enabled = self.get_notify()
@@ -526,7 +544,7 @@ class Model(model.Model):
         (self.staged,
          self.modified,
          self.unmerged,
-         self.untracked) = self.get_workdir_state(amend=amend)
+         self.untracked) = self.get_workdir_state(head=head)
         # NOTE: the model's unstaged list holds an aggregate of the
         # the modified, unmerged, and untracked file lists.
         self.set_unstaged(self.modified + self.unmerged + self.untracked)
@@ -585,12 +603,12 @@ class Model(model.Model):
     def get_diff_details(self, idx, ref, staged=True):
         filename = self.get_filename(idx, staged=staged)
         if not filename:
-            return (None, None, None)
+            return (None, None)
         encfilename = core.encode(filename)
         if staged:
             diff = self.diff_helper(filename=filename,
                                     ref=ref,
-                                    cached=True)
+                                    cached=ref.startswith('HEAD'))
         else:
             if os.path.isdir(encfilename):
                 diff = '\n'.join(os.listdir(filename))
@@ -647,28 +665,6 @@ class Model(model.Model):
                                       with_status=True)
         self.update_status()
         return (status, output)
-
-    def get_window_geom(self):
-        return self.parse_geom_str(self.get_cola_config('geometry'))
-
-    def set_window_geom(self, w, h, x, y):
-        self._w = w
-        self._h = h
-        self._x = x
-        self._y = y
-        self.config_set('cola.geometry', '%dx%d+%d,%d' % self.window_geom(),
-                        local=False)
-
-    def window_geom(self):
-        return (self._w, self._h, self._x, self._y)
-
-    def parse_geom_str(self, geomstr):
-        regex = re.compile('^(\d+)x(\d+)\+(\d+),(\d+).*?')
-        match = regex.match(geomstr)
-        if match:
-            self.set_window_geom(int(match.group(1)), int(match.group(2)),
-                                 int(match.group(3)), int(match.group(4)))
-        return self.window_geom()
 
     def config_set(self, key=None, value=None, local=True):
         if key and value is not None:
@@ -805,6 +801,8 @@ class Model(model.Model):
             argv.append('%s..%s' % (ref, endref))
         elif ref:
             argv.append(ref)
+            if not ref.startswith('HEAD'):
+                cached = False
         elif branch:
             argv.append(branch)
 
@@ -822,6 +820,7 @@ class Model(model.Model):
         deleted = cached and not os.path.exists(core.encode(filename))
 
         diffoutput = self.git.diff(R=reverse,
+                                   M=True,
                                    no_color=True,
                                    cached=cached,
                                    patch_with_raw=patch_with_raw,
@@ -895,17 +894,40 @@ class Model(model.Model):
                                     with_status=True)
         return status != 0
 
-    def get_workdir_state(self, amend=False):
+
+    def _get_branch_status(self, branch):
+        """Returns a tuple of staged, unstaged, untracked, and unmerged files
+
+        This shows only the changes that were introduced in branch
+        """
+        status, output = self.git.diff(branch,
+                                       name_only=True,
+                                       M=True, z=True,
+                                       with_stderr=True,
+                                       with_status=True)
+        if status != 0:
+            return ([], [], [], [])
+        staged = []
+        for name in output.strip('\0').split('\0'):
+            if not name:
+                continue
+            staged.append(core.decode(name))
+
+        return (staged, [], [], [])
+
+
+    def get_workdir_state(self, head='HEAD'):
         """Returns a tuple of staged, unstaged, untracked, and unmerged files
         """
         self.git.update_index(refresh=True)
         self.partially_staged = set()
-        head = 'HEAD'
-        if amend:
-            head = 'HEAD^'
+
+        if not head.startswith('HEAD'):
+            return self._get_branch_status(head)
+
         (staged, modified, unmerged, untracked) = ([], [], [], [])
         try:
-            output = self.git.diff_index(head, with_stderr=True)
+            output = self.git.diff_index(head, M=True, with_stderr=True)
             if output.startswith('fatal:'):
                 raise Exception('git init')
             for line in output.splitlines():
@@ -928,6 +950,7 @@ class Model(model.Model):
         try:
 
             output = self.git.diff_index(head,
+                                         M=True,
                                          cached=True,
                                          with_stderr=True)
             if output.startswith('fatal:'):

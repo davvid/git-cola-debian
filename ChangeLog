@@ -1,7 +1,165 @@
-git-cola: 1.3.7.6.g4210
-bottled-on: Tue Apr 21 02:41:46 PDT 2009
+git-cola: 1.3.7.21.g98f2
+bottled-on: Tue Apr 28 00:44:38 PDT 2009
 
-commit 421077fafbff75e1c8d512b051a69775664ee2d0 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit 98f2bb2dc70fb37d5d4ed3ac80935eb4cc97cb33 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 25 20:15:18 2009 -0700
+
+    Makefile: cleanup the install target, use rmdir -p
+    
+    It'd be good to move more of this into setup.py.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f64efd389a8a5eabea09a8de24dfad7e7e82a31f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 25 19:46:41 2009 -0700
+
+    tests: add test cases for the cola.settings module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cbcb8f20c6e71d9dd73af245e873585fba655dd4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 25 15:24:35 2009 -0700
+
+    Makefile: do not rm -rf $(prefix)/lib
+    
+    'make install' shouldn't delete the lib/ directory.
+    That was a bad mistake.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bbfa0d8e7d486c27cab3d11c24ca00f89a4fa318
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 23:23:53 2009 -0700
+
+    test: add a .gitignore to test/tmp
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9ba037aafb3683a740650396e307dee725ead85b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 19:34:21 2009 -0700
+
+    Save the splitter dimensions too ;)
+    
+    This adds the ability to save the splitter sizes on startup/shutdown
+    by removing responsibility from the models.  We now use a SettingManager
+    singleton to provide an api for arbitrary data saving.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e524af1577d09a9f0bab44dbd7ce556d08be87ae
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 19:20:17 2009 -0700
+
+    settings: add a SettingsManager singleton
+    
+    The SettingsManager class provides an interface for view
+    de/serialization.  We'll use this to handle saving gui settings.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d1075652b91ff317a35372c9f7e5e24e398d94c6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 19:14:58 2009 -0700
+
+    views: add import/export state methods
+    
+    This adds export_state() and import_state() methods to the
+    StandardView class.  Subclasses extend this method to
+    handle custom view data.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e586e74b81f61fe4e9a0bb1d14a04abbf602c74e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 19:12:51 2009 -0700
+
+    cola.model: don't derive from observable
+    
+    cola.model.Model no longer derives from Observable.
+    Instead, classes that need subject/observer behavior use
+    the observable.Observable mixin.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 912dbff081b2592efce902541d2de2e1fa91ac54
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 18:59:44 2009 -0700
+
+    git-cola: unconditionally add the bin/ dir to our path
+    
+    git-cola might not be in our path, so guard against it by placing
+    cola's bin/ directory in the path.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e985be1c0ce4e6491b93892adde0015e8dbf412e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 16:21:57 2009 -0700
+
+    diff/review mode: decorate the window title when in review or diff mode
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e3004eecab8aee2046c72575042da6d8b739e25a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 16:11:40 2009 -0700
+
+    diff/review mode: always use the staged icon and hide modified/untracked items
+    
+    When reviewing or diffing a branch we should only see things that have been committed
+    over there.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 455f394f0dc138e76b0e770995f29d8305e5d7df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 24 03:58:18 2009 -0700
+
+    ui: add a Branch->Review action for reviewing in-progress branches
+    
+    Branch->Review compares a branch against its common ancestor
+    with the current branch.  This basically shows you what's
+    in a branch and lets you run difftool on it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0f25ad250b736a25349f2466ae892ea0421e9e99
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Apr 22 16:02:09 2009 -0700
+
+    remote: select the current branch by default for 'push'
+    
+    'git push' now requires both the remote and branch to be specified when pushing,
+    so select the current branch by default since that is the typical use case.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 673da3cd3cd86de7e1f9bacd69723cbb16ed9df4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Apr 22 16:00:44 2009 -0700
+
+    remotes: always show the status output when doing fetch/push/pull
+    
+    We now force the status to '1' so that the log display is presented for all
+    remote operations.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 33a2f171e4743cf9f097da6dfff81089393a06f2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 23:32:57 2009 -0700
+
+    ui: add a branch->diff menu action to compare against arbitrary revisions
+    
+    Branch->Diff lets you compare changes against arbitrary commits, tags, branches, etc.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 421077fafbff75e1c8d512b051a69775664ee2d0
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Apr 21 02:41:00 2009 -0700
 
