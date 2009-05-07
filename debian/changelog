@@ -1,9 +1,24 @@
+git-cola (1.3.7.45-1) unstable; urgency=low
+
+  * New upstream version.
+    + inotify: fix a bug when exiting cola
+    + docs: remove git-difftool.txt and update git-cola.txt
+    + models: do not flag deleted files as modified 
+    + setup.py: add the private cola.models module
+    + observable: use the current model's notify value when cloning
+    + models: fix a bug in clone()
+  * Remove {cola,git-difftool}.pod and manpages.
+  * Add links file.
+  * Update rules.
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Thu, 07 May 2009 06:44:29 +0100
+
 git-cola (1.3.7.21-1) unstable; urgency=low
 
   * New upstream version.
   * Fix symlink (/usr/bin/git-difftool--helper).
 
- -- Iulian Udrea <iulian@ubuntu.com>  Tue, 28 Apr 2009 18:10:38 +0100
+ -- Iulian Udrea <iulian@ubuntu.com>  Tue, 28 Apr 2009 18:28:44 +0100
 
 git-cola (1.3.7.6-1) unstable; urgency=low
 

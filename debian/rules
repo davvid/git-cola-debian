@@ -7,15 +7,12 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 	$(MAKE) all doc
-	pod2man --section=1 --release="" --center "" debian/cola.pod > debian/cola.1
-	pod2man --section=1 --release="" --center "" debian/git-difftool.pod > debian/git-difftool.1
-
 	touch $@
 
 clean:
 	dh_testdir
 	dh_testroot
-	dh_clean build-stamp debian/cola.1 debian/git-difftool.1
+	dh_clean build-stamp
 	[ ! -f Makefile ] || $(MAKE) clean
 
 install: build
@@ -37,7 +34,7 @@ binary-indep: build install
 	dh_installmenu
 	dh_desktop
 	dh_pysupport
-	dh_link usr/share/man/man1/git-difftool.1 usr/share/man/man1/git-difftool--helper.1
+	dh_link
 	dh_strip
 	dh_compress
 	dh_fixperms
