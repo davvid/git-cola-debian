@@ -1,3 +1,11 @@
+git-cola (1.3.7.45-2) unstable; urgency=low
+
+  * Remove git-difftool.1 symlink.  dpkg is trying to overwrite
+    `/usr/share/man/man1/git-difftool.1.gz', which is also in package
+    git-core (Closes: #528128).
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Mon, 11 May 2009 06:34:40 +0100
+
 git-cola (1.3.7.45-1) unstable; urgency=low
 
   * New upstream version.
