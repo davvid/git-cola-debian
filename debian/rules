@@ -32,7 +32,6 @@ binary-indep: build install
 	dh_installexamples
 	dh_installman
 	dh_installmenu
-	dh_desktop
 	dh_pysupport
 	dh_link
 	dh_strip

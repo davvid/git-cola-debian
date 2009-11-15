@@ -1,41 +1,32 @@
 from PyQt4 import QtCore
+from PyQt4 import QtGui
 
 from cola.views import syntax
 
 
-def create_standard_view(uiclass, qtclass, *classes):
-    """create_standard_view returns a class closure of uiclass and qtclass.
-    This class performs the standard setup common to all view classes.
-
-    The reason we use a closure is because uiclass and qtclass are
-    both dynamic.
-
+def create_standard_widget(qtclass):
+    """Create a standard widget derived from a qt class.
     """
-    class StandardView(uiclass, qtclass):
-        def __init__(self, parent, *args, **kwargs):
-            qtclass.__init__(self, parent)
-            uiclass.__init__(self)
-            self.__qtclass = qtclass
-            self.setWindowFlags(QtCore.Qt.Window)
-            self.parent_view = parent
+    class StandardWidget(qtclass):
+        # Mix-in for standard view operations
+        def __init__(self, parent=None):
+            self._qtclass = qtclass
+            self._qtclass.__init__(self, parent)
             syntax.set_theme_properties(self)
-            self.setupUi(self)
-            for cls in classes:
-                cls.__init__(self, parent, *args, **kwargs)
 
         def show(self):
             """Automatically centers and raises dialogs"""
-            if self.parent_view:
-                left = self.parent_view.x()
-                width = self.parent_view.width()
+            if self.parent():
+                left = self.parent().x()
+                width = self.parent().width()
                 center_x = left + width/2
 
                 x = center_x - self.width()/2
-                y = self.parent_view.y()
+                y = self.parent().y()
 
                 self.move(x, y)
             # Call the base Qt show()
-            self.__qtclass.show(self)
+            self._qtclass.show(self)
             self.raise_()
 
         def name(self):
@@ -48,7 +39,7 @@ def create_standard_view(uiclass, qtclass, *classes):
                 w = settings.get('width')
                 h = settings.get('height')
                 try:
-                    self.resize(w,h)
+                    self.resize(w, h)
                 except:
                     pass
 
@@ -56,7 +47,7 @@ def create_standard_view(uiclass, qtclass, *classes):
                 x = settings.get('x')
                 y = settings.get('y')
                 try:
-                    self.move(x,y)
+                    self.move(x, y)
                 except:
                     pass
 
@@ -73,9 +64,15 @@ def create_standard_view(uiclass, qtclass, *classes):
             for name in syntax.default_colors:
                 props[name] = getattr(self, '_'+name)
             return props
+
         def reset_syntax(self):
             if hasattr(self, 'syntax') and self.syntax:
                 self.syntax.set_colors(self.style_properties())
                 self.syntax.reset()
-    syntax.install_style_properties(StandardView)
-    return StandardView
+
+    syntax.install_style_properties(StandardWidget)
+    return StandardWidget
+
+
+# The base class for all cola QDialogs.
+StandardDialog = create_standard_widget(QtGui.QDialog)

@@ -35,7 +35,11 @@ class VersionUnavailable(Exception):
 def git_describe_version():
     """Inspect the cola git repository and return the current version."""
     try:
-        v = git.Git.execute(['git', 'describe', '--tags', '--abbrev=4'],
+        v = git.Git.execute(['git', 'describe',
+                            '--tags',
+                            '--match=v*',
+                            '--abbrev=7',
+                            'HEAD'],
                             with_stderr=True)
     except errors.GitCommandError, e:
         raise VersionUnavailable(str(e))
@@ -53,8 +57,8 @@ def git_describe_version():
 def builtin_version():
     """Return the builtin version or throw a VersionUnavailable exception"""
     try:
-        import builtin_version as bv
-    except ImportError:
+        from cola import builtin_version as bv
+    except ImportError, e:
         raise VersionUnavailable()
     else:
         return bv.version
@@ -84,7 +88,7 @@ def delete_builtin_version():
             os.remove(fn)
 
 
-def get_version():
+def version():
     """Returns the builtin version or calculates the current version."""
     global _version
     if _version:
@@ -92,10 +96,11 @@ def get_version():
     for v in [builtin_version, git_describe_version]:
         try:
             _version = v()
+            break
         except VersionUnavailable:
             pass
     if not _version:
-        _version = '1.3.8'
+        _version = 'unknown-version'
     return _version
 
 
@@ -125,8 +130,6 @@ def version_to_list(version):
     return ver_list
 
 
-def get_git_version():
+def git_version():
     """Returns the current GIT version"""
-    return utils.run_cmd('git', '--version').split()[2]
-
-
+    return utils.run_cmd(['git', '--version']).split()[2]

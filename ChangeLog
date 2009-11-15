@@ -1,7 +1,4276 @@
-git-cola: 1.3.8
-bottled-on: Sun Jun 14 03:03:28 PDT 2009
+git-cola: 1.4.0.4
+bottled-on: Sat Nov 14 11:00:41 PST 2009
 
-commit 9751d6c8ee0811f40eb7727e8503c4a723a92810 (tag: refs/tags/v1.3.8, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit a4abb434f60f023ff39a4d47bca0d14f9708b91c (HEAD, tag: v1.4.0.4, maint-1.4.0)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 13 23:52:54 2009 -0800
+
+    doc: Add git-cola-1.4.0.4 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3a26c5cee006712a18ac2e9924548cb72a9c32e6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 13 22:35:37 2009 -0800
+
+    Move SSH_ASKPASS scripts to share/git-cola/bin
+    
+    This fixes Lintian warnings by removing the non-standard
+    /usr/libexec directory.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c922a3390c6e4a4512d688681cafc6a933f2ee2d (tag: v1.4.0.3)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Nov 9 16:03:47 2009 -0800
+
+    doc: Add git-cola-1.4.0.3 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8d59660cf990dd7a60807e09143d1250d88d8113
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Nov 9 14:57:25 2009 -0800
+
+    views.status: Eliminate X11 warnings
+    
+    Expanding childless top-level items causes X11 warnings to appear
+    in the shell.  This was happening because we were looping over
+    each top-level item inside of expand_items().
+    
+    expand_items() now expands the item passed into it only.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7ad83e82d0ede867131550253cf7b4d1565a249c (tag: v1.4.0.2)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 5 18:39:54 2009 -0800
+
+    doc: Add git-cola-1.4.0.2 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 259b150f9189e4877b47f9a59bb3c14b253625ab
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 5 09:14:05 2009 -0800
+
+    models.main: Guard against non-int font sizes
+    
+    The cola.fontdiff setting can contain non-integer
+    font sizes, so guard against it by casting to a float
+    before casting to int.
+    
+    Closes #32
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ee17ea12d8a4dc9987364867637025e59a93d087
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 5 09:20:29 2009 -0800
+
+    views.main: Show 'Exit Diff Mode' when using Diff->Expression
+    
+    We weren't showing the 'Exit Diff Mode' button when going into
+    the 'Diff->Expression' mode.
+    
+    Closes #31
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 22355e51d3d52826166269e70a8bf3710c590f59 (tag: v1.4.0.1)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 15:17:07 2009 -0700
+
+    doc: Add git-cola-1.4.0.1 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e40455e374ac839106e0c2347cbab10180972c25
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:47:57 2009 -0700
+
+    views.main: Fix a typo when loading merge commit messages
+    
+    self.merge_message_hash was mistyped as self.merge_msg_hash.
+    
+    Closes #30
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1ef741d6826adabd6a5b8e2032b5c27be7656320
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:50:42 2009 -0700
+
+    controllers.stash: Add missing cola.signals import
+    
+    We forgot to import the signals module during the last
+    round of refactoring.
+    
+    Closes #29
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 752124b7de85b26ef39f9453ef5ebcab3f8c6a16
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:26:17 2009 -0700
+
+    Makefile: Remove build files during 'make clean' only
+    
+    We used to remove 'build', 'dist', and builtin_version.py in the
+    build targets.  We no longer do any cleaning in the build
+    targets and handle all cleanup tasks in the 'clean' target only.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ceb0b4392e685c1da1a381bc54ed4aac0dc699b6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:16:37 2009 -0700
+
+    trivial: Remove trailing whitespace in cola.gitcola
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 759a54c57425ef870461199b380692fa209dc667
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 13:17:51 2009 -0700
+
+    cola.version: Fix builtin_version usage
+    
+    We no longer remote builtin_version in setup.py.
+    This allows us to find builtin_version when running cola from
+    its source tree.  We also break out of the loop when
+    builtin_version is found which makes cola return the correct
+    version number instead of always falling back to 'git describe'.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d807842cc6a983e7f28e123f3f1813566a4843de
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 28 14:52:55 2009 -0700
+
+    views.status: Allow staging untracked files
+    
+    We were emitting modified files when we should have
+    emitted unstaged files.
+    
+    Closes #27
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit db93f8d3f2317826add46146b1b7b7813e9fc207
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Oct 27 12:35:50 2009 -0700
+
+    models.main: Sort results when querying for all files
+    
+    'git ls-files --all --others' can return files in an unsorted order,
+    namely untracked files can come before tracked files.
+    Return a sorted list in everything() to make it more intuitive.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 28fc575c92417ded1f53d60470cfa076be9399ba
+Author: David Aguilar <david.aguilar@disneyanimation.com>
+Date:   Tue Oct 27 11:19:54 2009 -0700
+
+    COPYRIGHT: It's time to party like it's 2009
+    
+    Signed-off-by: David Aguilar <david.aguilar@disneyanimation.com>
+
+commit 8c9dffa5250d5bc738c492b2e735f174011716f6 (tag: v1.4.0)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 12:34:55 2009 -0700
+
+    MANIFEST.in: Add Sphinx documentation
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1c99b94fb32f050f89e22bee8c1a59a17a490f52
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 01:12:39 2009 -0700
+
+    models.main: Handle trailing NULL in ls-files output
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8011fbe2da986a279e6915ff0531a80bcc62fd56
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 01:11:56 2009 -0700
+
+    doc: Add git-cola-1.4.0 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d20a072f84c4c10b18399041ce006a885666070c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 01:07:07 2009 -0700
+
+    doc: Fix header in git-cola-1.3.7 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 696899f3f8eea4c9baf140c31afc38293ad2a3a9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 01:06:05 2009 -0700
+
+    doc: Add git-cola-1.3.9 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e27124b1555a590ff05a6d72a52a2b347e4a8ca9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 01:03:44 2009 -0700
+
+    doc: Add git-cola-1.3.8 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a007873d5e6cff6c21ef9bf67d186ee5c284184a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 01:00:40 2009 -0700
+
+    doc: Add git-cola-1.3.7 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 307b734f8cb7477c0a74134e6fc41050211babfb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 24 00:49:41 2009 -0700
+
+    doc: Add git-cola-1.3.6 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c5b5519498b181f8d25ca2717600f023ba2f2af4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 19 23:30:46 2009 -0700
+
+    models.main: Honor .gitignore
+    
+    We forgot to pass --exclude-standard to git-ls-files.
+    An untracked_files() method was added and update_status() was
+    updated to use it.
+    
+    Closes #26
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5fe0bfdf6a956d49a7c4023f811d928d5439cf14
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 19 23:27:53 2009 -0700
+
+    models.main: Optimize the everything() method
+    
+    We don't need to call strip() if we can omit the last character.
+    We don't need to sort files since users might expect git's
+    ignore-dot-files order.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d42b2d4cc5aeaf7db44cd997b395a5b059755cda
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 19 00:14:19 2009 -0700
+
+    win32: Update installer script to use 'git-cola'
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 56dcadb9004575ae178f9758e28da4e6cb2f0fb7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Oct 16 15:35:14 2009 -0700
+
+    cola.version: Pass HEAD to git-describe
+    
+    There's some discussions on the git ML about changing
+    git-describe so that it automatically appends -dirty.
+    This future proofs us in case this patch goes through.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 950a41bfc3514cf9feda82faa6e7e3d6889bb9de
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 14 04:58:29 2009 -0700
+
+    setup.py: Generate builtin_version.py in git only
+    
+    The build system always removed builtin_version.py.
+    When distributing tarballs, though, we don't have .git
+    and thus can't generate this file during the build.
+    
+    This changes things so that the builtin_version.py
+    module is only generated and deleted when inside
+    of a git repository.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2b7b1bfd2c4ce74c93ef39cd5c56c0d8f66d63c2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 14 04:14:35 2009 -0700
+
+    Makefile: install-doc should not depend on install-html
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 52ed93ec90eb016e3f864cdf5c31b903ca1498c2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 14 03:45:45 2009 -0700
+
+    .gitignore: Add an entry for cola.tuxfamily.org
+    
+    This directory is used as a staging ground for the next release.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f76e41111cf1c801f9a878d8de2ff6d6239a13ce
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 14 01:07:59 2009 -0700
+
+    Makefile: Simplify $DESTDIR handling
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a8f003e375672789463fbbea05378acc9e93d90b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 14 01:07:41 2009 -0700
+
+    .gitignore: Add an entry for Meta/
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit feb7548c3decd72c5b6f9936f50f50dc07661908
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 11 17:04:07 2009 -0700
+
+    setup.py: Add ssh-askpass-darwin
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1d8fb7871b8816db3e34f7d793ef448a3b4d55a1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 11 17:00:22 2009 -0700
+
+    cola.version: Pass --match when using git-describe
+    
+    This ensures that we only find tags matching the v$VERSION
+    major.minor.micro.patch naming convention.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4fcf9d2d3f3e538db2010491c592c6e0ff0a3808
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 10 06:35:41 2009 -0700
+
+    tests: Remove the need for test/Makefile
+    
+    The main Makefile now has the logic that previously lived in
+    test/Makefile.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a0c22b7be1221244d1a60dbae4f409a42e8a4dbd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 10 06:34:48 2009 -0700
+
+    tests: Remove obsolete message observer test case
+    
+    We don't validate message names anymore so there's no need to
+    test the non-existant validator.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 393a3bb56532722efe67e54c0cea94c991f89e44
+Author: David Aguilar <david.aguilar@disneyanimation.com>
+Date:   Fri Oct 9 10:25:54 2009 -0700
+
+    Add ssh-askpass-darwin to MANIFEST.in
+    
+    Signed-off-by: David Aguilar <david.aguilar@disneyanimation.com>
+
+commit ff2c607fbcb26c8ed15d80bd08c8658040d41140
+Author: David Aguilar <david.aguilar@disneyanimation.com>
+Date:   Fri Oct 9 10:24:42 2009 -0700
+
+    win32: Add libexec/ entries to the installer
+    
+    libexec/ is a new directory so we need to teach the win32
+    installer about it.
+    
+    Signed-off-by: David Aguilar <david.aguilar@disneyanimation.com>
+
+commit eb60f99291164d708e9ce979b4cff36e5bb7c9d6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Oct 8 23:13:48 2009 -0700
+
+    Provide an ssh-askpass implementation for Darwin/OSX
+    
+    The fallback tcl/tk script hangs on Mac OSX.  This one works great.
+    
+    Closes #23
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 47b1741cc3dcd825026c33e986c833cabced69b6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Oct 8 20:20:09 2009 -0700
+
+    Add an ssh-askpass implementation
+    
+    cola locks up when remote operations are attempted
+    on SSH URLs that require a password and no TTY is
+    available.
+    
+    To fix this we now provide our own SSH_ASKPASS
+    implementation as a fallback.
+    
+    Closes #23
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6b2e6aab97e4d48a092b904745a6c0b702cdeb17
+Author: David Aguilar <david.aguilar@disneyanimation.com>
+Date:   Thu Oct 8 14:45:03 2009 -0700
+
+    models.gitrepo: Ignore unknown paths
+    
+    PyQt4 segfaults when children are added to QStandardItemModels
+    after a view is observing it.
+    
+    This works on older version of PyQt4 so this is a workaround
+    until we have a better solution.
+    
+    The downside of this change is that we won't recognize when
+    new files appear in the repository.  The upside is that it
+    avoids PyQt4 segfaults.
+    
+    Closes #25
+    
+    Signed-off-by: David Aguilar <david.aguilar@disneyanimation.com>
+
+commit d607171708b6632a6a6bda582b7805ee4ada709e
+Author: David Aguilar <david.aguilar@disneyanimation.com>
+Date:   Thu Oct 8 14:40:49 2009 -0700
+
+    models.main: Do not return cached values in everything()
+    
+    model.everything() used to use its cached values for staged,
+    unstaged, etc.  It's better to simply re-run git ls-files instead.
+    
+    Signed-off-by: David Aguilar <david.aguilar@disneyanimation.com>
+
+commit 5244cb2e6ec8561de049356b900efe346814025c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Oct 8 00:09:21 2009 -0700
+
+    cola.observable: Simplify the base model
+    
+    We no longer need to register message names.  This takes away the
+    runtime check for valid message names, but in practice we won't
+    ever use a bad name since we're already using the class constant.
+    Thus, the runtime check is useless.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit db1b02ac34491a6728f160d7029162cd6f5f0a08
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 23:53:17 2009 -0700
+
+    models.main: Avoid using the built-in 'file' identifier
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a11032c14f5bb14ef320a66d9bed6d3c9f1c29f0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 23:52:58 2009 -0700
+
+    doc: Add gitcmds and squash documentation warnings
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9396694d4e48f151fb1d31738b8e432283e19076
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Oct 8 00:09:43 2009 -0700
+
+    doc: Add gitcmds.rst
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c87758027ac6331ea3009bd55e717b5c235615ea
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 23:50:01 2009 -0700
+
+    Makefile: Tidy up the 'clean' target
+    
+    The doc Makefile should call Makefile.asciidoc's 'clean' target.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2234cb29eaf0d36e4103cfa9fcd47c03a9415090
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 21:05:31 2009 -0700
+
+    models.gitrepo: Use a custom event type for GitRepoInfoEvents
+    
+    We now give GitRepoInfoEvents a custom type() so that we can
+    tell them apart from builtin Qt events.
+    
+    Closes #25
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 18ada5e7a1b210a8d1ba54687e28321f32f1bff3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:59:10 2009 -0700
+
+    views.main: Add a dialog for creating tags
+    
+    The 'Actions/Create Tag...' menu now launches a dialog for
+    creating tags.  We assume that users have a gpg-agent setup
+    when using signed tags.  If that is not the case then
+    git will read the GPG password from stdin.
+    
+    Closes #11
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c36343f78159ab92380aa8134868fdfcfa1730c4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:53:03 2009 -0700
+
+    views.mainwindow: Re-arrange menus to accomodate 'Create Tag...'
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f80724a3df1dfd1b2e42b9a0491e192286efff90
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:51:11 2009 -0700
+
+    models: Add a TagModel class
+    
+    This adds a simple data container for use by the tag dialog.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ababb80099940fcda76dd4ac213bfe16d8223cae
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:50:24 2009 -0700
+
+    views: Add a CreateTag dialog
+    
+    This adds a dialog for creating tag objects.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c4cd0b86253661f9703264aa03a8c4289b4eaf86
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:49:00 2009 -0700
+
+    commands: Add a Tag command class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 57f41902f544f06da37b9ddddf5ce3e8e8814e12
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:48:24 2009 -0700
+
+    models.main: Optimize stage_paths(), unstage_paths(), and revert_paths()
+    
+    We can do less in each function since nothing is observing the
+    paths_staged/unstaged/reverted messages anymore.
+    
+    stage_paths() now benefits from only ever running at most 2 git commands
+    to update the index - add for additions and add -u for removals.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 36b8183822e7b01f732c96b9601a53dd1bcc7c20
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Oct 7 00:38:09 2009 -0700
+
+    notification: Replace QObject usage with a pure-Python implementation
+    
+    Qt signals+slots are limiting because they don't allow optional
+    keyword arguments.  Let's write our own so we can simplify the
+    Diff command later.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 901f4d33e757bff95a1fa2f61a9fb33ec1accb75
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Oct 6 23:32:12 2009 -0700
+
+    git: Make the git command class thread-safe
+    
+    This uses threading.Lock to serialize access to the git binary.
+    Git calls fail when another git process is running due to the
+    .git/index.lock file.  By serializing git calls we guard against
+    threads triggering this condition.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 43d5ec1f10a009803fc3bf4269df11068ce13260
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Oct 6 22:22:45 2009 -0700
+
+    qobserver: Handle editable combo boxes in 'SLOT()'
+    
+    We used to avoid using Qt's data so that we'd always index into
+    the model directly.  It's simpler to use it though, and also handles
+    the editable combobox case.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fa1efe999eada84f2efce6dbd155cd3b392c0b33
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Oct 6 22:21:08 2009 -0700
+
+    models.main: Consistency cleanup to avoid double underscores
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1636c72c6d17f7a07c2a6637c517b31f5254aa38
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Oct 6 22:20:38 2009 -0700
+
+    controllers.merge: Default to False when prompting to abort a merge
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8b0f2a708e2ef6f7b1fedd1f93ecf0fe457725c0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 5 00:33:33 2009 -0700
+
+    views.main: Define a foreground color whenever a background color is defined
+    
+    We were setting the background color but weren't setting the
+    foreground color.  This makes the column indicator look bad when
+    a dark theme with a light font is used.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9342356f7004f1afb00949dab4a8cd033e164c3b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 5 00:25:18 2009 -0700
+
+    views: Remove package-scope imports
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e675f76e7f624cccec7ea60ce0d48fea4c407ccc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 5 00:04:18 2009 -0700
+
+    Death to .ui: Remove the last .ui files
+    
+    This eliminates the cola.gui namespace and removes the pyuic4 dependency.
+    
+    Closes #24
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3809fdd5e3d210c45596cad0f1919d0b3d6e12b3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Oct 5 00:02:19 2009 -0700
+
+    Death to .ui: Remove .ui file support from the build system
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 41c3b3de0da533c2a98309dbb39606acda141710
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 23:50:42 2009 -0700
+
+    Death to .ui: Remove 'create_standard_view()'
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9ffad717a348a0220cb0ab95a998e717d9d059bb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 23:49:54 2009 -0700
+
+    Death to .ui: Update 'SearchView' to remove its .ui dependency
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d6b7b73175fb27330d8ec2c050777506bffaba6c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 22:22:25 2009 -0700
+
+    Death to .ui: Remove remote.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c1fd976101ea2871ea7340b2ef10773833bece0e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 22:15:32 2009 -0700
+
+    Death to .ui: Add a 'RemoteView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 148c14d6ccf202c82ed2c3faad35f56bf7f440d5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 16:07:14 2009 -0700
+
+    Death to .ui: Remove items.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 74c850abc904caf4b879ec531747f69b8c92e990
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 16:07:04 2009 -0700
+
+    Death to .ui: Add a 'ListView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8f9ad1b61fc139eaff163160fc933f24490c1996
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 16:06:16 2009 -0700
+
+    Death to .ui: Fix a typo in views.compare
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 061a8eba0b5ff884637efaa24df98b29c18912e5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 15:48:21 2009 -0700
+
+    Death to .ui: Remove stash.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d08bb2ee1d95ccc6926b1605702ae7b4965af0a5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 15:48:00 2009 -0700
+
+    Death to .ui: Add a 'StashView' class
+
+commit a5fdd3761eb5de5cc5f2b42e62da639d43666707
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 15:23:06 2009 -0700
+
+    views.status: Derive from QWidget, not QDialog
+    
+    Otherwise, hitting ESC closes the widget!
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a1574da739287cc086ddb770e679d1b333f406c4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 15:21:30 2009 -0700
+
+    Death to .ui: Remove createbranch.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ebdeb76256afc5e930001be45b0379daa714b35a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 15:21:19 2009 -0700
+
+    Death to .ui: Add a 'CreateBranchView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5a5d844c08e6b760eef55a33ff74289a79accac8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 07:41:05 2009 -0700
+
+    Death to .ui: Remove combo.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 486daf6e753285ff9bcc6c97f17caecb7283cd83
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 07:39:43 2009 -0700
+
+    Death to .ui: Add a 'ComboView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c17d3e620a3b597d8f6fa94ce0d6512fd4aac44a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 07:06:34 2009 -0700
+
+    Death to .ui: Remove compare.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d2d537f93263f66fd9f2acf60749b0d467c80744
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 07:06:10 2009 -0700
+
+    Death to .ui: Add a 'CompareView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bf6b73ce9d42f75630a979ca14265f1e3407ec64
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 00:06:11 2009 -0700
+
+    Death to .ui: Remove branchview.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 572286f9934fa8077dad15a9dadc4b6b4ecd1ba8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Oct 4 00:05:54 2009 -0700
+
+    Death to .ui: Add a 'BranchCompareView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e8ef7a9ab2d9ede599ff092e8f3f136bb63b1966
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 19:03:30 2009 -0700
+
+    Death to .ui: Remove bookmark.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 825955936832befdf7b8737006ed884e6b48add3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 19:03:12 2009 -0700
+
+    Death to .ui: Add a 'BookmarkView' class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 596f81b8ec2e69fb7f14d9e1f72b65a0203c7b53
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 18:41:04 2009 -0700
+
+    Death to .ui: Remove options.ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dcd40e043519239bf595d76ae37b0636ac0ca045
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 18:40:36 2009 -0700
+
+    Death to .ui: Add an 'OptionsView' class to replace the .ui file
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 138d73906b1969dd82d76ac7fce40d671d9daad1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 17:36:17 2009 -0700
+
+    Death to .ui: Add a StandardDialog class
+    
+    We'll need this to remove the rest of the .ui files.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 04b4e1a412e9515ccaefdbf866af06a7f4173e99
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 16:44:52 2009 -0700
+
+    Death to .ui: Remove the unused about.ui file
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cea2ee84e9c0bafddce5d3565cba7a7687c9f3b6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 16:43:57 2009 -0700
+
+    views.about: Death to .ui files
+    
+    This removes the .ui file dependency for the 'About' dialog.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2e5c95a7a6a4a3f4d807274beb8c6ff24d168aa7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 16:00:50 2009 -0700
+
+    views.main: Add an 'Unstage' button to the 'Actions' dock widget
+    
+    This provides a way to unstage files that doesn't involve double-clicks
+    or context menus.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a1066d510a465ff4ae3fb351cf34fa5923f49204
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 15:59:28 2009 -0700
+
+    views.main: Activate the 'Unstage Files From Commit' menu action
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 15b4d608b709eadae6712b1527b1a612f1815bd4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 15:56:56 2009 -0700
+
+    commands: Add an 'UnstageSelected' command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d1f7b7c0450e02e3e184455b10ce36a0dd1fc1ce
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 15:22:02 2009 -0700
+
+    cola: Integrate the SelectionModel
+    
+    Selection is now handled by a static SelectionModel instance.
+    This allows individual tools to modify the selection and have
+    the selection reflected in the corresponding menus and actions.
+    
+    Closes #19
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6d470934ce4852b1eae1c9459710c1e0f4515bbd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 15:18:13 2009 -0700
+
+    __init__: Add convenient accessors for the selection model
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 30fd85abf22fd6c314483c4b43598c2316b75193
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 15:15:28 2009 -0700
+
+    Add a SelectionModel for synchronizing selection across views
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fb6a87155ef2c4b46e7d5420e358055287e68459
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 14:30:01 2009 -0700
+
+    views.main: Remove unused 'selection()' method
+    
+    This is preparation for the next series of commits which will
+    move information about which filenames have been selected into
+    a standalone selection model.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9ed3b35ebb8b6c14b05f8862f9ba76277298f69e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 14:17:31 2009 -0700
+
+    models.main: Propery detect files that have been changed upstream
+    
+    We weren't using the merge-base which leads to false positives.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 97f9a39e320d43b5ab11a3bfabf92b2935b8e054
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 14:10:13 2009 -0700
+
+    models.main: Move 'diff_filenames()' into the gitcmds module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c7202246e09beeb79c3f2798e4771d61d6903849
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 14:04:52 2009 -0700
+
+    models.main: Calculate current/tracked branch earlier on
+    
+    These values are used to calculate branches that are changed upstream
+    so set them before gathering that information.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 76b86ecb91bd88c7e69bde7ef66108790132ab9b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 13:57:28 2009 -0700
+
+    models.main: Move 'corresponding_remote_ref()' into the gitcmds module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5f526d5efe59d77d2d76deb09b7c0c40485a11ad
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 13:43:19 2009 -0700
+
+    cola classic: Speed up the GUI by only diffing files with status
+    
+    We were blindly emitting 'diff' signals, even if the file was
+    uninteresting.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d2c5a35f61c6dc42ff648270dc53fe1b11f4612d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 13:22:03 2009 -0700
+
+    cola classic: Issue Diff commands when clicking
+    
+    This modifies the classic view to issue diff commands as
+    filenames are selected.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5cced30bc3e8695fe0584804fdb45f54bce5c10e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 13:21:14 2009 -0700
+
+    models.base: Remove an outdated TODO note
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 883c7e7cc0687ea99468a3b1012338a1e8c91974
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 3 10:10:50 2009 -0700
+
+    controllers.main: Removed unused imports and refactored shutdown code
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1cab89db16bceab7af631cb94c3af7b2a191e6e5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Oct 2 04:16:09 2009 -0700
+
+    cola classic: Use the 'updated' message only to infer model changes
+    
+    The model used to emit special signals that the classic view watched.
+    The GitRepoModel now observes the main cola model and keeps track of
+    of its own state.  This will allow us to eliminate the specialized
+    signals which are currently used by the classic view only.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 85ba75889ed68cea8a39276bed43bc7d6169f923
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Oct 2 04:13:08 2009 -0700
+
+    cola classic: Use the cola notifier in the repo tree view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ff433d9736965db262a4c4055917ed8f77478a74
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Oct 2 01:38:36 2009 -0700
+
+    cola.cmdfactory: Enable undo/redo to allow AmendMode to recall messages
+    
+    AmendMode knows how to recall the previous commit message by inspecting
+    the undo/redo stack.  This re-enables the stacks to enable this feature.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fcfeeda4264e198cee6dca1d053de0a6b37a70e3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Oct 2 01:22:44 2009 -0700
+
+    cola classic: Minimize memory usage
+    
+    We were carrying around references to GitRepoEntry instances
+    when we could have looked them up in the GitRepoEntryManager.
+    This removes the redundant references to minimize memory usage.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 814b7e069294ae670d5068c238d872b8681a3529
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Oct 2 01:16:38 2009 -0700
+
+    controllers.main: Remove redundant call to update_tab_width()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bfb661691d44e8862e6c35e455b3894f34d4af9a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Oct 1 16:54:59 2009 -0700
+
+    cola.git: Raise ValueError when given bad values in shell_quote
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 331918c7b9ef770bddef40e77899f7797bc4c2ed
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 29 14:38:51 2009 -0700
+
+    models.gitrepo: Use uppercase constant names for GitRepoSignals
+    
+    We now use non-Qt signatures in the signals used for thread communication.
+    The signal defines were made into upper case variable names to better
+    signify that they are constants.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1a8b27bd62c2c81366a5002f5a4f2456d9f5d542
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 02:55:53 2009 -0700
+
+    inotify: Hide the 'Rescan' button when inotify is enabled
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 629114eca4745823f2837a3adacf64dc909a7c7e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 02:55:09 2009 -0700
+
+    inotify: Factor inotify thread management out of the main controller
+    
+    The inotify threads are now started outside of the controllers in
+    main().  This will enable the standalone classic view to take
+    advantage of inotify.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit aa76b81b7c6b72d9d6be58d7df55e413e27f9a3b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 02:30:13 2009 -0700
+
+    main: defer command registration until after the cwd has been set
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 687420e7ebb877d83cd2599a1cccefadfc33ba7b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 02:28:55 2009 -0700
+
+    cmdfactory: Disable the undo stack until the GUI component is ready
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a35aede30562d29d41c932ab6b37e78fa233952d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 02:24:23 2009 -0700
+
+    controllers.main: Add missing import
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0475e7f2da610fe625542f1a27d1871961eaae5d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 02:10:59 2009 -0700
+
+    cmdfactory: Factor out the qtutils dependency
+    
+    The qtutils dependency broke the build because we were
+    requiring UI components in core.  The UI listener now
+    registers itself at runtime.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 40ab16803d9ce817895868130de90fd98e995256
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 25 00:01:13 2009 -0700
+
+    controllers.classic: Use the static model instance
+    
+    There was a .pyc laying around that prevented me from seeing
+    this problem.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6f7a9487ca5c6e6bfc795ee762910f602a6593bc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 03:47:31 2009 -0700
+
+    views.main: Bring back the 'Stage Changed' button
+    
+    It says 'Stage' now, though, and stages everything if there's
+    nothing selected.  Otherwise, it stages the selection.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ee35e75cb0e711068404125b4554135a854cb1b3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 03:36:11 2009 -0700
+
+    commands: Add a Mergetool command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7b5ea063f196696caf663c2e9cfdeea024af7d20
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 03:08:04 2009 -0700
+
+    README: Update the bugtracker blurb
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 81bf2e019f759164349704cd20c36c0288844e3d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 03:02:42 2009 -0700
+
+    README: Link to the git-cola homepage
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b8757e65944eed1b612da613b21143ce3afea7c4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 02:52:23 2009 -0700
+
+    classic: Use the notifier to run commands
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e4e97d7cb2e6bb02fef9056b2fb42c3ddb32dfd1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 02:51:20 2009 -0700
+
+    commands: Update the visualize history commands
+    
+    We shouldn't use 'sh -c'.  This probably was a win32 workaround,
+    so we'll revisit this later.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f82313992fb08f01eacae671c82d84bd16ed7751
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 02:17:53 2009 -0700
+
+    commands: Remove the need to implement is_undoable() in subclasses
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9054d821f714568af9030796e41ed3696d3f270a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 02:08:48 2009 -0700
+
+    commands: Add a Difftool command object
+    
+    Difftool implements a command object for running git-difftool.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2552cf916d3442aa6f1250e3656f765331c3bb7b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 02:08:06 2009 -0700
+
+    views.status: Include the staged mode in the difftool signal
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 754bf807f9f027c1e2196544eafdddc1c232a292
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 02:07:33 2009 -0700
+
+    controllers.main: Remove unused edit_file() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 018fbdd0db01df062587302f33dc72f8b3ddd289
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 01:50:22 2009 -0700
+
+    views.status: Restore selection on rescan
+    
+    This makes it so that the status tree's selection is preserved
+    across the 'updated' callback.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d7aafa6f36648cd91d16f13d010b9a4ab8a518ed
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 01:49:24 2009 -0700
+
+    commands: Don't set 'filename' in Diff
+    
+    The Command base class already sets 'filename' so don't set it again.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 13eaa396dc8235da02e677d5806a7e94b6adc3b0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 01:48:21 2009 -0700
+
+    controllers.main: Remove more unused methods
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9573057eb1216492e75c9a98e43ebf8c2220c105
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 01:47:57 2009 -0700
+
+    views.main: Restore the scrollbar value when updating
+    
+    This keeps the view at the current location when using
+    interactive diff staging.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 905aeaf9048967f3ee407cc1f0c66d2842045f40
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 01:46:35 2009 -0700
+
+    doc: Add the diffparse module to the sphinx documentation
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f108e10a9514e016f61895f676ae020fd7605ded
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 01:46:08 2009 -0700
+
+    README: Mention the mailing list and bug tracker in the README
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c8c874a7fe36e3d3f09c1de64d2ba149e1734808
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 00:55:01 2009 -0700
+
+    commands: Re-run a diff when processing diff selections
+    
+    Re-run the diff when processing diff selections so that we
+    get immediate feedback about the effect of the command.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0ac5e259f774b524b2f7f5738b6f7479c871ce10
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 00:53:46 2009 -0700
+
+    views.status: Fix the double-click callback
+    
+    The file names are lists, not single values.
+    The command object expects lists, so pass them through as-is.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 61f73f5aa41e9b845153428b397f7b047be8d9ec
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 00:27:05 2009 -0700
+
+    commands: Add a CheckoutBranch command and use it
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b0004646fc26a8e3688cbc97c4a35ee2a063b3ef
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 24 00:02:17 2009 -0700
+
+    controllers.options: Fix the interactive tab width control
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8e679265a0b329d3fd114b6e1bce4b355642c552
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 23:46:55 2009 -0700
+
+    commands: Add a DeleteBranch command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f46c61b71f18392532e378103053f06eb0044269
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 23:33:04 2009 -0700
+
+    qtutils: Log using the static notifier
+    
+    Log is now implemented in terms of notification.
+    This means that logging can be handled independently of the GUI.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f5f008fc101c5247febdd2794f1fa67934c8c318
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 23:31:37 2009 -0700
+
+    commands: Add logging to the commit and staging commands
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 96267246cb27049f39be99e08fe828be7e4f64e7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 23:18:08 2009 -0700
+
+    views.main: Move the branch menu actions into the main view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c5ff56e23b7f4ff8138792735e929b47b1d54343
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 20:42:09 2009 -0700
+
+    controllers.repobrowser: Simplify select_file_from_repo()
+    
+    This removes the need to pass 'model' and 'parent' to select_file_from_repo().
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d8978407fc3687a005685b39df579f9cf91061f6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 20:41:06 2009 -0700
+
+    views.ListView: Guard against None parents
+    
+    Qt might not have an active window and thus widget.parent()
+    returns None.  We now gracefully handle this scenario.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 67a3e1ff9d4ba7c458919e5856c5cd2adb9693d1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 20:16:05 2009 -0700
+
+    controllers.util: Remove the need to pass 'parent' to  choose_from_list()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 346a25be4423200d1cbec3d16592638e92614c15
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 20:15:07 2009 -0700
+
+    views.standard: Remove the 'parent_view' attribute
+    
+    This field is useless now that the views are decoupled and
+    communicate using the notifier.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fc4f212efdbeacfb51028ad3cd031b241dd4d60a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 19:50:33 2009 -0700
+
+    controllers.util: Remove the need to pass 'parent' to choose_from_combo()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 393f063f2cab78e99e6f75acb06fa86bf65ba83c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 19:43:16 2009 -0700
+
+    views.main: Add callbacks for the repository browser
+    
+    This moves the repo browser callbacks into the main view,
+    further minimizing the role of the main controller.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 35e0635f3d92448d33276d648f77c3ca3377efc6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 19:37:25 2009 -0700
+
+    controllers.repobrowser: Import QtGui only instead of each class
+    
+    This changes the imports so that we only import QtGui and use the
+    classes contained within instead of importing QDialog and QMenu
+    directly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 16bd4306a815c468b4071b6df0537599f0b8c3e4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 18:22:02 2009 -0700
+
+    models.main: Fix the tests for {stage,unstage,revert}_paths()
+    
+    The old code would silently call update_status() so that its view
+    of the world was up-to-date before issuing git commands.
+    
+    The tests check for this behavior, so reinstate the original
+    behavior from the classic model.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4781fde8e2955e5e5648c2635beac7a30198043b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 18:19:49 2009 -0700
+
+    tests: Fix the models.observable test cases
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 291f31f2cd9ac25867d8b847e3cb2f0f11b7a6fe
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 17:44:11 2009 -0700
+
+    commands: Clear the diff display when running the Commit command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5eb1b5c3faeb5971cf37e2cd9b531707068fce45
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 17:41:50 2009 -0700
+
+    views.main: Handle cherry picking and patch exporting in the main view
+    
+    Consequently, the commit browser moved as well.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 87fe058e15007e4a6c5524031086690e9e1f65e8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 17:40:49 2009 -0700
+
+    signals: Add 'cherry_pick' and 'format_patch' signals
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5413c73e3dbd4048433e268723be4046f14cb1ad
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 17:39:58 2009 -0700
+
+    commands: Add a FormatPatch command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2130f0ad275539abc3bc2c70547c0a4af33d9168
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 17:39:43 2009 -0700
+
+    commands: Add a CherryPick command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e79fa8f55295a14f43d2efe145e6e34e62f37bf5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 17:10:59 2009 -0700
+
+    controllers.selectcommits: Remove the need to pass in a model and view
+    
+    We now default to using the static model instance so there's no
+    need for callers to supply the model.  Additionally, instead of
+    passing in the view we use Qt's active window.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 00dcfa41fbbe9b135aeb32b362ae570b937651c0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 16:58:49 2009 -0700
+
+    views.main: Move bookmark callbacks into the main view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e148196edb36691a9c447d120aa9b99142c7c314
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 04:11:30 2009 -0700
+
+    views.main: Implement 'clone' and 'open' using editor commands
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f0b54a82ae925048ba0f2a86ca5f2635b3ed3711
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:48:08 2009 -0700
+
+    commands: Add VisualizeAll and VisualizeCurrent commands
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 632bf2f75b3a02f2f4fb168a28bf5d763f2dab1c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:25:41 2009 -0700
+
+    views.main: Add titles to the commit error messages
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c6da4234e78c1d15e4e739ae3673dc4e8f2690e7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:18:45 2009 -0700
+
+    views.main: Handle the commit comparison menu actions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6ff79b1540d4f85e0caf5e73934f553556873327
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:11:58 2009 -0700
+
+    commands: Add a StageModified editor command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bd48484d92cea21f2b495f7d241e4caf7376f264
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:09:09 2009 -0700
+
+    commands: Add a StageUntracked command object
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a89716b46256b11dd677ecc6ff093c5aee548c69
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:01:58 2009 -0700
+
+    views.main: Show the current row in a human-friendly way
+    
+    Count rows starting from 1 instead of 0 like a computer.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5d95762477742d2f3da4ee7cd8e0af212d7f8d55
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 03:00:29 2009 -0700
+
+    cola.commands: Add an UnstageAll
+    
+    The unstage-all command resets the git index.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit eabd0af7339de288924f038324f254aa4a259156
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:55:05 2009 -0700
+
+    views.mainwindow: Remove redundant menu entries for cola-classic
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 41277f217ad77813dc722b982fc0766786cc3951
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:51:23 2009 -0700
+
+    views.main: Handle the help menu in the main view
+    
+    This removes the help menu callbacks from the main controller.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 351d778d3641e90ebdd4ca28b83d901c250caec2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:42:07 2009 -0700
+
+    views.main: Move the options callback into the main view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1082c7f76ef3c33fd699013c2a3ea3046e6c4ec0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:37:55 2009 -0700
+
+    views.main: Move merge/abort callbacks into the main view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ea8f50fc4bb7d91d179a0b133a99438599b7ed73
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:29:27 2009 -0700
+
+    views.main: Handle the Edit menu
+    
+    This removes the edit menu handling from the main controller.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 398392054911939964465802f4d35c1bced8b417
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:25:08 2009 -0700
+
+    views.main: Handle the CompareBranches action
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 07bcdc2101ffcf67491917b6daae3cb4b80b23c8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:24:43 2009 -0700
+
+    commands: Add a missing import for the DiffParser
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5892501380148eec7157f03d1abfb3ddd86ea795
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 02:01:51 2009 -0700
+
+    search: Move the search callback handler into the main view
+    
+    This is more remove-code-from-the-main-controller work.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b8d1fb235fc9964eb60d942f1a9b047311e9211e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 01:48:02 2009 -0700
+
+    commands: Move the delete-files code into a command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e5cd420884d99b197f0967bf6715da671a398819
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 01:28:52 2009 -0700
+
+    views.main: Move the stash callback into the main view
+    
+    This removes the callback handler from the controller.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cea878b757f57d050640248ddb5a8228354efd0c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 01:16:17 2009 -0700
+
+    views.main: Use the ApplyDiffSelection command
+    
+    This moves behavior from the view into a command where it belongs.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9221de6e39387e87df201972df92ce73eca27273
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 01:14:54 2009 -0700
+
+    commands: Add an ApplyDiffSelection command
+    
+    This command applies patches and patch-subsets.
+    This implements the visual patch selection backbone.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3002e39456dc79e5423b0d94284da6b7d234a244
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:17:30 2009 -0700
+
+    commands: Add command implementations
+    
+    This libifies many of the operations cola was performing
+    in the main controller.  We'll keep gutting controllers
+    until we have commands for everything.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f676dedff1823a4de5a3629ac076b08ad88a4144
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:16:03 2009 -0700
+
+    cola: Remove DiffParser from utils
+    
+    It's in cola.diffparse now.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ecdabb6521e9398a53d3ee749a0b78e90aba9d30
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:15:40 2009 -0700
+
+    controllers.main: Remove the status_tree and other UI work
+    
+    The main controller is starting to get twisted apart.
+    This removes a good portion of the duties the controller
+    was performing.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1849a8f0fd764f493ba13c6b4badaa1d3727e0e2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:14:37 2009 -0700
+
+    views.main: Take all UI code from the main controller
+    
+    The philosophy is that views should broadcast signals for
+    the command factory to interpret.  This moves all of the
+    user interaction code in the view module where it belongs.
+    
+    The corresponding commands are in subsequent commits.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4b6fee0597ff79d1c6c8b6ea0dc91c698d979a7b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:13:16 2009 -0700
+
+    cola.main: Scan for changes outside of the Qt loop
+    
+    Bootstrapping happens outside of the Qt event loop
+    since that'll be removed from the main controller in the
+    next series of commits.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7de60cffd4bfd993b6826dcac4181686eaee6f01
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:11:47 2009 -0700
+
+    models.main: Remove add_signoff, add getcwd()
+    
+    add_signoff is becoming a command.
+    getcwd() is remembers chosen directories for next use.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 303dbb52b45aa5561a2f052a70401eba68248438
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:10:43 2009 -0700
+
+    views.status: Generate more signals in the status tree
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c1cfd5674e91eaef6ad84715653d92150349d8f1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:09:47 2009 -0700
+
+    cola: Add diffparse.DiffParser
+    
+    This helps break the utils module apart.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ddc577a1dc39266f3dd8cb654ab5928f5711ab66
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:08:41 2009 -0700
+
+    views.mainwindow: Simplify the main ui code further
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3ba6d9d331bb1fef0035f84ea969fb5ea3ae4401
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:07:20 2009 -0700
+
+    controllers.remote: Use the static model instance
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a1ee759dba31b6e4a91f84611eef02d4508700cd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:06:36 2009 -0700
+
+    notification: Add a debugging environment variable
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 757b8376587c7b1a71bda164a2a86c65206be069
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:05:49 2009 -0700
+
+    observable: Update docstrings to show better examples
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 42a191567b87b71feb923b7d185a05c088dc76e9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:02:33 2009 -0700
+
+    commands: Add an AddSignoff command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a771d52b0e867af2a52290b90f76b8f427e99cd2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 23 00:00:49 2009 -0700
+
+    commands: Handle common model params in the base Command class
+    
+    This adds handling for diff_text, mode and head to the base
+    command class.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c3dde8a855a9cd03d85ff38273b3f560533e2ae7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 23:56:57 2009 -0700
+
+    signals: Add more signals used by cola
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 182a983d6cfb9e6e35e79ffcb745b327c176369a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 23:56:04 2009 -0700
+
+    cola: Remove the 'classic' model
+    
+    This updates all tests and documentation for the classic model
+    removal.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1b1517845d5156b464509309027433be6d5ab086
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 23:54:59 2009 -0700
+
+    classic view: Use the static main model instance
+    
+    This removes the dependency on the classic model.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 94982ce8d917c01c6090049d65e6db9293faf406
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 23:52:57 2009 -0700
+
+    cmdfactory: Observe model parameters
+    
+    The cmdfactory converts model notifications into messages
+    that are picked up by the Qt observers.  This adds more
+    messages to its notification list.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0baac33b7869f0edba6f839c3dd21bdb9f46a853
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 23:47:50 2009 -0700
+
+    models.main: Absorb the classic model
+    
+    This makes things more convenient for now.
+    This files still needs to be broken apart into models.util.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a274eecd0a58c9d4a89c183ee166f33d3f3a0414
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 23:33:17 2009 -0700
+
+    cmdfactory: Add docstrings
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 70f1c3d0d5aa7713044c14781b4de9123abf8593
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 22 22:14:28 2009 -0700
+
+    utils: Add checksum() and quote_repopath()
+    
+    checksum() returns an md5 hash for use on commit messages.
+    quote_repopath() works around shell behavior on win32.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c3e86d20d722094a8a9fbbc9e4eabe845c22ef5c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 16:00:47 2009 -0700
+
+    views.main: Set a minimum height on the auxillary button
+    
+    This fixes a problem where the layout wasn't showing the entire
+    contents of the "exit <mode> mode" button.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cf9a03e45e4333c0e89810dd30b9d5ef1a993eae
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 15:36:09 2009 -0700
+
+    views.mainwindow: Move signoff and commit buttons in the editor
+    
+    This moves the signoff and commit buttons into the commit message
+    editor dock.  This streamlines the UI so that all commit message
+    controls are in the same visual space.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3e7a8999dfb1c9ed0cca2d3a3b8ae3542d1c0689
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 15:34:53 2009 -0700
+
+    views.main: Show row along with column in the text-position display
+    
+    This moves the text-position display out of the actions button dock
+    and into the commit message editor.  The display also gives warnings
+    when lines are too long; yellow, orange and red backgrounds are used
+    at the 64, 72, and 78 character-wide boundaries.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e5a4a236e6ea766c6159aae04b6ce6e8a46a9607
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 15:30:20 2009 -0700
+
+    views.main: Replace amend radio buttons with a checkbox
+    
+    This uses less screen real-estate.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f8564e61164b5ab02b0d962a198b9d8232913bea
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 15:25:11 2009 -0700
+
+    qtutils: Make SLOT take optional arguments
+    
+    If callers do not pass in any values when SLOT is called then we
+    relay the values passed in by the callback invoker.  When values
+    are provided then we prefer those values over the ones available
+    when the callback is invoked.
+    
+    This makes it so that values provided at registration-time
+    override run-time values from the signal.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c0a2a57adf0d8ea02120ebc66fbf85114fdb2c8c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:57:06 2009 -0700
+
+    controllers.main: Remove handling for the amend UI elements
+    
+    UI interaction is directly handled by the view and
+    model state management is handled by the command object
+    so don't do anything in the controller.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e98dc7c470d5a9a60d9e0c654f9794be76198c3b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:55:08 2009 -0700
+
+    __init__: Export the command factory module's factory() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 744c9abbfcb9063622c0e290f6046041009573e2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:52:26 2009 -0700
+
+    views.main: Respond to 'amend' notifications
+    
+    This register signals to handle the amend UI elements.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2b505db6bbf752dec9d7f8cb2a21d45c68314a56
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:50:04 2009 -0700
+
+    commands: Add an 'AmendMode' command
+    
+    AmendMode attempts to enter amend-commit mode.
+    Commits are amended when in this mode.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 12899cf139df96861c889557faa8df00796cc836
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:48:43 2009 -0700
+
+    views.mainwindow: Remove the 'Load Previous Commit Message' action
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8998db543cc21c45443238ddbd0da792b0f7edc6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:46:19 2009 -0700
+
+    signals: Add amend, edit, information, and log_text signals
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cdd3daa5112192094cc7d9b905e7791c1d798faf
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:43:12 2009 -0700
+
+    commands: Make commands undoable by default
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f445a31a6509abd081ae6f4909fcce359c6583ad
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Sep 19 13:40:45 2009 -0700
+
+    cmdfactory: Do not register commands in the factory
+    
+    This removes the command registration from the factory.
+    Registration is now done by the cola.commands module in main().
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 90dd7199de1ea421647fe50f79fec9ac6c3d6e08
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:19:21 2009 -0700
+
+    cmdfactory: Observe the 'current_text' model attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8341deb6ef41dae17c037d3253ae907edff6e8ea
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:19:00 2009 -0700
+
+    cmdfactory: Add the Diff and ResetMode commands
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fb4669dc182046dfa0d01a2d4e946b5d23ce9ca8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:18:24 2009 -0700
+
+    commands: Add a Diff command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fbaf4fdc049df8b6bc745c97dd8675c4a6096bed
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:18:10 2009 -0700
+
+    commands: Add a ResetMode command
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 55100b49c6fa87fa33b3895f8641975b6e617f08
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:17:37 2009 -0700
+
+    commands: Update diffstat function to not issue notifications
+    
+    Notification is handled internally by the set_current_text call.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b7716f0c8127a6820a086b6126f9a8765d996239
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:16:15 2009 -0700
+
+    commands: Add docstrings to the base Command class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 67c15a34d6c4556b293ef2b81647646c69a4ca25
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:15:03 2009 -0700
+
+    cola: Add a gitcola module and move the GitCola class there
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0d60e6c12a7713a6178f39336cf9cb76ef2f4113
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 03:12:05 2009 -0700
+
+    errors: Add a GitInitError class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0c59c561e336c8b76353c0980b13e0acf5131fdd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:46:20 2009 -0700
+
+    main: Instantiate the command factory on startup
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0541f334592dbeacfb61d712826937728d83a674
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:44:52 2009 -0700
+
+    cola: Add a command factory for generating editor commands
+    
+    The factory singleton is in charge of {un,re}do and mapping cola signals
+    to commands.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 501db700d919ea12b8e6863b62034085555ccd10
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:40:58 2009 -0700
+
+    cola: Add a 'commands' module for state-modifying commands
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 28f4853d385268ded24245254b16e959da40e9d5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:38:48 2009 -0700
+
+    views.main: Listen for 'text' messages from the cola notifier
+    
+    The main display now updates itself via the messaging interface.
+    This allows any object to update it by issuing text signals over
+    the notifier.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 848d07fbaedb6b5fe0941f67b8dbc88a32643d75
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:36:42 2009 -0700
+
+    cola.notification: Add a 'listen' method for listener registration
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 85870c5e4df6ddb275a6ee13b48955527f0a994f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:33:51 2009 -0700
+
+    models.main: Add a current_text field around diffstat.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 96893a045c2a36ec68d50473030370c2054ec1d9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 18 01:29:36 2009 -0700
+
+    signals: Add a 'text' signal for updating the main display
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3ce22bf641a9f8d63e92610eac5a9bde7cd55404
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 22:36:20 2009 -0700
+
+    views.status: Add selection and single_selection methods
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 18d6355a0ad44528190bebcdc550230ab2588b8d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 22:34:18 2009 -0700
+
+    views.status: Add a selection callback for broadcasting Qt signals
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 432b5f9c212f8ad169ef0da0eb40b0727ff5a817
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 22:32:03 2009 -0700
+
+    views.status: Add context menus to the status tree
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e7c14e92fcd2eac94f5b1971e4fe2ee230a40bd9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 22:26:45 2009 -0700
+
+    models.main: Initialize mode to mode_none
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 41abccd7be8105a14dc45f65052b32fa15320256
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 22:26:09 2009 -0700
+
+    qtutils: Add a SLOT method for broadcasting signals over the notifier
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1e7b9f0e84ec61b3a9eb7f49ecae3ba047edd936
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 16 22:55:22 2009 -0700
+
+    views.status: Add convenient selection methods
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bc72594684f276b80e8e229675ab030d1f5fd44f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 00:39:22 2009 -0700
+
+    cola: Add a 'notification' module to provide cola.notfier()
+    
+    The notifier is used to broadcast Qt signals globally.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit df2e73354f158d066dd987ddc8b37412f49e37fb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Sep 17 22:25:19 2009 -0700
+
+    cola: Add a 'signals' module for storing common Qt signal definitions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bb3f16600de57407987b2c0412b0b11a74699718
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 16 22:51:59 2009 -0700
+
+    doc: Add cola.views.status to the sphinx module index
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f90613af283bb732cda7268d7d62ef8efcbf8fcd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 16 22:49:05 2009 -0700
+
+    views.status: Add a docstring for the status widget
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b56fd7e9903e8ab15629d46e641ba3e8f7cccdfd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 16 22:03:04 2009 -0700
+
+    models.main: Update branch_status to know about changed_upstream
+    
+    We forgot to update this function when the tracked_branch feature was
+    added to the classic view.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f6348644c4d3d76bc73d63e5b755d1e13c9ca810
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Sep 16 21:56:20 2009 -0700
+
+    views.status: Automatically expand category folders
+    
+    This opens each category list when items are added.
+    We only expand the category folder once so that users
+    can choose to keep a category closed.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3a3015bef5aebec04de08c958e8ffbb9fbfe34a6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 21:16:21 2009 -0700
+
+    cola.views: Add a 'status' module to replace the existing status view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ed9dde31e2b9df3d353cf71b2ff6bd1fded10eca
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 21:15:57 2009 -0700
+
+    views.main: automatically expand top-level items
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c4169adfa9b3e5ea0f90e537cc98dafba5c4ac28
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 03:57:23 2009 -0700
+
+    models.main: Use git diff ..origin/master to check for upstream changes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e91efd4f3004cae75a417fb51acf9fd5ccd36529
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 02:21:06 2009 -0700
+
+    views.mainwindow: Update the logger when the font changes
+    
+    This adds the logger to the font-update hook in the
+    main controller module.
+    
+    Closes #20
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b3910538e10db8f497aeab97f40bf4d776684789
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 01:54:55 2009 -0700
+
+    ui: Remove the unused commit.ui file
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit be95d6135f7e984fdf6214562cb786fb95a6dadf
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 01:54:01 2009 -0700
+
+    controllers.repobrowser: Use the new SelectCommits view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ba0827a5339c3ddb246ec294408a05ee2d62f46d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 01:53:13 2009 -0700
+
+    controllers.selectcommits: Use the new SelectCommits view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ff7fec729aae210667c08ba5586236fe4814010b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 01:52:27 2009 -0700
+
+    views: Add a SelectCommits view
+    
+    This class will replace the codegen .ui class.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4993a04394079cb94e8d14423cbbaeda63882780
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 01:51:38 2009 -0700
+
+    models.main: Add mode states
+    
+    This will let us know when we're in special states such
+    as diff-mode.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 63db0e9294241125250213d54afa941f2934472d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 15 01:51:10 2009 -0700
+
+    models.main: Add an 'updated' notification message
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6189e11c8b2c2db3fbbec70b3cd9f700bc0555b1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:57:25 2009 -0700
+
+    controllers.main: Use the qtutils font functions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 215d13fc969571d0ee6bb6b72473bdbfdd67cd8a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:56:46 2009 -0700
+
+    controllers.options: Use the static model instance
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dde1d7f638c32f3d50288497bb927fae55a48272
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:53:03 2009 -0700
+
+    cola classic:  Use the static model instance in the clasic view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 65d6048a1a177ab5058dc0ec799b5c42bece9b5e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:36:03 2009 -0700
+
+    views.main: Use qtutils font management functions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fb9dbc5672b4c7f2c7fc29e134de89f095661fb0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:31:02 2009 -0700
+
+    models.main: Update git config handling for fonts
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1a31a1b9675af68f4bbde302ab2cb0592a0568a3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:23:23 2009 -0700
+
+    qtutils: Add font management functions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7e682fe21a6c51edd1f8059ae6958ed407fb1a50
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:22:41 2009 -0700
+
+    utils: Add an is_darwin() function
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3a0b6bd7fc580488d9fddaa839fa0a5df2b6ea6a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:22:13 2009 -0700
+
+    qtutils: Remove unused functions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 602fa077b6434af7f092def2b0a651fa2eaf4bc7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:20:45 2009 -0700
+
+    cola classic: Add a function to return a static instance
+    
+    model() provides a static instance of a ClassicModel.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 111c90526982bde8dbe7c8555d303b5c8f0af017
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:03:47 2009 -0700
+
+    models.main: Add a function to return all files in a repository
+    
+    everything() returns tracked and untracked entries in one shot.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 10b0f1627c433296e9d0b34240025fc4285aa9f5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 23:02:39 2009 -0700
+
+    models.main: Add a function returning a static model instance
+    
+    The model() method makes it easy for callers to access the main
+    model instance.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 76ded5384b1d0af17622367cccca9cf832cc4f2e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 22:51:36 2009 -0700
+
+    qobserver: Properly handle QFontComboBoxes
+    
+    This changes QFontCombobox to match the newer Qt API.
+    Instead of modifying the in-place currentfont we now create a
+    new QFont instance and vivify it from the model's value.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4dc300de6b90f31a8f6dc375d435b644e17a2998
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 00:12:53 2009 -0700
+
+    cola.qtutils: Use a separate dictionary create_treewidget_item
+    
+    create_treewidget_item and cached_icon shared the same dictionary for caching,
+    so make create_treewidget_item use its own cache.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bc78c5e5b015345a6b394807cb05ed846720ca36
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 00:11:12 2009 -0700
+
+    cola.utils: Add missing errno import
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f73b97bdd1720d6b93f706e49b6318e72604d7e1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 00:10:51 2009 -0700
+
+    cola.ui: Remove unused logger.ui file
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cf60c19be62e7c5b1f6988cc4424a5a49a9b901e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Sep 14 00:06:14 2009 -0700
+
+    cola: Inherit the system default font
+    
+    We no longer support the cola.fontui configuration setting.
+    cola will always inherit the system default font which
+    simplfiies things for users and makes cola integrate
+    better style-wise with other applications.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c803b6a1b61669ed68ff48e4dbd8257a703e95c2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 11 03:04:18 2009 -0700
+
+    cola: Remove the 'model' module
+    
+    This completes the refactoring to eliminate the cola.model module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 639f6c37d2aa501b6fca7114a2ee070e3c9e33e2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Sep 11 03:01:47 2009 -0700
+
+    cola.models: Add a 'base' module and BaseModel class
+    
+    This is the first step in a refactoring to eliminate the
+    cola.model module.
+    
+    Signed-off-by:  <davvid@gmail.com>
+
+commit ffdf9c636e0524c323ccb7dd5990aba5a8f3622c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 1 02:09:24 2009 -0700
+
+    cola.qtutils: Move translation calls into helper functions
+    
+    It was previously the caller's responsiblity to translate the
+    strings used by 'prompt', 'question', and 'information'.
+    
+    This moves the translation calls into the functions and thus
+    removes the burden from the callers.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a595965aee8736b70cc90ad416823be4c1cde312
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 1 02:06:44 2009 -0700
+
+    cola.git: Remove mentions of 'input'
+    
+    This renames the 'input' variable used in 'shell_quote' to avoid
+    using the same name as the Python builtin.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 13cc9f3e9aef27d4d4585ca5d07744f0cef2dffd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 1 02:05:04 2009 -0700
+
+    cola.utils: Remove mentions of 'input'
+    
+    This commit renames 'sanitize_input' to 'sanitize' and removes
+    any changes the function to avoid the using variables named
+    'input'.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8900b704feee6b59d8373753d4b8f959f881f671
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 1 02:02:43 2009 -0700
+
+    cola.qtutils: Rename 'input' to avoid the Python builtin
+    
+    qtutils.input is now qtutils.prompt.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fb655db4d966dcfde8d2c4211818e6347fb705db
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Sep 1 01:59:16 2009 -0700
+
+    search: Add a custom model for the search dialog
+    
+    This eliminates the TODO for writing a custom search model.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 406abbd56ffd2cb36438d1eaab491ba2e1df6e73
+Merge: 0b0b0db 944ca12
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 22 17:20:10 2009 -0700
+
+    Merge branch 'maint'
+
+commit 944ca1252f2f5e6bbd17f8a6fc4718144138bd26
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 22 16:27:48 2009 -0700
+
+    cola.models.gitrepo: Store a reference to the GitRepoInfoTask
+    
+    PyQt will garbage collect QRunnable tasks unless we are careful
+    to store a reference to the task upon creation.
+    
+    This fixes a segfault(!) on PyQt 4.5.
+    http://github.com/davvid/git-cola/issues/#issue/18
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0b0b0db2965485b56a9c275894be432bf08dc908
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 21 01:12:06 2009 -0700
+
+    cola.model: Remove more magic
+    
+    cola.model previously provided closures over attributes for calling
+    getattr(self, 'x') as self.get_x().  This is unused so remove it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7e6ebf79a503f7fe1ede5c68d104bfce48800707
+Merge: 0becbc5 18cbc33
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 19:34:29 2009 -0700
+
+    Merge branch 'maint'
+    
+    Conflicts:
+    	cola/models/main.py
+
+commit 18cbc33b4c0c0640d4e2ce8981fa787724c5b5db
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 19:32:08 2009 -0700
+
+    cola.models.main: Fix a bug when pushing branches
+    
+    This was reported by Vacecchin on mailing list.
+    http://groups.google.com/group/git-cola/browse_thread/thread/4c8d21cb40aca90b
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0becbc594313a65fef20ab5c8a3766defd61fe6e
+Merge: 307e258 7b266ab
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 17:16:36 2009 -0700
+
+    Merge branch 'maint'
+    
+    Conflicts:
+    	cola/main.py
+
+commit 7b266ab3d59be66d45b7e872368faeb91e7e3a5b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 17:14:54 2009 -0700
+
+    cola.views.main: Defer expanding top-level items
+    
+    Expanding top-level items at startup causes X errors.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 307e25860beb7423a962277948828972d22fdaf2
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:49:43 2009 -0700
+
+    cola.models.main: Call worktree_state earlier
+    
+    This makes sure that the 'unstaged' attribute is properly
+    initialized.  Not doing so can make the unstaged list empty,
+    thus resulting in status tree events that do nothing.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e8ad3e0807357696879b110100ec5a403c635c5d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:47:02 2009 -0700
+
+    cola.models.main: Remove rename flag for tracked branches
+    
+    We shouldn't check for renames if upstream changed because
+    we don't handle it and things are simpler if we treat renames
+    as a simple add and deletion.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f6310c1697fd375712a3957fcbe92dd3e45c190a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:45:08 2009 -0700
+
+    cola.views.main: Remove show_editor()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5ebdb1402f0cc8a7ca3ac669c636602699cf0554
+Merge: 10a2f49 2e879d8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:59:08 2009 -0700
+
+    Merge branch 'maint'
+    
+    Conflicts:
+    	cola/controllers/main.py
+    	cola/models/main.py
+    	cola/views/main.py
+
+commit 2e879d830e4828a6f065ef67086e7bbc17156185
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:37:04 2009 -0700
+
+    cola.views.main: Handle None in set_display()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3142c93433ab50822b8b61386962da7b0e8a3906
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:36:47 2009 -0700
+
+    cola.qtutils: Handle None in set_clipboard()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 47bff97d9bf688edd487b92f8621f2a018b828e7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:36:17 2009 -0700
+
+    cola.models.main: Properly handle renames
+    
+    Instead of trying to parse the rename information,
+    simply ignore renames and treat them like an add and
+    remove, which is exactly what the GUI wants to display
+    anyways.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6963e486311227f03f3c8539465bd8f983cde020
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:35:13 2009 -0700
+
+    cola.models.main: Do not use --patch-with-raw
+    
+    We don't need the raw patch output so don't ask for it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2288385ef2b2530e5cad5a937c7a1f4a5ac461ca
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Aug 19 16:25:26 2009 -0700
+
+    cola.controllers.main: Explicitly initialize the mode attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3be5dffb7d0db26da72727d8396a3a3851b9a2eb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Aug 18 18:55:03 2009 -0700
+
+    cola.utils: Handle interrupted system calls from platform.system()
+    
+    Stupid OSX.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 10a2f494e36a277cd76aba6b2570c4c2615e5776
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Aug 18 18:55:03 2009 -0700
+
+    cola.utils: Handle interrupted system calls from platform.system()
+    
+    Stupid OSX.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 92522469936f19341e0827385aee8ec5452231a4
+Author: Uri Okrent <uokrent@gmail.com>
+Date:   Sun Aug 16 20:00:07 2009 -0700
+
+    Detect upstream path changes on tracking branches
+    
+    In the classic view, when the current branch is tracking a remote
+    branch, detect when there are changes to paths on the tracked branch.
+    The 'Changed Upstream' status is lower priority than local changes
+    (e.g., if a file is changed upstream, but is also locally modified,
+    the classic view will show it as locally modified, but not changed
+    upstream, since that is probably just confusing and there is limited
+    space in the status area).
+    
+    A corresponding new action to 'checkout updated file' should be added
+    to the list of actions for paths, and enabled when the path is
+    'changed upstream'.
+    
+    Signed-off-by: Uri Okrent <uokrent@gmail.com>
+
+commit fa5e223963e111234fbb4d1186fea9fb4911ba25
+Author: Uri Okrent <uokrent@gmail.com>
+Date:   Sun Aug 16 14:51:46 2009 -0700
+
+    cola.views.main: guard against silliness with str
+    
+    Signed-off-by: Uri Okrent <uokrent@gmail.com>
+
+commit 7d46572905c11f74a111c72ff0b378f50522d3da
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Aug 16 12:56:18 2009 -0700
+
+    cola.views.standard: Position windows beneath their parent's titlebar
+    
+    This modifies the show() method to position new dialogs lower
+    on the screen such that their parent's titlebar are no longer
+    obscured.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 08ac8e2b4a5347ce5623ac04b05fb517e8bf4bab
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 14:09:48 2009 -0700
+
+    ui: Remove the merge interface file since it is now unused
+    
+    This file is unused now that cola.views.merge is integrated.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3d95098c7b1b3bc749bf172600778a5ef96b5966
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 14:06:54 2009 -0700
+
+    cola.controllers.merge: Integrate the new MergeView
+    
+    This replaces the .ui-based MergeView with the new one provided
+    by cola.views.merge.  This also moves some code from the
+    controller into the view where it rightfully belongs.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1517d8c95a002ba6c1d3572435517487441e3c5a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 13:27:47 2009 -0700
+
+    cola.views: Add a merge view
+    
+    cola.views.merge will replace the merge dialog provided by
+    the .ui file.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3e40338a2917c71223b55f2b81b0ae9dfb8c2333
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 13:00:55 2009 -0700
+
+    cola.controllers.merge: Use existing model attributes
+    
+    Reuse exising model attributes in the merge controller
+    to avoid having to add them at runtime.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cc3e7574b83b1696c9b2d062b4c90889e87327b3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 12:50:26 2009 -0700
+
+    cola.models.main: Move project and git_version attributes into MainModel
+    
+    This removes the monkey-patching done in controllers.main by moving
+    attributes into the model.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0a75b75e465c4a901176ada6fb1394521dff3c24
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 12:46:23 2009 -0700
+
+    tests: Eliminate Makefile redundancy and add a test_flags variable
+    
+    The top-level Makefile now delegates to the test/Makefile when
+    running tests.  This removes the repeated nosetests commands
+    in both Makefile and test/Makefile.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 52c5a4635f50c2b57f3a7fbfded691a0f5da6178
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 04:44:09 2009 -0700
+
+    cola.models: Wrap compare-specific attributes into a custom model
+    
+    This adds a CompareModel to encapsulate the attributes specific
+    to the compare-commits actions.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d76984b27761b0478902eaa04379d35fd298680d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 02:56:19 2009 -0700
+
+    doc: Document qtutils, views.log view.mainwindow, and views.syntax
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 45ccd675c7247174a178d59e6c33b6b186d0bb13
+Merge: 7928c09 be3e2f5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 02:27:27 2009 -0700
+
+    Merge branch 'maint'
+
+commit be3e2f5dddf43bc2287e317eba376fd06d18d171
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 02:16:54 2009 -0700
+
+    doc: Make conf.py a phony Makefile target
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 76ff0d8ad185153eb9e253ce2228e86650b35904
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 02:16:22 2009 -0700
+
+    cola.controllers.classic: Expose public methods
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 195bf9c82b1b6c5b49f623dcfb4f53e31d234ee3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 01:37:22 2009 -0700
+
+    doc: Document the classic view modules
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cc2f574b1ce9613aaf168842f348a1ef970504e6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 01:33:49 2009 -0700
+
+    doc: Update the Makefile to not show rsync progress
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7928c09e5cef9d5a41664012c87dbe97fef8b19f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 00:36:58 2009 -0700
+
+    cola.views.mainwindow: Dockify the 'cola classic' widget
+    
+    This adds a dockwidget for the 'cola classic' tool, thus making
+    it just like any other cola widget.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 110a122409bdfc69ebf6d6905b99e8fb4779e808
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 00:35:37 2009 -0700
+
+    cola.controllers.classic: Add a 'widget' convenience method
+    
+    The 'widget' call allows us to easily create a 'cola classic' widget.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a6e0d2c9a6fdbcfd51ab2c6c276f24dbd9de97df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Aug 15 00:33:55 2009 -0700
+
+    cola.views.mainwindow: Add menu entries for all of the cola tools
+    
+    This adds each dock widgets' toggle-view action to the tools menu.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4b11222a8f3832998274ba2e45bd02eca14eba71
+Merge: c94687f b7c534a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 22:41:40 2009 -0700
+
+    Merge branch 'maint-v1.3.9'
+
+commit b7c534a9a4ae2996b93cd735b9ea270cf3f03b9c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 22:41:32 2009 -0700
+
+    userguide: Add the classic view shortcut keys
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c94687fa367b0a098f8c3e310b98fa69102d4b0c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 13:20:00 2009 -0700
+
+    cola: Add a --classic command-line flag
+    
+    The classic view can now be run in standalone mode by running:
+    	git cola --classic
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c8252789f3dd924e7cb087413f62e7a28f9238c3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 13:11:50 2009 -0700
+
+    cola.views: Remove the unused drawer widgets
+    
+    The new UI doesn't use the drawer widgets so remove them.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bc1e30afc41094a4a776fa09029f66aeb8c059ac
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 02:51:46 2009 -0700
+
+    ui: Remove the old main window interface file
+    
+    We no longer use pyuic for the main window so remove its .ui.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bb1c92d13ed12a8bd191518e83c91b7a019984a3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 02:50:50 2009 -0700
+
+    cola.views.main: Integrate the new MainWindow class
+    
+    The cola UI is now based upon dock widgets and is thus much
+    more flexible.  Individual interface elements can now be
+    rearranged and configured at runtime.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d5164942bfeb03fe118fa85e757a1e99888e6038
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 02:46:25 2009 -0700
+
+    cola.controllers: Remove the 'log' module
+    
+    This removes the last remains of the old logging system.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bde58dd67680a2676ea138ff793196f88a6352df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 02:45:46 2009 -0700
+
+    cola.views.log: Integrate the new logger
+    
+    This removes all references to the old logger and adds the
+    bootstrap method to qtutils for creating the log widget.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1ef9beb68b95dee68a00bc6b3362395892824fb7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 02:43:25 2009 -0700
+
+    cola.views: Add a new LogView class
+    
+    This simple widget is going to replace the pyuic-based widget.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7405485930d61847a81450dd713b83d780d05c9f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 01:27:01 2009 -0700
+
+    cola.views.mainwindow: Introduce MainWindow
+    
+    MainWindow is slated to replace the main cola UI.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8a96018f76a968be0a04d207f3a72d527b0ce94a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:39:34 2009 -0700
+
+    test_cola_model: Update the tests to remove the magic getters
+    
+    We no longer need the magic getter methods so don't test them.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 783601f1838153f011a6e3d97a31ddeaa8160535
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:37:32 2009 -0700
+
+    cola.views.standard: Refactor the class closure
+    
+    This exposes a new create_standard_widget function which is used
+    as a building block for create_standard_view.  This allows us to
+    decorate simple Qt widgets with style and preference methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fa764eaa68b38d5a194519179e28c8af3ddc4980
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:35:44 2009 -0700
+
+    cola.views.syntax: Death to 'get'
+    
+    This makes the syntax module consistent with the rest of cola.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f7edf914e49b39fbc352b530b1bb3f72d3e9866d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:35:16 2009 -0700
+
+    cola.qobserver: Allow nameless widgets
+    
+    QObserver previously required that all widgets provide a unique
+    object name.  QObserver can now work with nameless or arbitrarily
+    named widgets.  This decouples the controller from the view and
+    also makes it simpler to write new views.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 012ed5fe4f98beca89835c2fad736a4c1ef0ac00
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:31:53 2009 -0700
+
+    cola.model: Death to 'get'
+    
+    This finally removes the last remaining bits of the 'get_*' magic.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6ad07e279458cfc05337ea3aed04e9cb81889db5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:26:22 2009 -0700
+
+    cola.utils: Make run_cmd easier to use
+    
+    run_cmd() now takes a list instead of using *args for no reason.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1fc0f44a7066785ce35bcb175912d1ba7c22929a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:25:25 2009 -0700
+
+    cola.version: Death to 'get'
+    
+    This makes cola.version consistent with the rest of cola.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3bead4b6a7321a0aed0f46b6e864ddfeffcbf0b9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:15:49 2009 -0700
+
+    cola.controllers.util: Death to 'get'
+    
+    This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 28bc6df8f6dab1cb9d135afae0ee903f78855450
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:09:44 2009 -0700
+
+    cola.controllers.stash: Death to 'get'
+    
+     This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0faf4e011f665bb83ecedd859288adaafbb7ec21
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:09:05 2009 -0700
+
+    cola.controllers.selectcommits: Death to 'get'
+    
+     This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 04f1a7a39a956d1b7aeb64545fde9c402a405e1a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:07:46 2009 -0700
+
+    cola.controllers.search: Death to 'get'
+    
+     This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2d15bc253b4fd0ca08f385a6c4f6989f297c5342
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:07:02 2009 -0700
+
+    cola.controllers.repobrowser: Death to 'get'
+    
+     This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit aa9f075c13c46abe978a99ab91c5117342cbb038
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Aug 14 00:03:41 2009 -0700
+
+    cola.models.main: Death to 'get' for config methods
+    
+    This removes the use of the magical 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4092a02c5e2e8d303d19003b0ee682e9152737a3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 20:32:16 2009 -0700
+
+    cola.settings: Death to 'get'
+    
+    Writing getters is very unpythonic.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f1beaee649dc77047113eb12b213296fe10e1a32
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 20:24:22 2009 -0700
+
+    cola.controllers.{main, merge, remote}: Death to 'get'
+    
+    This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2308c9215b6e07561fef2e870bd3b202f3f78c49
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 19:59:47 2009 -0700
+
+    cola.controllers.createbranch: Death to 'get'
+    
+    This removes usage of the magical model 'get_*' methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 919bbb16d9a89e4f957e849409365eed508f9317
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 19:59:03 2009 -0700
+
+    cola.controllers.compare: Death to 'get'
+    
+    This removes usage of the magical model get_* methods.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ff323db57f2f3b8518df8c77d26b59232642f0e6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 19:52:13 2009 -0700
+
+    qtutils: Death to 'get'
+    
+    Writing getters is very unpythonic.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d44eecfefdcad07bd7bb18b51c3bd150cb996b89
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 19:35:35 2009 -0700
+
+    cola.models.main: Death to 'get'
+    
+    This replaces get_history_browser() with history_browser()
+    and get_editor() with editor().
+    
+    Writing getters is very unpythonic.
+
+commit 4eecad9c990b5cab4cb0f24f923197b2910a15b9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Aug 13 19:28:38 2009 -0700
+
+    cola.app: Death to 'get'
+    
+    Writing getters is very unpythonic.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8221f8b4dbcd78354bd8c646e930055f231240a3 (tag: v1.3.9)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:47:17 2009 -0700
+
+    cola.main: Defer showing the GUI until it has been raised
+    
+    This makes the GUI appear to startup faster since it is already raised
+    when it initially appears.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ba092d3da6dec1ea2fb480e9d11d2fe2780aa154
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:43:19 2009 -0700
+
+    cola.controllers.main: Add 'Cola Classic'
+    
+    The tools menu now has a functioning 'Cola Classic' browser.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a7da3ff03e76101cc0c9fa409707f05011f6c637
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:39:00 2009 -0700
+
+    cola.controllers.classic: Add a function for launching the classic view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ce542b525cd015451235f34c588d0c250f8873df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:18:48 2009 -0700
+
+    cola.gui: Add a 'Cola Classic' tools menu entry, resize the CommitView
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 559253e311dac2aa214b5443a79ee9c0ecb25683
+Merge: ae745aa 69e0c7a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:14:44 2009 -0700
+
+    Merge branch 'classic'
+
+commit ae745aa1b418d8aaed37849c0fdd3fe02bd75e89
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:14:26 2009 -0700
+
+    cola.app: Wrap setStyleSheet() to fix custom styles
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 69e0c7a348e5987a690659be6b221895cc1ebcd0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jul 18 23:04:02 2009 -0700
+
+    classic: Add 'Launch Editor' to the tree view widget
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cb1e8aa6fe6d35d5fbfde604633a60047e7f47b8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jul 13 17:45:35 2009 -0700
+
+    simplejson/ordered_dict: Support Python2.4
+    
+    The ordered_dict popitems() method was using a syntax that was not
+    understood by Python2.4, so use a backwards-compatible syntax.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d68e29700909082b10c16335028a3b4022cc799a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 30 03:41:45 2009 -0700
+
+    views/repo: Use a helper function for setting the column sizes
+    
+    This refactors things to use a function instead of an inline
+    lambda for setting the column sizes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 30ac94119f5949a682db02b35e2aec2ea1a56a66
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 30 03:37:47 2009 -0700
+
+    classic: Rework header columns
+    
+    The header columns are now:
+    	Name, Status, Age, Message, Who
+    
+    'Name' is the file path.
+    'Status' is the paths' status.
+    'Age' is the time since the latest commit.
+    'Message' is the subject of the latest commit.
+    'Who' is the author of the latest commit touching the path.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e2f490c223349fd0674c03cd51da6c3c7adbc99f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 25 07:26:25 2009 -0700
+
+    classic: move the difftool_predecessor logic into the controller
+    
+    Launching the 'select commits' dialog and processing the results is
+    a task for the controller, not the view.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1c6522cee7033a7a77bb11672adb7d256cc646c4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 23:12:55 2009 -1000
+
+    views/repo: store the app model in an instance variable for simplicity
+    
+    Instead of calling self.model().app_model we now store a reference
+    in setModel() and use it throughout the RepoTreeView.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 94acaa7c8ac7fd45b807e3f461729b8261a842fc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 23:10:12 2009 -1000
+
+    views/repo: change the 'View History...' shortcut to avoid clashes
+    
+    Cmd+H is 'Hide' on Mac OS X.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4eb65529f2437847d8cc70c03ec2444d1051a161
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 22:58:04 2009 -1000
+
+    views/repo: add Vim keybindings to the RepoTreeView
+    
+    Git users are power users, so support vim keybindings.
+    We might want to be able to configure this in the future.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f9c2c11015b4605d4cfe36cac0fb2a15de486acd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 22:52:10 2009 -1000
+
+    views/repo: improve performance by setting uniformRowHeights
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 060d535cc342199f31fc885465c2bdd5d795d671
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 22:51:09 2009 -1000
+
+    views/repo: fix selected_tracked_paths()
+    
+    selected_tracked_paths() was not considering unmodified entries as
+    tracked.  It now looks uses information from tracked, staged,
+    and modified entries when deciding if a path is 'tracked'.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a8fccf5a8ad26c6306086e049db3eeda48efb429
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 21:39:20 2009 -1000
+
+    views/repo: update all shortcut keys to use a modifier
+    
+    We now use Ctrl+<Key> for all shortcuts.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f2e83544a7bfa4c4126744849a6eb9aee78db8d4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 21:22:42 2009 -1000
+
+    views/repo: update actions when paths are updated
+    
+    This updates the notfication hook so that it update the available
+    actions when the model changes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8f822c15fcf1ca98d346a7b65721e3fb6394e3b4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 19:44:46 2009 -1000
+
+    views/repo: add a 'Diff Against Predecessor...' action
+    
+    This teaches the RepoTreeView to diff paths against previous versions.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 999ad492946fe6ee1dd43dede63930493158afef
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 19:43:20 2009 -1000
+
+    models/main: add the ability to pass extra arguments to log_helper
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 03bc79848a52e40ee39622079ada369011666cd3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 19:42:53 2009 -1000
+
+    controllers/selectcommits: set the main UI font in select_commits
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 57b743e0b0dfe0ed11033cb313e0f3cf39ab1ff5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 19:42:28 2009 -1000
+
+    ui/commit: disable line-wrapping by default
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8eb683489505b62f892d074d096f5c2ac88da598
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 19:42:08 2009 -1000
+
+    views: add an option to disable multi-select in the CommitsView
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b30546aafc3cc8197d835a11d8bfecb716d0c0bc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 18:44:06 2009 -1000
+
+    views/repo: automatically select the first entry when expanding
+    
+    We now select the first entry by default when directories are expanded.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b6815b929c808798d7640a92e1287293985b3966
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 18:16:29 2009 -1000
+
+    classic: add a 'Revert Uncommitted Changes...' action
+    
+    This adds the MVC hooks to views/repo and controllers/classic to
+    enable reverting paths back to their committed state.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7d82503e6d979cae4780e637859ffa3c64ca371b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 18:14:40 2009 -1000
+
+    models/classic: add a 'revert_paths' method
+    
+    'revert_paths' removes local changes by reverting file paths back to
+    their content in the latest commit.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d9005f16538c828ecf763f35b4382f2bb5eb6cfa
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 18:11:55 2009 -1000
+
+    classic: allow difftool to be run on multiple paths
+    
+    The 'View Diff...' action now accepts multiple paths.
+    We can now select a directory or multi-select individual items
+    in the treeview when launching difftool.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d03c1bd09e6a3bd5aaffeea7879a32edeec3138f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 18:07:55 2009 -1000
+
+    models/observable: guard against bogus message names
+    
+    This adds a register_messages() method to Observable for handling
+    message registration.  Unknown messages raise ValueError when
+    observers attempt to connect to them.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 099067d3df018cfc89743076c124ee63901deae9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 14:07:35 2009 -1000
+
+    views/repo: only allow difftool for paths that are staged or modified
+    
+    We should not enable difftool for untracked paths.  This changes the
+    update_actions() logic to disable difftool when the current path is
+    an untracked file.
+    
+    A new helper 'selected_modified_paths()' method was added so that
+    we can detect whether a path is modified.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c514ff1f4687c27cef037073cdefc581fccd7fae
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 14:03:49 2009 -1000
+
+    views/repo: add a current_path() method and use it in difftool()
+    
+    current_path() returns the path to the current item in the treeview.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b39d9f3fc3b71e9fac9ee84760e0096233cae55b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 11:54:32 2009 -1000
+
+    classic: add a 'View Diff...' action to the RepoTreeView
+    
+    The classic RepoTreeView now supports git-difftool by using the 'D'
+    shortcut key.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4b59a5a19da44641d26815a6023c5bb49e40fd70
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 11:53:05 2009 -1000
+
+    views/repo: remove misleading '..' characters from non-dialog actions
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9853b7ac0ee6cfba9dd963c7df2ddc1ade0fa5c3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 11:34:52 2009 -1000
+
+    views/repo: update available actions when the selection changes
+    
+    Actions are dependent on the selection so teach selectionChanged()
+    to update the available actions.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6342cfd10ce72d9c8bff7e549ddff710c444b359
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jun 24 11:23:07 2009 -1000
+
+    views/repo: move the cursor to the parent directory on Key_Left
+    
+    When Key_Left is pressed we should automatically move the cursor
+    to the parent directory when the cursor is either on a file
+    entry or a collapsed directory.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 97587163a64b4e54d9b097444b03a75abd874e02
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 23:43:36 2009 -1000
+
+    classic: add an 'unstage selected' action
+    
+    This adds the appropriate MVC stubs for supporting 'unstage selected'
+    in the classic repo tree view.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6e7d1c77c57b58a21ef3e5e414040d35529031d0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 23:41:44 2009 -1000
+
+    views/repo: add context menu entries for 'stage selected'
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b2a2428b83c1338b525bff66c031406eb37e633b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 23:10:34 2009 -1000
+
+    models/classic: add an 'unstage_paths' method
+    
+    'unstage_paths' removes paths from the staging area and notifies
+    observers about newly unstaged paths.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 85ae55a2bd2b89583aba31999f7d1b53bb24ab21
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 23:09:23 2009 -1000
+
+    models/classic: properly handle untracked files in stage_paths()
+    
+    We weren't properly detecting newly-staged files that came in as
+    a result of staging a subdirectory.  Detect this condition and
+    add a testcase.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 54724a64e11f80c6cc2252dce1c203be6e16b323
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 22:23:10 2009 -1000
+
+    models/classic: s/paths_staged_message/message_paths_staged/
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4e8a773ce88245a3da81c74addb8b593fe33a36e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:41:43 2009 -1000
+
+    models/classic: make stage_paths() easier to use
+    
+    stage_paths() is now more resilient to changes done behind
+    its back.  This updates the test to reflect the simpler API.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4ffb544197139678fd6e64eded937ffedd636d91
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:22:41 2009 -1000
+
+    models/gitrepo: handle untracked items in GitRepoModel
+    
+    GitRepoModel now knows about untracked entries.
+    'Last Modified' information is gathered by querying the filesystem.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 56d10d420c3c47980d8e4791547b0a51a532289f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:18:43 2009 -1000
+
+    models/classic: add an 'everything' method to return all files
+    
+    'everything' returns the combined output of 'git ls-files' and
+    'git ls-files --others --exclude-standard' in a sorted list.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b6a59881fd28419f210feda5348db71f326b5a0d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:14:26 2009 -1000
+
+    classic: use observation for handling updates to 'staged' files.
+    
+    The controller no longer modifies the view directly.
+    Instead, the view registers for the 'paths_staged' message
+    from the model and reacts accordingly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6d691711944cb5b060e38e876364e813544f348a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:05:33 2009 -1000
+
+    views/repo: shuffle some functions around for better readability
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2f1db8f5b2ed6882e8d41908ae9af00239056328
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:03:48 2009 -1000
+
+    models: add a ClassicModel for use by the RepoTreeView
+    
+    The ClassicModel has specialized functions for use by the RepoTreeView.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 17b7abf8065be327cbdc01cc870e118b02230c7b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 21:00:54 2009 -1000
+
+    models/main: handle unicode decoding within the all_files() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dbb2476b13888064ce20853978eb4eb8eb737013
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 20:58:35 2009 -1000
+
+    models/gitrepo: add a GitRepoModel.entry() method
+    
+    This makes things easier to read by adding an entry() method and
+    using it in add_file() / add_directory().
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit de5155f265b44f818f2082e41090d6a2b33a9b2d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 20:48:00 2009 -1000
+
+    models/gitrepo: fix a bug when adding directory entries
+    
+    We now use insertRow() / appendRow() when adding rows to
+    GitRepoItems.  This fixes a bug where directories were overwriting
+    existing file entries.
+    
+    This introduces a _create_row() method to handle creating a
+    GitRepoItem for each 'Status', 'Modified', etc. cell.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1c65b14faaa85585327cd22ea9e6e69ef77a9ec9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 20:28:55 2009 -1000
+
+    models/gitrepo: add translation calls for headers and status labels
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 34cc62a44bb692c6d4bb6b88169f208148691f1e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 20:22:24 2009 -1000
+
+    models/gitrepo: use utils.add_parents()
+    
+    This updates GitRepoInfoTask to use the utils.add_parents() function.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 58d2760f63f43cbe87d6c8b81c7a5ac372eff631
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 20:16:42 2009 -1000
+
+    cola/utils: add a add_parents() function
+    
+    add_parents() iterates over a set and adds all parent directories
+    for each file entry to the set.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4556017936b0345be9d543dd58dcc3e5b4d29ec0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 16:30:17 2009 -1000
+
+    models: add message observers for handling more granula notifications
+    
+    'message observers' allow observers to attach methods onto model
+    notification events.  Instead of a following a specific interface,
+    observers are free to provide any Python method as an 'observer'
+    which is invoked whenever notification occurs.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 38fe56de64a2bcde200ab8be0b957043d3cae4b6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 15:57:06 2009 -1000
+
+    models/observable: refactor addition/removal of unserializable attributes
+    
+    ObservableModel's unserializable data is now encapsulated into a single
+    dictionary that is updated whenever the new unserializable data is
+    introduced.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e6664ff143e6c902de367a287e757fcd35977802
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 13:12:48 2009 -1000
+
+    models: refactor notification state to be a simple Python attribute
+    
+    Models now have a simple 'notification_enabled' attribute that is
+    accessible to the outside world.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 36024f5fe0034164f637bc9b4474c5b9ab0a1a1f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 12:55:05 2009 -1000
+
+    classic: add support for staging files from the 'classic' view
+    
+    The 'S' key can now stage selected files.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f9fbb5b2c91520e0aa4ac6f20305e1facdda3eda
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 23 12:53:32 2009 -1000
+
+    views/repo: refactor action creation into a method
+    
+    We now use a _create_action() method for creating QActions.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4309d9a3582a6ba674cb6e0718e57e967820dd13
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jun 22 00:06:23 2009 -1000
+
+    models/gitrepo: do not keep around static status data
+    
+    Using static status data will make it harder to perform tasks such as
+    'stage selected', etc. from the repo view, so make all status data
+    ephemeral.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bda9339e7bdfa1cec573ec3330ed12dfacce853a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jun 22 00:03:49 2009 -1000
+
+    controllers/classic: wait for all threads to finish before exiting
+    
+    The standalone repo view should wait for all threads to finish before
+    exiting the application.  Failure to do so causes Python to explode.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fb174a8cf61625c2f58852f74f5ca1bceb509f3b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jun 22 00:02:06 2009 -1000
+
+    models/gitrepo: make GitRepoItem.connect() take no parameters
+    
+    'signal' is already an instance variable so there's no need to pass
+    it down to connect().
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9641c0bc565e09652ca2057776160750493f958f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 22:17:20 2009 -1000
+
+    cola/git: escape the carat '^' character on Windows
+    
+    The carat character is itself a reserved shell character.
+    Thus, to type a carat character as part of a command argument,
+    type two carats instead.
+    
+    http://technet.microsoft.com/en-us/library/cc723564.aspx
+    
+    This was breaking both diff-mode and the amend-commit
+    functionality.
+    
+    Closes #13
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+    Reported-by: Jorge <boxerab@gmail.com>
+
+commit 25e052d761386321f6f998703e5289ead5f78d3d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 18:12:22 2009 -1000
+
+    cola/utils: check for filename and filename + '.exe' in fork() on win32
+    
+    When using fork() on win32 we should check for the existence of a
+    filename with and without the '.exe' extension.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3c7f662b270dd91fdfbce94019d92daccdc61706
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 18:11:56 2009 -1000
+
+    models/gitrepo: mark directories with status information
+    
+    We now traverse parent directories and mark them with status information
+    corresponding to their child entries.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e6b03d3c178d46053ce01302835faa0fcf90cbe9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 18:06:04 2009 -1000
+
+    models/gitrepo: use utils.dirname and utils.basename
+    
+    This updates cola.models.gitrepo to use the utils.{dir,base}name
+    functions consistently.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 386e50408793f1a69192d079b856d61c5df18f56
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 18:00:29 2009 -1000
+
+    utils: make utils.basename more robust and add utils.dirname
+    
+    This adds a utils.dirname() implementation for cross-platform use.
+    We don't use os.path.{dir,base}name since git always uses
+    '/' regardless of platform.
+    
+    This also adds a testcases for dirname and basename.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e7fff06e73b098aabf4cd6354cea59603c5c9dc9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 16:10:01 2009 -1000
+
+    controllers/classic: optimize the update() criteria
+    
+    We used to spawn a new thread for every column in the tree view.
+    We only need to spawn one, actually, since all of the columns
+    re-use the same entry and thus calling update() three times is
+    wasteful.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 237ae18ebe498b9e31056344c63ecfdfbb423cba
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 12:11:00 2009 -1000
+
+    classic: launch update threads as directories are expanded only
+    
+    We were previously creating new threads for every single path in
+    the repo at once.  We now spawn threads as new directories are
+    exposed.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4af149697744fc440b4cb0daf539daf1dd5393da
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 12:08:42 2009 -1000
+
+    models/gitrepo: add GitRepoItems for directory entries
+    
+    Directories now have the standard 'Name', 'Status', 'Message',
+    and 'Last Modified' headers.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2e76874d6dfc3c64e7ef193c8cbc4b5cfa23a16d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 12:07:06 2009 -1000
+
+    models/gitrepo: properly handle unicode when querying path info
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 43fef127dd4ffc3fd3f720ff6e847d57dd144611
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 12:04:30 2009 -1000
+
+    views/repo: add an item_from_index() method
+    
+    item_from_index() returns the GitRepoItem corresponding to a
+    QModelIndex.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5ad99b254bed21757f6d1e5335b98e6a1def178c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 11:17:19 2009 -1000
+
+    models/gitrepo: drop the --no-merges flag
+    
+    It is completely conceivable that a path was only ever been touched by a
+    merge so we shouldn't use --no-merges when looking up data about that
+    path.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6031eae7722fb5105a16f401fb168f431b617a2c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 01:32:12 2009 -1000
+
+    ui/main: fix a typo in the File -> View Log menu item
+    
+    The File > View Log menu item was misspelled as File > VIew Log,
+    so fix it.
+    
+    Closes #14
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 55b67cfc472b187129bf75a296badd21e768d298
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 01:30:05 2009 -1000
+
+    classic: add more columns and update them asynchronously
+    
+    We now use a QThreadPool to update information about items
+    in the repo view.  Status information is gathered in the
+    background so that the GUI can load more quickly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 222b6b4bcacbd472beb4740968ac6154846d8751
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 20 01:27:54 2009 -1000
+
+    views/repo: set column size on collapse as well as expand; use animation
+    
+    Collapsing as well as expanding tree items now resizes the 0th column.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 83fdae261ca4aaee4b39a5c2950e3345d8267fec
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 23:03:52 2009 -1000
+
+    views/main: clear the diff display when exiting diff mode
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 948d4e82c52fd85ac7653d9cadbbe23fcc923024
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 14:16:08 2009 -1000
+
+    models/gitrepo: use standard file and directory icons from qtutils
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 510d53459aa42c3c55b84a5039a294e96e7ab543
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 14:15:35 2009 -1000
+
+    qtutils: add file_icon() and dir_icon() functions
+    
+    These functions return standard icons for files and directories.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 981ca7bda4472b16445ef5e53d5d5b3bbb3b3cbe
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 13:49:48 2009 -1000
+
+    models: use QStandardItemModel as the base class for the new GitRepoModel
+    
+    Using QStandardItems allows us to simplify things since they handle
+    much more vs. the QAbstractItems we were using previously.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3353ba1aadf96cf51574e40f1da71119bda85a94 (drag-drop-patches)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 02:44:47 2009 -0700
+
+    INSTALL: mention pyinotify >= 0.7.1
+    
+    Gentoo reported that pyinotify 0.7.0 is broken so mention
+    that we require pyinotify >= 0.7.1.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 356d1f47e0b2d0ab7dae811272b760198fae9afe
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 01:49:50 2009 -0700
+
+    views/main: introduce {enter,exit}_diff_mode() and use it
+    
+    This introduces a convenient enter/exit_diff_mode() method on the
+    main view and teaches the main controller to use it when appropriate.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7ebc3b30cec8f6bcdc3355ffeef2613ef2c139dd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 01:25:59 2009 -0700
+
+    models/main: properly handle diff expressions with whitespace
+    
+    We did not properly handle 'HEAD^ HEAD' because of the embedded space.
+    We now properly handle this by splitting arguments before passing
+    them along to git.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2fdcc1662846c59a483b449113a33bb9f8d0028a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 01:09:14 2009 -0700
+
+    models: introduce get_diff_by_expr() and use it in the main controller
+    
+    We no longer rely on heuristics when deciding how to construct
+    arguments intended for git diff.  The controller knows what mode
+    it's in and thus never rely on heuristics.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8a9726ef2d2ac674a82551499c7eb49f4baa9df9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 00:50:22 2009 -0700
+
+    models/main: use a more robust method to detect when not to use --cached
+    
+    We were incorrectly passing --cached in some instances when using
+    `diff-by-expression` or `diff-mode`.  This fixes things so
+    that we are more robust to free-form input.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cae2b6e47ef290c7f39048c701e5e2772cfdaeb9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jun 18 00:35:51 2009 -0700
+
+    branch review: use $(git merge-base HEAD branch)..branch in review mode
+    
+    We used to use ...branchname when showing the diff for review mode.
+    We now use `$(git merge-base HEAD branchname)..branchname` since it
+    is more robust.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 66cd8a8ed7948a5d573bcb277a46e155dc5fe312
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 16 21:23:10 2009 -0700
+
+    controllers/main: always use 'HEAD' when undoing changes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ccf1ca126c6d607a63e8e5d56567c3d5554c7352
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 16 04:16:43 2009 -0700
+
+    classic: handle the 'history(QStringList)' signal from the RepoTreeView
+    
+    We now launch the configured history browser on the selected paths.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit db946108aaf8e6230373bd2273a18fabbaed7d91
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 16 04:16:11 2009 -0700
+
+    views: add a RepoTreeView for use in the classic view
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a3b6fb5cc0380c2d4ce56bef054c25818c63be84
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 16 04:15:41 2009 -0700
+
+    gitdirmodel: store the original git path in a read-only 'path' property
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cbeae4ef7b1217004a15ccdff5ff3db9195161eb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jun 15 02:59:09 2009 -0700
+
+    classic: move model initialization code into the model itself
+    
+    The (currently empty) controller knew too much about the model's
+    internals, so refactor that knowledge it into the model itself.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 99e6dfbc0076115e86eb9acf7f28c6c8457cafb4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat May 2 16:56:54 2009 -0700
+
+    controllers: add a 'classic' module to implement a tkcvs-like view
+    
+    Users have often asked to see the status of their entire project.
+    The 'classic' controller provides this behavior.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5ca3c53ccde21205ff74857b9681d8ee58ee0dd9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat May 2 16:55:08 2009 -0700
+
+    models: add a gitdirmodel module
+    
+    The gitdirmodel module provides the GitDirModel class for
+    use by the Qt model/view architecture.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 42e7ec3e34035ad1e80e1fc43ca6ccf11d103169
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat May 2 16:47:45 2009 -0700
+
+    models.main: added a all_files() helper method
+    
+    all_files() is a helper method around 'git ls-files -z' that returns
+    a list of all files in a repository.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8616d2feba0a53eabcb9e2fe20382ea07395b178
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Jun 14 03:48:44 2009 -0700
+
+    doc: tag sphinx documentation with the proper release + version
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9751d6c8ee0811f40eb7727e8503c4a723a92810 (tag: v1.3.8)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sun Jun 14 02:53:10 2009 -0700
 
@@ -143,7 +4412,7 @@ Date:   Sun May 24 20:04:30 2009 -0700
     
     Signed-off-by: Uri Okrent <uokrent@gmail.com>
 
-commit b341236095f6895ecddd57c4d9c0ec9e9f0a936d
+commit b341236095f6895ecddd57c4d9c0ec9e9f0a936d (roots/master)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Fri May 15 02:21:35 2009 -0700
 
@@ -758,7 +5027,7 @@ Date:   Mon Apr 20 01:27:23 2009 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit e492cd9eb1c1c0a7e696bf13a3359a384e404bba (tag: refs/tags/v1.3.7)
+commit e492cd9eb1c1c0a7e696bf13a3359a384e404bba (tag: v1.3.7)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Apr 20 01:15:00 2009 -0700
 
@@ -1222,7 +5491,7 @@ Date:   Thu Mar 26 03:00:06 2009 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit a3a86efe2db2ad029fdbfbacac24abde716f00fe (tag: refs/tags/v1.3.6)
+commit a3a86efe2db2ad029fdbfbacac24abde716f00fe (tag: v1.3.6)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Mar 19 01:44:10 2009 -0700
 
@@ -1799,7 +6068,7 @@ Date:   Sun Jan 25 16:27:24 2009 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: refs/tags/v1.3.5)
+commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: v1.3.5)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jan 19 19:09:46 2009 -0800
 
@@ -2311,7 +6580,7 @@ Date:   Thu Dec 25 17:20:46 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit fd3a43bef15b51350256e31d6ae2a1df996a3497 (tag: refs/tags/v1.3.4)
+commit fd3a43bef15b51350256e31d6ae2a1df996a3497 (tag: v1.3.4)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Dec 25 14:05:12 2008 -0800
 
@@ -2512,7 +6781,7 @@ Date:   Sun Dec 7 22:02:38 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit c8c4838f488be76751457275ae32eac2fe603d8f (tag: refs/tags/v1.3.3)
+commit c8c4838f488be76751457275ae32eac2fe603d8f (tag: v1.3.3)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Dec 4 23:13:36 2008 -0800
 
@@ -2688,7 +6957,7 @@ Date:   Wed Nov 19 16:36:02 2008 -0700
     
     Signed-off-by: Barry Roberts <blr@robertsr.us>
 
-commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: refs/tags/v1.3.2)
+commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: v1.3.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Nov 18 03:35:25 2008 -0800
 
@@ -2896,7 +7165,7 @@ Date:   Thu Nov 13 00:07:49 2008 -0700
     
     Signed-off-by: Barry Roberts <blr@robertsr.us>
 
-commit 2e5c32841cb8a450f1dfe3b60c718228f289ff51 (tag: refs/tags/v1.3.1)
+commit 2e5c32841cb8a450f1dfe3b60c718228f289ff51 (tag: v1.3.1)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Nov 12 02:47:53 2008 -0800
 
@@ -2961,7 +7230,7 @@ Date:   Fri Nov 7 22:16:52 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit b251185f1d896eb169f96556d573cc58a16c9211 (tag: refs/tags/v1.3.0)
+commit b251185f1d896eb169f96556d573cc58a16c9211 (tag: v1.3.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Nov 6 21:15:54 2008 -0800
 
@@ -3769,7 +8038,7 @@ Date:   Sat Sep 20 15:52:40 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 642d42d23f68acf6e53a9d6bd020f57f0c10c261 (tag: refs/tags/v1.2)
+commit 642d42d23f68acf6e53a9d6bd020f57f0c10c261 (tag: v1.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sat Sep 20 05:05:47 2008 -0700
 
@@ -4021,7 +8290,7 @@ Date:   Sun Sep 7 21:48:16 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit ac1a2bd17b2426f01f6ecf338608db55aa1e47a6 (tag: refs/tags/v1.1.4)
+commit ac1a2bd17b2426f01f6ecf338608db55aa1e47a6 (tag: v1.1.4)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sun Sep 7 21:27:06 2008 -0700
 
@@ -4174,7 +8443,7 @@ Date:   Tue Sep 2 00:30:24 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 4d0062648d6b3bbb9275c87cff18f41eff2a90df (tag: refs/tags/v1.1.3)
+commit 4d0062648d6b3bbb9275c87cff18f41eff2a90df (tag: v1.1.3)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Aug 26 02:39:12 2008 -0700
 
@@ -4312,7 +8581,7 @@ Date:   Mon Aug 11 01:28:31 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 936c963a90ce182ffd95cbc670459e5829b29ff4 (tag: refs/tags/v1.1.2)
+commit 936c963a90ce182ffd95cbc670459e5829b29ff4 (tag: v1.1.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Aug 11 01:01:51 2008 -0700
 
@@ -4584,7 +8853,7 @@ Date:   Wed Jul 30 03:57:50 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 3678e1619ee77d18e77f5b2e00f9355410e633b7 (tag: refs/tags/v1.1.1)
+commit 3678e1619ee77d18e77f5b2e00f9355410e633b7 (tag: v1.1.1)
 Merge: 68bfb55 c39e836
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Jul 30 03:23:10 2008 -0700
@@ -4805,7 +9074,7 @@ Date:   Mon Jul 14 00:54:01 2008 -0700
       cola: include GitPython to make installation simpler for users
       syntax: improve the whitespace checker
 
-commit fde6ced1edfb9762ae0f678789a0c02c2de26d08 (tag: refs/tags/v1.1.0)
+commit fde6ced1edfb9762ae0f678789a0c02c2de26d08 (tag: v1.1.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jul 14 00:44:23 2008 -0700
 
@@ -5121,7 +9390,7 @@ Date:   Mon Jun 23 23:50:53 2008 -0700
       models: add branch/rev support to diff_helper
       GitPython: updated to use Govind's latest GitPython changes
 
-commit a29d12d0b28bb8120db280cc7f26c90d2b870d37 (tag: refs/tags/v1.0.1)
+commit a29d12d0b28bb8120db280cc7f26c90d2b870d37 (tag: v1.0.1)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jun 23 23:46:06 2008 -0700
 
@@ -5257,7 +9526,7 @@ Date:   Wed Jun 11 01:16:53 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 2803194de81675c8835e8142d6c641105da8fc1a (tag: refs/tags/v1.0.0)
+commit 2803194de81675c8835e8142d6c641105da8fc1a (tag: v1.0.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Jun 10 03:05:36 2008 -0700
 

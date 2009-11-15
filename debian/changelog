@@ -1,3 +1,43 @@
+git-cola (1.4.0.4-1) unstable; urgency=low
+
+  * New upstream version.
+  * Fixed:
+    - W: git-cola: non-standard-dir-in-usr usr/libexec/
+    - W: git-cola: file-in-unusual-dir usr/libexec/git-cola/ssh-askpass
+  * debian/control:
+    - Remove XB-Python-Version: ${python:Versions} as it's not needed
+      with pysupport.
+    - B-D-I on python instead of python-all-dev.
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Sun, 15 Nov 2009 16:14:41 +0000
+
+git-cola (1.4.0-1) unstable; urgency=low
+
+  * New upstream version (Closes: #554849).
+    - Updates since v1.3.9
+      + The main GUI is flexible and user-configurable
+      + Individual widgets can be detached and rearranged arbitrarily
+      + Add an interface for creating tags
+      + Provide a fallback SSH_ASKPASS implementation to prompt for SSH 
+        passwords on fetch/push/pull
+      + Inherit the window manager's font settings
+      + The commit message editor displays the current row/column and warns
+        when lines get too long
+      + The cola classic widget displays upstream changes
+      + 'git cola --classic' launches cola classic in standalone mode
+      + Provide more information in log messages
+      + Miscellaneous PyQt4 bug fixes and workarounds
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Sat, 31 Oct 2009 15:15:31 +0000
+
+git-cola (1.3.9.14-1) unstable; urgency=low
+
+  * New upstream version.
+  * debian/control: 
+    - Bump Standards-Version to 3.8.3; no changes required.
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Sat, 15 Aug 2009 23:37:40 +0100
+
 git-cola (1.3.8-1) unstable; urgency=low
 
   * New upstream version.
@@ -5,10 +45,10 @@ git-cola (1.3.8-1) unstable; urgency=low
       Older versions of pyuic4 were implemented as a shell script instead
       of as python script.  Interestingly, an older version existed
       that didn't have a '#!/bin/sh' shebang line.
-      Use 'sh -c' to accomodate both current and older, buggy pyuic4s.
+      Use 'sh -c' to accommodate both current and older, buggy pyuic4s.
   * debian/control:
     - Add xxdiff to Recommends (LP: #386259).
-    - Add python-sphinx, rsync to Build-Depends-Indep.
+    - Add python-sphinx and rsync to Build-Depends-Indep.
 
  -- Iulian Udrea <iulian@ubuntu.com>  Sat, 14 Jun 2009 11:11:00 +0100
 

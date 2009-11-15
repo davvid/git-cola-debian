@@ -9,9 +9,12 @@ import os
 import sys
 import errno
 import subprocess
+import threading
 
 from cola import core
 from cola import errors
+
+cmdlock = threading.Lock()
 
 
 def dashify(string):
@@ -62,7 +65,7 @@ class Git(object):
             The command argument list to execute
 
         ``istream``
-            Standard input filehandle passed to subprocess.Popen.
+            Readable filehandle passed to subprocess.Popen.
 
         ``cwd``
             The working directory when running commands.
@@ -84,6 +87,7 @@ class Git(object):
             unicode(stdout)                     # Default
             unicode(stdout+stderr)              # with_stderr=True
             tuple(int(status), unicode(output)) # with_status=True
+
         """
 
         if GIT_PYTHON_TRACE and not GIT_PYTHON_TRACE == 'full':
@@ -98,7 +102,12 @@ class Git(object):
         else:
             stderr = None
 
+        if sys.platform == 'win32':
+            command = map(replace_carot, command)
+
         # Start the process
+        # Guard against thread-unsafe .git/index.lock files
+        cmdlock.acquire()
         while True:
             try:
                 proc = subprocess.Popen(command,
@@ -112,15 +121,23 @@ class Git(object):
                 # Some systems interrupt system calls and throw OSError
                 if e.errno == errno.EINTR:
                     continue
+                cmdlock.release()
                 raise e
-
         # Wait for the process to return
-        output = core.read_nointr(proc.stdout)
-        proc.stdout.close()
-        status = core.wait_nointr(proc)
+        try:
+            output = core.read_nointr(proc.stdout)
+            proc.stdout.close()
+            status = core.wait_nointr(proc)
+        except:
+            status = 202
+            output = str(e)
+
+        # Let the next thread in
+        cmdlock.release()
 
         if with_exceptions and status != 0:
-            raise errors.GitCommandError(command, status, output)
+            cmdstr = 'Error running: %s\n%s' % (' '.join(command), str(e))
+            raise errors.GitCommandError(cmdstr, status, output)
 
         if not with_raw_output:
             output = output.rstrip()
@@ -155,12 +172,12 @@ class Git(object):
                     args.append("--%s=%s" % (dashify(k), v))
         return args
 
-    def _call_process(self, method, *args, **kwargs):
+    def _call_process(self, cmd, *args, **kwargs):
         """
         Run the given git command with the specified arguments and return
         the result as a String
 
-        ``method``
+        ``cmd``
             is the command
 
         ``args``
@@ -190,13 +207,27 @@ class Git(object):
         ext_args = map(core.encode, args)
         args = opt_args + ext_args
 
-        call = ['git', dashify(method)]
+        call = ['git', dashify(cmd)]
         call.extend(args)
 
         return self.execute(call, **_kwargs)
 
 
-def shell_quote(*inputs):
+def replace_carot(cmd_arg):
+    """
+    Guard against the windows command shell.
+
+    In the Windows shell, a carat character (^) may be used for
+    line continuation.  To guard against this, escape the carat
+    by using two of them.
+
+    http://technet.microsoft.com/en-us/library/cc723564.aspx
+
+    """
+    return cmd_arg.replace('^', '^^')
+
+
+def shell_quote(*strings):
     """
     Quote strings so that they can be suitably martialled
     off to the shell.  This method supports POSIX sh syntax.
@@ -208,34 +239,33 @@ def shell_quote(*inputs):
     quote_regex = re.compile("((?:'\\''){2,})")
 
     ret = []
-    for input in inputs:
-        if not input:
+    for s in strings:
+        if not s:
             continue
 
-        if '\x00' in input:
-            raise AssertionError,('No way to quote strings '
-                                  'containing null(\\000) bytes')
+        if '\x00' in s:
+            raise ValueError('No way to quote strings '
+                             'containing null(\\000) bytes')
 
         # = does need quoting else in command position it's a
         # program-local environment setting
-        match = regex.search(input)
-        if match and '=' not in input:
+        match = regex.search(s)
+        if match and '=' not in s:
             # ' -> '\''
-            input = input.replace("'", "'\\''")
+            s = s.replace("'", "'\\''")
 
             # make multiple ' in a row look simpler
             # '\'''\'''\'' -> '"'''"'
-            quote_match = quote_regex.match(input)
+            quote_match = quote_regex.match(s)
             if quote_match:
                 quotes = match.group(1)
-                input.replace(quotes, ("'" *(len(quotes)/4)) + "\"'")
+                s.replace(quotes, ("'" *(len(quotes)/4)) + "\"'")
 
-            input = "'%s'" % input
-            if input.startswith("''"):
-                input = input[2:]
+            s = "'%s'" % s
+            if s.startswith("''"):
+                s = s[2:]
 
-            if input.endswith("''"):
-                input = input[:-2]
-        ret.append(input)
+            if s.endswith("''"):
+                s = s[:-2]
+        ret.append(s)
     return ' '.join(ret)
-

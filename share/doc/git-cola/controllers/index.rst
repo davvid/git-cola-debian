@@ -5,7 +5,7 @@ Controllers
     main
     bookmarks
     compare
-    log
+    classic
     merge
     options
     remote

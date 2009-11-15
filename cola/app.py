@@ -34,7 +34,7 @@ class ColaApplication(object):
         if not locale:
             locale = str(QtCore.QLocale().system().name())
 
-        qmfile = utils.get_qm_for_locale(locale)
+        qmfile = utils.qm_for_locale(locale)
         if os.path.exists(qmfile):
             translator = QtCore.QTranslator(self._app)
             translator.load(qmfile)
@@ -50,9 +50,13 @@ class ColaApplication(object):
         return trtxt
 
     def activeWindow(self):
-        """Wrapper around our QApp.activeWindow()"""
+        """Wrap activeWindow()"""
         return self._app.activeWindow()
 
     def exec_(self):
-        """Wrapper around our QApp.exec_()"""
+        """Wrap exec_()"""
         return self._app.exec_()
+
+    def setStyleSheet(self, txt):
+        """Wrap setStyleSheet(txt)"""
+        return self._app.setStyleSheet(txt)
