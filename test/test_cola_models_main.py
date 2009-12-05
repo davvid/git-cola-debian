@@ -1,25 +1,76 @@
-import helper
 import os
+import unittest
 
-from cola.models.main import MainModel
+import helper
+from cola.models import main
 
-class MainModelTestCase(helper.TestCase):
+
+class MainModelTestCase(helper.GitRepositoryTestCase):
     """Tests the cola.models.main.MainModel class."""
 
-    def setup_baseline_repo(self, commit=True):
-        """Create a baseline repo for testing."""
-        self.shell("""
-            git init >/dev/null &&
-            touch the-file &&
-            git add the-file
-        """)
-        if commit:
-            self.shell("git commit -s -m'Initial commit' >/dev/null")
+    def setUp(self):
+        helper.GitRepositoryTestCase.setUp(self)
+        self.model = main.MainModel(cwd=os.getcwd())
 
     def test_project(self):
-        """Test the MainModel's 'project' attribute."""
-        self.setup_baseline_repo()
-        model = MainModel()
-        model.use_worktree(os.getcwd())
-        project = os.path.basename(self.get_dir())
-        self.assertEqual(project, model.project)
+        """Test the 'project' attribute."""
+        project = os.path.basename(self.test_path())
+        self.assertEqual(self.model.project, project)
+
+    def test_local_branches(self):
+        """Test the 'local_branches' attribute."""
+        self.model.update_status()
+        self.assertEqual(self.model.local_branches, ['master'])
+
+    def test_remote_branches(self):
+        """Test the 'remote_branches' attribute."""
+        self.model.update_status()
+        self.assertEqual(self.model.remote_branches, [])
+
+        self.shell("""
+                git remote add origin .
+                git fetch origin > /dev/null 2>&1
+        """)
+        self.model.update_status()
+        self.assertEqual(self.model.remote_branches, ['origin/master'])
+
+    def test_modified(self):
+        """Test the 'modified' attribute."""
+        self.shell('echo change > A')
+        self.model.update_status()
+        self.assertEqual(self.model.modified, ['A'])
+
+    def test_unstaged(self):
+        """Test the 'unstaged' attribute."""
+        self.shell('echo change > A')
+        self.shell('echo C > C')
+        self.model.update_status()
+        self.assertEqual(self.model.unstaged, ['A', 'C'])
+
+    def test_untracked(self):
+        """Test the 'untracked' attribute."""
+        self.shell('echo C > C')
+        self.model.update_status()
+        self.assertEqual(self.model.untracked, ['C'])
+
+    def test_remotes(self):
+        """Test the 'remote' attribute."""
+        self.shell('git remote add origin .')
+        self.model.update_status()
+        self.assertEqual(self.model.remotes, ['origin'])
+
+    def test_currentbranch(self):
+        """Test the 'currentbranch' attribute."""
+        self.shell('git checkout -b test > /dev/null 2>&1')
+        self.model.update_status()
+        self.assertEqual(self.model.currentbranch, 'test')
+
+    def test_tags(self):
+        """Test the 'tags' attribute."""
+        self.shell('git tag test')
+        self.model.update_status()
+        self.assertEqual(self.model.tags, ['test'])
+
+
+if __name__ == '__main__':
+    unittest.main()

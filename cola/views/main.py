@@ -9,6 +9,8 @@ from PyQt4.QtCore import SIGNAL
 
 import cola
 from cola import core
+from cola import gitcmds
+from cola import guicmds
 from cola import utils
 from cola import qtutils
 from cola import settings
@@ -18,6 +20,7 @@ from cola.qtutils import SLOT
 from cola.views import about
 from cola.views.syntax import DiffSyntaxHighlighter
 from cola.views.mainwindow import MainWindow
+from cola.controllers import classic
 from cola.controllers import compare
 from cola.controllers import search as smod
 from cola.controllers import createtag
@@ -36,19 +39,13 @@ from cola.controllers.selectcommits import select_commits
 
 class MainView(MainWindow):
     """The main cola interface."""
-    idx_header = -1
-    idx_staged = 0
-    idx_modified = 1
-    idx_unmerged = 2
-    idx_untracked = 3
-    idx_end = 4
 
     # Read-only mode property
     mode = property(lambda self: self.model.mode)
 
     def __init__(self, parent=None):
         MainWindow.__init__(self, parent)
-        self.amend_is_checked = self.amend_checkbox.isChecked
+        self.setAcceptDrops(True)
 
         # Qt does not support noun/verbs
         self.commit_button.setText(qtutils.tr('Commit@@verb'))
@@ -116,7 +113,7 @@ class MainView(MainWindow):
             (self.menu_checkout_branch, self.checkout_branch),
             (self.menu_delete_branch, self.branch_delete),
             (self.menu_rebase_branch, self.rebase),
-            (self.menu_clone_repo, self.clone_repo),
+            (self.menu_clone_repo, guicmds.clone_repo),
             (self.menu_commit_compare, compare.compare),
             (self.menu_commit_compare_file, compare.compare_file),
             (self.menu_cherry_pick, self.cherry_pick),
@@ -127,7 +124,8 @@ class MainView(MainWindow):
             (self.menu_help_docs,
                 lambda: self.model.git.web__browse(resources.html_docs())),
             (self.menu_load_commitmsg, self.load_commitmsg),
-            (self.menu_load_commitmsg_template, self.load_template),
+            (self.menu_load_commitmsg_template,
+                SLOT(signals.load_commit_template)),
             (self.menu_manage_bookmarks, manage_bookmarks),
             (self.menu_save_bookmark, save_bookmark),
             (self.menu_merge_local, local_merge),
@@ -160,6 +158,7 @@ class MainView(MainWindow):
             (self.menu_select_all, self.commitmsg.selectAll),
             (self.menu_undo, self.commitmsg.undo),
             (self.menu_redo, self.commitmsg.redo),
+            (self.menu_classic, classic.cola_classic),
         )
         for menu, callback in actions:
             self.connect(menu, SIGNAL('triggered()'), callback)
@@ -197,9 +196,14 @@ class MainView(MainWindow):
             title += ' *** amending ***'
         self.setWindowTitle(title)
 
+        if self.mode != self.model.mode_amend:
+            self.amend_checkbox.blockSignals(True)
+            self.amend_checkbox.setChecked(False)
+            self.amend_checkbox.blockSignals(False)
+
         if not self.model.read_only() and self.mode != self.model.mode_amend:
             # Check if there's a message file in .git/
-            merge_msg_path = self.model.merge_message_path()
+            merge_msg_path = gitcmds.merge_message_path()
             if merge_msg_path is None:
                 return
             merge_msg_hash = utils.checksum(merge_msg_path)
@@ -365,13 +369,6 @@ class MainView(MainWindow):
             cola.notifier().broadcast(signals.load_commit_message, filename)
 
 
-    def load_template(self):
-        """Load the configured commit message template."""
-        template = self.model.global_config('commit.template')
-        if template:
-            cola.notifier().broadcast(signals.load_commit_message, template)
-
-
     def diff_key_press_event(self, event):
         """Handle shortcut keys in the diff view."""
         if event.key() != QtCore.Qt.Key_H and event.key() != QtCore.Qt.Key_S:
@@ -532,7 +529,7 @@ class MainView(MainWindow):
                                       error_msg)
             return
         # Warn that amending published commits is generally bad
-        amend = self.amend_is_checked()
+        amend = self.amend_checkbox.isChecked()
         if (amend and self.model.is_commit_published() and
             not qtutils.question(self,
                                  'Rewrite Published Commit?',
@@ -569,58 +566,9 @@ class MainView(MainWindow):
             return
         cola.notifier().broadcast(signals.open_repo, dirname)
 
-    def clone_repo(self):
-        """Clone a git repository."""
-        url, ok = qtutils.prompt('Path or URL to clone (Env. $VARS okay)')
-        url = os.path.expandvars(url)
-        if not ok or not url:
-            return
-        try:
-            # Pick a suitable basename by parsing the URL
-            newurl = url.replace('\\', '/')
-            default = newurl.rsplit('/', 1)[-1]
-            if default == '.git':
-                # The end of the URL is /.git, so assume it's a file path
-                default = os.path.basename(os.path.dirname(newurl))
-            if default.endswith('.git'):
-                # The URL points to a bare repo
-                default = default[:-4]
-            if url == '.':
-                # The URL is the current repo
-                default = os.path.basename(os.getcwd())
-            if not default:
-                raise
-        except:
-            cola.notifier().broadcast(signals.information,
-                                      'Error Cloning',
-                                      'Could not parse: "%s"' % url)
-            qtutils.log(1, 'Oops, could not parse git url: "%s"' % url)
-            return
-
-        # Prompt the user for a directory to use as the parent directory
-        msg = 'Select a parent directory for the new clone'
-        dirname = qtutils.opendir_dialog(self, msg, self.model.getcwd())
-        if not dirname:
-            return
-        count = 1
-        destdir = os.path.join(dirname, default)
-        olddestdir = destdir
-        if os.path.exists(destdir):
-            # An existing path can be specified
-            msg = ('"%s" already exists, cola will create a new directory' %
-                   destdir)
-            cola.notifier().broadcast(signals.information,
-                                      'Directory Exists', msg)
-
-        # Make sure the new destdir doesn't exist
-        while os.path.exists(destdir):
-            destdir = olddestdir + str(count)
-            count += 1
-        cola.notifier().broadcast(signals.clone, url, destdir)
-
     def cherry_pick(self):
         """Launch the 'Cherry-Pick' dialog."""
-        revs, summaries = self.model.log_helper(all=True)
+        revs, summaries = gitcmds.log_helper(all=True)
         commits = select_commits('Cherry-Pick Commit',
                                  revs, summaries, multiselect=False)
         if not commits:
@@ -629,12 +577,12 @@ class MainView(MainWindow):
 
     def browse_commits(self):
         """Launch the 'Browse Commits' dialog."""
-        revs, summaries = self.model.log_helper(all=True)
+        revs, summaries = gitcmds.log_helper(all=True)
         select_commits('Browse Commits', revs, summaries)
 
     def export_patches(self):
         """Run 'git format-patch' on a list of commits."""
-        revs, summaries = self.model.log_helper()
+        revs, summaries = gitcmds.log_helper()
         to_export = select_commits('Export Patches', revs, summaries)
         if not to_export:
             return
@@ -644,15 +592,12 @@ class MainView(MainWindow):
 
     def browse_current(self):
         """Launch the 'Browse Current Branch' dialog."""
-        branch = self.model.currentbranch
-        browse_git_branch(branch)
+        browse_git_branch(gitcmds.current_branch())
 
     def browse_other(self):
         """Prompt for a branch and inspect content at that point in time."""
         # Prompt for a branch to browse
-        branch = choose_from_combo('Browse Branch Files',
-                                   self.view,
-                                   self.model.all_branches())
+        branch = choose_from_combo('Browse Revision...', gitcmds.all_refs())
         if not branch:
             return
         # Launch the repobrowser
@@ -689,3 +634,31 @@ class MainView(MainWindow):
                                                with_stderr=True,
                                                with_status=True)
         qtutils.log(status, output)
+
+    def dragEnterEvent(self, event):
+        """Accepts drops"""
+        MainWindow.dragEnterEvent(self, event)
+        event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Apply dropped patches with git-am"""
+        event.accept()
+        urls = event.mimeData().urls()
+        if not urls:
+            return
+        paths = map(lambda x: unicode(x.path()), urls)
+        patches = [p for p in paths if p.endswith('.patch')]
+        dirs = [p for p in paths if os.path.isdir(p)]
+        dirs.sort()
+        for d in dirs:
+            patches.extend(self._gather_patches(d))
+        # Broadcast the patches to apply
+        cola.notifier().broadcast(signals.apply_patches, patches)
+
+    def _gather_patches(self, path):
+        """Find patches in a subdirectory"""
+        patches = []
+        for root, subdirs, files in os.walk(path):
+            for name in [f for f in files if f.endswith('.patch')]:
+                patches.append(os.path.join(root, name))
+        return patches

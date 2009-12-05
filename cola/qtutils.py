@@ -32,7 +32,7 @@ def log(status, output):
 def SLOT(signal, *args, **opts):
     """
     Returns a callback that broadcasts a message over the notifier.
-    
+
     If the caller of SLOT() provides args or opts then those are
     used instead of the ones provided by the invoker of the callback.
 
@@ -204,6 +204,9 @@ def set_items(widget, items):
 
 def tr(txt):
     """Translate a string into a local language."""
+    if type(txt) is QtCore.QString:
+        # This has already been translated; leave as-is
+        return unicode(txt)
     return unicode(QtGui.QApplication.instance().translate('', txt))
 
 def icon_file(filename, staged=False, untracked=False):
