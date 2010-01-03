@@ -1,15 +1,17 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
+include /usr/share/quilt/quilt.make
+
 package=git-cola
 
 build: build-stamp
-build-stamp:
+build-stamp: $(QUILT_STAMPFN)
 	dh_testdir
 	$(MAKE) all doc
 	touch $@
 
-clean:
+clean: unpatch
 	dh_testdir
 	dh_testroot
 	dh_clean build-stamp

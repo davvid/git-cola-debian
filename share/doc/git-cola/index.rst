@@ -3,16 +3,29 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+======================
 git-cola documentation
-================================================================
+======================
 .. toctree::
 
     userguide
-    relnotes/index
+
+Release Notes
+=============
+.. toctree::
+    :maxdepth: 1
+
+    relnotes
+
+Developer Reference
+===================
+.. toctree::
+    :maxdepth: 2
+
     reference
 
 Indices and tables
-================================================================
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`

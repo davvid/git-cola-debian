@@ -1,2 +1,2 @@
 version=3
-http://cola.tuxfamily.org/releases/cola-(.*)-src\.tar\.gz
+http://cola.tuxfamily.org/releases/cola-(.*)\.tar\.gz

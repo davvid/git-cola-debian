@@ -8,6 +8,7 @@ from cola import gitcmd
 from cola import gitcfg
 from cola import errors
 from cola import utils
+from cola import version
 
 git = gitcmd.instance()
 config = gitcfg.instance()
@@ -189,6 +190,10 @@ def diff_helper(commit=None,
     headers = []
     deleted = cached and not os.path.exists(core.encode(filename))
 
+    # The '--patience' option did not appear until git 1.6.2
+    # so don't allow it to be used on version previous to that
+    patience = version.check('patience', version.git_version())
+
     diffoutput = git.diff(R=reverse,
                           M=True,
                           no_color=True,
@@ -196,6 +201,7 @@ def diff_helper(commit=None,
                           unified=config.get('diff.context', 3),
                           with_raw_output=True,
                           with_stderr=True,
+                          patience=patience,
                           *argv)
 
     # Handle 'git init'

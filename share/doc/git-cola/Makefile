@@ -1,5 +1,4 @@
 prefix ?= $(CURDIR)
-DESTDIR ?= /
 docdir ?= $(DESTDIR)$(prefix)/share/doc/git-cola
 htmldir ?= $(docdir)/html
 COLA_RELEASE	?= $(shell sh -c "git describe --abbrev=4 --match='v*.*' | sed -e s,^v,,")
@@ -34,7 +33,7 @@ help:
 	@echo "  doctest   to run all doctests embedded in the documentation (if enabled)"
 
 clean:
-	-rm -rf conf.py _build/*
+	-rm -rf conf.py _build
 	$(MAKE) -f Makefile.asciidoc clean
 
 conf.py:
