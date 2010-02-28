@@ -2,9 +2,10 @@ Source: git-cola
 Section: vcs
 Priority: optional
 Maintainer: Iulian Udrea <iulian@ubuntu.com>
+DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 7), quilt
-Build-Depends-Indep: python, python-support (>= 0.5.3), pyqt4-dev-tools (>= 4.3), python-sphinx, rsync, git-core (>= 1.5), gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 3.8.3
+Build-Depends-Indep: python, python-support (>= 0.5.3), pyqt4-dev-tools (>= 4.3), python-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
+Standards-Version: 3.8.4
 Homepage: http://cola.tuxfamily.org/
 XS-Python-Version: all
 Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git
@@ -12,7 +13,7 @@ Vcs-Browser: http://git.debian.org/?p=collab-maint/git-cola.git
 
 Package: git-cola
 Architecture: all
-Depends: ${python:Depends}, python-qt4, git-core (>= 1.5)
+Depends: ${python:Depends}, ${misc:Depends}, python-qt4, git-core (>= 1.5)
 Recommends: gitk, xxdiff
 Suggests: python-pyinotify, python-simplejson
 Description: highly caffeinated git gui

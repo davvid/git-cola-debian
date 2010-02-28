@@ -1,3 +1,14 @@
+git-cola (1.4.1.2-2) unstable; urgency=low
+
+  * debian/control:
+    - Drop the version from the git-core dependency (Closes: #568586).
+      + Thanks Jonathan Nieder <jrnieder@gmail.com>
+    - Add ${misc:Depends}.
+    - DM-Upload-Allowed: yes
+    - Bump Std-Ver to 3.8.4 (no changes required).
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Sun, 28 Feb 2010 19:59:22 +0000
+
 git-cola (1.4.1.2-1) unstable; urgency=low
 
   * New upstream version.
