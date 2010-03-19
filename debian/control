@@ -17,9 +17,7 @@ Depends: ${python:Depends}, ${misc:Depends}, python-qt4, git-core (>= 1.5)
 Recommends: gitk, xxdiff
 Suggests: python-pyinotify, python-simplejson
 Description: highly caffeinated git gui
- Git-cola is a git GUI optimized for working with the git index. It 
- includes a custom git command called git-difftool that allows you 
- to stage changes using the standard git merge tools. 
+ Git-cola is a git GUI optimized for working with the git index. 
  .
  Git-cola can compare arbitrary commits using standard merge tools.
  With it you can search commit messages, content, authors, paths,
