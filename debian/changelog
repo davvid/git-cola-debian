@@ -1,3 +1,15 @@
+git-cola (1.4.1.2-4) unstable; urgency=low
+
+  * Drop the version from the git-core run-time dependency. Closes: #568586
+    (The dependency on git-core (>= 1.5) is intended to exclude git from
+    etch, for example, but unfortunately git from etch has a version number
+    including an epoch.  Since Debian does not support etch-to-squeeze
+    upgrades anyway, it is simpler and more obvious to drop the version 
+    from the dependency.)
+    + Thanks Jonathan Nieder <jrnieder@gmail.com> for the patch.
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Wed, 07 Apr 2010 15:44:23 +0100
+
 git-cola (1.4.1.2-3) unstable; urgency=low
 
   * debian/control:
