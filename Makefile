@@ -6,11 +6,12 @@ COLA_VERSION	?= $(shell git describe --match='v*.*' | sed -e s/v//)
 APP	?= git-cola.app
 APPZIP	?= $(shell darwin/name-tarball.py)
 TAR	?= tar
+TEST_PYTHONPATH	?= "$(CURDIR)":"$(CURDIR)/thirdparty":"$(PYTHONPATH)"
 
 # User customizations
 -include config.mak
 
-ifneq ($(standalone),)
+ifdef standalone
 standalone_args	?= --standalone
 endif
 
@@ -26,7 +27,7 @@ $(APP): darwin
 	find $(APP) -name '*_debug*' | xargs rm -f
 	tar cjf $(APPZIP) $(APP)
 
-install:
+install: all
 	$(PYTHON) setup.py --quiet install \
 		$(standalone_args) \
 		--install-scripts=$(DESTDIR)$(prefix)/bin \
@@ -38,7 +39,7 @@ install:
 	! test -e cola && ln -s git-cola cola) || true
 
 # Maintainer's dist target
-COLA_TARNAME=cola-$(COLA_VERSION)
+COLA_TARNAME ?= cola-$(COLA_VERSION)
 dist: all
 	git archive --format=tar \
 		--prefix=$(COLA_TARNAME)/ HEAD^{tree} > $(COLA_TARNAME).tar
@@ -71,28 +72,30 @@ uninstall:
 		$(DESTDIR)$(prefix)/share/doc/git-cola
 
 test_flags	:=
-all_test_flags	?= --with-doctest \
-		   --exclude=jsonpickle \
-		   --exclude=simplejson \
-		   $(test_flags)
+all_test_flags	?= --with-doctest $(test_flags)
 
 test: all
-	@env PYTHONPATH="$(CURDIR)":"$(PYTHONPATH)" \
+	@env PYTHONPATH="$(TEST_PYTHONPATH)" \
 	nosetests $(all_test_flags)
 
 coverage:
-	@env PYTHONPATH=$(CURDIR):$(PYTHONPATH) \
-	nosetests $(all_test_flags) \
-		--with-coverage --cover-package=cola
+	@env PYTHONPATH="$(TEST_PYTHONPATH)" \
+	nosetests --with-coverage --cover-package=cola $(all_test_flags)
 
 clean:
 	$(MAKE) -C share/doc/git-cola clean
 	find . -name .noseids -print0 | xargs -0 rm -f
 	find . -name '*.py[co]' -print0 | xargs -0 rm -f
-	find share -name '*.qm' -print0 | xargs -0 rm -f
 	rm -rf cola/builtin_version.* build dist tmp tags git-cola.app
+	rm -rf share/locale
 
 tags:
-	ctags cola/*.py cola/*/*.py
+	ctags cola/*.py cola/*/*.py test/*.py
 
-.PHONY: all install doc install-doc install-html test clean darwin git-cola.app
+pot:
+	$(PYTHON) setup.py build_pot -N -d .
+
+mo:
+	$(PYTHON) setup.py build_mo -f
+
+.PHONY: all install doc install-doc install-html test clean darwin git-cola.app tags

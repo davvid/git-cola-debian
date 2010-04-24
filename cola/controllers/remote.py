@@ -2,9 +2,12 @@
 
 
 import os
+import fnmatch
 from PyQt4.QtGui import QDialog
 
 import cola
+from cola import serializer
+from cola import gitcmds
 from cola import utils
 from cola import qtutils
 from cola.views import remote
@@ -13,7 +16,7 @@ from cola.qobserver import QObserver
 def remote_action(parent, action):
     """Launches fetch/push/pull dialogs."""
     # TODO: subclass model
-    model = cola.model()
+    model = serializer.clone(cola.model())
     model.remotename = ''
     model.tags_checkbox = False
     model.rebase_checkbox = False
@@ -61,16 +64,35 @@ class RemoteController(QObserver):
             if self.view.select_first_remote():
                 self.model.set_remotename(remotes[0])
 
+        # Trim the remote list to just the default remote
+        self.update_remotes()
+
+        # Default to "git fetch origin master"
+        if action == 'fetch':
+            self.model.set_local_branch('')
+            self.model.set_remote_branch('')
+            return
+
         # Select the current branch by default for push
-        if action != 'push':
-            return
-        branches = self.model.local_branches
-        branch = self.model.currentbranch
-        if branch not in branches:
-            return
-        idx = branches.index(branch)
-        if self.view.select_local_branch(idx):
-            self.model.set_local_branch(branch)
+        if action == 'push':
+            branch = self.model.currentbranch
+            try:
+                idx = self.model.local_branches.index(branch)
+            except ValueError:
+                return
+            if self.view.select_local_branch(idx):
+                self.model.set_local_branch(branch)
+
+        if action == 'pull':
+            branch = self.model.currentbranch
+            remotebranch = gitcmds.tracked_branch(branch)
+            if remotebranch is None:
+                return
+            try:
+                idx = self.model.remote_branches.index(remotebranch)
+            except ValueError:
+                return
+            self.model.set_remote_branch(branch)
 
     def display_remotes(self, widget):
         """Display the available remotes in a listwidget"""
@@ -91,6 +113,20 @@ class RemoteController(QObserver):
             return
         self.model.set_remotename(selection)
         self.view.remotename.selectAll()
+
+        if self.action != 'pull':
+            pass
+        all_branches = gitcmds.branch_list(remote=True)
+        branches = []
+        pat = selection + '/*'
+        for branch in all_branches:
+            if fnmatch.fnmatch(branch, pat):
+                branches.append(branch)
+        if branches:
+            self.model.set_remote_branches(branches)
+        else:
+            self.model.set_remote_branches(all_branches)
+        self.model.set_remote_branch('')
 
     def update_local_branches(self,*rest):
         """Update the local/remote branch names when a branch is selected"""

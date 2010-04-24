@@ -1,3 +1,21 @@
+git-cola (1.4.2-1) unstable; urgency=low
+
+  * New upstream version.
+    + See share/doc/relnotes.rst for more information.
+  * Drop setuppy.patch (merged upstream).
+  * Rewrite debian/rules.
+  * Switch to 3.0 (quilt) source format.
+  * Remove README.source.  It is not needed anymore (3.0 (quilt) source
+    format).
+  * Remove quilt build-dependency.
+  * Update debian/copyright years.
+  * Drop fix_doc_file.patch (merged upstream).
+  * Add python-nose to Build-Depends.
+  * Override dh_auto_test.
+  * Bump debhelper version to 7.0.50.
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Sat, 24 Apr 2010 09:17:19 +0100
+
 git-cola (1.4.1.2-4) unstable; urgency=low
 
   * Drop the version from the git-core run-time dependency. Closes: #568586

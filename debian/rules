@@ -1,17 +1,21 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
+# Sample debian/rules that uses debhelper.
 
-include /usr/share/quilt/quilt.make
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
 
 package=git-cola
 
+override_dh_auto_test:
+
 build: build-stamp
-build-stamp: $(QUILT_STAMPFN)
+build-stamp:
 	dh_testdir
 	$(MAKE) all doc
 	touch $@
 
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	dh_clean build-stamp
@@ -50,4 +54,4 @@ binary-arch: build install
 
 binary: binary-indep binary-arch
 
-.PHONY: build clean binary-indep binary-arch binary install
+.PHONY: build clean binary-indep binary-arch binary install override_dh_auto_test

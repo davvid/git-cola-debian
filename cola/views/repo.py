@@ -1,3 +1,5 @@
+import os
+
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
@@ -7,7 +9,46 @@ import cola
 import cola.utils
 import cola.qtutils
 from cola import signals
+from cola.models import main
 from cola.models import gitrepo
+from cola.views import standard
+
+
+class RepoDialog(standard.StandardDialog):
+    def __init__(self, parent=None, update=True):
+        standard.StandardDialog.__init__(self, parent)
+        self.setObjectName('classic')
+        self.tree = RepoTreeView(parent)
+        self.setLayout(QtGui.QHBoxLayout())
+        self.layout().setMargin(1)
+        self.layout().addWidget(self.tree)
+        self.resize(720, 420)
+        self.model = main.model()
+        self.model.add_message_observer(self.model.message_updated,
+                                        self._model_updated)
+        cola.qtutils.add_close_action(self)
+        if update:
+            self._model_updated()
+
+    # Read-only mode property
+    mode = property(lambda self: self.model.mode)
+
+    def _model_updated(self):
+        """Update the title with the current branch and directory name."""
+        branch = self.model.currentbranch
+        curdir = os.getcwd()
+        msg = 'Repository: %s\nBranch: %s' % (curdir, branch)
+
+        self.setToolTip(msg)
+
+        title = '%s [%s]' % (self.model.project, branch)
+        if self.mode in (self.model.mode_diff, self.model.mode_diff_expr):
+            title += ' *** diff mode***'
+        elif self.mode == self.model.mode_review:
+            title += ' *** review mode***'
+        elif self.mode == self.model.mode_amend:
+            title += ' *** amending ***'
+        self.setWindowTitle(title)
 
 
 class RepoTreeView(QtGui.QTreeView):
@@ -15,15 +56,12 @@ class RepoTreeView(QtGui.QTreeView):
     def __init__(self, parent=None):
         QtGui.QTreeView.__init__(self, parent)
 
-        self.resize(720, 300)
-        self.setWindowTitle(self.tr('classic'))
         self.setSortingEnabled(False)
         self.setAllColumnsShowFocus(True)
         self.setAlternatingRowColors(True)
         self.setUniformRowHeights(True)
         self.setAnimated(True)
         self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        cola.qtutils.add_close_acction(self)
 
         # Observe model updates
         model = cola.model()
@@ -200,10 +238,10 @@ class RepoTreeView(QtGui.QTreeView):
         paths = self.selected_paths()
 
         model = cola.model()
-        model_staged = set(model.staged)
-        model_modified = set(model.modified)
-        model_unmerged = set(model.unmerged)
-        model_untracked = set(model.untracked)
+        model_staged = cola.utils.add_parents(set(model.staged))
+        model_modified = cola.utils.add_parents(set(model.modified))
+        model_unmerged = cola.utils.add_parents(set(model.unmerged))
+        model_untracked =cola.utils.add_parents(set(model.untracked))
 
         for path in paths:
             if path in model_unmerged:
@@ -214,6 +252,8 @@ class RepoTreeView(QtGui.QTreeView):
                 staged.append(path)
             elif path in model_modified:
                 modified.append(path)
+            else:
+                staged.append(path)
         # Push the new selection into the model.
         cola.selection_model().set_selection(staged, modified,
                                              unmerged, untracked)

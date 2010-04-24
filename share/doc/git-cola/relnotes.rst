@@ -1,3 +1,86 @@
+git-cola v1.4.2
+===============
+
+Usability, bells and whistles
+-----------------------------
+* Added support for the configurable ``guitool.<tool>.*``
+  actions as described in ``git-config(1)``.
+
+  http://github.com/davvid/git-cola/issues/closed#issue/44
+
+  http://www.kernel.org/pub/software/scm/git/docs/git-config.html
+
+  This makes it possible to add new actions to `git-cola`
+  by simply editing ``~/.gitconfig``.  This implements the
+  same guitool support as `git-gui`.
+* Introduced a stat cache to speed up `git-config` and
+  repository status checks.
+* Added Alt-key shortcuts to the main `git-cola` interface.
+* The `Actions` dock widget switches between a horizontal
+  and vertical layout when resized.
+* We now use ``git diff --submodule`` for submodules
+  (used when git >= 1.6.6).
+* The context menu for modified submodules includes an option
+  to launch `git-cola`.
+
+  http://github.com/davvid/git-cola/issues/closed#issue/17
+
+* Prefer ``$VISUAL`` over ``$EDITOR`` when both are defined.
+  These are used to set a default editor in lieu of `core.editor`
+  configuration.
+* Force the editor to be ``gvim`` when we see ``vim``.
+  This prevents us from launching an editor in the (typically
+  unattached) parent terminal and creating zombie editors
+  that cannot be easily killed.
+* Selections are remembered and restored across updates.
+  This makes the `partial-staging` workflow easier since the
+  diff view will show the updated diff after staging.
+* Show the path to the current repository in a tooltip
+  over the commit message editor.
+
+  http://github.com/davvid/git-cola/issues/closed#issue/45
+
+* Log internal ``git`` commands when ``GIT_COLA_TRACE`` is defined.
+
+  http://github.com/davvid/git-cola/issues/closed#issue/39
+
+Fixes
+-----
+* Improved backwards compatibility for Python 2.4.
+* `Review mode` can now review the current branch; it no longer
+  requires you to checkout the branch into which the reviewed
+  branch will be merged.
+* Guard against `color.ui = always` configuration when using
+  `git-log` by passing ``--no-color``.
+* ``yes`` and ``no`` are now supported as valid booleans
+  by the `git-config` parser.
+* Better defaults are used for `fetch`, `push`, and `pull`..
+
+  http://github.com/davvid/git-cola/issues/closed#issue/43
+
+Packaging
+---------
+* Removed colon (`:`) from the applilcation name on Windows
+
+  http://github.com/davvid/git-cola/issues/closed#issue/41
+
+* Fixed bugs with the Windows installer
+
+  http://github.com/davvid/git-cola/issues/closed#issue/40
+
+* Added a more standard i18n infrastructure.  The install
+  tree now has the common ``share/locale/$lang/LC_MESSAGES/git-cola.mo``
+  layout in use by several projects.
+
+* Started trying to accomodate Mac OSX 10.6 (Snow Leopard)
+  in the ``darwin/`` build scripts but our tester is yet to
+  report success building a `.app` bundle.
+
+* Replaced use of ``perl`` in Sphinx/documentation Makefile
+  with more-portable ``sed`` constructs.  Thanks to
+  Stefan Naewe for discovering the portability issues and
+  providing msysgit-friendly patches.
+
 git-cola v1.4.1.2
 =================
 
@@ -8,9 +91,13 @@ Usability, bells and whistles
   `Removed Unstaged Changes` action in the `Repository Status` tool.
 * The `remote` dialogs (fetch, push, pull) are now slightly
   larger by default.
-* Bookmarks can be selected when `git-cola` is run outside of a Git repository.
+* Bookmarks can be selected when `git-cola` is run outside of a git repository.
 * Added more user documentation.  We now include many links to
   external git resources.
+* Added `git-dag Beta` to the available tools.
+  `git-dag` is a node-based DAG history browser.
+  It doesn't do much yet, but it's been merged so that we can start
+  building and improving upon it.
 
 Fixes
 -----
@@ -19,6 +106,8 @@ Fixes
 * ``git update-index --refresh`` is no longer run everytime
   ``git cola version`` is run.
 * Don't try to watch non-existant directories when using `inotify`.
+* Use ``git rev-parse --symbolic-full-name`` plumbing to find
+  the name of the current branch.
 
 Packaging
 ---------
@@ -30,9 +119,9 @@ Packaging
 * The build scripts no longer require a ``.git`` directory to
   generate the ``builtin_version.py`` module.  The release tarballs
   now include a ``version`` file at the root of the project which
-  is used in lieu of having the Git repository available.
+  is used in lieu of having the git repository available.
   This allows for ``make clean && make`` to function outside of
-  a Git repository.
+  a git repository.
 * Added maintainer's ``make dist`` target to the ``Makefile``.
 * The built-in `simplejson` and `jsonpickle` libraries can be
   excluded from ``make install`` by specifying the ``standalone=true``
@@ -47,10 +136,7 @@ Usability, bells and whistles
 -----------------------------
 * We now use patience diff by default when it is available via
   `git diff --patience`.
-
 * Allow closing the `cola classic` tool with `Ctrl+W`.
-
-* Update desktop menu entry to read `Cola Git GUI`.
 
 Fixes
 -----

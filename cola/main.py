@@ -7,12 +7,14 @@ import glob
 import sys
 import os
 
+import cola
 from cola import resources
 from cola import utils
 from cola import core
 from cola import git
 from cola import inotify
 from cola import version
+from cola import signals
 
 # Spoof an X11 display for SSH
 os.environ.setdefault('DISPLAY', ':0')
@@ -103,9 +105,9 @@ def main():
     from cola.models.gitrepo import GitRepoModel
     from cola.views import startup
     from cola.views.main import MainView
-    from cola.views.repo import RepoTreeView
+    from cola.views.repo import RepoDialog
     from cola.controllers.main import MainController
-    from cola.controllers.classic import ClassicController
+    from cola.controllers.classic import cola_classic
     from cola.app import ColaApplication
     from cola import qtutils
     from cola import commands
@@ -162,12 +164,10 @@ def main():
 
     # Show the GUI and start the event loop
     if opts.classic:
-        view = RepoTreeView()
-        view.setModel(GitRepoModel(view))
-        controller = ClassicController(view)
+        view = cola_classic(update=False)
     else:
         view = MainView()
-        controller = MainController(model, view)
+        MainController(model, view)
 
     # Scan for the first time
     model.update_status()
@@ -180,6 +180,13 @@ def main():
 
     # Show the view and start the main event loop
     view.show()
+    git.GIT_COLA_TRACE = os.getenv('GIT_COLA_TRACE', False)
+    if git.GIT_COLA_TRACE:
+        msg = ('info: Trace enabled.  '
+               'Many of commands reported with "trace" use git\'s stable '
+               '"plumbing" API and are not intended for typical '
+               'day-to-day use.  Here be dragons')
+        cola.notifier().broadcast(signals.log_cmd, 0, msg)
     result = app.exec_()
 
     # All done, cleanup

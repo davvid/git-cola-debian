@@ -10,10 +10,12 @@
 /debian/bld
 /debian/cola
 /Meta
+/share/locale
 /test/tmp
 /tags
 .DS_Store
 .noseids
 *.py[co]
+*.qm
 *.swp
 *~
