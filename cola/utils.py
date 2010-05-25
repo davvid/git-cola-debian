@@ -7,7 +7,6 @@ import sys
 import errno
 import platform
 import subprocess
-import hashlib
 import mimetypes
 
 from glob import glob
@@ -17,6 +16,7 @@ from cola import git
 from cola import core
 from cola import resources
 from cola.git import shell_quote
+from cola.compat import hashlib
 
 KNOWN_FILE_MIME_TYPES = {
     'text':      'script.png',

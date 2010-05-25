@@ -592,6 +592,7 @@ class RunConfigAction(Command):
                 if opts.get('revprompt') and not rev:
                     msg = ('Invalid revision:\n\n'
                            'Revision expression is empty')
+                    title = 'Oops!'
                     _factory.prompt_user(signals.information, title, msg)
                     continue
                 break
@@ -606,17 +607,14 @@ class RunConfigAction(Command):
         if args:
             os.environ['ARGS'] = args
         title = os.path.expandvars(cmd)
-        cmdexpand = os.path.expandvars(cmd)
-        _notifier.broadcast(signals.log_cmd, 0, 'running: ' + cmdexpand)
+        _notifier.broadcast(signals.log_cmd, 0, 'running: ' + title)
+        cmd = ['sh', '-c', cmd]
 
         if opts.get('noconsole'):
-            status, out, err = utils.run_command(cmdexpand,
-                                                 flag_error=False,
-                                                 shell=True)
+            status, out, err = utils.run_command(cmd, flag_error=False)
         else:
             status, out, err = _factory.prompt_user(signals.run_command,
-                                                    title,
-                                                    'sh', ['-c', cmdexpand])
+                                                    title, cmd)
 
         _notifier.broadcast(signals.log_cmd, status,
                             'stdout: %s\nstatus: %s\nstderr: %s' %
@@ -707,8 +705,7 @@ class Unstage(Command):
     def do(self):
         msg = 'Unstaging: %s' % (', '.join(self.paths))
         _notifier.broadcast(signals.log_cmd, 0, msg)
-        gitcmds.unstage_paths(self.paths)
-        self.model.update_status()
+        self.model.unstage_paths(self.paths)
 
 
 class UnstageAll(Command):

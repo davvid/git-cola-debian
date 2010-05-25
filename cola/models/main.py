@@ -60,6 +60,9 @@ class MainModel(ObservableModel):
     # Modes where we can checkout files from the $head
     modes_undoable = (mode_none, mode_index, mode_worktree)
 
+    unstaged = property(lambda self: self.modified + self.unmerged + self.untracked)
+    """An aggregate of the modified, unmerged, and untracked file lists."""
+
     def __init__(self, cwd=None):
         """Reads git repository settings and sets several methods
         so that they refer to the git module.  This object
@@ -88,7 +91,6 @@ class MainModel(ObservableModel):
         self.commitmsg = ''
         self.modified = []
         self.staged = []
-        self.unstaged = []
         self.untracked = []
         self.unmerged = []
         self.upstream_changed = []
@@ -297,42 +299,48 @@ class MainModel(ObservableModel):
         self.notify_message_observers(self.message_about_to_update)
         # This allows us to defer notification until the
         # we finish processing data
-        staged_only = self.read_only()
-        head = self.head
-        notify_enabled = self.notification_enabled
         self.notification_enabled = False
 
-        # Set these early since they are used to calculate 'upstream_changed'.
-        self.set_trackedbranch(gitcmds.tracked_branch())
-        self.set_currentbranch(gitcmds.current_branch())
+        self._update_files()
+        self._update_refs()
+        self._update_branches_and_tags()
+        self._update_branch_heads()
 
-        state = gitcmds.worktree_state_dict(head=head, staged_only=staged_only)
+        # Re-enable notifications and emit changes
+        self.notification_enabled = True
+        self.notify_observers('staged', 'unstaged')
+        self.notify_message_observers(self.message_updated)
+
+        self.read_font_sizes()
+
+    def _update_files(self, worktree_only=False):
+        staged_only = self.read_only()
+        state = gitcmds.worktree_state_dict(head=self.head,
+                                            staged_only=staged_only)
         self.staged = state.get('staged', [])
         self.modified = state.get('modified', [])
         self.unmerged = state.get('unmerged', [])
         self.untracked = state.get('untracked', [])
-        self.upstream_changed = state.get('upstream_changed', [])
         self.submodules = state.get('submodules', set())
+        self.upstream_changed = state.get('upstream_changed', [])
 
-        # NOTE: the model's unstaged list holds an aggregate of the
-        # the modified, unmerged, and untracked file lists.
-        self.set_unstaged(self.modified + self.unmerged + self.untracked)
+    def _update_refs(self):
         self.set_remotes(self.git.remote().splitlines())
+        self.set_revision('')
+        self.set_local_branch('')
+        self.set_remote_branch('')
 
+
+    def _update_branch_heads(self):
+        # Set these early since they are used to calculate 'upstream_changed'.
+        self.set_trackedbranch(gitcmds.tracked_branch())
+        self.set_currentbranch(gitcmds.current_branch())
+
+    def _update_branches_and_tags(self):
         local_branches, remote_branches, tags = gitcmds.all_refs(split=True)
         self.set_local_branches(local_branches)
         self.set_remote_branches(remote_branches)
         self.set_tags(tags)
-
-        self.set_revision('')
-        self.set_local_branch('')
-        self.set_remote_branch('')
-        # Re-enable notifications and emit changes
-        self.notification_enabled = notify_enabled
-
-        self.read_font_sizes()
-        self.notify_observers('staged', 'unstaged')
-        self.notify_message_observers(self.message_updated)
 
     def read_font_sizes(self):
         """Read font sizes from the configuration."""
@@ -585,11 +593,35 @@ class MainModel(ObservableModel):
         """Stages add/removals to git."""
         add = []
         remove = []
+        sset = set(self.staged)
+        mset = set(self.modified)
+        umset = set(self.unmerged)
+        utset = set(self.untracked)
+        dirs = bool([p for p in paths if os.path.isdir(core.encode(p))])
+
+        if not dirs:
+            self.notify_message_observers(self.message_about_to_update)
+
         for path in set(paths):
+            if not os.path.isdir(core.encode(path)) and path not in sset:
+                self.staged.append(path)
+            if path in umset:
+                self.unmerged.remove(path)
+            if path in mset:
+                self.modified.remove(path)
+            if path in utset:
+                self.untracked.remove(path)
             if os.path.exists(core.encode(path)):
                 add.append(path)
             else:
                 remove.append(path)
+
+        if dirs:
+            self.notify_message_observers(self.message_about_to_update)
+
+        elif add or remove:
+            self.staged.sort()
+
         # `git add -u` doesn't work on untracked files
         if add:
             self.git.add('--', *add)
@@ -597,7 +629,43 @@ class MainModel(ObservableModel):
         # from the index.   We use `git add -u` for that.
         if remove:
             self.git.add('--', u=True, *remove)
-        self.update_status()
+
+        if dirs:
+            self._update_files()
+
+        self.notify_message_observers(self.message_updated)
+
+    def unstage_paths(self, paths):
+        self.notify_message_observers(self.message_about_to_update)
+
+        staged_set = set(self.staged)
+        gitcmds.unstage_paths(paths)
+        all_paths_set = set(gitcmds.all_files())
+        modified = []
+        untracked = []
+
+        cur_modified_set = set(self.modified)
+        cur_untracked_set = set(self.untracked)
+
+        for path in paths:
+            if path in staged_set:
+                self.staged.remove(path)
+                if path in all_paths_set:
+                    if path not in cur_modified_set:
+                        modified.append(path)
+                else:
+                    if path not in cur_untracked_set:
+                        untracked.append(path)
+
+        if modified:
+            self.modified.extend(modified)
+            self.modified.sort()
+
+        if untracked:
+            self.untracked.extend(untracked)
+            self.untracked.sort()
+
+        self.notify_message_observers(self.message_updated)
 
     def getcwd(self):
         """If we've chosen a directory then use it, otherwise os.getcwd()."""

@@ -1,3 +1,9 @@
+git-cola (1.4.2.1-1) unstable; urgency=low
+
+  * New upstream version. 
+
+ -- Iulian Udrea <iulian@ubuntu.com>  Tue, 25 May 2010 21:10:29 +0100
+
 git-cola (1.4.2-1) unstable; urgency=low
 
   * New upstream version.
