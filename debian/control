@@ -5,7 +5,7 @@ Maintainer: Iulian Udrea <iulian@ubuntu.com>
 DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 7.0.50), python-nose
 Build-Depends-Indep: python, python-support (>= 0.5.3), pyqt4-dev-tools (>= 4.3), python-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 3.8.4
+Standards-Version: 3.9.1
 Homepage: http://cola.tuxfamily.org/
 XS-Python-Version: all
 Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git
@@ -16,7 +16,7 @@ Architecture: all
 Depends: ${python:Depends}, ${misc:Depends}, python-qt4, git-core
 Recommends: gitk, xxdiff
 Suggests: python-pyinotify, python-simplejson
-Description: highly caffeinated git gui
+Description: highly caffeinated git GUI
  Git-cola is a git GUI optimized for working with the git index. 
  .
  Git-cola can compare arbitrary commits using standard merge tools.

@@ -4,16 +4,14 @@ import copy
 import fnmatch
 
 from cola import core
-from cola import gitcmd
+from cola import git
+from cola.decorators import memoize
 
 
-_config = None
+@memoize
 def instance():
     """Return a static GitConfig instance."""
-    global _config
-    if not _config:
-        _config = GitConfig()
-    return _config
+    return GitConfig()
 
 
 def _appendifexists(category, path, result):
@@ -27,9 +25,10 @@ def _appendifexists(category, path, result):
 def _stat_info():
     data = []
     # Try /etc/gitconfig as a fallback for the system config
+    userconfig = os.path.expanduser(os.path.join('~', '.gitconfig'))
     _appendifexists('system', '/etc/gitconfig', data)
-    _appendifexists('user', os.path.expanduser('~/.gitconfig'), data)
-    _appendifexists('repo', gitcmd.instance().git_path('config'), data)
+    _appendifexists('user', userconfig, data)
+    _appendifexists('repo', git.instance().git_path('config'), data)
     return data
 
 
@@ -37,7 +36,7 @@ class GitConfig(object):
     """Encapsulate access to git-config values."""
 
     def __init__(self):
-        self.git = gitcmd.instance()
+        self.git = git.instance()
         self._system = {}
         self._user = {}
         self._repo = {}

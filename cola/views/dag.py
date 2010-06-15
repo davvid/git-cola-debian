@@ -13,6 +13,7 @@ from cola import qtutils
 from cola.models import commit
 from cola.views import standard
 from cola.compat import set
+from cola.decorators import memoize
 
 
 def git_dag(log_args=None, parent=None):
@@ -122,8 +123,8 @@ class Edge(QtGui.QGraphicsItem):
         self.setZValue(-2)
         self.adjust()
 
-    def type(self):
-        return Edge._type
+    def type(self, _type=_type):
+        return _type
 
     def adjust(self):
         if not self.source or not self.dest:
@@ -145,6 +146,7 @@ class Edge(QtGui.QGraphicsItem):
         self.source_pt = line.p1() + offset
         self.dest_pt = line.p2() - offset
 
+    @memoize
     def boundingRect(self, _extra=_arrow_extra):
         if not self.source or not self.dest:
             return QtCore.QRectF()
@@ -190,17 +192,22 @@ class Edge(QtGui.QGraphicsItem):
 
 class Node(QtGui.QGraphicsItem):
     _type = QtGui.QGraphicsItem.UserType + 1
+    _width = 180
+    _height = 18
 
-    def __init__(self, graph, commit):
+    _shape = QtGui.QPainterPath()
+    _shape.addRect(_width/-2., _height/-2., _width, _height)
+
+    _bound = _shape.boundingRect()
+    _glyph = QtCore.QRectF(-_width/2., -9, _width/4., 18)
+
+    def __init__(self, commit):
         QtGui.QGraphicsItem.__init__(self)
         self.setZValue(0)
         self.setFlag(QtGui.QGraphicsItem.ItemIsSelectable)
         self.commit = commit
-        self._graph = graph
-        self._width = 180
         # Starts with enough space for two tags. Any more and the node
         # needs to be taller to accomodate.
-        self._height = 18
         if len(self.commit.tags) > 1:
             self._height = len(self.commit.tags) * 9 + 6 # +6 padding
         self._edges = []
@@ -209,7 +216,10 @@ class Node(QtGui.QGraphicsItem):
         self._colors['bg'] = QtGui.QColor.fromRgb(16, 16, 16)
         self._colors['selected'] = QtGui.QColor.fromRgb(192, 192, 16)
         self._colors['outline'] = QtGui.QColor.fromRgb(0, 0, 0)
-        self._colors['node'] = QtGui.QColor.fromRgb(255, 111, 69)
+        if len(commit.parents) == 1:
+            self._colors['node'] = QtGui.QColor.fromRgb(255, 111, 69)
+        else:
+            self._colors['node'] = QtGui.QColor.fromRgb(169, 111, 69)
         self._colors['decorations'] = QtGui.QColor.fromRgb(255, 255, 42)
 
         self._grad = QtGui.QLinearGradient(0.0, 0.0, 0.0, self._height)
@@ -220,23 +230,19 @@ class Node(QtGui.QGraphicsItem):
         self.dragged = False
         self.skipped = False
 
-    def type(self):
-        return Node._type
+    def type(self, _type=_type):
+        return _type
 
     def add_edge(self, edge):
         self._edges.append(edge)
-        edge.adjust()
 
-    def boundingRect(self):
-        return self.shape().boundingRect()
+    def boundingRect(self, _bound=_bound):
+        return _bound
 
-    def shape(self):
-        path = QtGui.QPainterPath()
-        path.addRect(-self._width/2., -self._height/2.,
-                     self._width, self._height)
-        return path
+    def shape(self, _shape=_shape):
+        return _shape
 
-    def glyph(self):
+    def glyph(self, _glyph=_glyph):
         """Provides location of the glyph representing this node
 
         The node contains a glyph (a circle or ellipse) representing the
@@ -245,16 +251,12 @@ class Node(QtGui.QGraphicsItem):
         make edges point at the center of the glyph, rather than at the
         center of the entire node.
         """
-        glyph = QtCore.QRectF(-self._width/2., -9,
-                              self._width/4., 18)
-        return glyph
+        return _glyph
 
     def paint(self, painter, option, widget):
         if self.isSelected():
-            self.setZValue(1)
             painter.setPen(self._colors['selected'])
         else:
-            self.setZValue(0)
             painter.setPen(self._colors['outline'])
         painter.setBrush(self._grad)
 
@@ -265,6 +267,7 @@ class Node(QtGui.QGraphicsItem):
         font.setPointSize(5)
         painter.setFont(font)
         painter.setPen(QtCore.Qt.black)
+
         text_options = QtGui.QTextOption()
         text_options.setAlignment(QtCore.Qt.AlignCenter)
         painter.drawText(self.glyph(), sha1_text, text_options)
@@ -283,14 +286,6 @@ class Node(QtGui.QGraphicsItem):
         painter.translate(2.,0.)
         painter.drawText(text_box, tag_text, text_options)
 
-
-    def itemChange(self, change, value):
-        if change == QtGui.QGraphicsItem.ItemPositionChange:
-            for edge in self._edges:
-                edge.adjust()
-            #self._graph.itemMoved()
-        return QtGui.QGraphicsItem.itemChange(self, change, value)
-
     def mousePressEvent(self, event):
         self.selected = self.isSelected()
         self.pressed = True
@@ -300,6 +295,10 @@ class Node(QtGui.QGraphicsItem):
         if self.pressed:
             self.dragged = True
         QtGui.QGraphicsItem.mouseMoveEvent(self, event)
+        for node in self.scene().selectedItems():
+            for edge in node._edges:
+                edge.adjust()
+        self.scene().update()
 
     def mouseReleaseEvent(self, event):
         QtGui.QGraphicsItem.mouseReleaseEvent(self, event)
@@ -325,8 +324,6 @@ class GraphView(QtGui.QGraphicsView):
 
         self._items = []
         self._selected = []
-        self._commits = {}
-        self._children = {}
         self._nodes = {}
 
         self._loc = {}
@@ -484,7 +481,7 @@ class GraphView(QtGui.QGraphicsView):
                         .scale(zoom, zoom)
                         .mapRect(QtCore.QRectF(0.0, 0.0, 1.0, 1.0))
                         .width())
-        if factor < 0.02 or factor > 42.0:
+        if factor < 0.014 or factor > 42.0:
             return
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self._zoom = zoom
@@ -494,10 +491,9 @@ class GraphView(QtGui.QGraphicsView):
         """Handle mouse wheel panning."""
 
         if event.delta() < 0:
-            s = -100.0
+            s = -133.
         else:
-            s = 100.0
-
+            s = 133.
         pan_rect = QtCore.QRectF(0.0, 0.0, 1.0, 1.0)
         factor = 1.0 / self.matrix().mapRect(pan_rect).width()
 
@@ -505,7 +501,6 @@ class GraphView(QtGui.QGraphicsView):
             matrix = self.matrix().translate(0, s * factor)
         else:
             matrix = self.matrix().translate(s * factor, 0)
-
         self.setTransformationAnchor(QtGui.QGraphicsView.NoAnchor)
         self.setMatrix(matrix)
 
@@ -551,11 +546,7 @@ class GraphView(QtGui.QGraphicsView):
     def add(self, commits):
         scene = self.scene()
         for commit in commits:
-            self._commits[commit.sha1] = commit
-            for p in commit.parents:
-                children = self._children.setdefault(p, [])
-                children.append(commit.sha1)
-            node = Node(self, commit)
+            node = Node(commit)
             scene.addItem(node)
             self._nodes[commit.sha1] = node
             self._items.append(node)
@@ -564,13 +555,9 @@ class GraphView(QtGui.QGraphicsView):
         """Create edges linking commits with their parents"""
         scene = self.scene()
         for commit in commits:
-            children = self._children.get(commit.sha1, None)
-            # root commit
-            if children is None:
-                continue
             commit_node = self._nodes[commit.sha1]
-            for child_sha1 in children:
-                child_node = self._nodes[child_sha1]
+            for child in commit.children:
+                child_node = self._nodes[child.sha1]
                 edge = Edge(commit_node, child_node)
                 scene.addItem(edge)
 
@@ -580,18 +567,13 @@ class GraphView(QtGui.QGraphicsView):
 
         xpos = 0
         ypos = 0
+
         for commit in commits:
-            if commit.sha1 not in self._children:
-                self._loc[commit.sha1] = (xpos, ypos)
-                node = self._nodes.get(commit.sha1, None)
-                node.setPos(xpos, ypos)
-                xpos += self._xoff
-                gxmax = max(xpos, gxmax)
-                continue
+            # Center nodes relative to their children
             ymax = 0
             xmax = None
-            for sha1 in self._children[commit.sha1]:
-                loc = self._loc[sha1]
+            for child in commit.children:
+                loc = self._loc[child.sha1]
                 if xmax is None:
                     xmax = loc[0]
                 xmax = min(xmax, loc[0])
@@ -607,7 +589,11 @@ class GraphView(QtGui.QGraphicsView):
                 gxmax = max(gxmax, xmax)
                 self._cols[ymax] = xmax
             else:
-                xmax = max(0, xmax)
+                prev = ymax - self._yoff
+                if prev in self._cols:
+                    xmax = self._cols[prev]/2
+                else:
+                    xmax = 0
                 self._cols[ymax] = xmax
 
             sha1 = commit.sha1
@@ -615,11 +601,12 @@ class GraphView(QtGui.QGraphicsView):
             node = self._nodes[sha1]
             node.setPos(xmax, ymax)
 
-        xpad = 200
+        xpad = 333
         ypad = 66
         self._xmax = gxmax
         self._ymax = gymax
         self.scene().setSceneRect(-xpad, -ypad, gxmax+xpad, gymax+ypad)
+
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)

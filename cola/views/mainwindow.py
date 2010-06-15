@@ -27,16 +27,15 @@ class MainWindow(MainWindowBase):
 
         # "Actions" widget
         self.actiondockwidget = self.create_dock('Actions')
-        self.actiondockwidgetcontents = qt.QFlowLayoutWidget(parent=self)
-
-        layout = self.actiondockwidgetcontents.layout()
+        self.actiondockwidgetcontents = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(self.actiondockwidgetcontents)
         self.rescan_button = qt.create_button('Rescan', layout)
         self.stage_button = qt.create_button('Stage', layout)
         self.unstage_button = qt.create_button('Unstage', layout)
-        self.fetch_button = qt.create_button('Fetch', layout)
-        self.push_button = qt.create_button('Push', layout)
-        self.pull_button = qt.create_button('Pull', layout)
-        self.stash_button = qt.create_button('Stash', layout)
+        self.fetch_button = qt.create_button('Fetch...', layout)
+        self.push_button = qt.create_button('Push...', layout)
+        self.pull_button = qt.create_button('Pull...', layout)
+        self.stash_button = qt.create_button('Stash...', layout)
         self.alt_button = qt.create_button('Exit Diff Mode', layout)
         self.alt_button.hide()
 
@@ -162,6 +161,9 @@ class MainWindow(MainWindowBase):
         self.menu_search_grep = self.create_action('Grep')
         self.menu_merge_local = self.create_action('Merge...')
         self.menu_merge_abort = self.create_action('Abort Merge...')
+        self.menu_fetch = self.create_action('Fetch...')
+        self.menu_push = self.create_action('Push...')
+        self.menu_pull = self.create_action('Pull...')
         self.menu_open_repo = self.create_action('Open...')
         self.menu_stash = self.create_action('Stash...')
         self.menu_diff_branch =\
@@ -285,6 +287,10 @@ class MainWindow(MainWindowBase):
         self.actions_menu = self.create_menu('Act&ions', self.menubar)
         self.actions_menu.addAction(self.menu_merge_local)
         self.actions_menu.addAction(self.menu_stash)
+        self.actions_menu.addSeparator()
+        self.actions_menu.addAction(self.menu_fetch)
+        self.actions_menu.addAction(self.menu_push)
+        self.actions_menu.addAction(self.menu_pull)
         self.actions_menu.addSeparator()
         self.actions_menu.addAction(self.menu_create_tag)
         self.actions_menu.addSeparator()
