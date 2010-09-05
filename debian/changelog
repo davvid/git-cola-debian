@@ -1,3 +1,15 @@
+git-cola (1.4.2.4-1) experimental; urgency=low
+
+  * New upstream release.
+    + Removed “single-click to (un)stage” in the status view.
+    + Added ability to create unsigned, annotated tags.
+    + Updated documentation to use cola.git instead of cola.gitcmd.
+  * Change my e-mail address.
+  * Include BSD license text in debian/copyright rather than referencing
+    /usr/share/common-licenses/BSD.
+
+ -- Iulian Udrea <iulian@linux.com>  Sun, 05 Sep 2010 13:31:34 +0100
+
 git-cola (1.4.2.3-1) unstable; urgency=low
  
   * New upstream version.
