@@ -39,9 +39,10 @@ binary-indep: build install
 	dh_installman
 	dh_installmenu
 	dh_pysupport
-	dh_link
+	dh_link /usr/share/javascript/jquery/jquery.js \
+		/usr/share/doc/git-cola/html/_static/jquery.js
 	dh_strip
-	dh_compress
+	dh_compress -Xobjects.inv
 	dh_fixperms
 	dh_perl
 	dh_installdeb

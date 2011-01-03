@@ -1,3 +1,24 @@
+git-cola (1.4.3-1) experimental; urgency=low
+
+  * New upstream release.
+    + git-dag beta™ now has a separate display area for displaying commit
+    metadata. This area will soon grow additional functionality such as
+    cherry-picking, branching, etc.
+    + Fixed tests from a previous refactoring.
+    + Guard against ‘diff.external’ configuration by always calling ‘git diff’
+    with the ‘–no-ext-diff’ option
+    (http://github.com/davvid/git-cola/issues/closed#issue/67).
+    + Respect ‘gui.diffcontext’ so that cola’s diff display shows the correct
+    number of context lines.
+  * Use JQuery from the Debian package:
+    - Add libjs-jquery as a dependency.
+    - Add symlink from /usr/share/javascript/jquery/jquery.js to 
+    /usr/share/doc/git-cola/html/_static/jquery.js.
+  * Don't compress objects.inv.  Thanks Michael Fladischer <michael@fladi.at>
+    (Closes: #608752).
+
+ -- Iulian Udrea <iulian@linux.com>  Mon, 03 Jan 2011 13:48:51 +0000
+
 git-cola (1.4.2.5-1) experimental; urgency=low
 
   * New upstream release.

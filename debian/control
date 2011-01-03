@@ -13,7 +13,7 @@ Vcs-Browser: http://git.debian.org/?p=collab-maint/git-cola.git
 
 Package: git-cola
 Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}, python-qt4, git-core
+Depends: ${python:Depends}, ${misc:Depends}, python-qt4, git-core, libjs-jquery
 Recommends: gitk, xxdiff
 Suggests: python-pyinotify, python-simplejson
 Description: highly caffeinated git GUI
