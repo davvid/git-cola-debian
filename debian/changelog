@@ -1,3 +1,9 @@
+git-cola (1.4.3-2) unstable; urgency=low
+
+  * Upload to unstable.
+
+ -- Iulian Udrea <iulian@linux.com>  Sun, 06 Feb 2011 16:21:23 +0000
+
 git-cola (1.4.3-1) experimental; urgency=low
 
   * New upstream release.
