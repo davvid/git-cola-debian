@@ -1,3 +1,10 @@
+git-cola (1.4.3.2-1) unstable; urgency=low
+
+  * New upstream release.
+    + setup.py: Fix installation of translations.  Closes: #619087.
+
+ -- Iulian Udrea <iulian@linux.com>  Mon, 18 Apr 2011 19:46:22 +0100
+
 git-cola (1.4.3-2) unstable; urgency=low
 
   * Upload to unstable.

@@ -7,6 +7,7 @@ import commands
 import cola
 from cola import i18n
 from cola import core
+from cola import errors
 from cola import gitcfg
 from cola import gitcmds
 from cola import utils
@@ -66,25 +67,6 @@ class Command(object):
     def name(self):
         """Return this command's name."""
         return self.__class__.__name__
-
-
-class AddSignoff(Command):
-    """Add a signed-off-by to the commit message."""
-    def __init__(self):
-        Command.__init__(self)
-        self.undoable = True
-        self.old_commitmsg = self.model.commitmsg
-        self.new_commitmsg = self.old_commitmsg
-        signoff = ('\nSigned-off-by: %s <%s>\n' %
-                    (self.model.local_user_name, self.model.local_user_email))
-        if signoff not in self.new_commitmsg:
-            self.new_commitmsg += ('\n' + signoff)
-
-    def do(self):
-        self.model.set_commitmsg(self.new_commitmsg)
-
-    def undo(self):
-        self.model.set_commitmsg(self.old_commitmsg)
 
 
 class AmendMode(Command):
@@ -466,18 +448,21 @@ class GrepMode(Command):
         self.new_mode = self.model.mode_grep
         self.new_diff_text = self.model.git.grep(txt, n=True)
 
+
 class LoadCommitMessage(Command):
     """Loads a commit message from a path."""
     def __init__(self, path):
         Command.__init__(self)
-        if not path or not os.path.exists(path):
-            raise OSError('error: "%s" does not exist' % path)
         self.undoable = True
         self.path = path
         self.old_commitmsg = self.model.commitmsg
         self.old_directory = self.model.directory
 
     def do(self):
+        path = self.path
+        if not path or not os.path.isfile(path):
+            raise errors.UsageError('Error: cannot find commit template',
+                                    '%s: No such file or directory.' % path)
         self.model.set_directory(os.path.dirname(self.path))
         self.model.set_commitmsg(utils.slurp(self.path))
 
@@ -490,6 +475,14 @@ class LoadCommitTemplate(LoadCommitMessage):
     """Loads the commit message template specified by commit.template."""
     def __init__(self):
         LoadCommitMessage.__init__(self, _config.get('commit.template'))
+
+    def do(self):
+        if self.path is None:
+            raise errors.UsageError('Error: unconfigured commit template',
+                    'A commit template has not been configured.\n'
+                    'Use "git config" to define "commit.template"\n'
+                    'so that it points to a commit template.')
+        return LoadCommitMessage.do(self)
 
 
 class Mergetool(Command):
@@ -516,7 +509,7 @@ class OpenRepo(Command):
 
     def do(self):
         self.model.set_directory(self.new_directory)
-        utils.fork(['python', sys.argv[0], '--repo', self.new_directory])
+        utils.fork([sys.executable, sys.argv[0], '--repo', self.new_directory])
 
 
 class Clone(Command):
@@ -783,7 +776,6 @@ def register():
 
     """
     signal_to_command_map = {
-        signals.add_signoff: AddSignoff,
         signals.amend_mode: AmendMode,
         signals.apply_diff_selection: ApplyDiffSelection,
         signals.apply_patches: ApplyPatches,
