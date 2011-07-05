@@ -243,7 +243,7 @@ class MainView(MainWindow):
     def _update_callback(self):
         """Update the title with the current branch and directory name."""
         branch = self.model.currentbranch
-        curdir = os.getcwd()
+        curdir = core.decode(os.getcwd())
         msg = 'Repository: %s\nBranch: %s' % (curdir, branch)
         self.commitdockwidget.setToolTip(msg)
 
@@ -266,12 +266,12 @@ class MainView(MainWindow):
             merge_msg_path = gitcmds.merge_message_path()
             if merge_msg_path is None:
                 return
-            merge_msg_hash = utils.checksum(merge_msg_path)
+            merge_msg_hash = utils.checksum(core.decode(merge_msg_path))
             if merge_msg_hash == self.merge_message_hash:
                 return
             self.merge_message_hash = merge_msg_hash
             cola.notifier().broadcast(signals.load_commit_message,
-                                      merge_msg_path)
+                                      core.decode(merge_msg_path))
 
     def _mode_changed(self, mode):
         """React to mode changes; hide/show the "Exit Diff Mode" button."""

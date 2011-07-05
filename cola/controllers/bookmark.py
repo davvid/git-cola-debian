@@ -5,6 +5,7 @@ import sys
 
 from PyQt4 import QtGui
 
+from cola import core
 from cola import utils
 from cola import qtutils
 from cola.qobserver import QObserver
@@ -19,7 +20,7 @@ def save_bookmark():
 
     """
     model = settings.SettingsManager.settings()
-    model.add_bookmark(os.getcwd())
+    model.add_bookmark(core.decode(os.getcwd()))
     settings.SettingsManager.save()
     qtutils.information("Bookmark Saved")
 
@@ -30,6 +31,7 @@ def manage_bookmarks():
     view = bookmark.BookmarkView(parent)
     ctl = BookmarkController(model, view)
     view.show()
+
 
 class BookmarkController(QObserver):
     """Handles interactions with the bookmarks dialog
@@ -55,7 +57,7 @@ class BookmarkController(QObserver):
         if not selection:
             return
         for item in selection:
-            utils.fork(['git', 'cola', item])
+            utils.fork([sys.executable, sys.argv[0], '--repo', item])
 
     def delete(self):
         """Removes a bookmark from the bookmarks list"""

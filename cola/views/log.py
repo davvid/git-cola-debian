@@ -3,7 +3,6 @@ import time
 from PyQt4 import QtGui
 
 from cola import core
-from cola.views.syntax import LogSyntaxHighlighter
 
 
 class LogView(QtGui.QWidget):
@@ -12,7 +11,7 @@ class LogView(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
 
         self._layout = QtGui.QVBoxLayout(self)
-        self._layout.setContentsMargins(3, 3, 3, 3)
+        self._layout.setMargin(0)
 
         self.output_text = QtGui.QTextEdit(self)
         self.output_text.setAcceptDrops(False)
@@ -23,7 +22,6 @@ class LogView(QtGui.QWidget):
         self._layout.addWidget(self.output_text)
         if output:
             self.set_output(output)
-        self.syntax = LogSyntaxHighlighter(self.output_text.document())
 
     def clear(self):
         self.output_text.clear()
