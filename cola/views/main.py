@@ -28,11 +28,11 @@ from cola.controllers import compare
 from cola.controllers import createtag
 from cola.controllers import merge
 from cola.controllers import search as smod
+from cola.controllers import stash
 from cola.controllers.bookmark import manage_bookmarks
 from cola.controllers.bookmark import save_bookmark
 from cola.controllers.createbranch import create_new_branch
 from cola.controllers.options import update_options
-from cola.controllers.stash import stash
 
 
 class MainView(MainWindow):
@@ -96,7 +96,7 @@ class MainView(MainWindow):
         self._connect_button(self.fetch_button, guicmds.fetch_slot(self))
         self._connect_button(self.push_button, guicmds.push_slot(self))
         self._connect_button(self.pull_button, guicmds.pull_slot(self))
-        self._connect_button(self.stash_button, stash)
+        self._connect_button(self.stash_button, lambda: stash.stash(parent=self))
 
         # Menu actions
         actions = [
@@ -135,17 +135,10 @@ class MainView(MainWindow):
             (self.menu_open_repo, guicmds.open_repo_slot(self)),
             (self.menu_options, update_options),
             (self.menu_rescan, SLOT(signals.rescan)),
-            (self.menu_search_grep, guicmds.grep),
-            (self.menu_search_revision, smod.search(smod.REVISION_ID)),
-            (self.menu_search_revision_range, smod.search(smod.REVISION_RANGE)),
-            (self.menu_search_message, smod.search(smod.MESSAGE)),
-            (self.menu_search_path, smod.search(smod.PATH, True)),
-            (self.menu_search_date_range, smod.search(smod.DATE_RANGE)),
-            (self.menu_search_diff, smod.search(smod.DIFF)),
-            (self.menu_search_author, smod.search(smod.AUTHOR)),
-            (self.menu_search_committer, smod.search(smod.COMMITTER)),
+            (self.menu_grep, guicmds.grep),
+            (self.menu_search_commits, smod.search),
             (self.menu_show_diffstat, SLOT(signals.diffstat)),
-            (self.menu_stash, stash),
+            (self.menu_stash, lambda: stash.stash(parent=self)),
             (self.menu_stage_modified, SLOT(signals.stage_modified)),
             (self.menu_stage_untracked, SLOT(signals.stage_untracked)),
             (self.menu_unstage_selected, SLOT(signals.unstage_selected)),
@@ -559,20 +552,26 @@ class MainView(MainWindow):
                                       'Missing Commit Message',
                                       error_msg)
             return
+
         if not self.model.staged:
             error_msg = self.tr(''
                 'No changes to commit.\n\n'
-                'You must stage at least 1 file before you can commit.\n')
+                'You must stage at least 1 file before you can commit.')
             if self.model.modified:
-                error_msg += '\n'
-                error_msg += self.tr('Would you like to stage '
-                                     'and commit all modified files?')
-                if not qtutils.question(self, 'Stage and commit?', error_msg,
-                                        default=False):
+                informative_text = self.tr('Would you like to stage '
+                                           'and commit all modified files?')
+                if not qtutils.confirm(self, 'Stage and commit?',
+                                       error_msg,
+                                       informative_text,
+                                       ok_text='Stage and Commit'):
                     return
             else:
+                cola.notifier().broadcast(signals.information,
+                                          'Nothing to commit',
+                                          error_msg)
                 return
             cola.notifier().broadcast(signals.stage_modified)
+
         # Warn that amending published commits is generally bad
         amend = self.amend_checkbox.isChecked()
         if (amend and self.model.is_commit_published() and

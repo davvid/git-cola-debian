@@ -1,14 +1,17 @@
 # Copyright (c) 2008 David Aguilar
 """Provides the current cola version number"""
 
-import re
 import os
 import sys
+
+if __name__ == '__main__':
+    srcdir = os.path.dirname(os.path.dirname(__file__))
+    sys.path.insert(1, srcdir)
+    sys.path.insert(1, os.path.join(srcdir, 'thirdparty'))
 
 from cola import git
 from cola import errors
 from cola import utils
-from cola import resources
 from cola.decorators import memoize
 
 
@@ -47,7 +50,7 @@ def git_describe_version():
                             with_stderr=True)
     except errors.GitCommandError, e:
         raise VersionUnavailable(str(e))
-    if not re.match(r'^v[0-9]', v):
+    if v[0:1] != 'v' or not v[1:2].isdigit():
         raise VersionUnavailable('%s: bad version' % v)
     try:
         dirty = git.Git.execute(['git', 'diff-index', '--name-only', 'HEAD'])
@@ -55,7 +58,7 @@ def git_describe_version():
         raise VersionUnavailable(str(e))
     if dirty:
         v += '-dirty'
-    return re.sub('-', '.', utils.strip_prefix('v', v))
+    return utils.strip_prefix('v', v.replace('-', '.'))
 
 
 def builtin_version():
@@ -75,15 +78,35 @@ def _builtin_version_file(ext='py'):
     return os.path.join(dirname, 'builtin_version.%s' % ext)
 
 
+def release_version():
+    """Return a version number for a release
+
+    First see if there is a version file (included in release tarballs),
+    then try git-describe, then default.
+
+    """
+    if os.path.exists('version'):
+        fp = open('version', 'r')
+        v = fp.read().strip()
+        fp.close()
+    else:
+        try:
+            v = git_describe_version()
+        except VersionUnavailable:
+            v = version()
+    return v
+
+
 def write_builtin_version():
-    """Writes cola/builtin_version.py."""
-    try:
-        v = git_describe_version()
-    except VersionUnavailable:
-        return
+    """Writes cola/builtin_version.py
+
+    """
+    v = release_version()
     f = file(_builtin_version_file(), 'w')
     f.write('# This file was generated automatically. Do not edit by hand.\n'
             'version = %r\n' % v)
+    f.close()
+
 
 def delete_builtin_version():
     """Deletes cola/builtin_version.py."""
@@ -101,14 +124,13 @@ def version():
             return v()
         except VersionUnavailable:
             pass
-    return 'unknown-version'
+    return 'unknown'
 
 
 @memoize
 def check_version(min_ver, ver):
     """Check whether ver is greater or equal to min_ver
     """
-    test = (min_ver, ver)
     min_ver_list = version_to_list(min_ver)
     ver_list = version_to_list(ver)
     return min_ver_list <= ver_list
@@ -137,3 +159,7 @@ def version_to_list(version):
 def git_version():
     """Returns the current GIT version"""
     return git.instance().version().split()[-1]
+
+
+if __name__ == '__main__':
+    print(release_version())

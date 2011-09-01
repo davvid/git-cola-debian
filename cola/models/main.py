@@ -3,11 +3,8 @@
 """
 
 import os
-import sys
 import time
 import copy
-import subprocess
-from cStringIO import StringIO
 
 from cola import core
 from cola import utils
@@ -194,17 +191,14 @@ class MainModel(ObservableModel):
                 self.set_param('local_'+k, v)
 
         # Bootstrap the internal font*size variables
-        for param in ('global_cola_fontdiff'):
-            setdefault = True
-            if hasattr(self, param):
-                font = getattr(self, param)
-                if font:
-                    setdefault = False
-                    size = int(font.split(',')[1])
-                    self.set_param(param+'_size', size)
-                    param = param[len('global_'):]
-                    global_dict[param] = font
-                    global_dict[param+'_size'] = size
+        param = 'global_cola_fontdiff'
+        font = getattr(self, param, None)
+        if font:
+            size = int(font.split(',')[1])
+            self.set_param(param+'_size', size)
+            param = param[len('global_'):]
+            global_dict[param] = font
+            global_dict[param+'_size'] = size
 
         # Load defaults for all undefined items
         local_and_global_defaults = self._local_and_global_defaults
@@ -287,23 +281,33 @@ class MainModel(ObservableModel):
         self.set_remote_branches(branches)
 
     def apply_diff(self, filename):
-        return self.git.apply(filename, index=True, cached=True)
+        return self.git.apply(filename, index=True, cached=True,
+                              with_stderr=True, with_status=True)
 
     def apply_diff_to_worktree(self, filename):
-        return self.git.apply(filename)
+        return self.git.apply(filename,
+                              with_stderr=True, with_status=True)
 
     def prev_commitmsg(self):
         """Queries git for the latest commit message."""
         return core.decode(self.git.log('-1', no_color=True, pretty='format:%s%n%n%b'))
 
-    def update_status(self):
+    def update_file_status(self, update_index=False):
+        self.notify_message_observers(self.message_about_to_update)
+        self.notification_enabled = False
+        self._update_files(update_index=update_index)
+        self.notification_enabled = True
+        self.notify_observers('staged', 'unstaged')
+        self.broadcast_updated()
+
+    def update_status(self, update_index=False):
         # Give observers a chance to respond
         self.notify_message_observers(self.message_about_to_update)
         # This allows us to defer notification until the
         # we finish processing data
         self.notification_enabled = False
 
-        self._update_files()
+        self._update_files(update_index=update_index)
         self._update_refs()
         self._update_branches_and_tags()
         self._update_branch_heads()
@@ -315,12 +319,42 @@ class MainModel(ObservableModel):
 
         self.read_font_sizes()
 
+    def update_status_of_files(self, files):
+        self.notify_message_observers(self.message_about_to_update)
+        self.notification_enabled = False
+
+        states = gitcmds.partial_worktree_state_dict(files, self.head)
+        for status, path in states:
+            if status == 'unmodified':
+                if path in self.modified:
+                    self.modified.remove(path)
+                if path in self.untracked:
+                    self.untracked.remove(path)
+            elif status == 'modified':
+                if path in self.untracked:
+                    self.untracked.remove(path)
+                if path not in self.modified:
+                    self.modified.append(path)
+            elif status == 'untracked':
+                if path in self.modified:
+                    self.modified.remove(path)
+                if path not in self.untracked:
+                    self.untracked.append(path)
+
+        self.modified.sort()
+        self.untracked.sort()
+
+        self.notification_enabled = True
+        self.notify_observers('staged', 'unstaged')
+        self.broadcast_updated()
+
     def broadcast_updated(self):
         self.notify_message_observers(self.message_updated)
 
-    def _update_files(self, worktree_only=False):
+    def _update_files(self, worktree_only=False, update_index=False):
         staged_only = self.read_only()
         state = gitcmds.worktree_state_dict(head=self.head,
+                                            update_index=update_index,
                                             staged_only=staged_only)
         self.staged = state.get('staged', [])
         self.modified = state.get('modified', [])
@@ -403,12 +437,12 @@ class MainModel(ObservableModel):
 
     def stage_modified(self):
         status, output = self._sliced_add(self.modified)
-        self.update_status()
+        self.update_file_status()
         return (status, output)
 
     def stage_untracked(self):
         status, output = self._sliced_add(self.untracked)
-        self.update_status()
+        self.update_file_status()
         return (status, output)
 
     def reset(self, *items):
@@ -417,13 +451,14 @@ class MainModel(ObservableModel):
                                              with_status=True,
                                              *x)
         status, output = self._sliced_op(items, lambda_fn)
-        self.update_status()
+        self.update_file_status()
         return (status, output)
 
     def unstage_all(self):
-        status, output = self.git.reset(with_stderr=True,
+        status, output = self.git.reset(self.head, '--', '.',
+                                        with_stderr=True,
                                         with_status=True)
-        self.update_status()
+        self.update_file_status()
         return (status, output)
 
     def stage_all(self):
@@ -431,24 +466,20 @@ class MainModel(ObservableModel):
                                       u=True,
                                       with_stderr=True,
                                       with_status=True)
-        self.update_status()
+        self.update_file_status()
         return (status, output)
 
-    def config_set(self, key=None, value=None, local=True):
-        if key and value is not None:
-            # git config category.key value
-            strval = unicode(value)
-            if type(value) is bool:
-                # git uses "true" and "false"
-                strval = strval.lower()
-            if local:
-                argv = [ key, strval ]
-            else:
-                argv = [ '--global', key, strval ]
-            return self.git.config(*argv)
+    def config_set(self, key, value, local=True):
+        # git config category.key value
+        strval = unicode(value)
+        if type(value) is bool:
+            # git uses "true" and "false"
+            strval = strval.lower()
+        if local:
+            argv = [key, strval]
         else:
-            msg = "oops in config_set(key=%s,value=%s,local=%s)"
-            raise Exception(msg % (key, value, local))
+            argv = ['--global', key, strval]
+        return self.git.config(*argv)
 
     def config_dict(self, local=True):
         """parses the lines from git config --list into a dictionary"""
@@ -513,7 +544,11 @@ class MainModel(ObservableModel):
         tmpdir = self.tmp_dir()
         return os.path.join(tmpdir, basename)
 
-    def remote_url(self, name):
+    def remote_url(self, name, action):
+        if action == 'push':
+            url = self.git.config('remote.%s.pushurl' % name, get=True)
+            if url:
+                return url
         return self.git.config('remote.%s.url' % name, get=True)
 
     def remote_args(self, remote,
@@ -581,13 +616,15 @@ class MainModel(ObservableModel):
             cherries.append(out)
         return (status, '\n'.join(cherries))
 
-    def parse_stash_list(self, revids=False):
+    def parse_stash_list(self, revids=False, names=False):
         """Parses "git stash list" and returns a list of stashes."""
         stashes = self.git.stash("list").splitlines()
         if revids:
-            return [ s[:s.index(':')] for s in stashes ]
+            return [s[:s.index(':')] for s in stashes]
+        elif names:
+            return [s.split(': ', 2)[-1] for s in stashes]
         else:
-            return [ s[s.index(':')+1:] for s in stashes ]
+            return stashes
 
     def pad(self, pstr, num=22):
         topad = num-len(pstr)
@@ -613,40 +650,22 @@ class MainModel(ObservableModel):
         if not paths:
             self.stage_all()
             return
+
         add = []
         remove = []
-        sset = set(self.staged)
-        mset = set(self.modified)
-        umset = set(self.unmerged)
-        utset = set(self.untracked)
-        dirs = bool([p for p in paths if os.path.isdir(core.encode(p))])
-
-        if not dirs:
-            self.notify_message_observers(self.message_about_to_update)
 
         for path in set(paths):
-            if not os.path.isdir(core.encode(path)) and path not in sset:
-                self.staged.append(path)
-            if path in umset:
-                self.unmerged.remove(path)
-            if path in mset:
-                self.modified.remove(path)
-            if path in utset:
-                self.untracked.remove(path)
             if os.path.exists(core.encode(path)):
                 add.append(path)
             else:
                 remove.append(path)
 
-        if dirs:
-            self.notify_message_observers(self.message_about_to_update)
-
-        elif add or remove:
-            self.staged.sort()
+        self.notify_message_observers(self.message_about_to_update)
 
         # `git add -u` doesn't work on untracked files
         if add:
             self._sliced_add(add)
+
         # If a path doesn't exist then that means it should be removed
         # from the index.   We use `git add -u` for that.
         if remove:
@@ -654,45 +673,15 @@ class MainModel(ObservableModel):
                 self.git.add('--', u=True, with_stderr=True, *remove[:42])
                 remove = remove[42:]
 
-        if dirs:
-            self._update_files()
-
+        self._update_files()
         self.notify_message_observers(self.message_updated)
 
     def unstage_paths(self, paths):
         if not paths:
             self.unstage_all()
             return
-        self.notify_message_observers(self.message_about_to_update)
-
-        staged_set = set(self.staged)
-        gitcmds.unstage_paths(paths)
-        all_paths_set = set(gitcmds.all_files())
-        modified = []
-        untracked = []
-
-        cur_modified_set = set(self.modified)
-        cur_untracked_set = set(self.untracked)
-
-        for path in paths:
-            if path in staged_set:
-                self.staged.remove(path)
-                if path in all_paths_set:
-                    if path not in cur_modified_set:
-                        modified.append(path)
-                else:
-                    if path not in cur_untracked_set:
-                        untracked.append(path)
-
-        if modified:
-            self.modified.extend(modified)
-            self.modified.sort()
-
-        if untracked:
-            self.untracked.extend(untracked)
-            self.untracked.sort()
-
-        self.notify_message_observers(self.message_updated)
+        gitcmds.unstage_paths(paths, head=self.head)
+        self.update_file_status()
 
     def getcwd(self):
         """If we've chosen a directory then use it, otherwise os.getcwd()."""

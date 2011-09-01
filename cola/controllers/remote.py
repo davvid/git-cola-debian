@@ -1,13 +1,11 @@
 """This controller handles the remote dialog."""
 
 
-import os
 import fnmatch
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
-from PyQt4.QtGui import QDialog
 
 import cola
 from cola import serializer
@@ -52,7 +50,6 @@ class RemoteController(QObserver):
             'push': self.gen_remote_callback(self.model.push_helper),
             'pull': self.gen_remote_callback(self.model.pull_helper),
         }   [action]
-        self.action_result = None
         self._tasks = []
         self.progress = QtGui.QProgressDialog(self.view)
         self.progress.setRange(0, 0)
@@ -82,7 +79,7 @@ class RemoteController(QObserver):
         self.update_remotes()
 
         # Default to "git fetch origin master"
-        if action == 'fetch':
+        if action == 'fetch' or action == 'pull':
             self.model.set_local_branch('')
             self.model.set_remote_branch('')
             return
@@ -96,23 +93,13 @@ class RemoteController(QObserver):
                 return
             if self.view.select_local_branch(idx):
                 self.model.set_local_branch(branch)
-
-        if action == 'pull':
-            branch = self.model.currentbranch
-            remotebranch = gitcmds.tracked_branch(branch)
-            if remotebranch is None:
-                return
-            try:
-                idx = self.model.remote_branches.index(remotebranch)
-            except ValueError:
-                return
-            self.model.set_remote_branch(branch)
+            self.model.set_remote_branch('')
 
     def display_remotes(self, widget):
         """Display the available remotes in a listwidget"""
         displayed = []
         for remotename in self.model.remotes:
-            url = self.model.remote_url(remotename)
+            url = self.model.remote_url(remotename, self.action)
             display = ('%s\t(%s %s)'
                        % (remotename, unicode(self.tr('URL:')), url))
             displayed.append(display)
@@ -225,7 +212,7 @@ class RemoteController(QObserver):
             QtGui.QApplication.setOverrideCursor(Qt.WaitCursor)
 
             # Show a nice progress bar
-            self.progress.setLabelText('Connecting to %s...' % remote)
+            self.progress.setLabelText('Updating...')
             self.progress.show()
 
             # Use a thread to update in the background
@@ -250,11 +237,20 @@ class RemoteController(QObserver):
         QtGui.QApplication.restoreOverrideCursor()
 
         if status != 0 and self.action == 'push':
-            message = 'Error pushing to "%s".\n\nPull first?' % remote
+            message = 'Error pushing to "%s".\n\nPull first?' % self.model.remotename
             qtutils.critical('Push Error',
                              message=message, details=output)
+        else:
+            title = self.view.windowTitle()
+            if status == 0:
+                result = 'succeeded'
+            else:
+                result = 'returned exit status %d' % status
 
-        self.action_completed = True
+            message = '"git %s" %s' % (self.action, result)
+            qtutils.information(title,
+                                parent=self.view,
+                                message=message, details=output)
         self.view.accept()
 
 

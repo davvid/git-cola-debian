@@ -2,6 +2,7 @@ from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4.QtCore import SIGNAL
 
+from cola import qtutils
 from cola.views import standard
 
 
@@ -14,7 +15,7 @@ class RemoteView(standard.StandardDialog):
         standard.StandardDialog.__init__(self, parent=parent)
         self.setWindowModality(QtCore.Qt.WindowModal)
 
-        self.resize(666, 606)
+        self.resize(666, 420)
         self._main_vbox_layt = QtGui.QVBoxLayout(self)
 
         # Local branch section
@@ -65,12 +66,14 @@ class RemoteView(standard.StandardDialog):
         # Exposed
         self.action_button = QtGui.QPushButton(self)
         self.action_button.setText(self.tr('Push'))
+        self.action_button.setIcon(qtutils.ok_icon())
         # Exposed
-        self.cancel_button = QtGui.QPushButton(self)
-        self.cancel_button.setText(self.tr('Cancel'))
+        self.close_button = QtGui.QPushButton(self)
+        self.close_button.setText(self.tr('Close'))
+        self.close_button.setIcon(qtutils.close_icon())
 
         # connections
-        self.connect(self.cancel_button, SIGNAL('released()'), self.reject)
+        self.connect(self.close_button, SIGNAL('released()'), self.reject)
 
         if action:
             self.action_button.setText(action.title())
@@ -86,25 +89,15 @@ class RemoteView(standard.StandardDialog):
         else:
             self.rebase_checkbox.hide()
 
-        # Action-dependent focus
-        if action == 'fetch':
-            self.remotename.setFocus()
+        self.remotename.setFocus()
+        self.layout_remotes()
 
         if action == 'push':
-            self.local_branch.setFocus()
-
-        if action == 'fetch':
-            self.layout_remotes()
+            self.layout_local_branches()
+            self.layout_remote_branches()
+        else: # fetch and pull
             self.layout_remote_branches()
             self.layout_local_branches()
-        elif action == 'pull':
-            self.layout_remote_branches()
-            self.layout_remotes()
-            self.layout_local_branches()
-        else:
-            self.layout_local_branches()
-            self.layout_remotes()
-            self.layout_remote_branches()
 
         self.layout_options()
 
@@ -113,7 +106,7 @@ class RemoteView(standard.StandardDialog):
         self._options_hbox_layt.addWidget(self.tags_checkbox)
         self._options_hbox_layt.addWidget(self.rebase_checkbox)
         self._options_hbox_layt.addWidget(self.action_button)
-        self._options_hbox_layt.addWidget(self.cancel_button)
+        self._options_hbox_layt.addWidget(self.close_button)
         self._main_vbox_layt.addLayout(self._options_hbox_layt)
 
     def layout_local_branches(self):

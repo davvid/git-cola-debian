@@ -10,7 +10,6 @@ from cola import errors
 from cola import utils
 from cola import version
 from cola.compat import set
-from cola.decorators import memoize
 
 git = git.instance()
 config = gitcfg.instance()
@@ -185,6 +184,8 @@ def commit_diff(sha1, git=git):
 
 
 def _common_diff_opts(config=config):
+    # The '--patience' option did not appear until git 1.6.2
+    # so don't allow it to be used on version previous to that
     patience = version.check('patience', version.git_version())
     submodule = version.check('diff-submodule', version.git_version())
     return {
@@ -204,7 +205,7 @@ def sha1_diff(sha1, git=git):
 
 def diff_info(sha1, git=git):
     log = git.log('-1',
-                  '--format=Author:\t%aN <%aE>%n'
+                  '--pretty=format:Author:\t%aN <%aE>%n'
                   'Date:\t%aD%n%n'
                   '%s%n%n%b',
                   sha1)
@@ -245,11 +246,6 @@ def diff_helper(commit=None,
 
     headers = []
     deleted = cached and not os.path.exists(core.encode(filename))
-
-    # The '--patience' option did not appear until git 1.6.2
-    # so don't allow it to be used on version previous to that
-    patience = version.check('patience', version.git_version())
-    submodule = version.check('diff-submodule', version.git_version())
 
     diffoutput = git.diff(R=reverse, M=True, cached=cached,
                           *argv, **_common_diff_opts())
@@ -344,8 +340,8 @@ def export_patchset(start, end, output='patches', **kwargs):
                             **kwargs)
 
 
-def unstage_paths(args):
-    status, output = git.reset('--', with_stderr=True, with_status=True,
+def unstage_paths(args, head='HEAD'):
+    status, output = git.reset(head, '--', with_stderr=True, with_status=True,
                                *set(args))
     if status != 128:
         return (status, output)
@@ -375,14 +371,18 @@ def worktree_state(head='HEAD', staged_only=False):
            state.get('upstream_changed', []))
 
 
-def worktree_state_dict(head='HEAD', staged_only=False, git=git):
+def worktree_state_dict(head='HEAD',
+                        staged_only=False,
+                        update_index=False,
+                        git=git):
     """Return a dict of files in various states of being
 
     :rtype: dict, keys are staged, unstaged, untracked, unmerged,
             changed_upstream, and submodule.
 
     """
-    git.update_index(refresh=True)
+    if update_index:
+        git.update_index(refresh=True)
 
     if staged_only:
         return _branch_status(head)
@@ -489,6 +489,22 @@ def worktree_state_dict(head='HEAD', staged_only=False, git=git):
             'upstream_changed': upstream_changed,
             'submodules': submodules}
 
+def partial_worktree_state_dict(files, head='HEAD'):
+    states = []
+    for path in files:
+        output = git.status(path, porcelain=True)
+        if output == "" or output[1] == " ":
+            states.append(('unmodified', path))
+            status = None
+        else:
+            status = output[1]
+
+        if status == "M" or status == "D" or status == "R":
+            states.append(('modified', path))
+        elif status == "?":
+            states.append(('untracked', path))
+
+    return states
 
 def _branch_status(branch, git=git):
     """
