@@ -5,22 +5,18 @@ import os
 
 from PyQt4 import QtGui
 from PyQt4 import QtCore
+from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 import cola
 from cola import core
+from cola import gitcfg
 from cola import utils
+from cola import settings
 from cola import signals
 from cola import resources
+from cola.compat import set
 from cola.decorators import memoize
-import cola.views.log
-
-
-@memoize
-def logger():
-    logview = cola.views.log.LogView()
-    cola.notifier().connect(signals.log_cmd, logview.log)
-    return logview
 
 
 def log(status, output):
@@ -29,6 +25,16 @@ def log(status, output):
     if not output:
         return
     cola.notifier().broadcast(signals.log_cmd, status, output)
+
+
+def emit(widget, signal, *args, **opts):
+    """Return a function that emits a signal"""
+    def emitter(*local_args, **local_opts):
+        if args or opts:
+            widget.emit(SIGNAL(signal), *args, **opts)
+        else:
+            widget.emit(SIGNAL(signal), *local_args, **local_opts)
+    return emitter
 
 
 def SLOT(signal, *args, **opts):
@@ -47,14 +53,42 @@ def SLOT(signal, *args, **opts):
     return broadcast
 
 
-def prompt(msg, title=None):
+def connect_action(action, callback):
+    action.connect(action, SIGNAL('triggered()'), callback)
+
+
+def connect_action_bool(action, callback):
+    action.connect(action, SIGNAL('triggered(bool)'), callback)
+
+
+def connect_button(button, callback):
+    button.connect(button, SIGNAL('clicked()'), callback)
+
+
+def relay_button(button, signal):
+    connect_button(button, SLOT(signal))
+
+
+def relay_signal(parent, child, signal):
+    """Relay a signal from the child widget through the parent"""
+    def relay_slot(*args, **opts):
+        parent.emit(signal, *args, **opts)
+    parent.connect(child, signal, relay_slot)
+    return relay_slot
+
+
+def active_window():
+    return QtGui.QApplication.activeWindow()
+
+
+def prompt(msg, title=None, text=''):
     """Presents the user with an input widget and returns the input."""
     if title is None:
         title = msg
     msg = tr(msg)
     title = tr(title)
-    parent = QtGui.QApplication.instance().activeWindow()
-    result = QtGui.QInputDialog.getText(parent, msg, title)
+    result = QtGui.QInputDialog.getText(active_window(), msg, title,
+                                        QtGui.QLineEdit.Normal, text)
     return (unicode(result[0]), result[1])
 
 
@@ -80,15 +114,53 @@ def cached_icon_from_path(filename):
     return QtGui.QIcon(filename)
 
 
-def information(title, message=None, parent=None, details=None, informative_text=None):
+def confirm(title, text, informative_text, ok_text,
+            icon=None, default=True):
+    """Confirm that an action should take place"""
+    if icon is None:
+        icon = ok_icon()
+    elif icon and isinstance(icon, basestring):
+        icon = QtGui.QIcon(icon)
+    msgbox = QtGui.QMessageBox(active_window())
+    msgbox.setWindowTitle(tr(title))
+    msgbox.setText(tr(text))
+    msgbox.setInformativeText(tr(informative_text))
+    ok = msgbox.addButton(tr(ok_text), QtGui.QMessageBox.ActionRole)
+    ok.setIcon(icon)
+    cancel = msgbox.addButton(QtGui.QMessageBox.Cancel)
+    if default:
+        msgbox.setDefaultButton(ok)
+    else:
+        msgbox.setDefaultButton(cancel)
+    msgbox.exec_()
+    return msgbox.clickedButton() == ok
+
+
+def critical(title, message=None, details=None):
+    """Show a warning with the provided title and message."""
+    if message is None:
+        message = title
+    title = tr(title)
+    message = tr(message)
+    mbox = QtGui.QMessageBox(active_window())
+    mbox.setWindowTitle(title)
+    mbox.setTextFormat(QtCore.Qt.PlainText)
+    mbox.setText(message)
+    mbox.setIcon(QtGui.QMessageBox.Critical)
+    mbox.setStandardButtons(QtGui.QMessageBox.Close)
+    mbox.setDefaultButton(QtGui.QMessageBox.Close)
+    if details:
+        mbox.setDetailedText(details)
+    mbox.exec_()
+
+
+def information(title, message=None, details=None, informative_text=None):
     """Show information with the provided title and message."""
     if message is None:
         message = title
     title = tr(title)
     message = tr(message)
-    if parent is None:
-        parent = QtGui.QApplication.instance().activeWindow()
-    mbox = QtGui.QMessageBox(parent)
+    mbox = QtGui.QMessageBox(active_window())
     mbox.setStandardButtons(QtGui.QMessageBox.Close)
     mbox.setDefaultButton(QtGui.QMessageBox.Close)
     mbox.setWindowTitle(title)
@@ -107,26 +179,31 @@ def information(title, message=None, parent=None, details=None, informative_text
     mbox.exec_()
 
 
-def critical(title, message=None, details=None):
-    """Show a warning with the provided title and message."""
-    if message is None:
-        message = title
+def question(title, message, default=True):
+    """Launches a QMessageBox question with the provided title and message.
+    Passing "default=False" will make "No" the default choice."""
+    yes = QtGui.QMessageBox.Yes
+    no = QtGui.QMessageBox.No
+    buttons = yes | no
+    if default:
+        default = yes
+    else:
+        default = no
     title = tr(title)
-    message = tr(message)
-    parent = QtGui.QApplication.instance().activeWindow()
-    mbox = QtGui.QMessageBox(parent)
-    mbox.setWindowTitle(title)
-    mbox.setTextFormat(QtCore.Qt.PlainText)
-    mbox.setText(message)
-    mbox.setIcon(QtGui.QMessageBox.Critical)
-    mbox.setStandardButtons(QtGui.QMessageBox.Close)
-    mbox.setDefaultButton(QtGui.QMessageBox.Close)
-    if details:
-        mbox.setDetailedText(details)
-    mbox.exec_()
+    msg = tr(message)
+    result = (QtGui.QMessageBox
+                   .question(active_window(), title, msg, buttons, default))
+    return result == QtGui.QMessageBox.Yes
 
-# Register globally with the notifier
-cola.notifier().connect(signals.information, information)
+
+def register_for_signals():
+    # Register globally with the notifier
+    notifier = cola.notifier()
+    notifier.connect(signals.confirm, confirm)
+    notifier.connect(signals.critical, critical)
+    notifier.connect(signals.information, information)
+    notifier.connect(signals.question, question)
+register_for_signals()
 
 
 def selected_treeitem(tree_widget):
@@ -187,66 +264,34 @@ def selected_item(list_widget, items):
         return None
 
 
-def open_dialog(parent, title, filename=None):
+def open_dialog(title, filename=None):
     """Creates an Open File dialog and returns a filename."""
     title_tr = tr(title)
     return unicode(QtGui.QFileDialog
-                        .getOpenFileName(parent, title_tr, filename))
+                        .getOpenFileName(active_window(), title_tr, filename))
 
 
-def opendir_dialog(parent, title, path):
+def opendir_dialog(title, path):
     """Prompts for a directory path"""
 
     flags = (QtGui.QFileDialog.ShowDirsOnly |
              QtGui.QFileDialog.DontResolveSymlinks)
     title_tr = tr(title)
-    qstr = (QtGui.QFileDialog
-                 .getExistingDirectory(parent, title_tr, path, flags))
-    return unicode(qstr)
-
-
-def save_dialog(parent, title, filename=''):
-    """Creates a Save File dialog and returns a filename."""
-    title_tr = parent.tr(title)
     return unicode(QtGui.QFileDialog
-                        .getSaveFileName(parent, title_tr, filename))
+                        .getExistingDirectory(active_window(),
+                                              title_tr, path, flags))
+
+
+def save_as(filename, title='Save As...'):
+    """Creates a Save File dialog and returns a filename."""
+    title_tr = tr(title)
+    return unicode(QtGui.QFileDialog
+                        .getSaveFileName(active_window(), title_tr, filename))
 
 
 def icon(basename):
     """Given a basename returns a QIcon from the corresponding cola icon."""
     return QtGui.QIcon(resources.icon(basename))
-
-
-def question(parent, title, message, default=True):
-    """Launches a QMessageBox question with the provided title and message.
-    Passing "default=False" will make "No" the default choice."""
-    yes = QtGui.QMessageBox.Yes
-    no = QtGui.QMessageBox.No
-    buttons = yes | no
-    if default:
-        default = yes
-    else:
-        default = no
-    title = tr(title)
-    message = tr(message)
-    result = QtGui.QMessageBox.question(parent, title, message,
-                                        buttons, default)
-    return result == QtGui.QMessageBox.Yes
-
-
-def confirm(parent, title, text, informative_text, ok_text, icon=None):
-    """Confirm that an action should take place"""
-    if icon is None:
-        icon = ok_icon()
-    msgbox = QtGui.QMessageBox(parent)
-    msgbox.setWindowTitle(tr(title))
-    msgbox.setText(tr(text))
-    msgbox.setInformativeText(tr(informative_text))
-    ok = msgbox.addButton(tr(ok_text), QtGui.QMessageBox.ActionRole)
-    ok.setIcon(icon)
-    msgbox.addButton(QtGui.QMessageBox.Cancel)
-    msgbox.exec_()
-    return msgbox.clickedButton() == ok
 
 
 def set_clipboard(text):
@@ -256,6 +301,17 @@ def set_clipboard(text):
     clipboard = QtGui.QApplication.instance().clipboard()
     clipboard.setText(text, QtGui.QClipboard.Clipboard)
     clipboard.setText(text, QtGui.QClipboard.Selection)
+
+
+def add_action(widget, text, fn, *shortcuts):
+    action = QtGui.QAction(tr(text), widget)
+    connect_action(action, fn)
+    if shortcuts:
+        shortcuts = list(set(shortcuts))
+        action.setShortcuts(shortcuts)
+        action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        widget.addAction(action)
+    return action
 
 
 def set_selected_item(widget, idx):
@@ -279,7 +335,6 @@ def set_items(widget, items):
     add_items(widget, items)
 
 
-@memoize
 def tr(txt):
     """Translate a string into a local language."""
     if type(txt) is QtCore.QString:
@@ -327,11 +382,6 @@ def update_file_icons(widget, items, staged=True,
         if item:
             item.setIcon(icon_for_file(model_item, staged, untracked))
 
-def set_listwidget_strings(widget, items):
-    """Sets a list widget to the strings passed in items."""
-    widget.clear()
-    add_items(widget, [ QtGui.QListWidgetItem(i) for i in items ])
-
 @memoize
 def cached_icon(key):
     """Maintain a cache of standard icons and return cache entries."""
@@ -354,14 +404,56 @@ def apply_icon():
     return cached_icon(QtGui.QStyle.SP_DialogApplyButton)
 
 
+def new_icon():
+    return cached_icon(QtGui.QStyle.SP_FileDialogNewFolder)
+
 def save_icon():
     """Return a standard Save icon"""
     return cached_icon(QtGui.QStyle.SP_DialogSaveButton)
 
 
+
 def ok_icon():
     """Return a standard Ok icon"""
     return cached_icon(QtGui.QStyle.SP_DialogOkButton)
+
+
+def open_icon():
+    """Return a standard open directory icon"""
+    return cached_icon(QtGui.QStyle.SP_DirOpenIcon)
+
+
+def open_file_icon():
+    return icon('open.svg')
+
+
+def options_icon():
+    """Return a standard open directory icon"""
+    return icon('options.svg')
+
+
+def dir_close_icon():
+    """Return a standard closed directory icon"""
+    return cached_icon(QtGui.QStyle.SP_DirClosedIcon)
+
+
+def titlebar_close_icon():
+    """Return a dock widget close icon"""
+    return cached_icon(QtGui.QStyle.SP_TitleBarCloseButton)
+
+
+def titlebar_normal_icon():
+    """Return a dock widget close icon"""
+    return cached_icon(QtGui.QStyle.SP_TitleBarNormalButton)
+
+
+def git_icon():
+    return icon('git.svg')
+
+
+def reload_icon():
+    """Returna  standard Refresh icon"""
+    return cached_icon(QtGui.QStyle.SP_BrowserReload)
 
 
 def discard_icon():
@@ -374,40 +466,10 @@ def close_icon():
     return cached_icon(QtGui.QStyle.SP_DialogCloseButton)
 
 
-def diff_font():
-    """Return the diff font string."""
-    qfont = QtGui.QFont()
-    font = cola.model().cola_config('fontdiff')
-    if font and qfont.fromString(font):
-        return qfont
-    family = 'Monospace'
-    if cola.utils.is_darwin():
-        family = 'Monaco'
-    qfont.setFamily(family)
-    font = unicode(qfont.toString())
-    # TODO this might not be the best place for the default
-    cola.model().set_diff_font(font)
-    return qfont
-
-
-def set_diff_font(widget):
-    """Updates the diff font based on the configured value."""
-    qfont = diff_font()
-    block = widget.signalsBlocked()
-    widget.blockSignals(True)
-    if isinstance(widget, QtGui.QFontComboBox):
-        widget.setCurrentFont(qfont)
-    else:
-        widget.setFont(qfont)
-    widget.blockSignals(block)
-
-
 def add_close_action(widget):
-    """Adds a Ctrl+w close action to a widget."""
-    action = QtGui.QAction(widget.tr('Close...'), widget)
-    action.setShortcut('Ctrl+w')
-    widget.addAction(action)
-    widget.connect(action, SIGNAL('triggered()'), widget.close)
+    """Adds close action and shortcuts to a widget."""
+    return add_action(widget, 'Close...',
+                      widget.close, QtGui.QKeySequence.Close, 'Ctrl+Q')
 
 
 def center_on_screen(widget):
@@ -417,3 +479,60 @@ def center_on_screen(widget):
     cy = rect.height()/2
     cx = rect.width()/2
     widget.move(cx - widget.width()/2, cy - widget.height()/2)
+
+
+def save_state(widget, handler=None):
+    if handler is None:
+        handler = settings.Settings()
+    if gitcfg.instance().get('cola.savewindowsettings', True):
+        handler.save_gui_state(widget)
+
+
+def export_window_state(widget, state, version):
+    # Save the window state
+    windowstate = widget.saveState(version)
+    state['windowstate'] = unicode(windowstate.toBase64().data())
+    return state
+
+
+def apply_window_state(widget, state, version):
+    # Restore the dockwidget, etc. window state
+    try:
+        windowstate = state['windowstate']
+        widget.restoreState(QtCore.QByteArray.fromBase64(str(windowstate)),
+                            version)
+    except KeyError:
+        pass
+
+
+def apply_state(widget):
+    state = settings.Settings().get_gui_state(widget)
+    widget.apply_state(state)
+    return bool(state)
+
+
+@memoize
+def theme_icon(name):
+    """Grab an icon from the current theme with a fallback
+
+    Support older versions of Qt by catching AttributeError and
+    falling back to our default icons.
+
+    """
+    try:
+        base, ext = os.path.splitext(name)
+        qicon = QtGui.QIcon.fromTheme(base)
+        if not qicon.isNull():
+            return qicon
+    except AttributeError:
+        pass
+    return icon(name)
+
+
+def default_monospace_font():
+    font = QtGui.QFont()
+    family = 'Monospace'
+    if utils.is_darwin():
+        family = 'Monaco'
+    font.setFamily(family)
+    return font

@@ -1,19 +1,22 @@
 # Copyright (c) 2008 David Aguilar
 """This module provides miscellaneous utility functions."""
 
-import os
-import re
-import sys
-import errno
-import platform
-import subprocess
 import mimetypes
+import os
+import random
+import re
+import shlex
+import subprocess
+import sys
+import time
 
 from cola import git
 from cola import core
 from cola import resources
 from cola.compat import hashlib
-from cola.decorators import memoize
+from cola.decorators import interruptable
+
+random.seed(hash(time.time()))
 
 
 KNOWN_FILE_MIME_TYPES = {
@@ -89,6 +92,35 @@ def file_icon(filename):
     return resources.icon(ident_file_type(filename))
 
 
+@interruptable
+def _fork_posix(args):
+    """Launch a process in the background."""
+    encoded_args = [core.encode(arg) for arg in args]
+    return subprocess.Popen(encoded_args).pid
+
+
+def _fork_win32(args):
+    """Launch a background process using crazy win32 voodoo."""
+    # This is probably wrong, but it works.  Windows.. wow.
+    if args[0] == 'git-dag':
+        # win32 can't exec python scripts
+        args = [sys.executable] + args
+
+    enc_args = map(core.encode, args)
+    abspath = win32_abspath(enc_args[0])
+    if abspath:
+        # e.g. fork(['git', 'difftool', '--no-prompt', '--', 'path'])
+        enc_args[0] = abspath
+    else:
+        # e.g. fork(['gitk', '--all'])
+        cmdstr = subprocess.list2cmdline(enc_args)
+        sh_exe = win32_abspath('sh')
+        enc_args = [sh_exe, '-c', cmdstr]
+
+    DETACHED_PROCESS = 0x00000008 # Amazing!
+    return subprocess.Popen(enc_args, creationflags=DETACHED_PROCESS).pid
+
+
 def win32_abspath(exe):
     """Return the absolute path to an .exe if it exists"""
     if os.path.exists(exe):
@@ -102,29 +134,6 @@ def win32_abspath(exe):
         if os.path.exists(abspath):
             return abspath
     return None
-
-
-def fork(args):
-    """Launch a command in the background."""
-    if is_win32():
-        # Windows is absolutely insane.
-        enc_args = map(core.encode, args)
-        abspath = win32_abspath(args[0])
-        if abspath:
-            # e.g. fork(['git', 'difftool', '--no-prompt', '--', 'path'])
-            return os.spawnv(os.P_NOWAIT, abspath, enc_args)
-        else:
-            # e.g. fork(['gitk', '--all'])
-            cmdstr = subprocess.list2cmdline(enc_args)
-            sh_exe = win32_abspath('sh')
-            cmd = ['sh.exe', '-c', cmdstr]
-            return os.spawnv(os.P_NOWAIT, sh_exe, cmd)
-    else:
-        # I like having a sane os.system()
-        enc_args = [core.encode(a) for a in args]
-        cmdstr = subprocess.list2cmdline(enc_args)
-        return os.system(cmdstr + '&')
-
 
 def sublist(a,b):
     """Subtracts list b from list a and returns the resulting list."""
@@ -185,6 +194,25 @@ def basename(path):
     return path.rsplit('/', 1)[-1]
 
 
+def strip_one(path):
+    """Strip one level of directory
+
+    >>> strip_one('/usr/bin/git')
+    'bin/git'
+
+    >>> strip_one('local/bin/git')
+    'bin/git'
+
+    >>> strip_one('bin/git')
+    'git'
+
+    >>> strip_one('git')
+    'git'
+
+    """
+    return path.strip('/').split('/', 1)[-1]
+
+
 def dirname(path):
     """
     An os.path.dirname() implementation that always uses '/'
@@ -204,15 +232,15 @@ def dirname(path):
 def slurp(path):
     """Slurps a filepath into a string."""
     fh = open(core.encode(path))
-    slushy = core.read_nointr(fh)
+    slushy = core.read(fh)
     fh.close()
     return core.decode(slushy)
 
 
-def write(path, contents):
+def write(path, contents, encoding=None):
     """Writes a raw string to a file."""
     fh = open(core.encode(path), 'wb')
-    core.write_nointr(fh, core.encode(contents))
+    core.write(fh, core.encode(contents, encoding=encoding))
     fh.close()
 
 
@@ -222,21 +250,105 @@ def strip_prefix(prefix, string):
     assert string.startswith(prefix)
     return string[len(prefix):]
 
+
 def sanitize(s):
     """Removes shell metacharacters from a string."""
     for c in """ \t!@#$%^&*()\\;,<>"'[]{}~|""":
         s = s.replace(c, '_')
     return s
 
+
+def word_wrap(text, tabwidth, limit):
+    r"""Wrap long lines to the specified limit
+
+    >>> text = 'a bb ccc dddd\neeeee'
+    >>> word_wrap(text, 8, 2)
+    'a\nbb\nccc\ndddd\neeeee'
+    >>> word_wrap(text, 8, 4)
+    'a bb\nccc\ndddd\neeeee'
+
+    """
+    lines = []
+    for line in text.split('\n'):
+        linelen = 0
+        words = []
+        for idx, word in enumerate(line.split(' ')):
+            if words:
+                linelen += 1
+            words.append(word)
+            linelen += tablength(word, tabwidth)
+            if linelen > limit:
+                # Split on dashes
+                if '-' in word:
+                    dash = word.index('-')
+                    prefix = word[:dash+1]
+                    suffix = word[dash+1:]
+                    words.pop()
+                    words.append(prefix)
+                    lines.append(' '.join(words))
+                    words = [suffix]
+                    linelen = tablength(suffix, tabwidth)
+                    continue
+                if len(words) > 1:
+                    words.pop()
+                    lines.append(' '.join(words))
+                    words = [word]
+                    linelen = tablength(word, tabwidth)
+                    continue
+                else:
+                    lines.append(' '.join(words))
+                    words = []
+                    linelen = 0
+                    continue
+        if words:
+            lines.append(' '.join(words))
+
+    return '\n'.join(lines)
+
+
+def tablength(word, tabwidth):
+    """Return length of a word taking tabs into account
+
+    >>> tablength("\\t\\t\\t\\tX", 8)
+    33
+
+    """
+    return len(word.replace('\t', '')) + word.count('\t') * tabwidth
+
+
+def shell_split(s):
+    """Split string apart into utf-8 encoded words using shell syntax"""
+    try:
+        return shlex.split(core.encode(s))
+    except ValueError:
+        return [s]
+
+
+def shell_usplit(s):
+    """Returns a unicode list instead of encoded strings"""
+    return [core.decode(arg) for arg in shell_split(s)]
+
+
+def tmp_dir():
+    # Allow TMPDIR/TMP with a fallback to /tmp
+    return os.environ.get('TMP', os.environ.get('TMPDIR', '/tmp'))
+
+
+def tmp_file_pattern():
+    return os.path.join(tmp_dir(), 'git-cola-%s-.*' % os.getpid())
+
+
+def tmp_filename(prefix):
+    randstr = ''.join([chr(random.randint(ord('a'), ord('z'))) for i in range(7)])
+    prefix = prefix.replace('/', '-').replace('\\', '-')
+    basename = 'git-cola-%s-%s-%s' % (os.getpid(), randstr, prefix)
+    return os.path.join(tmp_dir(), basename)
+
+
 def is_linux():
     """Is this a linux machine?"""
-    while True:
-        try:
-            return platform.system() == 'Linux'
-        except IOError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
+    return sys.platform.startswith('linux')
+
 
 def is_debian():
     """Is it debian?"""
@@ -245,37 +357,34 @@ def is_debian():
 
 def is_darwin():
     """Return True on OSX."""
-    while True:
-        try:
-            p = platform.platform()
-            break
-        except IOError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-    p = p.lower()
-    return 'macintosh' in p or 'darwin' in p
+    return sys.platform == 'darwin'
 
 
-@memoize
 def is_win32():
     """Return True on win32"""
-    return os.name in ('nt', 'dos')
+    return sys.platform == 'win32' or sys.platform == 'cygwin'
 
 
-@memoize
-def is_broken():
-    """Is it windows or mac? (e.g. is running git-mergetool non-trivial?)"""
-    if is_darwin():
-        return True
-    while True:
-        try:
-            return platform.system() == 'Windows'
-        except IOError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-    return False
+def win32_set_binary(fd):
+    try:
+        import msvcrt
+    except ImportError:
+        return
+    # When run without console, pipes may expose invalid
+    # fileno(), usually set to -1.
+    if hasattr(fd, 'fileno') and fd.fileno() >= 0:
+        msvcrt.setmode(fd.fileno(), os.O_BINARY)
+
+
+def posix_set_binary(fd):
+    """POSIX file descriptors are always binary"""
+    pass
+
+
+if is_win32():
+    set_binary = win32_set_binary
+else:
+    set_binary = posix_set_binary
 
 
 def checksum(path):
@@ -285,40 +394,26 @@ def checksum(path):
     return md5.hexdigest()
 
 
-def quote_repopath(repopath):
+def _quote_repopath_win32(repopath):
     """Quote a path for nt/dos only."""
-    if is_win32():
-        repopath = '"%s"' % repopath
+    return '"%s"' % repopath
+
+
+def _quote_repopath_posix(repopath):
     return repopath
 
-# From git.git
-"""Misc. useful functionality used by the rest of this package.
 
-This module provides common functionality used by the other modules in
-this package.
-
-"""
-# Whether or not to show debug messages
-DEBUG = False
-
-def notify(msg, *args):
-    """Print a message to stderr."""
-    print >> sys.stderr, msg % args
-
-def debug (msg, *args):
-    """Print a debug message to stderr when DEBUG is enabled."""
-    if DEBUG:
-        print >> sys.stderr, msg % args
-
-def error (msg, *args):
+def error(msg, *args):
     """Print an error message to stderr."""
     print >> sys.stderr, "ERROR:", msg % args
+
 
 def warn(msg, *args):
     """Print a warning message to stderr."""
     print >> sys.stderr, "warning:", msg % args
 
-def die (msg, *args):
+
+def die(msg, *args):
     """Print as error message to stderr and exit the program."""
     error(msg, *args)
     sys.exit(1)
@@ -335,7 +430,7 @@ class ProgressIndicator(object):
 
     States = ("|", "/", "-", "\\")
 
-    def __init__ (self, prefix = "", f = sys.stdout):
+    def __init__(self, prefix="", f=sys.stdout):
         """Create a new ProgressIndicator, bound to the given file object."""
         self.n = 0  # Simple progress counter
         self.f = f  # Progress is written to this file object
@@ -343,17 +438,17 @@ class ProgressIndicator(object):
         self.prefix = prefix  # Prefix prepended to each progress message
         self.prefix_lens = [] # Stack of prefix string lengths
 
-    def pushprefix (self, prefix):
+    def pushprefix(self, prefix):
         """Append the given prefix onto the prefix stack."""
         self.prefix_lens.append(len(self.prefix))
         self.prefix += prefix
 
-    def popprefix (self):
+    def popprefix(self):
         """Remove the last prefix from the prefix stack."""
         prev_len = self.prefix_lens.pop()
         self.prefix = self.prefix[:prev_len]
 
-    def __call__ (self, msg = None, lf = False):
+    def __call__(self, msg = None, lf=False):
         """Indicate progress, possibly with a custom message."""
         if msg is None:
             msg = self.States[self.n % len(self.States)]
@@ -365,16 +460,16 @@ class ProgressIndicator(object):
             self.prev_len = 0
         self.n += 1
 
-    def finish (self, msg = "done", noprefix = False):
+    def finish (self, msg="done", noprefix=False):
         """Finalize progress indication with the given message."""
         if noprefix:
             self.prefix = ""
         self(msg, True)
 
 
-def start_command (args, cwd = None, shell = False, add_env = None,
-                   stdin = subprocess.PIPE, stdout = subprocess.PIPE,
-                   stderr = subprocess.PIPE):
+def start_command(args, cwd=None, shell=False, add_env=None,
+                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE):
     """Start the given command, and return a subprocess object.
 
     This provides a simpler interface to the subprocess module.
@@ -384,13 +479,13 @@ def start_command (args, cwd = None, shell = False, add_env = None,
     if add_env is not None:
         env = os.environ.copy()
         env.update(add_env)
-    return subprocess.Popen(args, bufsize = 1, stdin = stdin, stdout = stdout,
-                            stderr = stderr, cwd = cwd, shell = shell,
-                            env = env, universal_newlines = True)
+    return subprocess.Popen(args, bufsize=1, stdin=stdin, stdout=stdout,
+                            stderr=stderr, cwd=cwd, shell=shell,
+                            env=env, universal_newlines=True)
 
 
-def run_command (args, cwd = None, shell = False, add_env = None,
-                 flag_error = True):
+def run_command(args, cwd=None, shell=False, add_env=None,
+                flag_error=True):
     """Run the given command to completion, and return its results.
 
     This provides a simpler interface to the subprocess module.
@@ -412,3 +507,12 @@ def run_command (args, cwd = None, shell = False, add_env = None,
     if flag_error and exit_code:
         error("'%s' returned exit code %i", " ".join(args), exit_code)
     return (exit_code, output, errors)
+
+
+# Portability wrappers
+if is_win32():
+    fork = _fork_win32
+    quote_repopath = _quote_repopath_win32
+else:
+    fork = _fork_posix
+    quote_repopath = _quote_repopath_posix

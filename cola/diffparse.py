@@ -3,14 +3,27 @@ import re
 
 from cola import utils
 from cola import gitcmds
+from cola import gitcfg
+
+
+class DiffSource(object):
+    def get(self, head, amending, filename, cached, reverse):
+        return gitcmds.diff_helper(head=head,
+                                   amending=amending,
+                                   filename=filename,
+                                   with_diff_header=True,
+                                   cached=cached,
+                                   reverse=reverse)
 
 
 class DiffParser(object):
     """Handles parsing diff for use by the interactive index editor."""
     def __init__(self, model, filename='',
-                 cached=True, branch=None, reverse=False):
+                 cached=True, reverse=False,
+                 diff_source=None):
 
         self._header_re = re.compile('^@@ -(\d+),(\d+) \+(\d+),(\d+) @@.*')
+        self._header_start_re = re.compile('^@@ -(\d+) \+(\d+),(\d+) @@.*')
         self._headers = []
 
         self._idx = -1
@@ -18,17 +31,20 @@ class DiffParser(object):
         self._diff_spans = []
         self._diff_offsets = []
 
+        self.config = gitcfg.instance()
+        self.head = model.head
+        self.amending = model.amending()
         self.start = None
         self.end = None
         self.offset = None
-        self.diffs = []
+        self.diff_sel = []
         self.selected = []
+        self.filename = filename
+        self.diff_source = diff_source or DiffSource()
 
-        (header, diff) = gitcmds.diff_helper(filename=filename,
-                                             branch=branch,
-                                             with_diff_header=True,
-                                             cached=cached and not bool(branch),
-                                             reverse=cached or bool(branch) or reverse)
+        (header, diff) = self.diff_source.get(self.head, self.amending,
+                                              filename, cached,
+                                              cached or reverse)
         self.model = model
         self.diff = diff
         self.header = header
@@ -36,17 +52,18 @@ class DiffParser(object):
 
         # Always index into the non-reversed diff
         self.fwd_header, self.fwd_diff = \
-            gitcmds.diff_helper(filename=filename,
-                                branch=branch,
-                                with_diff_header=True,
-                                cached=cached and not bool(branch),
-                                reverse=bool(branch))
+                self.diff_source.get(self.head,
+                                     self.amending,
+                                     filename,
+                                     cached, False)
 
     def write_diff(self,filename,which,selected=False,noop=False):
         """Writes a new diff corresponding to the user's selection."""
-        if not noop and which < len(self.diffs):
-            diff = self.diffs[which]
-            utils.write(filename, self.header + '\n' + diff + '\n')
+        if not noop and which < len(self.diff_sel):
+            diff = self.diff_sel[which]
+            encoding = self.config.file_encoding(self.filename)
+            utils.write(filename, self.header + '\n' + diff + '\n',
+                        encoding=encoding)
             return True
         else:
             return False
@@ -103,14 +120,27 @@ class DiffParser(object):
                 else:
                     newdiff.append(line)
 
-        new_count = self._headers[diff][1] + adds - deletes
-        if new_count != self._headers[diff][3]:
-            header = '@@ -%d,%d +%d,%d @@' % (
-                            self._headers[diff][0],
-                            self._headers[diff][1],
-                            self._headers[diff][2],
-                            new_count)
-            newdiff[0] = header
+        diff_header = self._headers[diff]
+        diff_header_len = len(diff_header)
+
+        if diff_header_len == 4:
+            new_count = diff_header[1] + adds - deletes
+            if new_count != diff_header[3]:
+                header = '@@ -%d,%d +%d,%d @@' % (
+                                diff_header[0],
+                                diff_header[1],
+                                diff_header[2],
+                                new_count)
+                newdiff[0] = header
+        elif diff_header_len == 3:
+            new_count = adds - deletes
+            if new_count != diff_header[2]:
+                header = '@@ -%d +%d,%d @@' % (
+                                diff_header[0],
+                                diff_header[1],
+                                new_count)
+                newdiff[0] = header
+
 
         return (self.header + '\n' + '\n'.join(newdiff) + '\n')
 
@@ -125,13 +155,13 @@ class DiffParser(object):
     def set_diff_to_offset(self, offset):
         """Sets the diff selection to be the hunk at a particular offset."""
         self.offset = offset
-        self.diffs, self.selected = self.diff_for_offset(offset)
+        self.diff_sel, self.selected = self.diff_for_offset(offset)
 
     def set_diffs_to_range(self, start, end):
         """Sets the diff selection to be a range of hunks."""
         self.start = start
         self.end = end
-        self.diffs, self.selected = self.diffs_for_range(start,end)
+        self.diff_sel, self.selected = self.diffs_for_range(start,end)
 
     def diff_for_offset(self, offset):
         """Returns the hunks for a particular offset."""
@@ -167,6 +197,9 @@ class DiffParser(object):
 
         for idx, line in enumerate(diff.split('\n')):
             match = self._header_re.match(line)
+            match_start = None
+            if match is None:
+                match_start = self._header_start_re.match(line)
             if match:
                 self._headers.append([
                         int(match.group(1)),
@@ -174,8 +207,16 @@ class DiffParser(object):
                         int(match.group(3)),
                         int(match.group(4))
                         ])
-                self._diffs.append( [line] )
 
+            elif match_start:
+                self._headers.append([
+                        int(match_start.group(1)),
+                        int(match_start.group(2)),
+                        int(match_start.group(3))
+                        ])
+
+            if match or match_start:
+                self._diffs.append( [line] )
                 line_len = len(line) + 1 #\n
                 self._diff_spans.append([total_offset,
                         total_offset + line_len])
@@ -218,12 +259,13 @@ class DiffParser(object):
         status = 0
         # Process diff selection only
         if selected:
+            encoding = self.config.file_encoding(self.filename)
             for idx in self.selected:
                 contents = self.diff_subset(idx, start, end)
                 if not contents:
                     continue
-                tmpfile = self.model.tmp_filename()
-                utils.write(tmpfile, contents)
+                tmpfile = utils.tmp_filename('selection')
+                utils.write(tmpfile, contents, encoding=encoding)
                 if apply_to_worktree:
                     stat, out = self.model.apply_diff_to_worktree(tmpfile)
                     output += out
@@ -235,8 +277,8 @@ class DiffParser(object):
                 os.unlink(tmpfile)
         # Process a complete hunk
         else:
-            for idx, diff in enumerate(self.diffs):
-                tmpfile = self.model.tmp_filename()
+            for idx, diff in enumerate(self.diff_sel):
+                tmpfile = utils.tmp_filename('patch%02d' % idx)
                 if not self.write_diff(tmpfile,idx):
                     continue
                 if apply_to_worktree:

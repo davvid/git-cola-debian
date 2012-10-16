@@ -3,66 +3,100 @@ git-cola(1)
 
 NAME
 ----
-git-cola - A highly caffeinated git GUI
+git-cola - The highly caffeinated git GUI
 
 SYNOPSIS
 --------
-'git cola' [options]
+'git cola' [options] [sub-command]
 
 DESCRIPTION
 -----------
-'git-cola' is a powerful git GUI written in Python.
-It has many unique features that make git's advanced
-features simple and accessible.
-
+'git-cola' is a sleek and powerful git GUI written in Python.
 See below for a full list of options and usage information.
 
 OPTIONS
 -------
---classic::
-	Launch the standalone 'cola classic' tool.
-
 -g::
 --git-path::
 	Specifies the path to the 'git' binary.
 
 --prompt::
-	Prompt for a git repository instead of auto-detecting it
-	in the current directory.
+	Prompt for a git repository instead of using the current directory.
 
 -r::
 --repo=<path>::
 	Run 'git-cola' on the git repository in <path>.
 	Defaults to the current directory.
 
--s::
---style=<style>::
-	Launch 'git-cola' with a different stylesheet.
-
 -v::
 --version::
 	Print the 'git-cola' version and exit.
 
+SUB-COMMANDS
+------------
+branch::
+	Create branches.
 
-GUI STYLES
-----------
-'git-cola' ships with an alternate "dark" stylesheet.
-Specify `--style=dark` or provide an external stylesheet with `--style=PATH`.
+browse::
+	Browse tracked files.
+
+config::
+	Configure 'git-cola' settings.
+
+fetch::
+	Fetch remote branches.
+
+grep::
+	Use `git grep` to search for content.
+
+pull::
+	Fetch and merge remote branches.
+
+push::
+	Push branches to remotes.
+
+search::
+	Search for commits.
+
+stash::
+	Stash modifications.
+
+tag::
+	Create tags.
+
 
 CONFIG VARIABLES
 ----------------
 cola.savewindowsettings::
 	Whether 'git-cola' should remember its window settings.
 
+cola.fileattributes::
+	Enables per-file linkgit:gitattributes[5] encoding support
+	when set to `true`.  This tells 'git-cola' to honor the
+	configured encoding when displaying and applying diffs.
+
 cola.fontdiff::
 	Specifies the font to use for 'git-cola''s diff display.
 
-cola.classicdockable::
-	Whether to create a dock widget with the 'Cola Classic' tool.
+cola.browserdockable::
+	Whether to create a dock widget with the 'Browser' tool.
 	Defaults to 'false' to speedup startup time.
 
+cola.tabwidth::
+	The number of columns occupied by a tab character.
+
+cola.linebreak::
+	Whether to automatically break long lines while editing commit
+	messages.  Defaults to 'true'.  This setting is configured using
+	the 'Preferences' dialog, but it can be toggled for one-off usage
+	using the commit message editor's settings sub-menu.
+
+cola.textwidth::
+	The number of columns used for line wrapping.
+	Tabs are counted according to `cola.tabwidth`.
+
 gui.diffcontext::
-	The number of diff context lines used and displayed by 'git-cola'
+	The number of diff context lines used and displayed by 'git-cola'.
 
 gui.editor::
 	The default text editor is controlled by gui.editor.
@@ -96,39 +130,26 @@ EDITOR::
 	Specifies the default editor to use.
 	This is ignored when the git config variable `gui.editor` is defined.
 
-GIT_PYTHON_TRACE::
-	When defined, prints git commands and status to the terminal.
-	Print more information when set to the value 'full'.
-
 GIT_COLA_TRACE::
-	When defined, 'git-cola' outputs the 'git' commands it executes
-	into the 'Command Output' log viewer.
+
+	When defined, 'git-cola' logs 'git' commands to stdout.
+	When set to 'full', 'git-cola' also logs the exit status and output.
+	When set to 'trace', 'git-cola' logs to the 'Console' widget.
 
 SOURCE
 ------
 A 'git-cola' development repository can be obtained via git:
 
-	git clone git://github.com/davvid/git-cola.git
-
-
-GUI THEMES
-----------
-'git-cola' ships with an alternative stylesheet called 'dark'.
-You can use this stylesheet by running `git cola --style=dark`.
-
-You can also skin 'git-cola' by providing your own Qt stylesheet.
-E.g. `git cola --style=/path/to/style.qss`.
-
-Built-in styles can be found in `/usr/share/git-cola/styles`.
+	git clone git://github.com/git-cola/git-cola.git
 
 
 LINKS
 -----
 'git-cola' homepage::
-	http://cola.tuxfamily.org/
+	http://git-cola.github.com/
 
 'git-cola' sources on github::
-	http://github.com/davvid/git-cola
+	https://github.com/git-cola/git-cola/
 
 
 SEE ALSO

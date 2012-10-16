@@ -9,7 +9,9 @@ package=git-cola
 
 override_dh_auto_test:
 
-build: build-stamp
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
 build-stamp:
 	dh_testdir
 	$(MAKE) all doc
@@ -38,9 +40,13 @@ binary-indep: build install
 	dh_installexamples
 	dh_installman
 	dh_installmenu
-	dh_pysupport
+	dh_python2
+#	dh_link /usr/share/javascript/jquery/jquery.js \
+#		/usr/share/doc/git-cola/html/_static/jquery.js
 	dh_link /usr/share/javascript/jquery/jquery.js \
-		/usr/share/doc/git-cola/html/_static/jquery.js
+		/usr/share/doc/git-cola/html/static/jquery.js
+	dh_link /usr/share/javascript/underscore/underscore.js \
+		/usr/share/doc/git-cola/html/static/underscore.js
 	dh_strip
 	dh_compress -Xobjects.inv
 	dh_fixperms

@@ -43,5 +43,71 @@ class ColaUtilsTestCase(unittest.TestCase):
         self.assertTrue('foo' in path_set)
 
 
+class WordWrapTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tabwidth = 8
+        self.limit = None
+
+    def wrap(self, text):
+        return utils.word_wrap(text, self.tabwidth, self.limit)
+
+    def test_word_wrap(self):
+        self.limit = 16
+        text = """
+12345678901 3 56 8 01 3 5 7
+
+1 3 5"""
+        expect = """
+12345678901 3 56
+8 01 3 5 7
+
+1 3 5"""
+        self.assertEqual(expect, self.wrap(text))
+
+    def test_word_wrap_dashes(self):
+        self.limit = 4
+        text = '123-5'
+        expect = '123-\n5'
+        self.assertEqual(expect, self.wrap(text))
+
+    def test_word_wrap_double_dashes(self):
+        self.limit = 4
+        text = '12--5'
+        expect = '12-\n-5'
+        self.assertEqual(expect, self.wrap(text))
+
+    def test_word_wrap_many_lines(self):
+        self.limit = 2
+        text = """
+aa
+
+
+bb cc dd"""
+        expect = """
+aa
+
+
+bb
+cc
+dd"""
+        self.assertEqual(expect, self.wrap(text))
+
+    def test_word_python_code(self):
+        self.limit = 78
+        text = """
+if True:
+    print "hello world"
+else:
+    print "hello world"
+
+"""
+        self.assertEqual(text, self.wrap(text))
+
+    def test_word_wrap_spaces(self):
+        self.limit = 2
+        text = ' ' * 6
+        self.assertEqual('  \n  \n', self.wrap(text))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -25,7 +25,7 @@ def shell(cmd):
 
 def pipe(cmd):
     p = os.popen(cmd)
-    out = core.read_nointr(p).strip()
+    out = core.read(p).strip()
     p.close()
     return out
 
@@ -56,7 +56,7 @@ class GitRepositoryTestCase(TmpPathTestCase):
         self.initialize_repo()
         if commit:
             self.commit_files()
-        git.instance().load_worktree(os.getcwd())
+        git.instance().set_worktree(os.getcwd())
         gitcfg.instance().reset()
         gitcmds.clear_cache()
 

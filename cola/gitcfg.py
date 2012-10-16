@@ -4,6 +4,7 @@ import fnmatch
 
 from cola import core
 from cola import git
+from cola import observable
 from cola.decorators import memoize
 
 
@@ -43,11 +44,16 @@ def _cache_key():
     return mtimes
 
 
-class GitConfig(object):
+class GitConfig(observable.Observable):
     """Encapsulate access to git-config values."""
 
+    message_user_config_changed = 'user_config_changed'
+    message_repo_config_changed = 'repo_config_changed'
+
     def __init__(self):
+        observable.Observable.__init__(self)
         self.git = git.instance()
+        self._map = {}
         self._system = {}
         self._user = {}
         self._repo = {}
@@ -55,16 +61,21 @@ class GitConfig(object):
         self._cache_key = None
         self._configs = []
         self._config_files = {}
+        self._value_cache = {}
+        self._attr_cache = {}
         self._find_config_files()
 
     def reset(self):
-        self._system = {}
-        self._user = {}
-        self._repo = {}
-        self._all = {}
+        self._map.clear()
+        self._system.clear()
+        self._user.clear()
+        self._repo.clear()
+        self._all.clear()
         self._cache_key = None
         self._configs = []
-        self._config_files = {}
+        self._config_files.clear()
+        self._value_cache = {}
+        self._attr_cache = {}
         self._find_config_files()
 
     def user(self):
@@ -106,28 +117,31 @@ class GitConfig(object):
 
         """
         cache_key = _cache_key()
-        if not self._cache_key or cache_key != self._cache_key:
+        if self._cache_key is None or cache_key != self._cache_key:
             self._cache_key = cache_key
             return False
         return True
 
     def _read_configs(self):
         """Read git config value into the system, user and repo dicts."""
-        self._system = {}
-        self._user = {}
-        self._repo = {}
-        self._all = {}
+        self._map.clear()
+        self._system.clear()
+        self._user.clear()
+        self._repo.clear()
+        self._all.clear()
 
         if 'system' in self._config_files:
-            self._system = self.read_config(self._config_files['system'])
+            self._system.update(
+                    self.read_config(self._config_files['system']))
 
         if 'user' in self._config_files:
-            self._user = self.read_config(self._config_files['user'])
+            self._user.update(
+                    self.read_config(self._config_files['user']))
 
         if 'repo' in self._config_files:
-            self._repo = self.read_config(self._config_files['repo'])
+            self._repo.update(
+                    self.read_config(self._config_files['repo']))
 
-        self._all = {}
         for dct in (self._system, self._user, self._repo):
             self._all.update(dct)
 
@@ -138,38 +152,122 @@ class GitConfig(object):
         config_lines = self.git.config(*args).split('\0')
         for line in config_lines:
             try:
-                k, v = line.split('\n')
-            except:
+                k, v = line.split('\n', 1)
+            except ValueError:
                 # the user has an invalid entry in their git config
-                continue
-            v = core.decode(v)
-            if v == 'yes':
+                if not line:
+                    continue
+                k = line
                 v = 'true'
-            elif v == 'no':
-                v = 'false'
-            if v == 'true' or v == 'false':
-                v = bool(eval(v.title()))
-            try:
-                v = int(eval(v))
-            except:
-                pass
+            k = core.decode(k)
+            v = core.decode(v)
+
+            if v in ('true', 'yes'):
+                v = True
+            elif v in ('false', 'no'):
+                v = False
+            else:
+                try:
+                    v = int(v)
+                except ValueError:
+                    pass
+            self._map[k.lower()] = k
             dest[k] = v
         return dest
 
+    def _get(self, src, key, default):
+        self.update()
+        try:
+            return src[key]
+        except KeyError:
+            pass
+        key = self._map.get(key.lower(), key)
+        try:
+            return src[key]
+        except KeyError:
+            return src.get(key.lower(), default)
+
     def get(self, key, default=None):
         """Return the string value for a config key."""
+        return self._get(self._all, key, default)
+
+    def get_user(self, key, default=None):
+        return self._get(self._user, key, default)
+
+    def get_repo(self, key, default=None):
+        return self._get(self._repo, key, default)
+
+    def python_to_git(self, value):
+        if type(value) is bool:
+            if value:
+                return 'true'
+            else:
+                return 'false'
+        if type(value) is int:
+            return unicode(value)
+        return value
+
+    def set_user(self, key, value):
+        msg = self.message_user_config_changed
+        self.git.config('--global', key, self.python_to_git(value))
         self.update()
-        return self._all.get(key, default)
+        self.notify_observers(msg, key, value)
+
+    def set_repo(self, key, value):
+        msg = self.message_repo_config_changed
+        self.git.config(key, self.python_to_git(value))
+        self.update()
+        self.notify_observers(msg, key, value)
 
     def find(self, pat):
+        pat = pat.lower()
+        match = fnmatch.fnmatch
         result = {}
+        self.update()
         for key, val in self._all.items():
-            if fnmatch.fnmatch(key, pat):
+            if match(key, pat):
                 result[key] = val
         return result
 
-    def get_encoding(self, default='utf-8'):
-        return self.get('gui.encoding', default=default)
+    def get_cached(self, key, default=None):
+        cache = self._value_cache
+        try:
+            value = cache[key]
+        except KeyError:
+            value = cache[key] = self.get(key, default=default)
+        return value
+
+    def gui_encoding(self):
+        return self.get_cached('gui.encoding', default='utf-8')
+
+    def is_per_file_attrs_enabled(self):
+        return self.get_cached('cola.fileattributes', default=False)
+
+    def file_encoding(self, path):
+        if not self.is_per_file_attrs_enabled():
+            return None
+        cache = self._attr_cache
+        try:
+            value = cache[path]
+        except KeyError:
+            value = cache[path] = self._file_encoding(path)
+        return value
+
+    def _file_encoding(self, path):
+        """Return the file encoding for a path"""
+        status, out = self.git.check_attr('encoding', '--', path,
+                                          with_status=True)
+        if status != 0:
+            return None
+        out = core.decode(out)
+        header = '%s: encoding: ' % path
+        if out.startswith(header):
+            encoding = out[len(header):].strip()
+            if (encoding != 'unspecified' and
+                    encoding != 'unset' and
+                    encoding != 'set'):
+                return encoding
+        return None
 
     guitool_opts = ('cmd', 'needsfile', 'noconsole', 'norescan', 'confirm',
                     'argprompt', 'revprompt', 'revunmerged', 'title', 'prompt')
@@ -186,9 +284,8 @@ class GitConfig(object):
         return opts
 
     def get_guitool_names(self):
-        cmds = []
         guitools = self.find('guitool.*.cmd')
-        for name, cmd in guitools.items():
-            name = name[len('guitool.'):-len('.cmd')]
-            cmds.append(name)
-        return cmds
+        prefix = len('guitool.')
+        suffix = len('.cmd')
+        return sorted([name[prefix:-suffix]
+                        for (name, cmd) in guitools.items()])

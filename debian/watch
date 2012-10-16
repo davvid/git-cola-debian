@@ -1,2 +1,2 @@
 version=3
-http://cola.tuxfamily.org/releases/cola-(.*)\.tar\.gz
+https://github.com/git-cola/git-cola/tags /git-cola/git-cola/tarball/v(.+)

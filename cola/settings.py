@@ -3,18 +3,69 @@
 """
 
 import os
+import sys
+try:
+    import simplejson
+    json = simplejson
+except ImportError:
+    import json
 
 from cola import core
-from cola import serializer
-from cola.models import observable
 
 
-class SettingsModel(observable.ObservableModel):
+def mkdict(obj):
+    if type(obj) is dict:
+        return obj
+    else:
+        return {}
+
+
+def mklist(obj):
+    if type(obj) is list:
+        return obj
+    else:
+        return []
+
+
+def xdg_config_home(*args):
+    config = os.getenv('XDG_CONFIG_HOME',
+                       os.path.join(os.path.expanduser('~'), '.config'))
+    return os.path.join(config, 'git-cola', *args)
+
+
+class Settings(object):
+    _file = xdg_config_home('settings')
+
     def __init__(self):
         """Load existing settings if they exist"""
-        observable.ObservableModel.__init__(self)
-        self.bookmarks = []
-        self.gui_state = {}
+        self.values = {}
+        self.load()
+
+    # properties
+    def _get_bookmarks(self):
+        try:
+            bookmarks = mklist(self.values['bookmarks'])
+        except KeyError:
+            bookmarks = self.values['bookmarks'] = []
+        return bookmarks
+
+    def _get_gui_state(self):
+        try:
+            gui_state = mkdict(self.values['gui_state'])
+        except KeyError:
+            gui_state = self.values['gui_state'] = {}
+        return gui_state
+
+    def _get_recent(self):
+        try:
+            recent = mklist(self.values['recent'])
+        except KeyError:
+            recent = self.values['recent'] = []
+        return recent
+
+    bookmarks = property(_get_bookmarks)
+    gui_state = property(_get_gui_state)
+    recent = property(_get_recent)
 
     def add_bookmark(self, bookmark):
         """Adds a bookmark to the saved settings"""
@@ -26,43 +77,76 @@ class SettingsModel(observable.ObservableModel):
         if bookmark in self.bookmarks:
             self.bookmarks.remove(bookmark)
 
+    def add_recent(self, entry):
+        if entry in self.recent:
+            self.recent.remove(entry)
+        self.recent.insert(0, entry)
+        if len(self.recent) > 8:
+            self.recent.pop()
 
-class SettingsManager(object):
-    """Manages a SettingsModel singleton
-    """
-    _settings = None
+    def path(self):
+        return self._file
 
-    # Here we store settings
-    _rcfile = os.path.join(core.decode(os.path.expanduser('~')), '.cola')
+    def save(self):
+        path = self.path()
+        try:
+            parent = os.path.dirname(path)
+            if not os.path.isdir(parent):
+                os.makedirs(parent)
+            fp = open(path, 'wb')
+            json.dump(self.values, fp, indent=4)
+            fp.close()
+        except:
+            sys.stderr.write('git-cola: error writing "%s"\n' % path)
 
-    @staticmethod
-    def settings():
-        """Returns the SettingsModel singleton"""
-        if not SettingsManager._settings:
-            if os.path.exists(SettingsManager._rcfile):
-                try:
-                    SettingsManager._settings = serializer.load(SettingsManager._rcfile)
-                except: # bad json
-                    SettingsManager._settings = SettingsModel()
-            else:
-                SettingsManager._settings = SettingsModel()
-        return SettingsManager._settings
+    def load(self):
+        self.values = self._load()
 
-    @staticmethod
-    def save_gui_state(gui):
+    def _load(self):
+        path = self.path()
+        if not os.path.exists(path):
+            return self.load_dot_cola(path)
+        try:
+            fp = open(path, 'rb')
+            return mkdict(json.load(fp))
+        except: # bad json
+            return {}
+
+    def reload_recent(self):
+        values = self._load()
+        try:
+            self.values['recent'] = mklist(values['recent'])
+        except KeyError:
+            pass
+
+    def load_dot_cola(self, path):
+        values = {}
+        path = os.path.join(os.path.expanduser('~'), '.cola')
+        if not os.path.exists(path):
+            return values
+        try:
+            fp = open(path, 'rb')
+            values = json.load(fp)
+            fp.close()
+        except: # bad json
+            return values
+        for key in ('bookmarks', 'gui_state'):
+            try:
+                values[key] = values[key]
+            except KeyError:
+                pass
+        return values
+
+    def save_gui_state(self, gui):
         """Saves settings for a cola view"""
         name = gui.name()
-        state = gui.export_state()
-        model = SettingsManager.settings()
-        model.gui_state[name] = state
-        SettingsManager.save()
+        self.gui_state[name] = mkdict(gui.export_state())
+        self.save()
 
-    @staticmethod
-    def gui_state(gui):
+    def get_gui_state(self, gui):
         """Returns the state for a gui"""
-        return SettingsManager.settings().gui_state.get(gui.name(), {})
-
-    @staticmethod
-    def save():
-        model = SettingsManager.settings()
-        serializer.save(model, SettingsManager._rcfile)
+        try:
+            state = mkdict(self.gui_state[gui.name()])
+        except KeyError:
+            state = self.gui_state[gui.name()] = {}
+        return state

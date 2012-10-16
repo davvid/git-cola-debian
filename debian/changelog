@@ -1,3 +1,13 @@
+git-cola (1.8.0-1) unstable; urgency=low
+
+  * New maintainer (closes: #690182).
+  * New upstream release (closes:  #688669).
+  * Move from dh_pysupport to dh_python2 .
+  * Update homepage field, watch file and Standards-Version to 3.9.3 .
+  * Use the packaged jQuery and Underscore javascript libraries.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.hu>  Tue, 16 Oct 2012 20:37:56 +0200
+
 git-cola (1.4.3.5-1) unstable; urgency=low
 
   * New upstream release.

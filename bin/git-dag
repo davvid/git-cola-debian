@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+# -*- python-mode -*-
+"""git-dag: An advanced git DAG visualizer
+"""
+
+__copyright__ = """
+Copyright (C) 2007-2012 David Aguilar <davvid@gmail.com> and contributors
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 2 as
+published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+"""
+
+import os
+import sys
+
+def cola_init():
+    """Provides access to the cola modules"""
+    # Try to detect where it is run from and set prefix and the search path.
+    # It is assumed that the user installed Cola using the --prefix= option
+    prefix = os.path.dirname(os.path.dirname(
+        os.path.realpath(os.path.abspath(__file__))))
+
+    # Look for modules in the source or install trees
+    cola_mod = os.path.join(prefix, 'cola', '__init__.py')
+    if os.path.exists(cola_mod):
+        # Source tree
+        sys.path.insert(1, prefix)
+    else:
+        # Install tree
+        install_lib = os.path.join(prefix, 'share', 'git-cola', 'lib')
+        sys.path.insert(1, install_lib)
+
+
+if __name__ == '__main__':
+    # lights, cameras, action
+    cola_init()
+    from cola.app import main
+    main('git-dag')
