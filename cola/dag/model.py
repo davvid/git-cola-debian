@@ -1,20 +1,15 @@
 import os
 import subprocess
 
-import cola
 from cola import core
 from cola.git import git
-from cola import signals
 from cola import utils
-from cola.cmds import BaseCommand
 from cola.observable import Observable
 
 # put summary at the end b/c it can contain
 # any number of funky characters, including the separator
 logfmt = 'format:%H%x01%P%x01%d%x01%an%x01%ad%x01%ae%x01%s'
 logsep = chr(0x01)
-
-archive = 'archive'
 
 
 class CommitFactory(object):
@@ -123,8 +118,10 @@ class Commit(object):
         (parents, tags, author, authdate, email, summary) = \
                 log_entry[41:].split(sep, 6)
 
-        if summary:
-            self.summary = core.decode(summary)
+        self.summary = summary and core.decode(summary) or ''
+        self.author = author and core.decode(author) or ''
+        self.authdate = authdate or ''
+        self.email = email and core.decode(email) or ''
 
         if parents:
             generation = None
@@ -148,12 +145,6 @@ class Commit(object):
                 if tag.endswith('/HEAD'):
                     continue
                 self.tags.add(core.decode(tag))
-        if author:
-            self.author = core.decode(author)
-        if authdate:
-            self.authdate = authdate
-        if email:
-            self.email = core.decode(email)
 
         self.parsed = True
         return self
@@ -170,6 +161,14 @@ class Commit(object):
                 "  parents: [" + ', '.join(self.parents) + "]\n"
                 "  tags: [" + ', '.join(self.tags) + "]\n"
                 "}")
+
+    def is_fork(self):
+        ''' Returns True if the node is a fork'''
+        return len(self.children) > 1
+
+    def is_merge(self):
+        ''' Returns True if the node is a fork'''
+        return len(self.parents) > 1
 
 
 class RepoReader(object):
@@ -246,35 +245,3 @@ class RepoReader(object):
 
     def items(self):
         return self._objects.items()
-
-
-class Archive(BaseCommand):
-    def __init__(self, ref, fmt, prefix, filename):
-        BaseCommand.__init__(self)
-        self.ref = ref
-        self.fmt = fmt
-        self.prefix = prefix
-        self.filename = filename
-
-    def do(self):
-        fp = open(core.encode(self.filename), 'wb')
-        cmd = ['git', 'archive', '--format='+self.fmt]
-        if self.fmt in ('tgz', 'tar.gz'):
-            cmd.append('-9')
-        if self.prefix:
-            cmd.append('--prefix=' + self.prefix)
-        cmd.append(self.ref)
-        proc = utils.start_command(cmd, stdout=fp)
-        out, err = proc.communicate()
-        fp.close()
-        if not out:
-            out = ''
-        if err:
-            out += err
-        status = proc.returncode
-        cola.notifier().broadcast(signals.log_cmd, status, out)
-
-
-command_directory = {
-    archive: Archive,
-}

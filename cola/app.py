@@ -27,20 +27,18 @@ except ImportError:
 
 # Import cola modules
 import cola
-from cola import cmds
+from cola import compat
 from cola import git
-from cola import guicmds
 from cola import inotify
 from cola import i18n
 from cola import qtcompat
 from cola import qtutils
 from cola import resources
-from cola import signals
 from cola import utils
 from cola import version
 from cola.decorators import memoize
+from cola.interaction import Interaction
 from cola.main.view import MainView
-from cola.main.controller import MainController
 from cola.widgets import cfgactions
 from cola.widgets import startup
 
@@ -49,25 +47,30 @@ def setup_environment():
     # Spoof an X11 display for SSH
     os.environ.setdefault('DISPLAY', ':0')
 
-    # Provide an SSH_ASKPASS fallback
-    if sys.platform == 'darwin':
-        os.environ.setdefault('SSH_ASKPASS',
-                              resources.share('bin', 'ssh-askpass-darwin'))
-    else:
-        os.environ.setdefault('SSH_ASKPASS',
-                              resources.share('bin', 'ssh-askpass'))
-
     # Setup the path so that git finds us when we run 'git cola'
     path_entries = os.environ.get('PATH').split(os.pathsep)
     bindir = os.path.dirname(os.path.abspath(__file__))
     path_entries.insert(0, bindir)
     path = os.pathsep.join(path_entries)
-    os.environ['PATH'] = path
-    os.putenv('PATH', path)
+    compat.putenv('PATH', path)
 
     # We don't ever want a pager
-    os.environ['GIT_PAGER'] = ''
-    os.putenv('GIT_PAGER', '')
+    compat.putenv('GIT_PAGER', '')
+
+    # Setup *SSH_ASKPASS
+    git_askpass = os.getenv('GIT_ASKPASS')
+    ssh_askpass = os.getenv('SSH_ASKPASS')
+    if git_askpass:
+        askpass = git_askpass
+    elif ssh_askpass:
+        askpass = ssh_askpass
+    elif sys.platform == 'darwin':
+        askpass = resources.share('bin', 'ssh-askpass-darwin')
+    else:
+        askpass = resources.share('bin', 'ssh-askpass')
+
+    compat.putenv('GIT_ASKPASS', askpass)
+    compat.putenv('SSH_ASKPASS', askpass)
 
     # --- >8 --- >8 ---
     # Git v1.7.10 Release Notes
@@ -99,8 +102,7 @@ def setup_environment():
     # --- >8 --- >8 ---
     # Longer-term: Use `git merge --no-commit` so that we always
     # have a chance to explain our merges.
-    os.environ['GIT_MERGE_AUTOEDIT'] = 'no'
-    os.putenv('GIT_MERGE_AUTOEDIT', 'no')
+    compat.putenv('GIT_MERGE_AUTOEDIT', 'no')
 
 
 @memoize
@@ -118,8 +120,10 @@ class ColaApplication(object):
     def __init__(self, argv, locale=None, gui=True):
         """Initialize our QApplication for translation
         """
+        cfgactions.install()
         i18n.install(locale)
         qtcompat.install()
+        qtutils.install()
 
         # Add the default style dir so that we find our icons
         icon_dir = resources.icon_dir()
@@ -136,8 +140,15 @@ class ColaApplication(object):
             self._translate_base = QtCore.QCoreApplication.translate
             QtCore.QCoreApplication.translate = self.translate
 
-        # Register model commands
-        cmds.register()
+        self._app.setStyleSheet("""
+            QMainWindow::separator {
+                width: 3px;
+                height: 3px;
+            }
+            QMainWindow::separator:hover {
+                background: white;
+            }
+            """)
 
         # Make file descriptors binary for win32
         utils.set_binary(sys.stdin)
@@ -176,6 +187,7 @@ def parse_args(context):
                     'dag',
                     'fetch',
                     'grep',
+                    'merge',
                     'pull',
                     'push',
                     'remote',
@@ -246,7 +258,7 @@ def process_args(opts, args):
         # Adds git to the PATH.  This is needed on Windows.
         path_entries = os.environ.get('PATH', '').split(os.pathsep)
         path_entries.insert(0, os.path.dirname(opts.git))
-        os.environ['PATH'] = os.pathsep.join(path_entries)
+        compat.putenv('PATH', os.pathsep.join(path_entries))
 
     # Bail out if --repo is not a directory
     repo = os.path.realpath(opts.repo)
@@ -297,15 +309,13 @@ def main(context):
         view = create_new_branch()
     elif context in ('git-dag', 'dag'):
         from cola.dag import git_dag
-        ctl = git_dag(model, opts=opts, args=args)
-        view = ctl.view
+        view = git_dag(model, opts=opts, args=args)
     elif context in ('classic', 'browse'):
         from cola.classic import cola_classic
         view = cola_classic(update=False)
     elif context == 'config':
         from cola.prefs import preferences
-        ctl = preferences()
-        view = ctl.view
+        view = preferences()
     elif context == 'fetch':
         # TODO: the calls to update_status() can be done asynchronously
         # by hooking into the message_updated notification.
@@ -315,6 +325,10 @@ def main(context):
     elif context == 'grep':
         from cola.widgets import grep
         view = grep.run_grep(parent=None)
+    elif context == 'merge':
+        from cola.merge import view
+        model.update_status()
+        view = view.MergeView(model, parent=None)
     elif context == 'pull':
         from cola.widgets import remote
         model.update_status()
@@ -332,17 +346,12 @@ def main(context):
     elif context == 'stash':
         from cola.stash import stash
         model.update_status()
-        view = stash().view
+        view = stash()
     elif context == 'tag':
         from cola.widgets.createtag import create_tag
         view = create_tag()
     else:
         view = MainView(model, qtutils.active_window())
-        ctl = MainController(model, view)
-
-    # Install UI wrappers for command objects
-    cfgactions.install_command_wrapper()
-    guicmds.install_command_wrapper()
 
     # Make sure that we start out on top
     view.show()
@@ -371,7 +380,7 @@ def main(context):
         os.unlink(filename)
     sys.exit(result)
 
-    return ctl, task
+    return view, task
 
 
 def _start_update_thread(model):
@@ -397,4 +406,4 @@ def _send_msg():
                'Many of commands reported with "trace" use git\'s stable '
                '"plumbing" API and are not intended for typical '
                'day-to-day use.  Here be dragons')
-        cola.notifier().broadcast(signals.log_cmd, 0, msg)
+        Interaction.log(msg)

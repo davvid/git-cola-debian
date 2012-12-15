@@ -10,7 +10,7 @@ try:
 except ImportError:
     import json
 
-from cola import core
+from cola import xdg
 
 
 def mkdict(obj):
@@ -27,14 +27,8 @@ def mklist(obj):
         return []
 
 
-def xdg_config_home(*args):
-    config = os.getenv('XDG_CONFIG_HOME',
-                       os.path.join(os.path.expanduser('~'), '.config'))
-    return os.path.join(config, 'git-cola', *args)
-
-
 class Settings(object):
-    _file = xdg_config_home('settings')
+    _file = xdg.config_home('settings')
 
     def __init__(self):
         """Load existing settings if they exist"""

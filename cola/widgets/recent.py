@@ -2,10 +2,9 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import SIGNAL
 
-import cola
+from cola import cmds
 from cola import gitcmds
 from cola import qtutils
-from cola import signals
 from cola.widgets import defs
 from cola.widgets import standard
 from cola.widgets.browse import GitTreeWidget
@@ -36,7 +35,7 @@ class RecentFileDialog(standard.Dialog):
         self.setWindowTitle(self.tr('Recently Modified Files'))
         self.setWindowModality(QtCore.Qt.WindowModal)
 
-        count = 1
+        count = 8
         self.update_thread = UpdateFileListThread(count)
 
         self.count = QtGui.QSpinBox()
@@ -129,7 +128,7 @@ class RecentFileDialog(standard.Dialog):
         self.edit_files(filenames)
 
     def edit_files(self, filenames):
-        cola.notifier().broadcast(signals.edit, filenames)
+        cmds.do(cmds.Edit, filenames)
 
     def edit_file(self, filename):
         self.edit_files([filename])

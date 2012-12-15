@@ -3,20 +3,15 @@ from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-import cola
-from cola import cmdfactory
+from cola import cmds
 from cola import core
 from cola import utils
 from cola import qtutils
-from cola import signals
 from cola.cmds import BaseCommand
-from cola.ctrl import Controller
 from cola.git import git
+from cola.interaction import Interaction
 from cola.widgets import defs
 from cola.widgets.standard import TreeView
-
-
-save_blob = 'save_blob'
 
 
 class BrowseModel(object):
@@ -27,17 +22,16 @@ class BrowseModel(object):
 
 
 class SaveBlob(BaseCommand):
-    def __init__(self):
-        BaseCommand.__init__(self)
-        self.factory = cmdfactory.factory()
+    def __init__(self, model):
+        self.model = model
 
     def do(self):
-        context = self.context
-        ref = core.encode(context.ref)
-        relpath = core.encode(context.relpath)
+        model = self.model
+        ref = core.encode(model.ref)
+        relpath = core.encode(model.relpath)
 
         cmd = ['git', 'show', '%s:%s' % (ref, relpath)]
-        fp = open(core.encode(context.filename), 'wb')
+        fp = open(core.encode(model.filename), 'wb')
         proc = utils.start_command(cmd, stdout=fp)
 
         out, err = proc.communicate()
@@ -45,21 +39,13 @@ class SaveBlob(BaseCommand):
 
         status = proc.returncode
         msg = ('Saved "%s" from %s to "%s"' %
-               (context.relpath, context.ref, context.filename))
-        cola.notifier().broadcast(signals.log_cmd, status, msg)
+               (model.relpath, model.ref, model.filename))
+        Interaction.log_status(status, msg, '')
 
-        self.factory.prompt_user(signals.information,
-                                 'File Saved',
-                                 'File saved to "%s"' % context.filename)
+        Interaction.information(
+                'File Saved',
+                'File saved to "%s"' % model.filename)
 
-
-class BrowseDialogController(Controller):
-    def __init__(self, model, view):
-        Controller.__init__(self, model, view)
-        command_directory = {
-            save_blob: SaveBlob,
-        }
-        self.add_commands(command_directory)
 
 
 class BrowseDialog(QtGui.QDialog):
@@ -72,7 +58,6 @@ class BrowseDialog(QtGui.QDialog):
         dlg_model = GitTreeModel(ref, dlg)
         dlg.setModel(dlg_model)
         dlg.setWindowTitle('Browsing %s' % model.ref)
-        ctrl = BrowseDialogController(model, dlg)
         if hasattr(parent, 'width'):
             dlg.resize(parent.width()*3/4, 333)
         else:
@@ -81,7 +66,7 @@ class BrowseDialog(QtGui.QDialog):
         dlg.raise_()
         if dlg.exec_() != dlg.Accepted:
             return None
-        return ctrl
+        return dlg
 
     @staticmethod
     def select_file(ref):
@@ -177,7 +162,7 @@ class BrowseDialog(QtGui.QDialog):
         if not filename:
             return
         model.filename = filename
-        self.emit(SIGNAL(save_blob))
+        cmds.do(SaveBlob, model)
         self.accept()
 
     def save_blob(self):
@@ -317,7 +302,7 @@ class GitTreeModel(GitFileTreeModel):
         status, output = git.ls_tree('--full-tree', '-r', '-t', '-z', self.ref,
                                      with_status=True, with_stderr=True)
         if status != 0:
-            cola.notifier().broadcast(signals.log_cmd, status, output)
+            Interaction.log_status(status, output, '')
             return
 
         if not output:

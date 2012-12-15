@@ -5,9 +5,10 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 import cola
+from cola import cmds
 from cola import qtutils
-from cola import signals
 from cola import utils
+from cola.cmds import run
 from cola.models.selection import State
 from cola.widgets import defs
 from cola.widgets import standard
@@ -80,7 +81,7 @@ class RepoTreeView(standard.TreeView):
                 self._create_action('Stage Selected',
                                     'Stage selected path(s) for commit.',
                                     self.stage_selected,
-                                    defs.stage_shortcut)
+                                    cmds.Stage.SHORTCUT)
         self.action_unstage =\
                 self._create_action('Unstage Selected',
                                     'Remove selected path(s) from '
@@ -94,10 +95,10 @@ class RepoTreeView(standard.TreeView):
                                     self.untrack_selected)
 
         self.action_difftool =\
-                self._create_action('View Diff...',
+                self._create_action(cmds.LaunchDifftool.NAME,
                                     'Launch git-difftool on the current path.',
-                                    self.difftool,
-                                    defs.difftool_shortcut)
+                                    run(cmds.LaunchDifftool),
+                                    cmds.LaunchDifftool.SHORTCUT)
         self.action_difftool_predecessor =\
                 self._create_action('Diff Against Predecessor...',
                                     'Launch git-difftool against previous versions.',
@@ -109,10 +110,10 @@ class RepoTreeView(standard.TreeView):
                                     self.revert,
                                     'Ctrl+Z')
         self.action_editor =\
-                self._create_action('Launch Editor',
+                self._create_action(cmds.LaunchEditor.NAME,
                                     'Edit selected path(s).',
-                                    self.editor,
-                                    defs.editor_shortcut)
+                                    run(cmds.LaunchEditor),
+                                    cmds.LaunchDifftool.SHORTCUT)
 
     def size_columns(self):
         """Set the column widths."""
@@ -195,7 +196,7 @@ class RepoTreeView(standard.TreeView):
 
         if paths and self.model().path_is_interesting(paths[0]):
             cached = paths[0] in cola.model().staged
-            cola.notifier().broadcast(signals.diff, paths, cached)
+            cmds.do(cmds.Diff, paths, cached)
         return result
 
     def setModel(self, model):
@@ -269,24 +270,15 @@ class RepoTreeView(standard.TreeView):
 
     def stage_selected(self):
         """Signal that we should stage selected paths."""
-        cola.notifier().broadcast(signals.stage,
-                                  self.selected_unstaged_paths())
+        cmds.do(cmds.Stage, self.selected_unstaged_paths())
 
     def unstage_selected(self):
         """Signal that we should stage selected paths."""
-        cola.notifier().broadcast(signals.unstage,
-                                  self.selected_staged_paths())
+        cmds.do(cmds.Unstage, self.selected_staged_paths())
 
     def untrack_selected(self):
-        """Signal that we should stage selected paths."""
-        cola.notifier().broadcast(signals.untrack,
-                                  self.selected_tracked_paths())
-
-    def difftool(self):
-        """Signal that we should launch difftool on a path."""
-        cola.notifier().broadcast(signals.difftool,
-                                  False,
-                                  self.selected_tracked_paths())
+        """untrack selected paths."""
+        cmds.do(cmds.Untrack, self.selected_tracked_paths())
 
     def difftool_predecessor(self):
         """Diff paths against previous versions."""
@@ -304,12 +296,7 @@ class RepoTreeView(standard.TreeView):
                                icon=qtutils.icon('undo.svg')):
             return
         paths = self.selected_tracked_paths()
-        cola.notifier().broadcast(signals.checkout,
-                                  ['HEAD', '--'] + paths)
-
-    def editor(self):
-        """Signal that we should edit selected paths using an external editor."""
-        cola.notifier().broadcast(signals.edit, self.selected_paths())
+        cmds.do(cmds.Checkout, ['HEAD', '--'] + paths)
 
     def current_path(self):
         """Return the path for the current item."""
