@@ -34,6 +34,10 @@ def is_git_file(f):
     return os.path.isfile(f) and '.git' == os.path.basename(f)
 
 
+def is_git_worktree(d):
+    return is_git_dir(os.path.join(d, '.git'))
+
+
 def read_git_file(f):
     if f is None:
         return None
@@ -216,11 +220,11 @@ class Git(object):
             Interaction.log_status(status, msg, '')
         elif cola_trace == 'full':
             if output:
-                print "%s -> %d: '%s'" % (command, status, output)
+                print("%s -> %d: '%s'" % (command, status, output))
             else:
-                print "%s -> %d" % (command, status)
+                print("%s -> %d" % (command, status))
         elif cola_trace:
-            print ' '.join(command)
+            print(' '.join(command))
 
         # Allow access to the command's status code
         if with_status:
@@ -319,7 +323,7 @@ git = instance()
 Git command singleton
 
 >>> from cola.git import git
->>> 'git' == git.version()[:3]
+>>> 'git' == git.version()[:3].lower()
 True
 
 """

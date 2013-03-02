@@ -1,16 +1,19 @@
-# Copyright (C) 2009, David Aguilar <davvid@gmail.com>
+# Copyright (C) 2009, 2010, 2011, 2012, 2013
+# David Aguilar <davvid@gmail.com>
 """Provides the main() routine and ColaApplicaiton"""
 
 import glob
 import optparse
 import os
-import platform
 import signal
 import sys
+import subprocess
 
 # Make homebrew work by default
-if platform.system() == 'Darwin':
-    homebrew_mods = '/usr/local/lib/python'
+if sys.platform == 'darwin':
+    version_info = sys.version_info
+    python_version = '%s.%s' % (version_info.major, version_info.minor)
+    homebrew_mods = '/usr/local/lib/python%s/site-packages' % python_version
     if os.path.isdir(homebrew_mods):
         sys.path.append(homebrew_mods)
 
@@ -19,15 +22,16 @@ try:
     from PyQt4 import QtCore
     from PyQt4.QtCore import SIGNAL
 except ImportError:
-    print >> sys.stderr, 'Sorry, you do not seem to have PyQt4 installed.'
-    print >> sys.stderr, 'Please install it before using git-cola.'
-    print >> sys.stderr, 'e.g.:    sudo apt-get install python-qt4'
+    sys.stderr.write('Sorry, you do not seem to have PyQt4 installed.\n')
+    sys.stderr.write('Please install it before using git-cola.\n')
+    sys.stderr.write('e.g.: sudo apt-get install python-qt4\n')
     sys.exit(-1)
 
 
 # Import cola modules
 import cola
 from cola import compat
+from cola import core
 from cola import git
 from cola import inotify
 from cola import i18n
@@ -118,8 +122,6 @@ class ColaApplication(object):
     """
 
     def __init__(self, argv, locale=None, gui=True):
-        """Initialize our QApplication for translation
-        """
         cfgactions.install()
         i18n.install(locale)
         qtcompat.install()
@@ -129,16 +131,11 @@ class ColaApplication(object):
         icon_dir = resources.icon_dir()
         qtcompat.add_search_path(os.path.basename(icon_dir), icon_dir)
 
-        # monkey-patch Qt's translate() to use our translate()
         if gui:
             self._app = instance(tuple(argv))
             self._app.setWindowIcon(qtutils.git_icon())
-            self._translate_base = QtGui.QApplication.translate
-            QtGui.QApplication.translate = self.translate
         else:
             self._app = QtCore.QCoreApplication(argv)
-            self._translate_base = QtCore.QCoreApplication.translate
-            QtCore.QCoreApplication.translate = self.translate
 
         self._app.setStyleSheet("""
             QMainWindow::separator {
@@ -149,23 +146,6 @@ class ColaApplication(object):
                 background: white;
             }
             """)
-
-        # Make file descriptors binary for win32
-        utils.set_binary(sys.stdin)
-        utils.set_binary(sys.stdout)
-        utils.set_binary(sys.stderr)
-
-    def translate(self, domain, txt):
-        """
-        Translate strings with gettext
-
-        Supports @@noun/@@verb specifiers.
-
-        """
-        trtxt = i18n.gettext(txt)
-        if trtxt[-6:-4] == '@@': # handle @@verb / @@noun
-            trtxt = trtxt[:-6]
-        return trtxt
 
     def activeWindow(self):
         """Wrap activeWindow()"""
@@ -185,6 +165,7 @@ def parse_args(context):
                     'classic',
                     'config',
                     'dag',
+                    'diff',
                     'fetch',
                     'grep',
                     'merge',
@@ -251,7 +232,7 @@ def parse_args(context):
 def process_args(opts, args):
     if opts.version or (args and args[0] == 'version'):
         # Accept 'git cola --version' or 'git cola version'
-        print 'cola version', version.version()
+        print('cola version %s' % version.version())
         sys.exit(0)
 
     if opts.git:
@@ -263,12 +244,12 @@ def process_args(opts, args):
     # Bail out if --repo is not a directory
     repo = os.path.realpath(opts.repo)
     if not os.path.isdir(repo):
-        print >> sys.stderr, "fatal: '%s' is not a directory.  Consider supplying -r <path>.\n" % repo
+        sys.stderr.write("fatal: '%s' is not a directory.  "
+                         'Consider supplying -r <path>.\n' % repo)
         sys.exit(-1)
 
     # We do everything relative to the repo root
     os.chdir(opts.repo)
-
     return repo
 
 
@@ -316,6 +297,12 @@ def main(context):
     elif context == 'config':
         from cola.prefs import preferences
         view = preferences()
+    elif context == 'diff':
+        from cola.difftool import diff_expression
+        while args and args[0] == '--':
+            args.pop(0)
+        expr = subprocess.list2cmdline(map(core.decode, args))
+        view = diff_expression(None, expr, create_widget=True)
     elif context == 'fetch':
         # TODO: the calls to update_status() can be done asynchronously
         # by hooking into the message_updated notification.

@@ -12,6 +12,7 @@ import time
 
 from cola import core
 from cola import resources
+from cola import textwrap
 from cola.compat import hashlib
 from cola.decorators import interruptable
 
@@ -252,49 +253,31 @@ def word_wrap(text, tabwidth, limit):
     >>> text = 'a bb ccc dddd\neeeee'
     >>> word_wrap(text, 8, 2)
     'a\nbb\nccc\ndddd\neeeee'
+
     >>> word_wrap(text, 8, 4)
     'a bb\nccc\ndddd\neeeee'
 
+    >>> text = 'a bb ccc dddd\n\teeeee'
+    >>> word_wrap(text, 8, 4)
+    'a bb\nccc\ndddd\n\t\neeeee'
+
     """
+
     lines = []
+
     # Acked-by:, Signed-off-by:, Helped-by:, etc.
-    special_tag_rgx = re.compile('^[a-zA-Z-]+:')
+    special_tag_rgx = re.compile('^[a-zA-Z_-]+:')
+
+    w = textwrap.TextWrapper(width=limit,
+                             tabwidth=tabwidth,
+                             break_on_hyphens=True,
+                             drop_whitespace=True)
+
     for line in text.split('\n'):
         if special_tag_rgx.match(line):
             lines.append(line)
-            continue
-        linelen = 0
-        words = []
-        for idx, word in enumerate(line.split(' ')):
-            if words:
-                linelen += 1
-            words.append(word)
-            linelen += tablength(word, tabwidth)
-            if linelen > limit:
-                # Split on dashes
-                if '-' in word:
-                    dash = word.index('-')
-                    prefix = word[:dash+1]
-                    suffix = word[dash+1:]
-                    words.pop()
-                    words.append(prefix)
-                    lines.append(' '.join(words))
-                    words = [suffix]
-                    linelen = tablength(suffix, tabwidth)
-                    continue
-                if len(words) > 1:
-                    words.pop()
-                    lines.append(' '.join(words))
-                    words = [word]
-                    linelen = tablength(word, tabwidth)
-                    continue
-                else:
-                    lines.append(' '.join(words))
-                    words = []
-                    linelen = 0
-                    continue
-        if words:
-            lines.append(' '.join(words))
+        else:
+            lines.append(w.fill(line))
 
     return '\n'.join(lines)
 
@@ -358,42 +341,11 @@ def is_win32():
     return sys.platform == 'win32' or sys.platform == 'cygwin'
 
 
-def win32_set_binary(fd):
-    try:
-        import msvcrt
-    except ImportError:
-        return
-    # When run without console, pipes may expose invalid
-    # fileno(), usually set to -1.
-    if hasattr(fd, 'fileno') and fd.fileno() >= 0:
-        msvcrt.setmode(fd.fileno(), os.O_BINARY)
-
-
-def posix_set_binary(fd):
-    """POSIX file descriptors are always binary"""
-    pass
-
-
-if is_win32():
-    set_binary = win32_set_binary
-else:
-    set_binary = posix_set_binary
-
-
 def checksum(path):
     """Return a cheap md5 hexdigest for a path."""
     md5 = hashlib.new('md5')
     md5.update(slurp(path))
     return md5.hexdigest()
-
-
-def _quote_repopath_win32(repopath):
-    """Quote a path for nt/dos only."""
-    return '"%s"' % repopath
-
-
-def _quote_repopath_posix(repopath):
-    return repopath
 
 
 def error(msg, *args):
@@ -506,7 +458,5 @@ def run_command(args, cwd=None, shell=False, add_env=None,
 # Portability wrappers
 if is_win32():
     fork = _fork_win32
-    quote_repopath = _quote_repopath_win32
 else:
     fork = _fork_posix
-    quote_repopath = _quote_repopath_posix

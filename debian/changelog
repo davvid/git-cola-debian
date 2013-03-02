@@ -1,3 +1,10 @@
+git-cola (1.8.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Update Standards-Version to 3.9.4 , no changes needed.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.hu>  Sat, 02 Mar 2013 17:46:29 +0100
+
 git-cola (1.8.1-1) unstable; urgency=low
 
   * New upstream release.
