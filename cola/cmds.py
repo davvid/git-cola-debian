@@ -29,6 +29,8 @@ _config = gitcfg.instance()
 class BaseCommand(object):
     """Base class for all commands; provides the command pattern"""
 
+    DISABLED = False
+
     def __init__(self):
         self.undoable = False
 
@@ -92,6 +94,8 @@ class Command(BaseCommand):
 
 class AmendMode(Command):
     """Try to amend a commit."""
+
+    SHORTCUT = 'Ctrl+M'
 
     LAST_MESSAGE = None
 
@@ -385,6 +389,38 @@ class DeleteBranch(Command):
         Interaction.log_status(status, output)
 
 
+class DeleteRemoteBranch(Command):
+    """Delete a remote git branch."""
+
+    def __init__(self, remote, branch):
+        Command.__init__(self)
+        self.remote = remote
+        self.branch = branch
+
+    def do(self):
+        status, output = self.model.git.push(self.remote, self.branch,
+                                             delete=True,
+                                             with_status=True,
+                                             with_stderr=True)
+        self.model.update_status()
+
+        Interaction.log_status(status, output)
+
+        if status == 0:
+            Interaction.information(
+                N_('Remote Branch Deleted'),
+                N_('"%(branch)s" has been deleted from "%(remote)s".')
+                    % dict(branch=self.branch, remote=self.remote))
+        else:
+            command = 'git push'
+            message = (N_('"%(command)s" returned exit status %(status)d') %
+                        dict(command=command, status=status))
+
+            Interaction.critical(N_('Error Deleting Remote Branch'),
+                                 message, output)
+
+
+
 class Diff(Command):
     """Perform a diff and set the model's current text."""
 
@@ -410,6 +446,7 @@ class Diffstat(Command):
         Command.__init__(self)
         diff = self.model.git.diff(self.model.head,
                                    unified=_config.get('diff.context', 3),
+                                   no_ext_diff=True,
                                    no_color=True,
                                    M=True,
                                    stat=True)
@@ -432,6 +469,7 @@ class DiffStagedSummary(Command):
         diff = self.model.git.diff(self.model.head,
                                    cached=True,
                                    no_color=True,
+                                   no_ext_diff=True,
                                    patch_with_stat=True,
                                    M=True)
         self.new_diff_text = core.decode(diff)
@@ -708,20 +746,20 @@ class Clone(Command):
 
 
 class Rescan(Command):
-    """Rescans for changes."""
+    """Rescan for changes"""
 
     def do(self):
         self.model.update_status()
 
 
-class RescanAndRefresh(Command):
-    """Rescans for changes."""
+class Refresh(Command):
+    """Update refs and refresh the index"""
 
     SHORTCUT = 'Ctrl+R'
 
     @staticmethod
     def name():
-        return N_('Rescan')
+        return N_('Refresh')
 
     def do(self):
         self.model.update_status(update_index=True)
@@ -883,7 +921,12 @@ class Stage(Command):
     def do(self):
         msg = N_('Staging: %s') % (', '.join(self.paths))
         Interaction.log(msg)
-        self.model.stage_paths(self.paths)
+        # Prevent external updates while we are staging files.
+        # We update file stats at the end of this operation
+        # so there's no harm in ignoring updates from other threads
+        # (e.g. inotify).
+        with CommandDisabled(UpdateFileStatus):
+            self.model.stage_paths(self.paths)
 
 
 class StageModified(Stage):
@@ -988,7 +1031,8 @@ class Unstage(Command):
     def do(self):
         msg = N_('Unstaging: %s') % (', '.join(self.paths))
         Interaction.log(msg)
-        self.model.unstage_paths(self.paths)
+        with CommandDisabled(UpdateFileStatus):
+            self.model.unstage_paths(self.paths)
 
 
 class UnstageAll(Command):
@@ -1015,7 +1059,8 @@ class Untrack(Command):
     def do(self):
         msg = N_('Untracking: %s') % (', '.join(self.paths))
         Interaction.log(msg)
-        status, out = self.model.untrack_paths(self.paths)
+        with CommandDisabled(UpdateFileStatus):
+            status, out = self.model.untrack_paths(self.paths)
         Interaction.log_status(status, out, '')
 
 
@@ -1109,12 +1154,28 @@ def run(cls, *args, **opts):
     return runner
 
 
+class CommandDisabled(object):
+
+    """Context manager to temporarily disable a command from running"""
+    def __init__(self, cmdclass):
+        self.cmdclass = cmdclass
+
+    def __enter__(self):
+        self.cmdclass.DISABLED = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.cmdclass.DISABLED = False
+
+
 def do(cls, *args, **opts):
     """Run a command in-place"""
     return do_cmd(cls(*args, **opts))
 
 
 def do_cmd(cmd):
+    if hasattr(cmd, 'DISABLED') and cmd.DISABLED:
+        return None
     try:
         return cmd.do()
     except StandardError, e:

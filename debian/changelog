@@ -1,3 +1,10 @@
+git-cola (1.8.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fixes FTBFS with Shinx 1.2 due to UnicodeDecodeError (closes: #706580).
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Tue, 07 May 2013 14:20:42 +0200
+
 git-cola (1.8.2-1) unstable; urgency=low
 
   * New upstream release.

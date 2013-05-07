@@ -9,6 +9,7 @@ from cola import core
 from cola import git
 from cola import gitcfg
 from cola import gitcmds
+from cola import utils
 from cola.compat import set
 from cola.observable import Observable
 from cola.decorators import memoize
@@ -17,7 +18,7 @@ from cola.decorators import memoize
 # Static GitConfig instance
 _config = gitcfg.instance()
 
-# Provides access to a global MainModel instance
+
 @memoize
 def model():
     """Returns the main model singleton"""
@@ -125,6 +126,10 @@ class MainModel(Observable):
         self.commitmsg = msg
         self.notify_observers(self.message_commit_message_changed, msg)
 
+    def save_commitmsg(self, msg):
+        path = git.git.git_path('GIT_COLA_MSG')
+        utils.write(path, msg)
+
     def set_diff_text(self, txt):
         self.diff_text = txt
         self.notify_observers(self.message_diff_text_changed, txt)
@@ -205,20 +210,54 @@ class MainModel(Observable):
                                with_stderr=True,
                                with_status=True)
 
-    def _sliced_op(self, input_items, map_fn, size=42):
-        items = copy.copy(input_items)
+    def _sliced_op(self, input_items, map_fn):
+        """Slice input_items and call map_fn over every slice
+
+        This exists because of "errno: Argument list too long"
+
+        """
+        # This comment appeared near the top of include/linux/binfmts.h
+        # in the Linux source tree:
+        #
+        # /*
+        #  * MAX_ARG_PAGES defines the number of pages allocated for arguments
+        #  * and envelope for the new program. 32 should suffice, this gives
+        #  * a maximum env+arg of 128kB w/4KB pages!
+        #  */
+        # #define MAX_ARG_PAGES 32
+        #
+        # 'size' is a heuristic to keep things highly performant by minimizing
+        # the number of slices.  If we wanted it to run as few commands as
+        # possible we could call "getconf ARG_MAX" and make a better guess,
+        # but it's probably not worth the complexity (and the extra call to
+        # getconf that we can't do on Windows anyways).
+        #
+        # In my testing, getconf ARG_MAX on Mac OS X Mountain Lion reported
+        # 262144 and Debian/Linux-x86_64 reported 2097152.
+        #
+        # The hard-coded max_arg_len value is safely below both of these
+        # real-world values.
+
+        max_arg_len = 32 * 4 * 1024
+        avg_filename_len = 300
+        size = max_arg_len / avg_filename_len
+
         full_status = 0
         full_output = []
-        while len(items) > 0:
+
+        items = copy.copy(input_items)
+        while items:
             status, output = map_fn(items[:size])
             full_status = full_status or status
             full_output.append(output)
             items = items[size:]
+
         return (full_status, '\n'.join(full_output))
 
-    def _sliced_add(self, input_items, size=42):
+    def _sliced_add(self, input_items):
         lambda_fn = lambda x: self.git.add('--',
-                                           v=True,
+                                           force=True,
+                                           verbose=True,
                                            with_stderr=True,
                                            with_status=True,
                                            *x)
@@ -244,6 +283,7 @@ class MainModel(Observable):
         return (status, output)
 
     def unstage_all(self):
+        """Unstage all files, even while amending"""
         status, output = self.git.reset(self.head, '--', '.',
                                         with_stderr=True,
                                         with_status=True)
@@ -312,7 +352,7 @@ class MainModel(Observable):
                                       with_status=True,
                                       with_stderr=True)
         os.unlink(tmpfile)
-        return (status, out)
+        return (status, core.decode(out))
 
     def remote_url(self, name, action):
         if action == 'push':

@@ -1,7 +1,7 @@
 Source: git-cola
 Section: vcs
 Priority: optional
-Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.hu>
+Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
 Build-Depends: debhelper (>= 7.0.50), python-nose
 Build-Depends-Indep: python (>= 2.6.6-3~), pyqt4-dev-tools (>= 4.3), python-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
 Standards-Version: 3.9.4
