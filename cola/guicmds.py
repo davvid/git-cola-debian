@@ -1,16 +1,18 @@
 import os
 import re
 
-import cola
+from PyQt4 import QtGui
+
 from cola import cmds
 from cola import core
 from cola import difftool
 from cola import gitcmds
-from cola import qt
 from cola import qtutils
 from cola.git import git
 from cola.i18n import N_
 from cola.interaction import Interaction
+from cola.models import main
+from cola.widgets import completion
 from cola.widgets.browse import BrowseDialog
 from cola.widgets.grep import run_grep
 from cola.widgets.selectcommits import select_commits
@@ -71,6 +73,54 @@ def cherry_pick():
     cmds.do(cmds.CherryPick, commits)
 
 
+def new_repo():
+    """Prompt for a new directory and create a new Git repository
+
+    :returns str: repository path or None if no repository was created.
+
+    """
+    dlg = QtGui.QFileDialog()
+    dlg.setFileMode(QtGui.QFileDialog.Directory)
+    dlg.setOption(QtGui.QFileDialog.ShowDirsOnly)
+    dlg.show()
+    dlg.raise_()
+    if dlg.exec_() != QtGui.QFileDialog.Accepted:
+        return None
+    paths = dlg.selectedFiles()
+    if not paths:
+        return None
+    path = unicode(paths[0])
+    if not path:
+        return None
+    # Avoid needlessly calling `git init`.
+    if git.is_git_dir(path):
+        # We could prompt here and confirm that they really didn't
+        # mean to open an existing repository, but I think
+        # treating it like an "Open" is a sensible DWIM answer.
+        return path
+
+    status, out, err = core.run_command(['git', 'init', path])
+    if status == 0:
+        return path
+    else:
+        title = N_('Error Creating Repository')
+        msg = (N_('"%(command)s" returned exit status %(status)d') %
+               dict(command='git init %s' % path, status=status))
+        details = N_('Output:\n%s') % out
+        if err:
+            details += '\n\n'
+            details += N_('Errors: %s') % err
+        qtutils.critical(title, msg, details)
+        return None
+
+
+def open_new_repo():
+    dirname = new_repo()
+    if not dirname:
+        return
+    cmds.do(cmds.OpenRepo, dirname)
+
+
 def clone_repo(spawn=True):
     """
     Present GUI controls for cloning a repository
@@ -79,7 +129,7 @@ def clone_repo(spawn=True):
 
     """
     url, ok = qtutils.prompt(N_('Path or URL to clone (Env. $VARS okay)'))
-    url = os.path.expandvars(core.encode(url))
+    url = os.path.expandvars(url)
     if not ok or not url:
         return None
     try:
@@ -94,7 +144,7 @@ def clone_repo(spawn=True):
             default = default[:-4]
         if url == '.':
             # The URL is the current repo
-            default = os.path.basename(os.getcwd())
+            default = os.path.basename(core.getcwd())
         if not default:
             raise
     except:
@@ -106,24 +156,23 @@ def clone_repo(spawn=True):
 
     # Prompt the user for a directory to use as the parent directory
     msg = N_('Select a parent directory for the new clone')
-    dirname = qtutils.opendir_dialog(msg, cola.model().getcwd())
+    dirname = qtutils.opendir_dialog(msg, main.model().getcwd())
     if not dirname:
         return None
     count = 1
-    dirname = core.decode(dirname)
-    destdir = os.path.join(dirname, core.decode(default))
+    destdir = os.path.join(dirname, default)
     olddestdir = destdir
-    if os.path.exists(destdir):
+    if core.exists(destdir):
         # An existing path can be specified
         msg = (N_('"%s" already exists, cola will create a new directory') %
                destdir)
         Interaction.information('Directory Exists', msg)
 
     # Make sure the new destdir doesn't exist
-    while os.path.exists(destdir):
+    while core.exists(destdir):
         destdir = olddestdir + str(count)
         count += 1
-    if cmds.do(cmds.Clone, core.decode(url), destdir, spawn=spawn):
+    if cmds.do(cmds.Clone, url, destdir, spawn=spawn):
         return destdir
     return None
 
@@ -161,7 +210,7 @@ def grep():
 def open_repo():
     """Spawn a new cola session."""
     dirname = qtutils.opendir_dialog(N_('Open Git Repository...'),
-                                     cola.model().getcwd())
+                                     main.model().getcwd())
     if not dirname:
         return
     cmds.do(cmds.OpenRepo, dirname)
@@ -169,10 +218,10 @@ def open_repo():
 
 def load_commitmsg():
     """Load a commit message from a file."""
-    filename = qtutils.open_dialog(N_('Load Commit Message...'),
-                                   cola.model().getcwd())
+    filename = qtutils.open_dialog(N_('Load Commit Message'),
+                                   main.model().getcwd())
     if filename:
-        cmds.do(cmds.LoadCommitMessage, filename)
+        cmds.do(cmds.LoadCommitMessageFromFile, filename)
 
 
 def choose_from_dialog(get, title, button_text, default):
@@ -181,28 +230,18 @@ def choose_from_dialog(get, title, button_text, default):
 
 
 def choose_ref(title, button_text, default=None):
-    return choose_from_dialog(qt.GitRefDialog.get,
+    return choose_from_dialog(completion.GitRefDialog.get,
                               title, button_text, default)
 
 
 def choose_branch(title, button_text, default=None):
-    return choose_from_dialog(qt.GitBranchDialog.get,
+    return choose_from_dialog(completion.GitBranchDialog.get,
                               title, button_text, default)
 
 
 def choose_remote_branch(title, button_text, default=None):
-    return choose_from_dialog(qt.GitRemoteBranchDialog.get,
+    return choose_from_dialog(completion.GitRemoteBranchDialog.get,
                               title, button_text, default)
-
-
-def rebase():
-    """Rebase onto a branch."""
-    branch = choose_ref(N_('Select New Base'), N_('Rebase'))
-    if not branch:
-        return
-    #TODO cmd
-    status, output = git.rebase(branch, with_stderr=True, with_status=True)
-    Interaction.log_status(status, output, '')
 
 
 def review_branch():

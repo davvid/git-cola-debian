@@ -3,22 +3,20 @@ from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-import cola
 from cola import gitcmds
-from cola import qt
 from cola import qtutils
 from cola import utils
 from cola.i18n import N_
 from cola.interaction import Interaction
+from cola.models import main
 from cola.widgets import defs
 from cola.widgets import completion
 from cola.widgets.standard import Dialog
-from cola.main.model import MainModel
 
 
 def create_new_branch(revision=''):
     """Launches a dialog for creating a new branch"""
-    model = MainModel()
+    model = main.MainModel()
     model.update_status()
     view = CreateBranchDialog(model, qtutils.active_window())
     if revision:
@@ -55,27 +53,23 @@ class CreateThread(QtCore.QThread):
 
         if track and '/' in revision:
             remote = revision.split('/', 1)[0]
-            status, out = model.git.fetch(remote,
-                                          with_status=True,
-                                          with_stderr=True)
-            self.emit(SIGNAL('command'), status, out)
-            results.append(('fetch', status, out))
+            status, out, err = model.git.fetch(remote)
+            self.emit(SIGNAL('command'), status, out, err)
+            results.append(('fetch', status, out, err))
 
         if status == 0:
-            status, out = model.create_branch(branch, revision,
-                                              force=reset,
-                                              track=track)
-            self.emit(SIGNAL('command'), status, out)
+            status, out, err = model.create_branch(branch, revision,
+                                                   force=reset,
+                                                   track=track)
+            self.emit(SIGNAL('command'), status, out, err)
 
-        results.append(('branch', status, out))
+        results.append(('branch', status, out, err))
         if status == 0 and checkout:
-            status, out = model.git.checkout(branch,
-                                             with_status=True,
-                                             with_stderr=True)
-            self.emit(SIGNAL('command'), status, out)
-            results.append(('checkout', status, out))
+            status, out, err = model.git.checkout(branch)
+            self.emit(SIGNAL('command'), status, out, err)
+            results.append(('checkout', status, out, err))
 
-        cola.model().update_status()
+        main.model().update_status()
         self.emit(SIGNAL('done'), results)
 
 
@@ -112,11 +106,11 @@ class CreateBranchDialog(Dialog):
             self.revision.setText(current)
 
         self.local_radio = QtGui.QRadioButton()
-        self.local_radio.setText(N_('Local Branch'))
+        self.local_radio.setText(N_('Local branch'))
         self.local_radio.setChecked(True)
 
         self.remote_radio = QtGui.QRadioButton()
-        self.remote_radio.setText(N_('Tracking Branch'))
+        self.remote_radio.setText(N_('Tracking branch'))
 
         self.tag_radio = QtGui.QRadioButton()
         self.tag_radio.setText(N_('Tag'))
@@ -152,11 +146,11 @@ class CreateBranchDialog(Dialog):
         self.options_bottom_layout.addLayout(self.options_checkbox_layout)
         self.options_bottom_layout.addStretch()
 
-        self.create_button = qt.create_button(text=N_('Create Branch'),
-                                              icon=qtutils.git_icon())
+        self.create_button = qtutils.create_button(text=N_('Create Branch'),
+                                                   icon=qtutils.git_icon())
         self.create_button.setDefault(True)
 
-        self.close_button = qt.create_button(text=N_('Close'))
+        self.close_button = qtutils.create_button(text=N_('Close'))
 
         self.branch_name_layout = QtGui.QHBoxLayout()
         self.branch_name_layout.addWidget(self.branch_name_label)
@@ -306,8 +300,8 @@ class CreateBranchDialog(Dialog):
         self.progress.show()
         self.thread.start()
 
-    def thread_command(self, status, output):
-        Interaction.log_status(status, output)
+    def thread_command(self, status, out, err):
+        Interaction.log_status(status, out, err)
 
     def thread_done(self, results):
         self.setEnabled(True)
@@ -315,7 +309,7 @@ class CreateBranchDialog(Dialog):
         QtGui.QApplication.restoreOverrideCursor()
 
         detail_lines = []
-        for (cmd, status, out) in results:
+        for (cmd, status, out, err) in results:
             if status != 0:
                 Interaction.critical(
                         N_('Error Creating Branch'),
@@ -324,7 +318,10 @@ class CreateBranchDialog(Dialog):
                 return
             line = '"git %s" returned exit status %d' % (cmd, status)
             detail_lines.append(line)
-            detail_lines.append(out)
+            if out:
+                detail_lines.append(out)
+            if err:
+                detail_lines.append(err)
             detail_lines.append('')
         details = '\n'.join(detail_lines)
         qtutils.information(N_('Create Branch'),

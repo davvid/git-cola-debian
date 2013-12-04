@@ -1,9 +1,15 @@
 import os
+from cola import core
 try:
     set = set
 except NameError:
     from sets import Set as set
     set = set
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 try:
     import hashlib
@@ -20,14 +26,15 @@ except ImportError:
             obj.update(value)
             return obj
 
-def putenv(key, value):
+
+def setenv(key, value):
     """Compatibility wrapper for setting environment variables
 
     Why?  win32 requires putenv().  UNIX only requires os.environ.
 
     """
-    os.environ[key] = value
-    os.putenv(key, value)
+    os.environ[key] = core.encode(value)
+    os.putenv(key, core.encode(value))
 
 
 def unsetenv(key):

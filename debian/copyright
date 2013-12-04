@@ -21,7 +21,7 @@ License: GPL-2
  Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
 Files: debian/*
-Copyright: Copyright (C) 2012-     Laszlo Boszormenyi (GCS) <gcs@debian.hu>
+Copyright: Copyright (C) 2012-     Laszlo Boszormenyi (GCS) <gcs@debian.org>
 Copyright: Copyright (C) 2008-2012 Iulian Udrea <iulian@linux.com>
 License: GPL-2
  See above.

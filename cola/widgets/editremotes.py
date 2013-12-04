@@ -3,20 +3,27 @@ from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-import cola.app
-from cola import core
 from cola import qtutils
 from cola.git import git
+from cola.git import STDOUT
 from cola.i18n import N_
+from cola.models import main
 from cola.widgets import defs
 from cola.widgets import text
+
+
+def edit():
+    window = RemoteEditor(qtutils.active_window())
+    window.show()
+    window.raise_()
+    return window
 
 
 class RemoteEditor(QtGui.QDialog):
     def __init__(self, parent):
         QtGui.QDialog.__init__(self, parent)
 
-        self.setWindowTitle('Edit Remotes')
+        self.setWindowTitle(N_('Edit Remotes'))
         self.setWindowModality(Qt.WindowModal)
 
         self.default_hint = N_(''
@@ -94,7 +101,7 @@ class RemoteEditor(QtGui.QDialog):
                      self.selection_changed)
 
     def refresh(self):
-        remotes = core.decode(git.remote()).splitlines()
+        remotes = git.remote()[STDOUT].splitlines()
         self.remotes.clear()
         self.remotes.addItems(remotes)
         self.remote_list = remotes
@@ -110,10 +117,10 @@ class RemoteEditor(QtGui.QDialog):
             return
         name = widget.name.value()
         url = widget.url.value()
-        status, out = git.remote('add', name, url,
-                                 with_status=True, with_stderr=True)
+        status, out, err = git.remote('add', name, url)
         if status != 0:
-            qtutils.critical(N_('Error creating remote "%s"') % name, out)
+            qtutils.critical(N_('Error creating remote "%s"') % name,
+                             out + err)
         self.refresh()
 
     def delete(self):
@@ -128,11 +135,11 @@ class RemoteEditor(QtGui.QDialog):
         if not qtutils.confirm(title, question, info, ok_btn):
             return
 
-        status, out = git.remote('rm', remote,
-                                 with_status=True, with_stderr=True)
+        status, out, err = git.remote('rm', remote)
         if status != 0:
-            qtutils.critical(N_('Error deleting remote "%s"') % remote, out)
-        cola.model().update_status()
+            qtutils.critical(N_('Error deleting remote "%s"') % remote,
+                             out + err)
+        main.model().update_status()
         self.refresh()
 
     def remote_renamed(self, item):
@@ -157,8 +164,9 @@ class RemoteEditor(QtGui.QDialog):
         ok_btn = N_('Rename')
 
         if qtutils.confirm(title, question, info, ok_btn):
-            git.remote('rename', old_name, new_name)
-            self.remote_list[idx] = new_name
+            status, out, err = git.remote('rename', old_name, new_name)
+            if status == 0:
+                self.remote_list[idx] = new_name
         else:
             item.setText(old_name)
 
@@ -182,13 +190,11 @@ class RemoteInfoThread(QtCore.QThread):
         remote = self.remote
         if remote is None:
             return
-        status, out = git.remote('show', remote,
-                                 with_stderr=True, with_status=True)
-        out = core.decode(out)
+        status, out, err = git.remote('show', remote)
         # This call takes a long time and we may have selected a
         # different remote...
         if remote == self.remote:
-            self.emit(SIGNAL('info'), out)
+            self.emit(SIGNAL('info'), out + err)
         else:
             self.run()
 
@@ -210,6 +216,7 @@ class AddRemoteWidget(QtGui.QDialog):
             widget.setMinimumWidth(metrics.width('_' * 32))
             return widget
 
+        self.setWindowTitle(N_('Add remote'))
         self.name = lineedit(N_('Name for the new remote'))
         self.url = lineedit('git://git.example.com/repo.git')
 
@@ -253,14 +260,3 @@ class AddRemoteWidget(QtGui.QDialog):
         self.show()
         self.raise_()
         return self.exec_() == QtGui.QDialog.Accepted
-
-
-def edit():
-    window = RemoteEditor(qtutils.active_window())
-    window.show()
-    window.raise_()
-    return window
-
-if __name__ == '__main__':
-    app = cola.app.ColaApplication([])
-    edit().exec_()

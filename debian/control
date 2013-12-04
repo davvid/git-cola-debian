@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
 Build-Depends: debhelper (>= 7.0.50), python-nose
 Build-Depends-Indep: python (>= 2.6.6-3~), pyqt4-dev-tools (>= 4.3), python-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 Homepage: http://git-cola.github.com/
 Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git
 Vcs-Browser: http://git.debian.org/?p=collab-maint/git-cola.git

@@ -3,30 +3,25 @@ from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-import cola
+from cola import core
 from cola import utils
 from cola import qtutils
 from cola import gitcmds
 from cola.i18n import N_
+from cola.models import main
+from cola.models import selection
 from cola.widgets import completion
 from cola.widgets import defs
 from cola.widgets import standard
 
 
 def run():
-    s = cola.selection()
-    if s.staged:
-        selection = s.staged
-    elif s.unmerged:
-        selection = s.unmerged
-    elif s.modified:
-        selection = s.modified
-    elif s.untracked:
-        selection = s.untracked
-    else:
+    files = selection.selected_group()
+    if not files:
         return
-    model = cola.model()
-    launch_with_head(selection, bool(s.staged), model.head)
+    s = selection.selection()
+    model = main.model()
+    launch_with_head(files, bool(s.staged), model.head)
 
 
 def launch_with_head(filenames, staged, head):
@@ -44,7 +39,7 @@ def launch(args):
     """Launches 'git difftool' with args"""
     difftool_args = ['git', 'difftool', '--no-prompt']
     difftool_args.extend(args)
-    utils.fork(difftool_args)
+    core.fork(difftool_args)
 
 
 def diff_commits(parent, a, b):
@@ -54,8 +49,9 @@ def diff_commits(parent, a, b):
     return dlg.exec_() == QtGui.QDialog.Accepted
 
 
-def diff_expression(parent, expr, create_widget=False):
-    dlg = FileDiffDialog(parent, expr=expr)
+def diff_expression(parent, expr,
+                    create_widget=False, hide_expr=False):
+    dlg = FileDiffDialog(parent, expr=expr, hide_expr=hide_expr)
     if create_widget:
         return dlg
     dlg.show()
@@ -64,7 +60,9 @@ def diff_expression(parent, expr, create_widget=False):
 
 
 class FileDiffDialog(QtGui.QDialog):
-    def __init__(self, parent, a=None, b=None, expr=None, title=None):
+
+    def __init__(self, parent, a=None, b=None, expr=None, title=None,
+                 hide_expr=False):
         QtGui.QDialog.__init__(self, parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
 
@@ -79,13 +77,13 @@ class FileDiffDialog(QtGui.QDialog):
         self.setWindowModality(QtCore.Qt.WindowModal)
 
         self._expr = completion.GitRefLineEdit(parent=self)
-        if expr is None:
-            self._expr.hide()
-        else:
+        if expr is not None:
             self._expr.setText(expr)
 
+        if expr is None or hide_expr:
+            self._expr.hide()
+
         self._tree = standard.TreeWidget(self)
-        self._tree.setRootIsDecorated(False)
         self._tree.setSelectionMode(self._tree.ExtendedSelection)
         self._tree.setHeaderHidden(True)
 

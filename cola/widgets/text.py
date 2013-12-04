@@ -1,11 +1,13 @@
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt, SIGNAL
 
+from cola.models.prefs import tabwidth
+from cola.qtutils import diff_font
+
 
 class MonoTextEdit(QtGui.QTextEdit):
-    def __init__(self, parent):
-        from cola.prefs import diff_font, tabwidth
 
+    def __init__(self, parent):
         QtGui.QTextEdit.__init__(self, parent)
         self._tabwidth = 8
         self.setMinimumSize(QtCore.QSize(1, 1))
@@ -63,6 +65,7 @@ class MonoTextEdit(QtGui.QTextEdit):
 
 
 class MonoTextView(MonoTextEdit):
+
     def __init__(self, parent):
         MonoTextEdit.__init__(self, parent)
         self.setAcceptDrops(False)
@@ -72,17 +75,8 @@ class MonoTextView(MonoTextEdit):
                                      Qt.TextSelectableByMouse)
 
 
-class DiffTextEdit(MonoTextView):
-    def __init__(self, parent, whitespace=True):
-        from cola.qt import DiffSyntaxHighlighter
-
-        MonoTextView.__init__(self, parent)
-        # Diff/patch syntax highlighter
-        self.highlighter = DiffSyntaxHighlighter(self.document(),
-                                                 whitespace=whitespace)
-
-
 class HintedTextWidgetEventFilter(QtCore.QObject):
+
     def __init__(self, parent):
         QtCore.QObject.__init__(self, parent)
         self.widget = parent
@@ -101,6 +95,7 @@ class HintedTextWidgetEventFilter(QtCore.QObject):
 
 
 class HintedTextWidgetMixin(object):
+
     def __init__(self, hint):
         self._hint = hint
         self._event_filter = HintedTextWidgetEventFilter(self)
@@ -165,6 +160,7 @@ class HintedTextWidgetMixin(object):
 
 
 class HintedTextEditMixin(HintedTextWidgetMixin):
+
     def __init__(self, hint):
         HintedTextWidgetMixin.__init__(self, hint)
         self.connect(self, SIGNAL('cursorPositionChanged()'),
@@ -191,6 +187,7 @@ class HintedTextEditMixin(HintedTextWidgetMixin):
 
 
 class HintedTextEdit(MonoTextEdit, HintedTextEditMixin):
+
     def __init__(self, hint, parent=None):
         MonoTextEdit.__init__(self, parent)
         HintedTextEditMixin.__init__(self, hint)
@@ -198,15 +195,15 @@ class HintedTextEdit(MonoTextEdit, HintedTextEditMixin):
 
 # The read-only variant.
 class HintedTextView(MonoTextView, HintedTextEditMixin):
+
     def __init__(self, hint, parent=None):
         MonoTextView.__init__(self, parent)
         HintedTextEditMixin.__init__(self, hint)
 
 
 class HintedLineEdit(QtGui.QLineEdit, HintedTextWidgetMixin):
-    def __init__(self, hint, parent=None):
-        from cola.prefs import diff_font
 
+    def __init__(self, hint, parent=None):
         QtGui.QLineEdit.__init__(self, parent)
         HintedTextWidgetMixin.__init__(self, hint)
 

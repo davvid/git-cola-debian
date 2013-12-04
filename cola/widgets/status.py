@@ -7,14 +7,15 @@ from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-import cola
 from cola import cmds
+from cola import core
 from cola import qtutils
 from cola import utils
 from cola.compat import set
 from cola.i18n import N_
 from cola.interaction import Interaction
-from cola.models.selection import State
+from cola.models import main
+from cola.models import selection
 
 
 class StatusWidget(QtGui.QWidget):
@@ -79,7 +80,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.old_selection = None
         self.old_contents = None
         self.old_current_item = None
-
         self.expanded_items = set()
 
         self.process_selection = qtutils.add_action(self,
@@ -126,7 +126,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.connect(self, SIGNAL('about_to_update'), self._about_to_update)
         self.connect(self, SIGNAL('updated'), self._updated)
 
-        self.m = cola.model()
+        self.m = main.model()
         self.m.add_observer(self.m.message_about_to_update,
                             self.about_to_update)
         self.m.add_observer(self.m.message_updated, self.updated)
@@ -134,16 +134,13 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.connect(self, SIGNAL('itemSelectionChanged()'),
                      self.show_selection)
 
-        self.connect(self,
-                     SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
+        self.connect(self, SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
                      self.double_clicked)
 
-        self.connect(self,
-                     SIGNAL('itemCollapsed(QTreeWidgetItem*)'),
+        self.connect(self, SIGNAL('itemCollapsed(QTreeWidgetItem*)'),
                      lambda x: self.update_column_widths())
 
-        self.connect(self,
-                     SIGNAL('itemExpanded(QTreeWidgetItem*)'),
+        self.connect(self, SIGNAL('itemExpanded(QTreeWidgetItem*)'),
                      lambda x: self.update_column_widths())
 
     def add_item(self, txt, hide=False):
@@ -162,7 +159,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def restore_selection(self):
         if not self.old_selection or not self.old_contents:
             return
-
         old_c = self.old_contents
         old_s = self.old_selection
         new_c = self.contents()
@@ -200,8 +196,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             category, idx = self.old_current_item
             if category == self.idx_header:
                 item = self.invisibleRootItem().child(idx)
-                self.setCurrentItem(item)
-                self.setItemSelected(item, True)
+                if item is not None:
+                    self.setCurrentItem(item)
+                    self.setItemSelected(item, True)
                 return
             # Reselect the current item
             selection_info = saved_selection[category]
@@ -302,6 +299,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             self.old_scroll = None
 
     def current_item(self):
+        s = self.selected_indexes()
+        if not s:
+            return None
         current = self.currentItem()
         if not current:
             return None
@@ -327,7 +327,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.set_modified(self.m.modified)
         self.set_unmerged(self.m.unmerged)
         self.set_untracked(self.m.untracked)
-
         self.restore_selection()
         self.restore_scrollbar()
         self.update_column_widths()
@@ -354,12 +353,18 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                      untracked=False,
                      check=True):
         """Add a list of items to a treewidget item."""
+        self.blockSignals(True)
         parent = self.topLevelItem(idx)
         if items:
             self.setItemHidden(parent, False)
         else:
             self.setItemHidden(parent, True)
-        parent.takeChildren()
+
+        # sip v4.14.7 and below leak memory in parent.takeChildren()
+        # so we use this backwards-compatible construct instead
+        while parent.takeChild(0) is not None:
+            pass
+
         for item in items:
             treeitem = qtutils.create_treeitem(item,
                                                staged=staged,
@@ -367,6 +372,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                                                untracked=untracked)
             parent.addChild(treeitem)
         self.expand_items(idx, items)
+        self.blockSignals(False)
 
     def update_column_widths(self):
         self.resizeColumnToContents(0)
@@ -397,9 +403,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         s = self.selection()
         menu = QtGui.QMenu(self)
 
-        selection = self.selected_indexes()
-        if selection:
-            category, idx = selection[0]
+        selected_indexes = self.selected_indexes()
+        if selected_indexes:
+            category, idx = selected_indexes[0]
             # A header item e.g. 'Staged', 'Modified', etc.
             if category == self.idx_header:
                 return self._create_header_context_menu(menu, idx)
@@ -442,22 +448,14 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         if s.staged[0] in self.m.submodules:
             return self._create_staged_submodule_context_menu(menu, s)
 
-        action = menu.addAction(qtutils.options_icon(),
-                                cmds.LaunchEditor.name(),
-                                cmds.run(cmds.LaunchEditor))
-        action.setShortcut(cmds.LaunchEditor.SHORTCUT)
-
-        action = menu.addAction(qtutils.git_icon(),
-                                cmds.LaunchDifftool.name(),
-                                cmds.run(cmds.LaunchDifftool))
-        action.setShortcut(cmds.LaunchDifftool.SHORTCUT)
-
         if self.m.unstageable():
-            menu.addSeparator()
             action = menu.addAction(qtutils.icon('remove.svg'),
                                     N_('Unstage Selected'),
                                     cmds.run(cmds.Unstage, self.staged()))
             action.setShortcut(cmds.Unstage.SHORTCUT)
+
+        menu.addAction(self.launch_editor)
+        menu.addAction(self.launch_difftool)
 
         if not utils.is_win32():
             menu.addSeparator()
@@ -488,37 +486,29 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         menu.addAction(qtutils.git_icon(),
                        N_('Launch git-cola'),
                        cmds.run(cmds.OpenRepo,
-                                os.path.abspath(s.staged[0])))
+                                core.abspath(s.staged[0])))
 
-        action = menu.addAction(qtutils.options_icon(),
-                                cmds.LaunchEditor.name(),
-                                cmds.run(cmds.LaunchEditor))
-        action.setShortcut(cmds.LaunchEditor.SHORTCUT)
-
+        menu.addAction(self.launch_editor)
         menu.addSeparator()
+
         action = menu.addAction(qtutils.icon('remove.svg'),
                                 N_('Unstage Selected'),
                                 cmds.run(cmds.Unstage, self.staged()))
         action.setShortcut(cmds.Unstage.SHORTCUT)
-
         menu.addSeparator()
+
         menu.addAction(self.copy_path_action)
         return menu
 
     def _create_unmerged_context_menu(self, menu, s):
-        menu.addAction(qtutils.git_icon(),
-                       N_('Launch Merge Tool'),
-                       cmds.run(cmds.Mergetool, self.unmerged()))
+        menu.addAction(self.launch_difftool)
 
         action = menu.addAction(qtutils.icon('add.svg'),
                                 N_('Stage Selected'),
                                 cmds.run(cmds.Stage, self.unstaged()))
         action.setShortcut(cmds.Stage.SHORTCUT)
         menu.addSeparator()
-        action = menu.addAction(qtutils.options_icon(),
-                                cmds.LaunchEditor.name(),
-                                cmds.run(cmds.LaunchEditor))
-        action.setShortcut(cmds.LaunchEditor.SHORTCUT)
+        menu.addAction(self.launch_editor)
 
         if not utils.is_win32():
             menu.addSeparator()
@@ -542,24 +532,17 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         if modified_submodule:
             return self._create_modified_submodule_context_menu(menu, s)
 
-        if self.unstaged():
-            action = menu.addAction(qtutils.options_icon(),
-                                    cmds.LaunchEditor.name(),
-                                    cmds.run(cmds.LaunchEditor))
-            action.setShortcut(cmds.Edit.SHORTCUT)
-
-        if s.modified and self.m.stageable():
-            action = menu.addAction(qtutils.git_icon(),
-                                    cmds.LaunchDifftool.name(),
-                                    cmds.run(cmds.LaunchDifftool))
-            action.setShortcut(cmds.LaunchDifftool.SHORTCUT)
-
         if self.m.stageable():
-            menu.addSeparator()
             action = menu.addAction(qtutils.icon('add.svg'),
                                     N_('Stage Selected'),
                                     cmds.run(cmds.Stage, self.unstaged()))
             action.setShortcut(cmds.Stage.SHORTCUT)
+
+        if self.unstaged():
+            menu.addAction(self.launch_editor)
+
+        if s.modified and self.m.stageable():
+            menu.addAction(self.launch_difftool)
 
         if s.modified and self.m.stageable():
             if self.m.undoable():
@@ -600,13 +583,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def _create_modified_submodule_context_menu(self, menu, s):
         menu.addAction(qtutils.git_icon(),
                        N_('Launch git-cola'),
-                       cmds.run(cmds.OpenRepo,
-                            os.path.abspath(s.modified[0])))
+                       cmds.run(cmds.OpenRepo, core.abspath(s.modified[0])))
 
-        action = menu.addAction(qtutils.options_icon(),
-                                cmds.LaunchEditor.name(),
-                                cmds.run(cmds.LaunchEditor))
-        action.setShortcut(cmds.Edit.SHORTCUT)
+        menu.addAction(self.launch_editor)
 
         if self.m.stageable():
             menu.addSeparator()
@@ -700,7 +679,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         elif s.untracked:
             ut = s.untracked[0]
 
-        return State(st, um, m, ut)
+        return selection.State(st, um, m, ut)
 
     def selected_indexes(self):
         """Returns a list of (category, row) representing the tree selection."""
@@ -717,12 +696,12 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
     def selection(self):
         """Return the current selection in the repo status tree."""
-        return State(self.staged(), self.unmerged(),
-                     self.modified(), self.untracked())
+        return selection.State(self.staged(), self.unmerged(),
+                               self.modified(), self.untracked())
 
     def contents(self):
-        return State(self.m.staged, self.m.unmerged,
-                     self.m.modified, self.m.untracked)
+        return selection.State(self.m.staged, self.m.unmerged,
+                               self.m.modified, self.m.untracked)
 
     def all_files(self):
         c = self.contents()
@@ -730,17 +709,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
     def selected_group(self):
         """A list of selected files in various states of being"""
-        selection = []
-        s = self.selection()
-        if s.staged:
-            selection = s.staged
-        elif s.unmerged:
-            selection = s.unmerged
-        elif s.modified:
-            selection = s.modified
-        elif s.untracked:
-            selection = s.untracked
-        return selection
+        return selection.pick(self.selection())
 
     def selected_idx(self):
         c = self.contents()
@@ -796,34 +765,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         item = self.topLevelItem(idx)
         return qtutils.tree_selection(item, items)
 
-    def mouseReleaseEvent(self, event):
-        result = QtGui.QTreeWidget.mouseReleaseEvent(self, event)
-        self.clicked()
-        return result
-
-    def clicked(self, item=None, idx=None):
-        """Called when a repo status tree item is clicked.
-
-        This handles the behavior where clicking on the icon invokes
-        the a context-specific action.
-
-        """
-        # Sync the selection model
-        s = self.selection()
-        cola.selection_model().set_selection(s)
-
-        # Clear the selection if an empty area was clicked
-        selection = self.selected_indexes()
-        if not selection:
-            if self.m.amending():
-                cmds.do(cmds.SetDiffText, '')
-            else:
-                cmds.do(cmds.ResetMode)
-            self.blockSignals(True)
-            self.clearSelection()
-            self.blockSignals(False)
-            return
-
     def double_clicked(self, item, idx):
         """Called when an item is double-clicked in the repo status tree."""
         self._process_selection()
@@ -844,22 +785,23 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             cmds.do(cmds.Stage, unstaged)
 
     def _open_using_default_app(self):
-        selection = self.selected_group()
-        cmds.do(cmds.OpenDefaultApp, selection)
+        cmds.do(cmds.OpenDefaultApp, self.selected_group())
 
     def _open_parent_dir(self):
-        selection = self.selected_group()
-        cmds.do(cmds.OpenParentDir, selection)
+        cmds.do(cmds.OpenParentDir, self.selected_group())
 
     def show_selection(self):
         """Show the selected item."""
         # Sync the selection model
-        cola.selection_model().set_selection(self.selection())
-
-        selection = self.selected_indexes()
-        if not selection:
+        selection.selection_model().set_selection(self.selection())
+        selected_indexes = self.selected_indexes()
+        if not selected_indexes:
+            if self.m.amending():
+                cmds.do(cmds.SetDiffText, '')
+            else:
+                cmds.do(cmds.ResetMode)
             return
-        category, idx = selection[0]
+        category, idx = selected_indexes[0]
         # A header item e.g. 'Staged', 'Modified', etc.
         if category == self.idx_header:
             cls = {
@@ -882,15 +824,15 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             cmds.do(cmds.Diff, self.unmerged())
 
         elif category == self.idx_untracked:
-            cmds.background(self, cmds.ShowUntracked, self.unstaged())
+            cmds.do(cmds.ShowUntracked, self.unstaged())
 
     def move_up(self):
         idx = self.selected_idx()
         all_files = self.all_files()
         if idx is None:
-            selection = self.selected_indexes()
-            if selection:
-                category, toplevel_idx = selection[0]
+            selected_indexes = self.selected_indexes()
+            if selected_indexes:
+                category, toplevel_idx = selected_indexes[0]
                 if category == self.idx_header:
                     item = self.itemAbove(self.topLevelItem(toplevel_idx))
                     if item is not None:
@@ -908,9 +850,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         idx = self.selected_idx()
         all_files = self.all_files()
         if idx is None:
-            selection = self.selected_indexes()
-            if selection:
-                category, toplevel_idx = selection[0]
+            selected_indexes = self.selected_indexes()
+            if selected_indexes:
+                category, toplevel_idx = selected_indexes[0]
                 if category == self.idx_header:
                     item = self.itemBelow(self.topLevelItem(toplevel_idx))
                     if item is not None:
@@ -926,7 +868,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
     def copy_path(self):
         """Copy a selected path to the clipboard"""
-        filename = cola.selection_model().filename()
+        filename = selection.selection_model().filename()
         if filename is not None:
             curdir = os.getcwdu()
             qtutils.set_clipboard(os.path.join(curdir, filename))

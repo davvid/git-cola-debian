@@ -4,56 +4,74 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 from cola import cmds
-from cola import core
 from cola import utils
 from cola import qtutils
 from cola.cmds import do
 from cola.git import git
 from cola.i18n import N_
-from cola.prefs import diff_font
+from cola.qtutils import diff_font
 from cola.widgets import defs
 from cola.widgets.standard import Dialog
 from cola.widgets.text import HintedTextView, HintedLineEdit
 
 
 class GrepThread(QtCore.QThread):
+
     def __init__(self, parent):
         QtCore.QThread.__init__(self, parent)
-        self.txt = None
+        self.query = None
         self.shell = False
+        self.regexp_mode = '--basic-regexp'
 
     def run(self):
-        if self.txt is None:
+        if self.query is None:
             return
-        query = self.txt
-
+        query = self.query
         if self.shell:
             args = utils.shell_split(query)
         else:
             args = [query]
-        status, out = git.grep(with_status=True, with_stderr=True,
-                               n=True, *args)
-        if query == self.txt:
-            self.emit(SIGNAL('result'), status, core.decode(out))
+        status, out, err = git.grep(self.regexp_mode, n=True, *args)
+        if query == self.query:
+            self.emit(SIGNAL('result'), status, out, err)
         else:
             self.run()
 
 
 class Grep(Dialog):
+
     def __init__(self, parent):
         Dialog.__init__(self, parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
         self.setWindowModality(Qt.WindowModal)
+        self.setWindowTitle(N_('Search'))
 
         self.input_label = QtGui.QLabel('git grep')
         self.input_label.setFont(diff_font())
 
-        hint = N_('command-line arguments')
-        self.input_txt = HintedLineEdit(hint, self)
+        self.input_txt = HintedLineEdit(N_('command-line arguments'), self)
         self.input_txt.enable_hint(True)
 
-        hint = N_('grep result...')
-        self.result_txt = GrepTextView(hint, self)
+        self.regexp_combo = combo = QtGui.QComboBox()
+        combo.setToolTip(N_('Choose the "git grep" regular expression mode'))
+        items = [N_('Basic Regexp'), N_('Extended Regexp'), N_('Fixed String')]
+        combo.addItems(items)
+        combo.setCurrentIndex(0)
+        combo.setEditable(False)
+        combo.setItemData(0,
+                N_('Search using a POSIX basic regular expression'),
+                Qt.ToolTipRole)
+        combo.setItemData(1,
+                N_('Search using a POSIX extended regular expression'),
+                Qt.ToolTipRole)
+        combo.setItemData(2,
+                N_('Search for a fixed string'),
+                Qt.ToolTipRole)
+        combo.setItemData(0, '--basic-regexp', Qt.UserRole)
+        combo.setItemData(1, '--extended-regexp', Qt.UserRole)
+        combo.setItemData(2, '--fixed-strings', Qt.UserRole)
+
+        self.result_txt = GrepTextView(N_('grep result...'), self)
         self.result_txt.enable_hint(True)
 
         self.edit_button = QtGui.QPushButton(N_('Edit'))
@@ -87,6 +105,7 @@ class Grep(Dialog):
 
         self.input_layout.addWidget(self.input_label)
         self.input_layout.addWidget(self.input_txt)
+        self.input_layout.addWidget(self.regexp_combo)
 
         self.bottom_layout.addWidget(self.edit_button)
         self.bottom_layout.addWidget(self.refresh_button)
@@ -105,7 +124,10 @@ class Grep(Dialog):
                      self.process_result)
 
         self.connect(self.input_txt, SIGNAL('textChanged(QString)'),
-                     self.input_txt_changed)
+                     lambda s: self.search())
+
+        self.connect(self.regexp_combo, SIGNAL('currentIndexChanged(int)'),
+                     lambda x: self.search())
 
         self.connect(self.result_txt, SIGNAL('leave()'),
                      lambda: self.input_txt.setFocus())
@@ -113,8 +135,12 @@ class Grep(Dialog):
         qtutils.add_action(self.input_txt, 'FocusResults',
                            lambda: self.result_txt.setFocus(),
                            Qt.Key_Down, Qt.Key_Enter, Qt.Key_Return)
+        qtutils.add_action(self, 'FocusSearch',
+                           lambda: self.input_txt.setFocus(),
+                           'Ctrl+l')
         qtutils.connect_button(self.edit_button, self.edit)
         qtutils.connect_button(self.refresh_button, self.search)
+        qtutils.connect_toggle(self.shell_checkbox, lambda x: self.search())
         qtutils.connect_button(self.close_button, self.close)
         qtutils.add_close_action(self)
 
@@ -125,30 +151,63 @@ class Grep(Dialog):
         qtutils.save_state(self)
         return Dialog.done(self, exit_code)
 
-    def input_txt_changed(self, txt):
-        has_query = len(unicode(txt)) > 1
-        if has_query:
-            self.search()
+    def regexp_mode(self):
+        idx = self.regexp_combo.currentIndex()
+        data = self.regexp_combo.itemData(idx, Qt.UserRole).toPyObject()
+        return unicode(data)
 
     def search(self):
         self.edit_button.setEnabled(False)
         self.refresh_button.setEnabled(False)
-
-        self.grep_thread.txt = self.input_txt.as_unicode()
+        query = self.input_txt.value()
+        if len(query) < 2:
+            self.result_txt.set_value('')
+            return
+        self.grep_thread.query = query
         self.grep_thread.shell = self.shell_checkbox.isChecked()
+        self.grep_thread.regexp_mode = self.regexp_mode()
         self.grep_thread.start()
 
     def search_for(self, txt):
         self.input_txt.set_value(txt)
         self.search()
 
-    def process_result(self, status, output):
+    def text_scroll(self):
+        scrollbar = self.result_txt.verticalScrollBar()
+        if scrollbar:
+            return scrollbar.value()
+        return None
+
+    def set_text_scroll(self, scroll):
+        scrollbar = self.result_txt.verticalScrollBar()
+        if scrollbar and scroll is not None:
+            scrollbar.setValue(scroll)
+
+    def text_offset(self):
+        return self.result_txt.textCursor().position()
+
+    def set_text_offset(self, offset):
+        cursor = self.result_txt.textCursor()
+        cursor.setPosition(offset)
+        self.result_txt.setTextCursor(cursor)
+
+    def process_result(self, status, out, err):
+
         if status == 0:
-            self.result_txt.set_value(output)
-        elif output:
-            self.result_txt.set_value('git grep: ' + output)
+            value = out + err
+        elif out + err:
+            value = 'git grep: ' + out + err
         else:
-            self.result_txt.set_value('')
+            value = ''
+
+        # save scrollbar and text cursor
+        scroll = self.text_scroll()
+        offset = min(len(value), self.text_offset())
+
+        self.result_txt.set_value(value)
+        # restore
+        self.set_text_scroll(scroll)
+        self.set_text_offset(offset)
 
         self.edit_button.setEnabled(status == 0)
         self.refresh_button.setEnabled(status == 0)
@@ -158,6 +217,7 @@ class Grep(Dialog):
 
 
 class GrepTextView(HintedTextView):
+
     def __init__(self, hint, parent):
         HintedTextView.__init__(self, hint, parent)
         self.goto_action = qtutils.add_action(self, 'Launch Editor', self.edit)
@@ -255,12 +315,11 @@ class GrepTextView(HintedTextView):
 def goto_grep(line):
     """Called when Search -> Grep's right-click 'goto' action."""
     filename, line_number, contents = line.split(':', 2)
-    filename = core.encode(filename)
     do(cmds.Edit, [filename], line_number=line_number)
 
 
-def run_grep(txt=None, parent=None):
+def run_grep(text=None, parent=None):
     widget = Grep(parent)
-    if txt is not None:
-        widget.search_for(txt)
+    if text:
+        widget.search_for(text)
     return widget

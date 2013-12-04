@@ -125,7 +125,7 @@ class TextWrapper(object):
             # First chunk on line is a space -- drop it, unless this
             # is the very beginning of the text (ie. no lines started yet).
             if self.drop_whitespace and chunks[-1] == ' ' and lines:
-                del chunks[-1]
+                chunks.pop()
 
             while chunks:
                 l = self.chunklen(chunks[-1])
@@ -146,7 +146,12 @@ class TextWrapper(object):
 
             # If the last chunk on this line is all a space, drop it.
             if self.drop_whitespace and cur_line and cur_line[-1] == ' ':
-                del cur_line[-1]
+                cur_line.pop()
+
+            # Avoid whitespace at the beginining of the line.
+            if (self.drop_whitespace and cur_line and
+                    cur_line[0] in (' ', '  ')):
+                cur_line.pop(0)
 
             # Convert current line back to a string and store it in list
             # of all lines (return value).
@@ -188,3 +193,38 @@ class TextWrapper(object):
         containing the entire wrapped paragraph.
         """
         return "\n".join(self.wrap(text))
+
+
+def word_wrap(text, tabwidth, limit):
+    r"""Wrap long lines to the specified limit
+
+    >>> text = 'a bb ccc dddd\neeeee'
+    >>> word_wrap(text, 8, 2)
+    'a\nbb\nccc\ndddd\neeeee'
+
+    >>> word_wrap(text, 8, 4)
+    'a bb\nccc\ndddd\neeeee'
+
+    >>> text = 'a bb ccc dddd\n\teeeee'
+    >>> word_wrap(text, 8, 4)
+    'a bb\nccc\ndddd\n\t\neeeee'
+
+    """
+
+    lines = []
+
+    # Acked-by:, Signed-off-by:, Helped-by:, etc.
+    special_tag_rgx = re.compile('^[a-zA-Z_-]+:')
+
+    w = TextWrapper(width=limit,
+                    tabwidth=tabwidth,
+                    break_on_hyphens=True,
+                    drop_whitespace=True)
+
+    for line in text.split('\n'):
+        if special_tag_rgx.match(line):
+            lines.append(line)
+        else:
+            lines.append(w.fill(line))
+
+    return '\n'.join(lines)

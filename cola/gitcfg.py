@@ -1,11 +1,12 @@
-import os
 import copy
 import fnmatch
+from os.path import join
 
 from cola import core
 from cola import git
 from cola import observable
 from cola.decorators import memoize
+from cola.git import STDOUT
 
 
 @memoize
@@ -13,17 +14,21 @@ def instance():
     """Return a static GitConfig instance."""
     return GitConfig()
 
+_USER_CONFIG = core.expanduser(join('~', '.gitconfig'))
+_USER_XDG_CONFIG = core.expanduser(
+        join(core.getenv('XDG_CONFIG_HOME', join('~', '.config')),
+             'git', 'config'))
 
 def _stat_info():
     # Try /etc/gitconfig as a fallback for the system config
-    userconfig = os.path.expanduser(os.path.join('~', '.gitconfig'))
     paths = (('system', '/etc/gitconfig'),
-             ('user', core.decode(userconfig)),
-             ('repo', core.decode(git.instance().git_path('config'))))
+             ('user', _USER_XDG_CONFIG),
+             ('user', _USER_CONFIG),
+             ('repo', git.instance().git_path('config')))
     statinfo = []
     for category, path in paths:
         try:
-            statinfo.append((category, path, os.stat(path).st_mtime))
+            statinfo.append((category, path, core.stat(path).st_mtime))
         except OSError:
             continue
     return statinfo
@@ -31,14 +36,14 @@ def _stat_info():
 
 def _cache_key():
     # Try /etc/gitconfig as a fallback for the system config
-    userconfig = os.path.expanduser(os.path.join('~', '.gitconfig'))
     paths = ('/etc/gitconfig',
-             userconfig,
+             _USER_XDG_CONFIG,
+             _USER_CONFIG,
              git.instance().git_path('config'))
     mtimes = []
     for path in paths:
         try:
-            mtimes.append(os.stat(path).st_mtime)
+            mtimes.append(core.stat(path).st_mtime)
         except OSError:
             continue
     return mtimes
@@ -149,7 +154,7 @@ class GitConfig(observable.Observable):
         """Return git config data from a path as a dictionary."""
         dest = {}
         args = ('--null', '--file', path, '--list')
-        config_lines = self.git.config(*args).split('\0')
+        config_lines = self.git.config(*args)[STDOUT].split('\0')
         for line in config_lines:
             try:
                 k, v = line.split('\n', 1)
@@ -159,8 +164,6 @@ class GitConfig(observable.Observable):
                     continue
                 k = line
                 v = 'true'
-            k = core.decode(k)
-            v = core.decode(v)
 
             if v in ('true', 'yes'):
                 v = True
@@ -255,11 +258,9 @@ class GitConfig(observable.Observable):
 
     def _file_encoding(self, path):
         """Return the file encoding for a path"""
-        status, out = self.git.check_attr('encoding', '--', path,
-                                          with_status=True)
+        status, out, err = self.git.check_attr('encoding', '--', path)
         if status != 0:
             return None
-        out = core.decode(out)
         header = '%s: encoding: ' % path
         if out.startswith(header):
             encoding = out[len(header):].strip()

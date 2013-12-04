@@ -2,6 +2,12 @@ from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
+from PyQt4.QtGui import QDockWidget
+
+from cola import core
+from cola import qtcompat
+from cola import qtutils
+from cola import settings
 
 
 class WidgetMixin(object):
@@ -31,16 +37,21 @@ class WidgetMixin(object):
 
     def apply_state(self, state):
         """Imports data for view save/restore"""
+        result = True
         try:
             self.resize(state['width'], state['height'])
         except:
-            pass
+            result = False
         try:
             self.move(state['x'], state['y'])
         except:
-            pass
-        if state.get('maximized', False):
-            self.showMaximized()
+            result = False
+        try:
+            if state['maximized']:
+                self.showMaximized()
+        except:
+            result = False
+        return result
 
     def export_state(self):
         """Exports data for view save/restore"""
@@ -54,6 +65,57 @@ class WidgetMixin(object):
             'maximized': maximized,
         }
 
+    def closeEvent(self, event):
+        s = settings.Settings()
+        s.add_recent(core.getcwd())
+        qtutils.save_state(self, handler=s)
+        self.QtClass.closeEvent(self, event)
+
+
+class MainWindowMixin(WidgetMixin):
+
+    def __init__(self, QtClass):
+        WidgetMixin.__init__(self, QtClass)
+        # Dockwidget options
+        self.dockwidgets = []
+        self.lock_layout = False
+        qtcompat.set_common_dock_options(self)
+        self.widget_version = 0
+
+    def export_state(self):
+        """Exports data for save/restore"""
+        state = WidgetMixin.export_state(self)
+        state['lock_layout'] = self.lock_layout
+        return qtutils.export_window_state(self, state, self.widget_version)
+
+    def apply_state(self, state):
+        WidgetMixin.apply_state(self, state)
+        result = qtutils.apply_window_state(self, state, self.widget_version)
+        self.lock_layout = state.get('lock_layout', self.lock_layout)
+        self.update_dockwidget_lock_state()
+        self.update_dockwidget_tooltips()
+        return result
+
+    def set_lock_layout(self, lock_layout):
+        self.lock_layout = lock_layout
+        self.update_dockwidget_lock_state()
+
+    def update_dockwidget_lock_state(self):
+        if self.lock_layout:
+            features = (QDockWidget.DockWidgetClosable |
+                        QDockWidget.DockWidgetFloatable)
+        else:
+            features = (QDockWidget.DockWidgetClosable |
+                        QDockWidget.DockWidgetFloatable |
+                        QDockWidget.DockWidgetMovable)
+        for widget in self.dockwidgets:
+            widget.titleBarWidget().update_tooltips()
+            widget.setFeatures(features)
+
+    def update_dockwidget_tooltips(self):
+        for widget in self.dockwidgets:
+            widget.titleBarWidget().update_tooltips()
+
 
 class TreeMixin(object):
 
@@ -63,6 +125,7 @@ class TreeMixin(object):
         self.setUniformRowHeights(True)
         self.setAllColumnsShowFocus(True)
         self.setAnimated(True)
+        self.setRootIsDecorated(False)
 
     def keyPressEvent(self, event):
         """
@@ -109,20 +172,13 @@ class TreeMixin(object):
 
         # Re-read the event key to take the remappings into account
         key = event.key()
-
         result = self.QtClass.keyPressEvent(self, event)
 
         # Let others hook in here before we change the indexes
         self.emit(SIGNAL('indexAboutToChange()'))
 
-        # Try to select the first item if the model index is invalid
-        if not index.isValid():
-            index = self.model().index(0, 0, QtCore.QModelIndex())
-            if index.isValid():
-                self.setCurrentIndex(index)
-
         # Automatically select the first entry when expanding a directory
-        elif (key == Qt.Key_Right and was_collapsed and
+        if (key == Qt.Key_Right and was_collapsed and
                 self.isExpanded(index)):
             index = self.moveCursor(self.MoveDown, event.modifiers())
             self.setCurrentIndex(index)
@@ -138,7 +194,37 @@ class TreeMixin(object):
             elif was_collapsed:
                 self.setCurrentIndex(index.parent())
 
+        # If it's a movement key ensure we have a selection
+        elif key in (Qt.Key_Left, Qt.Key_Up, Qt.Key_Right, Qt.Key_Down):
+            # Try to select the first item if the model index is invalid
+            item = self.selected_item()
+            if item is None or not index.isValid():
+                index = self.model().index(0, 0, QtCore.QModelIndex())
+                if index.isValid():
+                    self.setCurrentIndex(index)
+
         return result
+
+    def items(self):
+        root = self.invisibleRootItem()
+        child = root.child
+        count = root.childCount()
+        return [child(i) for i in range(count)]
+
+    def selected_items(self):
+        """Return all selected items"""
+        if hasattr(self, 'selectedItems'):
+            return self.selectedItems()
+        else:
+            item_from_index = self.model().itemFromIndex
+            return [item_from_index(i) for i in self.selectedIndexes()]
+
+    def selected_item(self):
+        """Return the first selected item"""
+        selected_items = self.selected_items()
+        if not selected_items:
+            return None
+        return selected_items[0]
 
 
 def bind_mixin(Mixin, QtClass):
@@ -150,13 +236,14 @@ def bind_mixin(Mixin, QtClass):
         def __init__(self, parent=None):
             QtClass.__init__(self, parent)
             Mixin.__init__(self, QtClass)
+            self.Mixin = BoundMixin
 
     return BoundMixin
 
 
 Widget = bind_mixin(WidgetMixin, QtGui.QWidget)
 Dialog = bind_mixin(WidgetMixin, QtGui.QDialog)
-MainWindow = bind_mixin(WidgetMixin, QtGui.QMainWindow)
+MainWindow = bind_mixin(MainWindowMixin, QtGui.QMainWindow)
 
 TreeView = bind_mixin(TreeMixin, QtGui.QTreeView)
 TreeWidget = bind_mixin(TreeMixin, QtGui.QTreeWidget)
