@@ -73,6 +73,31 @@ You don't need to `make` to run it, though.
     bin/git-cola
     bin/git-dag
 
+## LINUX
+
+Linux is it! Your distro has probably already packaged git-cola.
+If not, please file a bug against your distribution ;-)
+
+### arch
+
+    yaourt -S git-cola
+
+### debian, ubuntu
+
+    apt-get install git-cola
+
+### fedora
+
+    yum install git-cola
+
+### gentoo
+
+    emerge git-cola
+
+### opensuse
+
+Use the [one-click install link](http://software.opensuse.org/package/git-cola).
+
 ## MAC OS X
 
 [Homebrew](http://mxcl.github.com/homebrew/) is the easiest way to install
