@@ -86,6 +86,12 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                 N_('Stage / Unstage'), self._process_selection,
                 cmds.Stage.SHORTCUT)
 
+        self.revert_unstaged_edits_action = qtutils.add_action(self,
+                N_('Revert Unstaged Edits...'),
+                cmds.run(cmds.RevertUnstagedEdits),
+                cmds.RevertUnstagedEdits.SHORTCUT)
+        self.revert_unstaged_edits_action.setIcon(qtutils.icon('undo.svg'))
+
         self.launch_difftool = qtutils.add_action(self,
                 cmds.LaunchDifftool.name(),
                 cmds.run(cmds.LaunchDifftool),
@@ -217,13 +223,13 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         # we do not need to rerun the callbacks which were triggered
         # above.  Block signals to skip the callbacks.
         self.blockSignals(True)
-        for (new, old, selection, reselect) in saved_selection:
-            for item in selection:
+        for (new, old, sel, reselect) in saved_selection:
+            for item in sel:
                 if item in new:
                     reselect(item, current=False)
         self.blockSignals(False)
 
-        for (new, old, selection, reselect) in saved_selection:
+        for (new, old, sel, reselect) in saved_selection:
             # When modified is staged, select the next modified item
             # When unmerged is staged, select the next unmerged item
             # When unstaging, select the next staged item
@@ -231,7 +237,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             if len(new) >= len(old):
                 # The list did not shrink so it is not one of these cases.
                 continue
-            for item in selection:
+            for item in sel:
                 # The item still exists so ignore it
                 if item in new or item not in old:
                     continue
@@ -330,6 +336,13 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.restore_selection()
         self.restore_scrollbar()
         self.update_column_widths()
+        self.update_actions()
+
+    def update_actions(self, selected=None):
+        if selected is None:
+            selected = selection.selection()
+        can_revert_unstaged_edits = bool(selected.staged or selected.modified)
+        self.revert_unstaged_edits_action.setEnabled(can_revert_unstaged_edits)
 
     def set_staged(self, items):
         """Adds items to the 'Staged' subtree."""
@@ -471,9 +484,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
         if self.m.undoable():
             menu.addSeparator()
-            menu.addAction(qtutils.icon('undo.svg'),
-                           N_('Revert Unstaged Edits...'),
-                           lambda: self._revert_unstaged_edits(staged=True))
+            menu.addAction(self.revert_unstaged_edits_action)
             menu.addAction(qtutils.icon('undo.svg'),
                            N_('Revert Uncommited Edits...'),
                            lambda: self._revert_uncommitted_edits(
@@ -547,9 +558,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         if s.modified and self.m.stageable():
             if self.m.undoable():
                 menu.addSeparator()
-                menu.addAction(qtutils.icon('undo.svg'),
-                               N_('Revert Unstaged Edits...'),
-                               self._revert_unstaged_edits)
+                menu.addAction(self.revert_unstaged_edits_action)
                 menu.addAction(qtutils.icon('undo.svg'),
                                N_('Revert Uncommited Edits...'),
                                lambda: self._revert_uncommitted_edits(
@@ -620,31 +629,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                            default=True,
                            icon=qtutils.discard_icon()):
             cmds.do(cmds.Delete, files)
-
-    def _revert_unstaged_edits(self, staged=False):
-        if not self.m.undoable():
-            return
-        if staged:
-            items_to_undo = self.staged()
-        else:
-            items_to_undo = self.modified()
-
-        if items_to_undo:
-            if not qtutils.confirm(N_('Revert Unstaged Changes?'),
-                                   N_('This operation drops unstaged changes.\n'
-                                      'These changes cannot be recovered.'),
-                                   N_('Revert the unstaged changes?'),
-                                   N_('Revert Unstaged Changes'),
-                                   default=True,
-                                   icon=qtutils.icon('undo.svg')):
-                return
-            args = []
-            if not staged and self.m.amending():
-                args.append(self.m.head)
-            cmds.do(cmds.Checkout, args + ['--'] + items_to_undo)
-        else:
-            msg = N_('No files selected for checkout from HEAD.')
-            Interaction.log(msg)
 
     def _revert_uncommitted_edits(self, items_to_undo):
         if items_to_undo:
@@ -793,7 +777,10 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def show_selection(self):
         """Show the selected item."""
         # Sync the selection model
-        selection.selection_model().set_selection(self.selection())
+        selected = self.selection()
+        selection.selection_model().set_selection(selected)
+        self.update_actions(selected=selected)
+
         selected_indexes = self.selected_indexes()
         if not selected_indexes:
             if self.m.amending():

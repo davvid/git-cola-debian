@@ -14,7 +14,6 @@ from cola.interaction import Interaction
 from cola.models import main
 from cola.widgets import completion
 from cola.widgets.browse import BrowseDialog
-from cola.widgets.grep import run_grep
 from cola.widgets.selectcommits import select_commits
 
 
@@ -199,16 +198,7 @@ def diff_expression():
     difftool.diff_expression(qtutils.active_window(), ref)
 
 
-def grep():
-    """Prompt and use 'git grep' to find the content."""
-    widget = run_grep(parent=qtutils.active_window())
-    widget.show()
-    widget.raise_()
-    return widget
-
-
 def open_repo():
-    """Spawn a new cola session."""
     dirname = qtutils.opendir_dialog(N_('Open Git Repository...'),
                                      main.model().getcwd())
     if not dirname:
@@ -216,10 +206,19 @@ def open_repo():
     cmds.do(cmds.OpenRepo, dirname)
 
 
+def open_repo_in_new_window():
+    """Spawn a new cola session."""
+    dirname = qtutils.opendir_dialog(N_('Open Git Repository...'),
+                                     main.model().getcwd())
+    if not dirname:
+        return
+    cmds.do(cmds.OpenNewRepo, dirname)
+
+
 def load_commitmsg():
     """Load a commit message from a file."""
-    filename = qtutils.open_dialog(N_('Load Commit Message'),
-                                   main.model().getcwd())
+    filename = qtutils.open_file(N_('Load Commit Message'),
+                                 directory=main.model().getcwd())
     if filename:
         cmds.do(cmds.LoadCommitMessageFromFile, filename)
 
