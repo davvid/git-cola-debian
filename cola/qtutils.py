@@ -1,6 +1,8 @@
 # Copyright (c) 2008 David Aguilar
 """This module provides miscellaneous Qt utility functions.
 """
+from __future__ import division, absolute_import, unicode_literals
+
 import os
 import re
 
@@ -13,12 +15,12 @@ from cola import core
 from cola import gitcfg
 from cola import utils
 from cola import resources
-from cola.compat import set
 from cola.decorators import memoize
 from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.models.prefs import FONTDIFF
 from cola.widgets import defs
+from cola.compat import ustr
 
 
 def connect_action(action, fn):
@@ -47,7 +49,7 @@ def prompt(msg, title=None, text=''):
         title = msg
     result = QtGui.QInputDialog.getText(active_window(), msg, title,
                                         QtGui.QLineEdit.Normal, text)
-    return (unicode(result[0]), result[1])
+    return (ustr(result[0]), result[1])
 
 
 def create_listwidget_item(text, filename):
@@ -58,13 +60,18 @@ def create_listwidget_item(text, filename):
     return item
 
 
-def create_treewidget_item(text, filename):
+class TreeWidgetItem(QtGui.QTreeWidgetItem):
+
+    def __init__(self, text, filename, exists):
+        QtGui.QTreeWidgetItem.__init__(self)
+        self.exists = exists
+        self.setIcon(0, cached_icon_from_path(filename))
+        self.setText(0, text)
+
+
+def create_treewidget_item(text, filename, exists=True):
     """Creates a QTreeWidgetItem with text and the icon at filename."""
-    icon = cached_icon_from_path(filename)
-    item = QtGui.QTreeWidgetItem()
-    item.setIcon(0, icon)
-    item.setText(0, text)
-    return item
+    return TreeWidgetItem(text, filename, exists)
 
 
 @memoize
@@ -77,7 +84,7 @@ def confirm(title, text, informative_text, ok_text,
     """Confirm that an action should take place"""
     if icon is None:
         icon = ok_icon()
-    elif icon and isinstance(icon, basestring):
+    elif icon and isinstance(icon, ustr):
         icon = QtGui.QIcon(icon)
     msgbox = QtGui.QMessageBox(active_window())
     msgbox.setWindowModality(Qt.WindowModal)
@@ -207,11 +214,23 @@ def selection_list(listwidget, items):
 def tree_selection(treeitem, items):
     """Returns model items that correspond to selected widget indices"""
     itemcount = treeitem.childCount()
-    widgetitems = [ treeitem.child(idx) for idx in range(itemcount) ]
+    widgetitems = [treeitem.child(idx) for idx in range(itemcount)]
     selected = []
     for item, widgetitem in zip(items[:len(widgetitems)], widgetitems):
         if widgetitem.isSelected():
             selected.append(item)
+
+    return selected
+
+
+def tree_selection_items(item):
+    """Returns selected widget items"""
+    count = item.childCount()
+    childitems = [item.child(idx) for idx in range(count)]
+    selected = []
+    for child in childitems:
+        if child.isSelected():
+            selected.append(child)
 
     return selected
 
@@ -244,7 +263,7 @@ def selected_items(list_widget, items):
 
 def open_file(title, directory=None):
     """Creates an Open File dialog and returns a filename."""
-    return unicode(QtGui.QFileDialog
+    return ustr(QtGui.QFileDialog
                         .getOpenFileName(active_window(), title, directory))
 
 
@@ -259,14 +278,14 @@ def opendir_dialog(title, path):
 
     flags = (QtGui.QFileDialog.ShowDirsOnly |
              QtGui.QFileDialog.DontResolveSymlinks)
-    return unicode(QtGui.QFileDialog
+    return ustr(QtGui.QFileDialog
                         .getExistingDirectory(active_window(),
                                               title, path, flags))
 
 
 def save_as(filename, title='Save As...'):
     """Creates a Save File dialog and returns a filename."""
-    return unicode(QtGui.QFileDialog
+    return ustr(QtGui.QFileDialog
                         .getSaveFileName(active_window(), title, filename))
 
 
@@ -299,7 +318,6 @@ def _add_action(widget, text, fn, connect, *shortcuts):
     action = QtGui.QAction(text, widget)
     connect(action, fn)
     if shortcuts:
-        shortcuts = list(set(shortcuts))
         action.setShortcuts(shortcuts)
         action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         widget.addAction(action)
@@ -328,16 +346,18 @@ def set_items(widget, items):
 
 def icon_file(filename, staged=False, untracked=False):
     """Returns a file path representing a corresponding file path."""
+    exists = True
     if staged:
-        if core.exists(filename):
+        exists = core.exists(filename)
+        if exists:
             ifile = resources.icon('staged-item.png')
         else:
             ifile = resources.icon('removed.png')
     elif untracked:
         ifile = resources.icon('untracked.png')
     else:
-        ifile = utils.file_icon(filename)
-    return ifile
+        (ifile, exists) = utils.file_icon(filename)
+    return (ifile, exists)
 
 
 def icon_for_file(filename, staged=False, untracked=False):
@@ -351,10 +371,12 @@ def create_treeitem(filename, staged=False, untracked=False, check=True):
     for adding to a QListWidget.  "staged" and "untracked"
     controls whether to use the appropriate icons."""
     if check:
-        ifile = icon_file(filename, staged=staged, untracked=untracked)
+        (ifile, exists) = icon_file(filename,
+                                    staged=staged, untracked=untracked)
     else:
+        exists = True
         ifile = resources.icon('staged.png')
-    return create_treewidget_item(filename, ifile)
+    return create_treewidget_item(filename, ifile, exists=exists)
 
 
 def update_file_icons(widget, items, staged=True,
@@ -472,9 +494,9 @@ def center_on_screen(widget):
     """Move widget to the center of the default screen"""
     desktop = QtGui.QApplication.instance().desktop()
     rect = desktop.screenGeometry(QtGui.QCursor().pos())
-    cy = rect.height()/2
-    cx = rect.width()/2
-    widget.move(cx - widget.width()/2, cy - widget.height()/2)
+    cy = rect.height()//2
+    cx = rect.width()//2
+    widget.move(cx - widget.width()//2, cy - widget.height()//2)
 
 
 @memoize
@@ -508,7 +530,7 @@ def diff_font_str():
     font_str = gitcfg.instance().get(FONTDIFF)
     if font_str is None:
         font = default_monospace_font()
-        font_str = unicode(font.toString())
+        font_str = ustr(font.toString())
     return font_str
 
 
@@ -744,7 +766,7 @@ class GenericSyntaxHighligher(QtGui.QSyntaxHighlighter):
     def highlightBlock(self, qstr):
         if not self.enabled:
             return
-        ascii = unicode(qstr)
+        ascii = ustr(qstr)
         if not ascii:
             return
         formats = self.formats(ascii)
@@ -833,7 +855,7 @@ class DiffSyntaxHighlighter(GenericSyntaxHighligher):
                                              diff_head,
                                              diff_head))
         if self.whitespace:
-            self.create_rules('(..*?)(\s+)$', (None, bad_ws))
+            self.create_rules(r'(..*?)(\s+)$', (None, bad_ws))
 
 
 def install():

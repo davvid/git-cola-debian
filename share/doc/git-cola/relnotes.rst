@@ -1,5 +1,57 @@
+git-cola v2.0.1
+===============
+Usability, bells and whistles
+-----------------------------
+* Some context menu actions are now hidden when selected
+  files do not exist.
+
+  https://github.com/git-cola/git-cola/issues/238
+
+Fixes
+-----
+* The build-git-cola.sh contrib script was improved.
+
+  https://github.com/git-cola/git-cola/pull/235
+
+* Non-ascii worktrees work properly again.
+
+  https://github.com/git-cola/git-cola/issues/234
+
+* The browser now guards itself against missing files.
+
+  https://bugzilla.redhat.com/show_bug.cgi?id=1071378
+
+* Saving widget state now works under Python3.
+
+  https://github.com/git-cola/git-cola/pull/236
+
+git-cola v2.0.0
+===============
+Portability
+-----------
+* git-cola now runs on Python 3 thanks to Virgil Dupras.
+
+  https://github.com/git-cola/git-cola/pull/233
+
+* Python 2.6, 2.7, and 3.2+ are now supported.
+  Python 2.5 is no longer supported.
+
+Fixes
+-----
+* i18n test fixes thanks to Virgil Dupras.
+
+  https://github.com/git-cola/git-cola/pull/231
+
+* git-cola.app build fixes thanks to Maicon D. Filippsen.
+
+  https://github.com/git-cola/git-cola/pull/230
+
+* Lots of pylint improvements thanks to Alex Chernetz.
+
+  https://github.com/git-cola/git-cola/pull/229
+
 git-cola v1.9.4
----------------
+===============
 Usability, bells and whistles
 -----------------------------
 * The new `Bookmarks` tool makes it really easy to switch between repositories.
@@ -22,7 +74,7 @@ Fixes
 * Lots of pylint fixes thanks to Alex Chernetz.
 
 git-cola v1.9.3
----------------
+===============
 Usability, bells and whistles
 -----------------------------
 * `git cola --amend` now starts the editor in `amend` mode.
@@ -46,7 +98,7 @@ Fixes
   http://comments.gmane.org/gmane.linux.gentoo.devel/85066
 
 git-cola v1.9.2
----------------
+===============
 Fixes
 -----
 * Fix a traceback when `git push` fails.
@@ -65,7 +117,7 @@ Packaging
   https://github.com/git-cola/git-cola/issues/209
 
 git-cola v1.9.1
----------------
+===============
 Packaging
 ---------
 * `git cola version --brief` now prints the brief version number.
@@ -78,7 +130,7 @@ Fixes
 * Fixed the typo that broke the preferences dialog.
 
 git-cola v1.9.0
----------------
+===============
 Usability, bells and whistles
 -----------------------------
 * We now ship a full-featured interactive `git rebase` editor.
@@ -116,7 +168,7 @@ Fixes
 * Support unicode in the output from `fetch`, `push`, and `pull`.
 
 git-cola v1.8.5
----------------
+===============
 Usability, bells and whistles
 -----------------------------
 * We now detect when the editor or history browser are misconfigured.
