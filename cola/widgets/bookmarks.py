@@ -12,7 +12,6 @@ from PyQt4.QtCore import SIGNAL
 from cola import cmds
 from cola import core
 from cola import qtutils
-from cola import settings
 from cola.i18n import N_
 from cola.settings import Settings
 from cola.widgets import defs
@@ -29,7 +28,8 @@ def manage_bookmarks():
 class BookmarksDialog(standard.Dialog):
     def __init__(self, parent):
         standard.Dialog.__init__(self, parent=parent)
-        self.model = settings.Settings()
+        self.settings = Settings()
+        self.settings.load()
 
         self.resize(494, 238)
         self.setWindowTitle(N_('Bookmarks'))
@@ -88,10 +88,10 @@ class BookmarksDialog(standard.Dialog):
 
     def update_bookmarks(self):
         self.bookmarks.clear()
-        self.bookmarks.addItems(self.model.bookmarks)
+        self.bookmarks.addItems(self.settings.bookmarks)
 
     def selection(self):
-        return qtutils.selection_list(self.bookmarks, self.model.bookmarks)
+        return qtutils.selection_list(self.bookmarks, self.settings.bookmarks)
 
     def item_selection_changed(self):
         has_selection = bool(self.selection())
@@ -100,7 +100,7 @@ class BookmarksDialog(standard.Dialog):
 
     def save(self):
         """Saves the bookmarks settings and exits"""
-        self.model.save()
+        self.settings.save()
         self.save_button.setEnabled(False)
 
     def add(self):
@@ -109,7 +109,7 @@ class BookmarksDialog(standard.Dialog):
                                   text=core.getcwd())
         if not ok:
             return
-        self.model.bookmarks.append(path)
+        self.settings.bookmarks.append(path)
         self.update_bookmarks()
         self.save()
 
@@ -124,7 +124,7 @@ class BookmarksDialog(standard.Dialog):
         if not selection:
             return
         for repo in selection:
-            self.model.remove_bookmark(repo)
+            self.settings.remove_bookmark(repo)
         self.update_bookmarks()
         self.save_button.setEnabled(True)
 
@@ -143,7 +143,7 @@ class BookmarksWidget(QtGui.QWidget):
                 tooltip=N_('Bookmarks...'), icon=qtutils.add_icon())
 
         qtutils.connect_button(self.open_button, self.tree.open_repo)
-        qtutils.connect_button(self.edit_button, self.manage_bookmarks)
+        qtutils.connect_button(self.edit_button, self.tree.edit_bookmarks)
 
         self.connect(self.tree, SIGNAL('itemSelectionChanged()'),
                      self._tree_selection_changed)
@@ -170,12 +170,8 @@ class BookmarksWidget(QtGui.QWidget):
         enabled = bool(self.tree.selected_item())
         self.open_button.setEnabled(enabled)
 
-    def manage_bookmarks(self):
-        manage_bookmarks()
-        self.refresh()
-
-    def refresh(self):
-        self.tree.refresh()
+    def edit_bookmarks(self):
+        self.tree.edit_bookmarks()
 
 
 class BookmarksTreeWidget(standard.TreeWidget):
@@ -198,6 +194,10 @@ class BookmarksTreeWidget(standard.TreeWidget):
                 cmds.OpenDefaultApp.name(), self.open_default,
                 cmds.OpenDefaultApp.SHORTCUT)
         self.open_default_action.setEnabled(False)
+
+        self.edit_bookmarks_action = qtutils.add_action(self,
+                N_('Edit'), self.edit_bookmarks)
+        self.edit_bookmarks_action.setEnabled(False)
 
         self.launch_editor_action = qtutils.add_action(self,
                 cmds.Edit.name(), self.launch_editor,
@@ -224,6 +224,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
     def refresh(self):
         self.clear()
         settings = Settings()
+        settings.load()
         items = []
         icon = qtutils.dir_icon()
         recents = set(settings.recent)
@@ -242,6 +243,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
         menu.addAction(self.open_action)
         menu.addAction(self.open_new_action)
         menu.addAction(self.open_default_action)
+        menu.addAction(self.edit_bookmarks_action)
         menu.addSeparator()
         menu.addAction(self.copy_action)
         menu.addAction(self.launch_editor_action)
@@ -272,6 +274,10 @@ class BookmarksTreeWidget(standard.TreeWidget):
             return
         cmds.do(cmds.OpenNewRepo, item.path)
 
+    def edit_bookmarks(self):
+        manage_bookmarks()
+        self.refresh()
+
     def launch_editor(self):
         item = self.selected_item()
         if not item:
@@ -292,6 +298,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.launch_editor_action.setEnabled(enabled)
         self.launch_terminal_action.setEnabled(enabled)
         self.open_default_action.setEnabled(enabled)
+        self.edit_bookmarks_action.setEnabled(enabled)
 
     def _tree_double_clicked(self, item, column):
         cmds.do(cmds.OpenRepo, item.path)
@@ -303,5 +310,6 @@ class BookmarksTreeWidgetItem(QtGui.QTreeWidgetItem):
         QtGui.QTreeWidgetItem.__init__(self)
         self.path = path
         self.setIcon(0, icon)
-        self.setText(0, os.path.basename(path))
+        normpath = os.path.normpath(path)
+        self.setText(0, os.path.basename(normpath))
         self.setToolTip(0, path)

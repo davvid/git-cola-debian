@@ -83,7 +83,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.old_current_item = None
         self.expanded_items = set()
 
-        self.process_selection = qtutils.add_action(self,
+        self.process_selection_action = qtutils.add_action(self,
                 N_('Stage / Unstage'), self._process_selection,
                 cmds.Stage.SHORTCUT)
 
@@ -93,18 +93,18 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                 cmds.RevertUnstagedEdits.SHORTCUT)
         self.revert_unstaged_edits_action.setIcon(qtutils.icon('undo.svg'))
 
-        self.launch_difftool = qtutils.add_action(self,
+        self.launch_difftool_action = qtutils.add_action(self,
                 cmds.LaunchDifftool.name(),
                 cmds.run(cmds.LaunchDifftool),
                 cmds.LaunchDifftool.SHORTCUT)
-        self.launch_difftool.setIcon(qtutils.icon('git.svg'))
+        self.launch_difftool_action.setIcon(qtutils.icon('git.svg'))
 
-        self.launch_editor = qtutils.add_action(self,
+        self.launch_editor_action = qtutils.add_action(self,
                 cmds.LaunchEditor.name(),
                 cmds.run(cmds.LaunchEditor),
                 cmds.LaunchEditor.SHORTCUT,
                 'Return', 'Enter')
-        self.launch_editor.setIcon(qtutils.options_icon())
+        self.launch_editor_action.setIcon(qtutils.options_icon())
 
         if not utils.is_win32():
             self.open_using_default_app = qtutils.add_action(self,
@@ -113,22 +113,27 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                     cmds.OpenDefaultApp.SHORTCUT)
             self.open_using_default_app.setIcon(qtutils.file_icon())
 
-            self.open_parent_dir = qtutils.add_action(self,
+            self.open_parent_dir_action = qtutils.add_action(self,
                     cmds.OpenParentDir.name(),
                     self._open_parent_dir,
                     cmds.OpenParentDir.SHORTCUT)
-            self.open_parent_dir.setIcon(qtutils.open_file_icon())
+            self.open_parent_dir_action.setIcon(qtutils.open_file_icon())
 
-        self.up = qtutils.add_action(self, N_('Move Up'), self.move_up,
-                                     Qt.Key_K)
+        self.up_action = qtutils.add_action(self,
+                N_('Move Up'), self.move_up, Qt.Key_K)
 
-        self.down = qtutils.add_action(self, N_('Move Down'), self.move_down,
-                                       Qt.Key_J)
+        self.down_action = qtutils.add_action(self,
+                N_('Move Down'), self.move_down, Qt.Key_J)
 
         self.copy_path_action = qtutils.add_action(self,
                 N_('Copy Path to Clipboard'),
                 self.copy_path, QtGui.QKeySequence.Copy)
         self.copy_path_action.setIcon(qtutils.theme_icon('edit-copy.svg'))
+
+        self.delete_untracked_files_action = qtutils.add_action(self,
+                N_('Delete File(s)...'),
+                self._delete_untracked_files, cmds.Delete.SHORTCUT)
+        self.delete_untracked_files_action.setIcon(qtutils.discard_icon())
 
         self.connect(self, SIGNAL('about_to_update'), self._about_to_update)
         self.connect(self, SIGNAL('updated'), self._updated)
@@ -155,7 +160,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         # TODO no icon
         font = self.font()
         font.setBold(True)
-        font.setCapitalization(QtGui.QFont.SmallCaps)
 
         item = QtGui.QTreeWidgetItem(self)
         item.setFont(0, font)
@@ -473,8 +477,8 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         all_exist = all([i.exists for i in staged_items])
 
         if all_exist:
-            menu.addAction(self.launch_editor)
-            menu.addAction(self.launch_difftool)
+            menu.addAction(self.launch_editor_action)
+            menu.addAction(self.launch_difftool_action)
 
         if all_exist and not utils.is_win32():
             menu.addSeparator()
@@ -505,7 +509,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                        cmds.run(cmds.OpenRepo,
                                 core.abspath(s.staged[0])))
 
-        menu.addAction(self.launch_editor)
+        menu.addAction(self.launch_editor_action)
         menu.addSeparator()
 
         action = menu.addAction(qtutils.icon('remove.svg'),
@@ -518,14 +522,14 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         return menu
 
     def _create_unmerged_context_menu(self, menu, s):
-        menu.addAction(self.launch_difftool)
+        menu.addAction(self.launch_difftool_action)
 
         action = menu.addAction(qtutils.icon('add.svg'),
                                 N_('Stage Selected'),
                                 cmds.run(cmds.Stage, self.unstaged()))
         action.setShortcut(cmds.Stage.SHORTCUT)
         menu.addSeparator()
-        menu.addAction(self.launch_editor)
+        menu.addAction(self.launch_editor_action)
 
         if not utils.is_win32():
             menu.addSeparator()
@@ -560,10 +564,10 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         all_exist = all([i.exists for i in unstaged_items])
 
         if all_exist and self.unstaged():
-            menu.addAction(self.launch_editor)
+            menu.addAction(self.launch_editor_action)
 
         if all_exist and s.modified and self.m.stageable():
-            menu.addAction(self.launch_difftool)
+            menu.addAction(self.launch_difftool_action)
 
         if s.modified and self.m.stageable():
             if self.m.undoable():
@@ -588,8 +592,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
         if all_exist and s.untracked:
             menu.addSeparator()
-            menu.addAction(qtutils.discard_icon(),
-                           N_('Delete File(s)...'), self._delete_files)
+            menu.addAction(self.delete_untracked_files_action)
             menu.addSeparator()
             menu.addAction(qtutils.icon('edit-clear.svg'),
                            N_('Add to .gitignore'),
@@ -604,7 +607,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                        N_('Launch git-cola'),
                        cmds.run(cmds.OpenRepo, core.abspath(s.modified[0])))
 
-        menu.addAction(self.launch_editor)
+        menu.addAction(self.launch_editor_action)
 
         if self.m.stageable():
             menu.addSeparator()
@@ -618,10 +621,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         return menu
 
 
-    def _delete_files(self):
+    def _delete_untracked_files(self):
         files = self.untracked()
-        count = len(files)
-        if count == 0:
+        if not files:
             return
 
         title = N_('Delete Files?')
@@ -632,6 +634,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             fileinfo = fileinfo[:2048].rstrip() + '...'
         msg += fileinfo
 
+        count = len(files)
         info_txt = N_('Delete %d file(s)?') % count
         ok_txt = N_('Delete Files')
 
@@ -886,6 +889,4 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def copy_path(self):
         """Copy a selected path to the clipboard"""
         filename = selection.selection_model().filename()
-        if filename is not None:
-            curdir = os.getcwdu()
-            qtutils.set_clipboard(os.path.join(curdir, filename))
+        qtutils.copy_path(filename)

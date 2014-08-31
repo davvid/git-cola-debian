@@ -16,9 +16,9 @@ from cola import guicmds
 from cola import gitcfg
 from cola import qtutils
 from cola import resources
-from cola import settings
 from cola import utils
 from cola import version
+from cola.compat import unichr
 from cola.git import git
 from cola.git import STDOUT
 from cola.i18n import N_
@@ -30,6 +30,7 @@ from cola.qtutils import connect_action
 from cola.qtutils import connect_action_bool
 from cola.qtutils import create_dock
 from cola.qtutils import create_menu
+from cola.settings import Settings
 from cola.widgets import action
 from cola.widgets import cfgactions
 from cola.widgets import editremotes
@@ -57,17 +58,17 @@ from cola.widgets.status import StatusWidget
 from cola.widgets.search import search
 from cola.widgets.standard import MainWindow
 from cola.widgets.stash import stash
-from cola.compat import unichr
 
 
 class MainView(MainWindow):
 
-    def __init__(self, model, parent=None):
+    def __init__(self, model, parent=None, settings=None):
         MainWindow.__init__(self, parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
 
         # Default size; this is thrown out when save/restore is used
         self.model = model
+        self.settings = settings
         self.prefs_model = prefs_model = prefs.PreferencesModel()
 
         # The widget version is used by import/export_state().
@@ -183,7 +184,7 @@ class MainView(MainWindow):
 
         self.cherry_pick_action = add_action(self,
                 N_('Cherry-Pick...'),
-                guicmds.cherry_pick, 'Ctrl+P')
+                guicmds.cherry_pick, 'Shift+Ctrl+C')
 
         self.load_commitmsg_action = add_action(self,
                 N_('Load Commit Message...'), guicmds.load_commitmsg)
@@ -204,11 +205,11 @@ class MainView(MainWindow):
                 N_('Abort Merge...'), merge.abort_merge)
 
         self.fetch_action = add_action(self,
-                N_('Fetch...'), remote.fetch)
+                N_('Fetch...'), remote.fetch, 'Ctrl+F')
         self.push_action = add_action(self,
-                N_('Push...'), remote.push)
+                N_('Push...'), remote.push, 'Ctrl+P')
         self.pull_action = add_action(self,
-                N_('Pull...'), remote.pull)
+                N_('Pull...'), remote.pull, 'Shift+Ctrl+P')
 
         self.open_repo_action = add_action(self,
                 N_('Open...'), guicmds.open_repo)
@@ -275,11 +276,10 @@ class MainView(MainWindow):
                 N_('Review...'), guicmds.review_branch)
 
         self.browse_action = add_action(self,
-                N_('Browser...'), worktree_browser)
+                N_('File Browser...'), worktree_browser)
         self.browse_action.setIcon(qtutils.git_icon())
 
-        self.dag_action = add_action(self,
-                N_('DAG...'), lambda: git_dag(self.model).show())
+        self.dag_action = add_action(self, N_('DAG...'), self.git_dag)
         self.dag_action.setIcon(qtutils.git_icon())
 
         self.rebase_start_action = add_action(self,
@@ -300,13 +300,15 @@ class MainView(MainWindow):
         # Relayed actions
         status_tree = self.statusdockwidget.widget().tree
         self.addAction(status_tree.revert_unstaged_edits_action)
+        self.addAction(status_tree.delete_untracked_files_action)
+
         if not self.browser_dockable:
             # These shortcuts conflict with those from the
             # 'Browser' widget so don't register them when
             # the browser is a dockable tool.
-            self.addAction(status_tree.up)
-            self.addAction(status_tree.down)
-            self.addAction(status_tree.process_selection)
+            self.addAction(status_tree.up_action)
+            self.addAction(status_tree.down_action)
+            self.addAction(status_tree.process_selection_action)
 
         self.lock_layout_action = add_action_bool(self,
                 N_('Lock Layout'), self.set_lock_layout, False)
@@ -355,9 +357,9 @@ class MainView(MainWindow):
         self.actions_menu.addAction(self.search_commits_action)
         self.menubar.addAction(self.actions_menu.menuAction())
 
-        # Index Menu
-        self.commit_menu = create_menu(N_('Index'), self.menubar)
-        self.commit_menu.setTitle(N_('Index'))
+        # Staging Area Menu
+        self.commit_menu = create_menu(N_('Staging Area'), self.menubar)
+        self.commit_menu.setTitle(N_('Staging Area'))
         self.commit_menu.addAction(self.stage_modified_action)
         self.commit_menu.addAction(self.stage_untracked_action)
         self.commit_menu.addSeparator()
@@ -468,7 +470,7 @@ class MainView(MainWindow):
         self.install_config_actions()
 
         # Restore saved settings
-        if not self.restore_state():
+        if not self.restore_state(settings=settings):
             self.resize(987, 610)
             self.set_initial_size()
 
@@ -492,7 +494,9 @@ class MainView(MainWindow):
         MainWindow.closeEvent(self, event)
 
     def build_recent_menu(self):
-        recent = settings.Settings().recent
+        settings = Settings()
+        settings.load()
+        recent = settings.recent
         cmd = cmds.OpenRepo
         menu = self.open_recent_menu
         menu.clear()
@@ -666,6 +670,11 @@ class MainView(MainWindow):
 
     def preferences(self):
         return preferences(model=self.prefs_model, parent=self)
+
+    def git_dag(self):
+        view = git_dag(self.model)
+        view.show()
+        view.raise_()
 
     def save_archive(self):
         ref = git.rev_parse('HEAD')[STDOUT]

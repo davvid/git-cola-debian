@@ -10,11 +10,14 @@ Thanks
 * Barry Roberts
 * Boris W
 * Ben Boeckel
+* Ben Cole
 * Benoît Nouyrigat
+* Charles 101
 * Christian Jann
 * Christopher Meng
-* Daniel King
 * Daniel Fahlke
+* Daniel Harding
+* Daniel King
 * David Aguilar
 * David Martínez Martí
 * Dennis Gilmore
@@ -27,6 +30,7 @@ Thanks
 * Iulian Udrea
 * Ivar Smolin
 * Jakub Wilk
+* James Geiger
 * Jérôme Carretero
 * Johann Schmitz
 * Jeff Dagenais
@@ -36,23 +40,28 @@ Thanks
 * Kelvie Wong
 * Kerrick Staley
 * Kevin Kofler
+* Leho Kraav
 * Libor Jelinek
+* Liviu Cristian Mirea-Ghiban
 * Maciej Filipiak
 * Mahmoud Hossam
 * Maicon D. Filippsen
 * Marco Costalba
 * Markus Heidelberg
 * Maarten Nieber
+* Matěj Šmíd
 * Matthew Levine
 * Michael Geddes
 * Michael Homer
 * Minarto Margoliono
 * Nicolas Dietrich
-* Omega Weapon
+* OmegaPhil (Omega Weapon)
 * Owen Healy
 * Paolo G. Giarrusso
+* Paul Hildebrandt
 * Peter Júnoš
 * Rustam Safin
+* Samsul Ma'arif
 * Sergey Leschina
 * Srinivasa Nallapati
 * Stanisław Halik
@@ -60,6 +69,10 @@ Thanks
 * Steffen Prohaska
 * Sven Claussner
 * Taylor Braun-Jones
+* Thomas Kluyver
 * Ugo Riboni
 * Uri Okrent
+* Ｖ字龍 (Vdragon)
 * Virgil Dupras
+* Vitor Lobo
+* Zhang Han

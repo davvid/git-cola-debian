@@ -3,6 +3,7 @@
 """Provides the main() routine and ColaApplicaiton"""
 from __future__ import division, absolute_import, unicode_literals
 
+import argparse
 import glob
 import os
 import signal
@@ -36,6 +37,7 @@ except ImportError:
     sys.exit(-1)
 
 # Import cola modules
+from cola import cmds
 from cola import core
 from cola import compat
 from cola import git
@@ -46,14 +48,23 @@ from cola import qtutils
 from cola import resources
 from cola import utils
 from cola import version
+from cola.compat import ustr
 from cola.decorators import memoize
+from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.models import main
 from cola.widgets import cfgactions
 from cola.widgets import startup
+from cola.settings import Session
 
 
 def setup_environment():
+    # Allow Ctrl-C to exit
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    # Session management wants an absolute path when restarting
+    sys.argv[0] = core.abspath(sys.argv[0])
+
     # Spoof an X11 display for SSH
     os.environ.setdefault('DISPLAY', ':0')
 
@@ -121,11 +132,6 @@ def setup_environment():
     compat.setenv('GIT_MERGE_AUTOEDIT', 'no')
 
 
-@memoize
-def instance(argv):
-    return QtGui.QApplication(list(argv))
-
-
 # style note: we use camelCase here since we're masquerading a Qt class
 class ColaApplication(object):
     """The main cola application
@@ -133,18 +139,21 @@ class ColaApplication(object):
     ColaApplication handles i18n of user-visible data
     """
 
-    def __init__(self, argv, locale=None, gui=True):
+    def __init__(self, argv, locale=None, gui=True, git_path=None):
         cfgactions.install()
         i18n.install(locale)
         qtcompat.install()
         qtutils.install()
+
+        # Call _update_files when inotify detects changes
+        inotify.observer(_update_files)
 
         # Add the default style dir so that we find our icons
         icon_dir = resources.icon_dir()
         qtcompat.add_search_path(os.path.basename(icon_dir), icon_dir)
 
         if gui:
-            self._app = instance(tuple(argv))
+            self._app = instance(tuple(argv), git_path)
             self._app.setWindowIcon(qtutils.git_icon())
         else:
             self._app = QtCore.QCoreApplication(argv)
@@ -170,12 +179,43 @@ class ColaApplication(object):
         """Wrap exec_()"""
         return self._app.exec_()
 
+    def set_view(self, view):
+        if hasattr(self._app, 'view'):
+            self._app.view = view
+
+
+@memoize
+def instance(argv, git_path=None):
+    return ColaQApplication(list(argv), git_path)
+
+
+class ColaQApplication(QtGui.QApplication):
+
+    def __init__(self, argv, git_path=None):
+        QtGui.QApplication.__init__(self, argv)
+        self.git_path = git_path
+        self.view = None ## injected by application_start()
+
+    def commitData(self, session_mgr):
+        """Save session data"""
+        if self.view is None:
+            return
+        sid = ustr(session_mgr.sessionId())
+        skey = ustr(session_mgr.sessionKey())
+        session_id = '%s_%s' % (sid, skey)
+        session = Session(session_id,
+                          repo=core.getcwd(), git_path=self.git_path)
+        self.view.save_state(settings=session)
+
 
 def process_args(args):
     if args.version:
         # Accept 'git cola --version' or 'git cola version'
         version.print_version()
         sys.exit(0)
+
+    # Handle session management
+    restore_session(args)
 
     if args.git_path:
         # Adds git to the PATH.  This is needed on Windows.
@@ -189,8 +229,9 @@ def process_args(args):
         repo = repo[len('file:'):]
     repo = core.realpath(repo)
     if not core.isdir(repo):
-        sys.stderr.write("fatal: '%s' is not a directory.  "
-                         'Consider supplying -r <path>.\n' % repo)
+        errmsg = N_('fatal: "%s" is not a directory.  '
+                    'Please specify a correct --repo <path>.') % repo
+        core.stderr(errmsg)
         sys.exit(-1)
 
     # We do everything relative to the repo root
@@ -198,23 +239,38 @@ def process_args(args):
     return repo
 
 
+def restore_session(args):
+    # args.settings is provided when restoring from a session.
+    args.settings = None
+    if args.session is None:
+        return
+    session = Session(args.session)
+    if session.load():
+        args.settings = session
+        args.repo = session.repo
+        args.git_path = session.git_path
+
+
 def application_init(args, update=False):
     """Parses the command-line arguments and starts git-cola
     """
+    # Ensure that we're working in a valid git repository.
+    # If not, try to find one.  When found, chdir there.
     setup_environment()
     process_args(args)
 
-    # Ensure that we're working in a valid git repository.
-    # If not, try to find one.  When found, chdir there.
-    app = new_application()
+    app = new_application(args)
     model = new_model(app, args.repo, prompt=args.prompt)
     if update:
         model.update_status()
-
     return ApplicationContext(args, app, model)
 
 
 def application_start(context, view):
+    """Show the GUI and start the main event loop"""
+    # Store the view for session management
+    context.app.set_view(view)
+
     # Make sure that we start out on top
     view.show()
     view.raise_()
@@ -248,27 +304,28 @@ def application_start(context, view):
 def add_common_arguments(parser):
     # We also accept 'git cola version'
     parser.add_argument('--version', default=False, action='store_true',
-                        help='prints the version')
+                        help='print version number')
 
     # Specifies a git repository to open
-    parser.add_argument('-r', '--repo', metavar='<repo>', default=os.getcwd(),
-                        help='specifies the path to a git repository')
+    parser.add_argument('-r', '--repo', metavar='<repo>', default=core.getcwd(),
+                        help='open the specified git repository')
 
     # Specifies that we should prompt for a repository at startup
     parser.add_argument('--prompt', action='store_true', default=False,
-                        help='prompts for a repository')
+                        help='prompt for a repository')
 
     # Used on Windows for adding 'git' to the path
     parser.add_argument('-g', '--git-path', metavar='<path>', default=None,
-                        help='specifies the path to the git binary')
+                        help='use the specified git executable')
+
+    # Resume an X Session Management session
+    parser.add_argument('-session', metavar='<session>', default=None,
+                        help=argparse.SUPPRESS)
 
 
-def new_application():
-    # Allow Ctrl-C to exit
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-
+def new_application(args):
     # Initialize the app
-    return ColaApplication(sys.argv)
+    return ColaApplication(sys.argv, git_path=args.git_path)
 
 
 def new_model(app, repo, prompt=False):
@@ -310,6 +367,11 @@ def _send_msg():
                '"plumbing" API and are not intended for typical '
                'day-to-day use.  Here be dragons')
         Interaction.log(msg)
+
+
+def _update_files():
+    # Respond to inotify updates
+    cmds.do(cmds.Refresh)
 
 
 class ApplicationContext(object):

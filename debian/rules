@@ -23,6 +23,7 @@ clean:
 	dh_testroot
 	dh_clean build-stamp
 	[ ! -f Makefile ] || $(MAKE) clean
+	rm -f $(CURDIR)/share/doc/git-cola/_build/html/.buildinfo
 
 install: build
 	dh_testdir
@@ -30,6 +31,7 @@ install: build
 	dh_install
 	dh_installdirs
 	$(MAKE) DESTDIR=$(PKGDIR) prefix=/usr install install-doc install-html
+	rm $(PKGDIR)/usr/share/doc/git-cola/html/.gitignore
 	find . -name "*.pyc" -delete
 	chmod a-x $(PKGDIR)/usr/share/git-cola/lib/cola/widgets/archive.py
 

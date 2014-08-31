@@ -1,5 +1,7 @@
 from __future__ import division, absolute_import, unicode_literals
 
+import functools
+import errno
 import os
 import sys
 import subprocess
@@ -131,9 +133,9 @@ class Git(object):
         self._git_cwd = path
 
     def __getattr__(self, name):
-        if name[:1] == '_':
-            raise AttributeError(name)
-        return lambda *args, **kwargs: self._call_process(name, *args, **kwargs)
+        git_cmd = functools.partial(self.git, name)
+        setattr(self, name, git_cmd)
+        return git_cmd
 
     @staticmethod
     def execute(command,
@@ -162,8 +164,14 @@ class Git(object):
 
         extra = {}
         if sys.platform == 'win32':
-            command = map(replace_carot, command)
-            extra['shell'] = True
+            # If git-cola is invoked on Windows using "start pythonw git-cola",
+            # a console window will briefly flash on the screen each time
+            # git-cola invokes git, which is very annoying.  The code below
+            # prevents this by ensuring that any window will be hidden.
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            extra['startupinfo'] = startupinfo
 
         # Start the process
         # Guard against thread-unsafe .git/index.lock files
@@ -183,7 +191,7 @@ class Git(object):
             msg = 'trace: ' + subprocess.list2cmdline(command)
             Interaction.log_status(status, msg, '')
         elif cola_trace == 'full':
-            if out:
+            if out or err:
                 core.stderr("%s -> %d: '%s' '%s'" %
                             (' '.join(command), status, out, err))
             else:
@@ -210,7 +218,7 @@ class Git(object):
                     args.append("--%s=%s" % (dashify(k), v))
         return args
 
-    def _call_process(self, cmd, *args, **kwargs):
+    def git(self, cmd, *args, **kwargs):
         # Handle optional arguments prior to calling transform_kwargs
         # otherwise they'll end up in args, which is bad.
         _kwargs = dict(_cwd=self._git_cwd)
@@ -224,21 +232,15 @@ class Git(object):
         opt_args = self.transform_kwargs(**kwargs)
         call = ['git', dashify(cmd)] + opt_args
         call.extend(args)
-        return self.execute(call, **_kwargs)
-
-
-def replace_carot(cmd_arg):
-    """
-    Guard against the windows command shell.
-
-    In the Windows shell, a carat character (^) may be used for
-    line continuation.  To guard against this, escape the carat
-    by using two of them.
-
-    http://technet.microsoft.com/en-us/library/cc723564.aspx
-
-    """
-    return cmd_arg.replace('^', '^^')
+        try:
+            return self.execute(call, **_kwargs)
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise e
+            core.stderr("ERROR: Unable to execute 'git'.\n"
+                        "Ensure that 'git' is in your $PATH, or specify the "
+                        "path to 'git' using the --git-path argument.")
+            sys.exit(1)
 
 
 @memoize
