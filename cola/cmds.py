@@ -1,9 +1,15 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import os
+import subprocess
 import sys
 from fnmatch import fnmatch
 from io import StringIO
+
+try:
+    from send2trash import send2trash
+except ImportError:
+    send2trash = None
 
 from cola import compat
 from cola import core
@@ -49,22 +55,69 @@ class BaseCommand(object):
         return 'Unknown'
 
     def do(self):
-        raise NotImplementedError('%s.do() is unimplemented'
-                                  % self.__class__.__name__)
+        pass
 
     def undo(self):
-        raise NotImplementedError('%s.undo() is unimplemented'
-                                  % self.__class__.__name__)
+        pass
 
 
-class Command(BaseCommand):
+class ConfirmAction(BaseCommand):
+
+    def __init__(self):
+        BaseCommand.__init__(self)
+
+    def confirm(self):
+        return True
+
+    def action(self):
+        return (-1, '', '')
+
+    def ok(self, status):
+        return status == 0
+
+    def success(self):
+        pass
+
+    def fail(self, status, out, err):
+        title = msg = self.error_message()
+        details = self.error_details() or out + err
+        Interaction.critical(title, message=msg, details=details)
+
+    def error_message(self):
+        return ''
+
+    def error_details(self):
+        return ''
+
+    def do(self):
+        status = -1
+        out = err = ''
+        ok = self.confirm()
+        if ok:
+            status, out, err = self.action()
+            if self.ok(status):
+                self.success()
+            else:
+                self.fail(status, out, err)
+
+        return ok, status, out, err
+
+
+class ModelCommand(BaseCommand):
+    """Commands that manipulate the main models"""
+
+    def __init__(self):
+        BaseCommand.__init__(self)
+        self.model = main.model()
+
+
+class Command(ModelCommand):
     """Base class for commands that modify the main model"""
 
     def __init__(self):
         """Initialize the command and stash away values for use in do()"""
         # These are commonly used so let's make it easier to write new commands.
-        BaseCommand.__init__(self)
-        self.model = main.model()
+        ModelCommand.__init__(self)
 
         self.old_diff_text = self.model.diff_text
         self.old_filename = self.model.filename
@@ -91,7 +144,6 @@ class AmendMode(Command):
     """Try to amend a commit."""
 
     SHORTCUT = 'Ctrl+M'
-
     LAST_MESSAGE = None
 
     @staticmethod
@@ -149,11 +201,9 @@ class AmendMode(Command):
 
 class ApplyDiffSelection(Command):
 
-    def __init__(self, staged, selected, offset, selection_text,
-                 apply_to_worktree):
+    def __init__(self, staged, offset, selection_text, apply_to_worktree):
         Command.__init__(self)
         self.staged = staged
-        self.selected = selected
         self.offset = offset
         self.selection_text = selection_text
         self.apply_to_worktree = apply_to_worktree
@@ -165,8 +215,7 @@ class ApplyDiffSelection(Command):
                             cached=self.staged,
                             reverse=self.apply_to_worktree)
         status, out, err = \
-        parser.process_diff_selection(self.selected,
-                                      self.offset,
+        parser.process_diff_selection(self.offset,
                                       self.selection_text,
                                       apply_to_worktree=self.apply_to_worktree)
         Interaction.log_status(status, out, err)
@@ -384,29 +433,187 @@ class Ignore(Command):
         self.model.update_file_status()
 
 
-class Delete(Command):
-    """Delete files."""
+def file_summary(files):
+    txt = subprocess.list2cmdline(files)
+    if len(txt) > 2048:
+        txt = txt[:2048].rstrip() + '...'
+    return txt
 
-    SHORTCUT = 'Ctrl+Backspace'
 
-    def __init__(self, filenames):
+class RemoteCommand(ConfirmAction):
+
+    def __init__(self, remote):
+        ConfirmAction.__init__(self)
+        self.model = main.model()
+        self.remote = remote
+
+    def success(self):
+        self.model.update_remotes()
+
+
+class RemoteAdd(RemoteCommand):
+
+    def __init__(self, remote, url):
+        RemoteCommand.__init__(self, remote)
+        self.url = url
+
+    def action(self):
+        git = self.model.git
+        return git.remote('add', self.remote, self.url)
+
+    def error_message(self):
+        return N_('Error creating remote "%s"') % self.remote
+
+
+class RemoteRemove(RemoteCommand):
+
+    def confirm(self):
+        title = N_('Delete Remote')
+        question = N_('Delete remote?')
+        info = N_('Delete remote "%s"') % self.remote
+        ok_btn = N_('Delete')
+        return Interaction.confirm(title, question, info, ok_btn)
+
+    def action(self):
+        git = self.model.git
+        return git.remote('rm', self.remote)
+
+    def error_message(self):
+        return N_('Error deleting remote "%s"') % self.remote
+
+
+class RemoteRename(RemoteCommand):
+
+    def __init__(self, remote, new_remote):
+        RemoteCommand.__init__(self, remote)
+        self.new_remote = new_remote
+
+    def confirm(self):
+        title = N_('Rename Remote')
+        question = N_('Rename remote?')
+        info = (N_('Rename remote "%(current)s" to "%(new)s"?') %
+                dict(current=self.remote, new=self.new_remote))
+        ok_btn = N_('Rename')
+        return Interaction.confirm(title, question, info, ok_btn)
+
+    def action(self):
+        git = self.model.git
+        return git.remote('rename', self.remote, self.new_remote)
+
+
+class RemoveFromSettings(ConfirmAction):
+
+    def __init__(self, settings, repo, icon=None):
+        ConfirmAction.__init__(self)
+        self.settings = settings
+        self.repo = repo
+        self.icon = icon
+
+    def success(self):
+        self.settings.save()
+
+
+class RemoveBookmark(RemoveFromSettings):
+
+    def confirm(self):
+        repo = self.repo
+        title = msg = N_('Delete Bookmark?')
+        info = N_('%s will be removed from your bookmarks.') % repo
+        ok_text = N_('Delete Bookmark')
+        return Interaction.confirm(title, msg, info, ok_text, icon=self.icon)
+
+    def action(self):
+        self.settings.remove_bookmark(self.repo)
+        return (0, '', '')
+
+
+class RemoveRecent(RemoveFromSettings):
+
+    def confirm(self):
+        repo = self.repo
+        title = msg = N_('Remove %s from the recent list?') % repo
+        info = N_('%s will be removed from your recent repositories.') % repo
+        ok_text = N_('Remove')
+        return Interaction.confirm(title, msg, info, ok_text, icon=self.icon)
+
+    def action(self):
+        self.settings.remove_recent(self.repo)
+        return (0, '', '')
+
+
+class RemoveFiles(Command):
+    """Removes files."""
+
+    def __init__(self, remover, filenames):
         Command.__init__(self)
+        if remover is None:
+            remover = os.remove
+        self.remover = remover
         self.filenames = filenames
         # We could git-hash-object stuff and provide undo-ability
         # as an option.  Heh.
+
     def do(self):
+        files = self.filenames
+        if not files:
+            return
+
         rescan = False
-        for filename in self.filenames:
+        bad_filenames = []
+        remove = self.remover
+        for filename in files:
             if filename:
                 try:
-                    os.remove(filename)
+                    remove(filename)
                     rescan=True
                 except:
-                    Interaction.information(
-                            N_('Error'),
-                            N_('Deleting "%s" failed') % filename)
+                    bad_filenames.append(filename)
+
+        if bad_filenames:
+            Interaction.information(
+                    N_('Error'),
+                    N_('Deleting "%s" failed') % file_summary(files))
+
         if rescan:
             self.model.update_file_status()
+
+
+class Delete(RemoveFiles):
+    """Delete files."""
+
+    SHORTCUT = 'Ctrl+Shift+Backspace'
+    ALT_SHORTCUT = 'Ctrl+Backspace'
+
+    def __init__(self, filenames):
+        RemoveFiles.__init__(self, os.remove, filenames)
+
+    def do(self):
+        files = self.filenames
+        if not files:
+            return
+
+        title = N_('Delete Files?')
+        msg = N_('The following files will be deleted:') + '\n\n'
+        msg += file_summary(files)
+        info_txt = N_('Delete %d file(s)?') % len(files)
+        ok_txt = N_('Delete Files')
+
+        if not Interaction.confirm(title, msg, info_txt, ok_txt,
+                                   default=True,
+                                   icon=resources.icon('remove.svg')):
+            return
+
+        return RemoveFiles.do(self)
+
+
+class MoveToTrash(RemoveFiles):
+    """Move files to the trash using send2trash"""
+
+    SHORTCUT = 'Ctrl+Backspace'
+    AVAILABLE = send2trash is not None
+
+    def __init__(self, filenames):
+        RemoveFiles.__init__(self, send2trash, filenames)
 
 
 class DeleteBranch(Command):
@@ -810,18 +1017,25 @@ class Clone(Command):
         self.new_directory = new_directory
         self.spawn = spawn
 
+        self.ok = False
+        self.error_message = ''
+        self.error_details = ''
+
     def do(self):
         status, out, err = self.model.git.clone(self.url, self.new_directory)
-        if status != 0:
-            Interaction.information(
-                    N_('Error: could not clone "%s"') % self.url,
+        self.ok = status == 0
+
+        if self.ok:
+            if self.spawn:
+                core.fork([sys.executable, sys.argv[0],
+                           '--repo', self.new_directory])
+        else:
+            self.error_message = N_('Error: could not clone "%s"') % self.url
+            self.error_details = (
                     (N_('git clone returned exit code %s') % status) +
-                    ((out+err) and ('\n\n' + out + err) or ''))
-            return False
-        if self.spawn:
-            core.fork([sys.executable, sys.argv[0],
-                       '--repo', self.new_directory])
-        return True
+                     ((out+err) and ('\n\n' + out + err) or ''))
+
+        return self
 
 
 class GitXBaseContext(object):

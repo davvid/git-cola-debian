@@ -50,6 +50,7 @@ class Columns(object):
 
 class GitRepoModel(QtGui.QStandardItemModel):
     """Provides an interface into a git repository for browsing purposes."""
+
     def __init__(self, parent):
         QtGui.QStandardItemModel.__init__(self, parent)
         self._interesting_paths = self._get_paths()
@@ -66,6 +67,11 @@ class GitRepoModel(QtGui.QStandardItemModel):
 
         self._direntries = {'': self.invisibleRootItem()}
         self._initialize()
+
+    def mimeData(self, indexes):
+        paths = qtutils.paths_from_indexes(self, indexes,
+                                           item_type=GitRepoNameItem.TYPE)
+        return qtutils.mimedata_from_paths(paths)
 
     def _create_column(self, col, path):
         """Creates a StandardItem for use in a treeview cell."""
@@ -140,7 +146,7 @@ class GitRepoModel(QtGui.QStandardItemModel):
     def _get_paths(self):
         """Return paths of interest; e.g. paths with a status."""
         model = main.model()
-        paths = set(model.staged + model.unstaged)
+        paths = model.staged + model.unstaged
         return utils.add_parents(paths)
 
     def _model_updated(self):
@@ -355,11 +361,11 @@ class GitRepoInfoTask(QRunnable):
         """Return the status for the entry's path."""
 
         model = main.model()
-        unmerged = utils.add_parents(set(model.unmerged))
-        modified = utils.add_parents(set(model.modified))
-        staged = utils.add_parents(set(model.staged))
-        untracked = utils.add_parents(set(model.untracked))
-        upstream_changed = utils.add_parents(set(model.upstream_changed))
+        unmerged = utils.add_parents(model.unmerged)
+        modified = utils.add_parents(model.modified)
+        staged = utils.add_parents(model.staged)
+        untracked = utils.add_parents(model.untracked)
+        upstream_changed = utils.add_parents(model.upstream_changed)
 
         if self.path in unmerged:
             return (resources.icon('modified.png'), N_('Unmerged'))
@@ -413,8 +419,8 @@ class GitRepoItem(QtGui.QStandardItem):
     """
     def __init__(self, column, path):
         QtGui.QStandardItem.__init__(self)
-        self.setEditable(False)
         self.setDragEnabled(False)
+        self.setEditable(False)
         entry = GitRepoEntryManager.entry(path)
         if column == Columns.STATUS:
             QtCore.QObject.connect(entry, SIGNAL(column), self.set_status)
@@ -437,6 +443,7 @@ class GitRepoNameItem(GitRepoItem):
     def __init__(self, path):
         GitRepoItem.__init__(self, Columns.NAME, path)
         self.path = path
+        self.setDragEnabled(True)
 
     def type(self):
         """
