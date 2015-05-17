@@ -19,6 +19,35 @@ class GitCommandTest(unittest.TestCase):
         """Creates a git.Git instance for later use"""
         self.git = git.Git()
 
+    def test_transform_kwargs(self):
+        expect = []
+        actual = self.git.transform_kwargs(foo=None, bar=False)
+        self.assertEqual(expect, actual)
+
+        expect = ['-a']
+        actual = self.git.transform_kwargs(a=True)
+        self.assertEqual(expect, actual)
+
+        expect = ['--abc']
+        actual = self.git.transform_kwargs(abc=True)
+        self.assertEqual(expect, actual)
+
+        expect = ['-a1']
+        actual = self.git.transform_kwargs(a=1)
+        self.assertEqual(expect, actual)
+
+        expect = ['--abc=1']
+        actual = self.git.transform_kwargs(abc=1)
+        self.assertEqual(expect, actual)
+
+        expect = ['-abc']
+        actual = self.git.transform_kwargs(a='bc')
+        self.assertEqual(expect, actual)
+
+        expect = ['--abc=def']
+        actual = self.git.transform_kwargs(abc='def')
+        self.assertEqual(expect, actual)
+
     def test_version(self):
         """Test running 'git version'"""
         version = self.git.version()[STDOUT]
@@ -81,10 +110,12 @@ class GitCommandTest(unittest.TestCase):
         self.assertEqual(out, '\0' * (1024 * 16 + 1))
         self.assertEqual(err, '\0' * (1024 * 16 + 1))
 
-    @unittest.skipIf(WIN32, 'SIGALRM not supported on Windows')
     def test_it_handles_interrupted_syscalls(self):
         """Test that we handle interrupted system calls"""
         # send ourselves a signal that causes EINTR
+        if WIN32:
+            # SIGALRM not supported on Windows
+            return
         prev_handler = signal.signal(signal.SIGALRM, lambda x, y: 1)
         signal.alarm(1)
         time.sleep(0.1)

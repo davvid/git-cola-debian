@@ -10,9 +10,7 @@ def patch(obj, attr, value):
 
 
 def install():
-    set_contents_margins = (
-            lambda self, left, top, right, bottom: self.setMargin(left))
-
+    set_contents_margins = lambda self, *args: self.setMargin(max(args))
     patch(QtGui.QHBoxLayout, 'setContentsMargins', set_contents_margins)
     patch(QtGui.QVBoxLayout, 'setContentsMargins', set_contents_margins)
 
@@ -20,9 +18,8 @@ def install():
     patch(QtGui.QHBoxLayout, 'setMargin', set_margin)
     patch(QtGui.QVBoxLayout, 'setMargin', set_margin)
 
-    patch(QtGui.QKeySequence, 'Preferences', 'Ctrl+O')
+    patch(QtGui.QKeySequence, 'Preferences', 'Ctrl+,')
     patch(QtGui.QGraphicsItem, 'mapRectToScene', _map_rect_to_scene)
-    patch(QtCore.QCoreApplication, 'setStyleSheet', lambda *args: None)
 
 
 def add_search_path(prefix, path):

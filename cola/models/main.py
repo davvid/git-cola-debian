@@ -8,7 +8,6 @@ import copy
 
 from cola import core
 from cola import git
-from cola import gitcfg
 from cola import gitcmds
 from cola.git import STDOUT
 from cola.observable import Observable
@@ -16,10 +15,6 @@ from cola.decorators import memoize
 from cola.models.selection import selection_model
 from cola.models import prefs
 from cola.compat import ustr
-
-
-# Static GitConfig instance
-_config = gitcfg.instance()
 
 
 @memoize
@@ -67,7 +62,7 @@ class MainModel(Observable):
         Observable.__init__(self)
 
         # Initialize the git command object
-        self.git = git.instance()
+        self.git = git.current()
 
         self.head = 'HEAD'
         self.diff_text = ''
@@ -87,6 +82,8 @@ class MainModel(Observable):
         self.untracked = []
         self.unmerged = []
         self.upstream_changed = []
+        self.staged_deleted = set()
+        self.unstaged_deleted = set()
         self.submodules = set()
 
         self.local_branches = []
@@ -189,16 +186,18 @@ class MainModel(Observable):
 
     def _update_files(self, update_index=False):
         display_untracked = prefs.display_untracked()
-        state = gitcmds.worktree_state_dict(head=self.head,
-                                            update_index=update_index,
-                                            display_untracked=display_untracked,
-                                            paths=self.filter_paths)
+        state = gitcmds.worktree_state(head=self.head,
+                                       update_index=update_index,
+                                       display_untracked=display_untracked,
+                                       paths=self.filter_paths)
         self.staged = state.get('staged', [])
         self.modified = state.get('modified', [])
         self.unmerged = state.get('unmerged', [])
         self.untracked = state.get('untracked', [])
-        self.submodules = state.get('submodules', set())
         self.upstream_changed = state.get('upstream_changed', [])
+        self.staged_deleted = state.get('staged_deleted', set())
+        self.unstaged_deleted = state.get('unstaged_deleted', set())
+        self.submodules = state.get('submodules', set())
 
         sel = selection_model()
         if self.is_empty():
@@ -236,7 +235,17 @@ class MainModel(Observable):
         self._update_branches_and_tags()
 
     def delete_branch(self, branch):
-        return self.git.branch(branch, D=True)
+        status, out, err = self.git.branch(branch, D=True)
+        self._update_branches_and_tags()
+        return status, out, err
+
+    def rename_branch(self, branch, new_branch):
+        status, out, err = self.git.branch(branch, new_branch, M=True)
+        self.notify_observers(self.message_about_to_update)
+        self._update_branches_and_tags()
+        self._update_branch_heads()
+        self.notify_observers(self.message_updated)
+        return status, out, err
 
     def _sliced_op(self, input_items, map_fn):
         """Slice input_items and call map_fn over every slice
@@ -360,47 +369,16 @@ class MainModel(Observable):
                 return url
         return self.git.config('remote.%s.url' % name, get=True)[STDOUT]
 
-    def remote_args(self, remote,
-                    local_branch='',
-                    remote_branch='',
-                    ffwd=True,
-                    tags=False,
-                    rebase=False,
-                    pull=False,
-                    push=False):
-        if push:
-            # Swap the branches in push mode (reverse of fetch)
-            local_branch, remote_branch = remote_branch, local_branch
-        if ffwd:
-            branch_arg = '%s:%s' % (remote_branch, local_branch)
-        else:
-            branch_arg = '+%s:%s' % (remote_branch, local_branch)
-        args = [remote]
-        if local_branch and remote_branch and not pull:
-            args.append(branch_arg)
-        elif local_branch:
-            args.append(local_branch)
-        elif remote_branch:
-            args.append(remote_branch)
-        kwargs = {
-            'verbose': True,
-            'tags': tags,
-            'rebase': rebase,
-        }
-        return (args, kwargs)
-
-    def run_remote_action(self, action, remote, push=False, **kwargs):
-        args, kwargs = self.remote_args(remote, push=push, **kwargs)
-        return action(*args, **kwargs)
-
     def fetch(self, remote, **opts):
-        return self.run_remote_action(self.git.fetch, remote, **opts)
+        return run_remote_action(self.git.fetch, remote, **opts)
 
-    def push(self, remote, **opts):
-        return self.run_remote_action(self.git.push, remote, push=True, **opts)
+    def push(self, remote, remote_branch='', local_branch='', **opts):
+        # Swap the branches in push mode (reverse of fetch)
+        opts.update(dict(local_branch=remote_branch, remote_branch=local_branch))
+        return run_remote_action(self.git.push, remote, **opts)
 
     def pull(self, remote, **opts):
-        return self.run_remote_action(self.git.pull, remote, pull=True, **opts)
+        return run_remote_action(self.git.pull, remote, pull=True, **opts)
 
     def create_branch(self, name, base, track=False, force=False):
         """Create a branch named 'name' from revision 'base'
@@ -434,14 +412,6 @@ class MainModel(Observable):
     def is_commit_published(self):
         head = self.git.rev_parse('HEAD')[STDOUT]
         return bool(self.git.branch(r=True, contains=head)[STDOUT])
-
-    def everything(self):
-        """Returns a sorted list of all files, including untracked files."""
-        ls_files = self.git.ls_files(z=True,
-                                     cached=True,
-                                     others=True,
-                                     exclude_standard=True)[STDOUT]
-        return sorted([f for f in ls_files.split('\0') if f])
 
     def stage_paths(self, paths):
         """Stages add/removals to git."""
@@ -491,3 +461,46 @@ class MainModel(Observable):
         if self.directory:
             return self.directory
         return core.getcwd()
+
+
+# Helpers
+def remote_args(remote,
+                local_branch='',
+                remote_branch='',
+                ffwd=True,
+                tags=False,
+                rebase=False,
+                pull=False):
+    """Return arguments for git fetch/push/pull"""
+
+    args = [remote]
+    what = refspec_arg(local_branch, remote_branch, ffwd, pull)
+    if what:
+        args.append(what)
+    kwargs = {
+        'verbose': True,
+        'tags': tags,
+        'rebase': rebase,
+    }
+    return (args, kwargs)
+
+
+def refspec(src, dst, ffwd):
+    spec = '%s:%s' % (src, dst)
+    if not ffwd:
+        spec = '+' + spec
+    return spec
+
+
+def refspec_arg(local_branch, remote_branch, ffwd, pull):
+    """Return the refspec for a fetch or pull command"""
+    if not pull and local_branch and remote_branch:
+        what = refspec(remote_branch, local_branch, ffwd)
+    else:
+        what = local_branch or remote_branch or None
+    return what
+
+
+def run_remote_action(action, remote, **kwargs):
+    args, kwargs = remote_args(remote, **kwargs)
+    return action(*args, **kwargs)

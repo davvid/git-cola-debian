@@ -1,0 +1,8 @@
+.. _v1.4.0.4:
+
+git-cola v1.4.0.4
+=================
+Packaging
+---------
+* Fix Lintian warnings
+

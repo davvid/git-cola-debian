@@ -7,6 +7,7 @@
 
 package=git-cola
 PKGDIR=$(CURDIR)/debian/$(package)
+HTMLDIR=$(PKGDIR)/usr/share/doc/git-cola/html
 
 override_dh_auto_test:
 
@@ -53,6 +54,8 @@ binary-indep: build install
 	rm $(PKGDIR)/usr/share/doc/git-cola/html/static/underscore.js
 	dh_link /usr/share/javascript/underscore/underscore.js \
 		/usr/share/doc/git-cola/html/static/underscore.js
+	sed -i "s|https://cdnjs.\+modernizr.min.js|/usr/share/javascript/modernizr/modernizr.min.js|" \
+		$(HTMLDIR)/*.html $(HTMLDIR)/relnotes/*.html
 	dh_strip
 	dh_compress -Xobjects.inv
 	dh_fixperms

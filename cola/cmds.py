@@ -27,8 +27,6 @@ from cola.models import main
 from cola.models import prefs
 from cola.models import selection
 
-_config = gitcfg.instance()
-
 
 class UsageError(Exception):
     """Exception class for usage errors."""
@@ -66,6 +64,9 @@ class ConfirmAction(BaseCommand):
     def __init__(self):
         BaseCommand.__init__(self)
 
+    def ok_to_run(self):
+        return True
+
     def confirm(self):
         return True
 
@@ -92,7 +93,7 @@ class ConfirmAction(BaseCommand):
     def do(self):
         status = -1
         out = err = ''
-        ok = self.confirm()
+        ok = self.ok_to_run() and self.confirm()
         if ok:
             status, out, err = self.action()
             if self.ok(status):
@@ -201,23 +202,38 @@ class AmendMode(Command):
 
 class ApplyDiffSelection(Command):
 
-    def __init__(self, staged, offset, selection_text, apply_to_worktree):
+    def __init__(self, first_line_idx, last_line_idx, has_selection,
+                 reverse, apply_to_worktree):
         Command.__init__(self)
-        self.staged = staged
-        self.offset = offset
-        self.selection_text = selection_text
+        self.first_line_idx = first_line_idx
+        self.last_line_idx = last_line_idx
+        self.has_selection = has_selection
+        self.reverse = reverse
         self.apply_to_worktree = apply_to_worktree
 
     def do(self):
-        # The normal worktree vs index scenario
-        parser = DiffParser(self.model,
-                            filename=self.model.filename,
-                            cached=self.staged,
-                            reverse=self.apply_to_worktree)
-        status, out, err = \
-        parser.process_diff_selection(self.offset,
-                                      self.selection_text,
-                                      apply_to_worktree=self.apply_to_worktree)
+        parser = DiffParser(self.model.filename, self.model.diff_text)
+        if self.has_selection:
+            patch = parser.generate_patch(self.first_line_idx,
+                                          self.last_line_idx,
+                                          reverse=self.reverse)
+        else:
+            patch = parser.generate_hunk_patch(self.first_line_idx,
+                                               reverse=self.reverse)
+        if patch is None:
+            return
+
+        cfg = gitcfg.current()
+        tmp_path = utils.tmp_filename('patch')
+        try:
+            core.write(tmp_path, patch,
+                       encoding=cfg.file_encoding(self.model.filename))
+            if self.apply_to_worktree:
+                status, out, err = self.model.apply_diff_to_worktree(tmp_path)
+            else:
+                status, out, err = self.model.apply_diff(tmp_path)
+        finally:
+            os.unlink(tmp_path)
         Interaction.log_status(status, out, err)
         self.model.update_file_status(update_index=True)
 
@@ -338,45 +354,17 @@ class ResetMode(Command):
         self.model.update_file_status()
 
 
-class RevertUnstagedEdits(Command):
-
-    SHORTCUT = 'Ctrl+U'
-
-    def do(self):
-        if not self.model.undoable():
-            return
-        s = selection.selection()
-        if s.staged:
-            items_to_undo = s.staged
-        else:
-            items_to_undo = s.modified
-        if items_to_undo:
-            if not Interaction.confirm(N_('Revert Unstaged Changes?'),
-                                   N_('This operation drops unstaged changes.\n'
-                                      'These changes cannot be recovered.'),
-                                   N_('Revert the unstaged changes?'),
-                                   N_('Revert Unstaged Changes'),
-                                   default=True,
-                                   icon=resources.icon('undo.svg')):
-                return
-            args = []
-            if not s.staged and self.model.amending():
-                args.append(self.model.head)
-            do(Checkout, args + ['--'] + items_to_undo)
-        else:
-            msg = N_('No files selected for checkout from HEAD.')
-            Interaction.log(msg)
-
-
 class Commit(ResetMode):
     """Attempt to create a new commit."""
 
     SHORTCUT = 'Ctrl+Return'
 
-    def __init__(self, amend, msg):
+    def __init__(self, amend, msg, sign, no_verify=False):
         ResetMode.__init__(self)
         self.amend = amend
         self.msg = msg
+        self.sign = sign
+        self.no_verify = no_verify
         self.old_commitmsg = self.model.commitmsg
         self.new_commitmsg = ''
 
@@ -384,12 +372,17 @@ class Commit(ResetMode):
         # Create the commit message file
         msg = self.strip_comments(self.msg)
         tmpfile = utils.tmp_filename('commit-message')
-        core.write(tmpfile, msg)
+        try:
+            core.write(tmpfile, msg)
 
-        # Run 'git commit'
-        status, out, err = self.model.git.commit(F=tmpfile, v=True,
-                                                 amend=self.amend)
-        core.unlink(tmpfile)
+            # Run 'git commit'
+            status, out, err = self.model.git.commit(F=tmpfile,
+                                                     v=True,
+                                                     gpg_sign=self.sign,
+                                                     amend=self.amend,
+                                                     no_verify=self.no_verify)
+        finally:
+            core.unlink(tmpfile)
 
         if status == 0:
             ResetMode.do(self)
@@ -435,8 +428,8 @@ class Ignore(Command):
 
 def file_summary(files):
     txt = subprocess.list2cmdline(files)
-    if len(txt) > 2048:
-        txt = txt[:2048].rstrip() + '...'
+    if len(txt) > 768:
+        txt = txt[:768].rstrip() + '...'
     return txt
 
 
@@ -628,6 +621,18 @@ class DeleteBranch(Command):
         Interaction.log_status(status, out, err)
 
 
+class RenameBranch(Command):
+    """Rename a git branch."""
+
+    def __init__(self, branch, new_branch):
+        Command.__init__(self)
+        self.branch = branch
+        self.new_branch = new_branch
+
+    def do(self):
+        status, out, err = self.model.rename_branch(self.branch, self.new_branch)
+        Interaction.log_status(status, out, err)
+
 class DeleteRemoteBranch(Command):
     """Delete a remote git branch."""
 
@@ -660,19 +665,17 @@ class DeleteRemoteBranch(Command):
 class Diff(Command):
     """Perform a diff and set the model's current text."""
 
-    def __init__(self, filenames, cached=False):
+    def __init__(self, filename, cached=False, deleted=False):
         Command.__init__(self)
-        # Guard against the list of files being empty
-        if not filenames:
-            return
         opts = {}
         if cached:
             opts['ref'] = self.model.head
-        self.new_filename = filenames[0]
-        self.old_filename = self.model.filename
+        self.new_filename = filename
         self.new_mode = self.model.mode_worktree
-        self.new_diff_text = gitcmds.diff_helper(filename=self.new_filename,
-                                                 cached=cached, **opts)
+        self.new_diff_text = gitcmds.diff_helper(filename=filename,
+                                                 cached=cached,
+                                                 deleted=deleted,
+                                                 **opts)
 
 
 class Diffstat(Command):
@@ -680,8 +683,10 @@ class Diffstat(Command):
 
     def __init__(self):
         Command.__init__(self)
+        cfg = gitcfg.current()
+        diff_context = cfg.get('diff.context', 3)
         diff = self.model.git.diff(self.model.head,
-                                   unified=_config.get('diff.context', 3),
+                                   unified=diff_context,
                                    no_ext_diff=True,
                                    no_color=True,
                                    M=True,
@@ -693,8 +698,8 @@ class Diffstat(Command):
 class DiffStaged(Diff):
     """Perform a staged diff on a file."""
 
-    def __init__(self, filenames):
-        Diff.__init__(self, filenames, cached=True)
+    def __init__(self, filename, deleted=None):
+        Diff.__init__(self, filename, cached=True, deleted=deleted)
         self.new_mode = self.model.mode_index
 
 
@@ -804,7 +809,8 @@ class LaunchDifftool(BaseCommand):
             if utils.is_win32():
                 core.fork(['git', 'mergetool', '--no-prompt', '--'] + paths)
             else:
-                cmd = _config.terminal()
+                cfg = gitcfg.current()
+                cmd = cfg.terminal()
                 argv = utils.shell_split(cmd)
                 argv.extend(['git', 'mergetool', '--no-prompt', '--'])
                 argv.extend(paths)
@@ -826,7 +832,8 @@ class LaunchTerminal(BaseCommand):
         self.path = path
 
     def do(self):
-        cmd = _config.terminal()
+        cfg = gitcfg.current()
+        cmd = cfg.terminal()
         argv = utils.shell_split(cmd)
         argv.append(os.getenv('SHELL', '/bin/sh'))
         core.fork(argv, cwd=self.path)
@@ -872,7 +879,8 @@ class LoadCommitMessageFromTemplate(LoadCommitMessageFromFile):
     """Loads the commit message template specified by commit.template."""
 
     def __init__(self):
-        template = _config.get('commit.template')
+        cfg = gitcfg.current()
+        template = cfg.get('commit.template')
         LoadCommitMessageFromFile.__init__(self, template)
 
     def do(self):
@@ -911,26 +919,29 @@ class LoadFixupMessage(LoadCommitMessageFromSHA1):
 
 
 class Merge(Command):
-    def __init__(self, revision, no_commit, squash, noff):
+    """Merge commits"""
+
+    def __init__(self, revision, no_commit, squash, noff, sign):
         Command.__init__(self)
         self.revision = revision
         self.no_ff = noff
         self.no_commit = no_commit
         self.squash = squash
+        self.sign = sign
 
     def do(self):
         squash = self.squash
         revision = self.revision
         no_ff = self.no_ff
         no_commit = self.no_commit
+        sign = self.sign
         msg = gitcmds.merge_message(revision)
 
-        status, out, err = self.model.git.merge('-m', msg,
-                                                revision,
+        status, out, err = self.model.git.merge('-m', msg, revision,
+                                                gpg_sign=sign,
                                                 no_ff=no_ff,
                                                 no_commit=no_commit,
                                                 squash=squash)
-
         Interaction.log_status(status, out, err)
         self.model.update_status()
 
@@ -1002,7 +1013,8 @@ class OpenRepo(Command):
         new_worktree = git.worktree()
         core.chdir(new_worktree)
         self.model.set_directory(self.repo_path)
-        _config.reset()
+        cfg = gitcfg.current()
+        cfg.reset()
         inotify.stop()
         inotify.start()
         self.model.update_status()
@@ -1058,30 +1070,60 @@ class GitXBaseContext(object):
 
 class Rebase(Command):
 
-    def __init__(self, branch, capture_output=True):
+    def __init__(self,
+                 upstream=None, branch=None, capture_output=True, **kwargs):
+        """Start an interactive rebase session
+
+        :param upstream: upstream branch
+        :param branch: optional branch to checkout
+        :param capture_output: whether to capture stdout and stderr
+        :param kwargs: forwarded directly to `git.rebase()`
+
+        """
         Command.__init__(self)
+
+        self.upstream = upstream
         self.branch = branch
         self.capture_output = capture_output
+        self.kwargs = kwargs
+
+    def prepare_arguments(self):
+        args = []
+        kwargs = {}
+
+        if self.capture_output:
+            kwargs['_stderr'] = None
+            kwargs['_stdout'] = None
+
+        # Rebase actions must be the only option specified
+        for action in ('continue', 'abort', 'skip', 'edit_todo'):
+            if self.kwargs.get(action, False):
+                kwargs[action] = self.kwargs[action]
+                return args, kwargs
+
+        kwargs['interactive'] = True
+        kwargs['autosquash'] = self.kwargs.get('autosquash', True)
+        kwargs.update(self.kwargs)
+
+        if self.upstream:
+            args.append(self.upstream)
+        if self.branch:
+            args.append(self.branch)
+
+        return args, kwargs
 
     def do(self):
-        branch = self.branch
-        if not branch:
-            return
         status = 1
         out = ''
         err = ''
-        extra = {}
-        if self.capture_output:
-            extra['_stderr'] = None
-            extra['_stdout'] = None
+        args, kwargs = self.prepare_arguments()
+        upstream_title = self.upstream or '@{upstream}'
         with GitXBaseContext(
                 GIT_EDITOR=prefs.editor(),
-                GIT_XBASE_TITLE=N_('Rebase onto %s') % branch,
+                GIT_XBASE_TITLE=N_('Rebase onto %s') % upstream_title,
                 GIT_XBASE_ACTION=N_('Rebase')):
-            status, out, err = self.model.git.rebase(branch,
-                                                     interactive=True,
-                                                     autosquash=True,
-                                                     **extra)
+            status, out, err = self.model.git.rebase(*args, **kwargs)
+
         Interaction.log_status(status, out, err)
         self.model.update_status()
         return status, out, err
@@ -1132,7 +1174,7 @@ class Rescan(Command):
 class Refresh(Command):
     """Update refs and refresh the index"""
 
-    SHORTCUT = 'Ctrl+R'
+    SHORTCUTS = ('Ctrl+R', 'F5')
 
     @staticmethod
     def name():
@@ -1140,6 +1182,88 @@ class Refresh(Command):
 
     def do(self):
         self.model.update_status(update_index=True)
+
+
+class RevertEditsCommand(ConfirmAction):
+
+    def __init__(self):
+        ConfirmAction.__init__(self)
+        self.model = main.model()
+        self.icon = resources.icon('undo.svg')
+
+    def ok_to_run(self):
+        return self.model.undoable()
+
+    def checkout_from_head(self):
+        return False
+
+    def checkout_args(self):
+        args = []
+        s = selection.selection()
+        if self.checkout_from_head():
+            args.append(self.model.head)
+        args.append('--')
+
+        if s.staged:
+            items = s.staged
+        else:
+            items = s.modified
+        args.extend(items)
+
+        return args
+
+    def action(self):
+        git = self.model.git
+        checkout_args = self.checkout_args()
+        return git.checkout(*checkout_args)
+
+    def success(self):
+        self.model.update_file_status()
+
+
+class RevertUnstagedEdits(RevertEditsCommand):
+
+    SHORTCUT = 'Ctrl+U'
+
+    @staticmethod
+    def name():
+        return N_('Revert Unstaged Edits...')
+
+    def checkout_from_head(self):
+        # If we are amending and a modified file is selected
+        # then we should include "HEAD^" on the command-line.
+        selected = selection.selection()
+        return not selected.staged and self.model.amending()
+
+    def confirm(self):
+        title = N_('Revert Unstaged Changes?')
+        text = N_('This operation drops unstaged changes.\n'
+                  'These changes cannot be recovered.')
+        info = N_('Revert the unstaged changes?')
+        ok_text = N_('Revert Unstaged Changes')
+        return Interaction.confirm(title, text, info, ok_text,
+                                   default=True, icon=self.icon)
+
+
+class RevertUncommittedEdits(RevertEditsCommand):
+
+    SHORTCUT = 'Ctrl+Z'
+
+    @staticmethod
+    def name():
+        return N_('Revert Uncommitted Edits...')
+
+    def checkout_from_head(self):
+        return True
+
+    def confirm(self):
+        title = N_('Revert Uncommitted Changes?')
+        text = N_('This operation drops uncommitted changes.\n'
+                  'These changes cannot be recovered.')
+        info = N_('Revert the uncommitted changes?')
+        ok_text = N_('Revert Uncommitted Changes')
+        return Interaction.confirm(title, text, info, ok_text,
+                                   default=True, icon=self.icon)
 
 
 class RunConfigAction(Command):
@@ -1158,7 +1282,8 @@ class RunConfigAction(Command):
                 pass
         rev = None
         args = None
-        opts = _config.get_guitool_opts(self.action_name)
+        cfg = gitcfg.current()
+        opts = cfg.get_guitool_opts(self.action_name)
         cmd = opts.get('cmd')
         if 'title' not in opts:
             opts['title'] = cmd
@@ -1231,18 +1356,18 @@ class SetDiffText(Command):
 class ShowUntracked(Command):
     """Show an untracked file."""
 
-    def __init__(self, filenames):
+    def __init__(self, filename):
         Command.__init__(self)
-        self.filenames = filenames
+        self.new_filename = filename
         self.new_mode = self.model.mode_untracked
-        self.new_diff_text = ''
-        if filenames:
-            self.new_diff_text = self.diff_text_for(filenames[0])
+        self.new_diff_text = self.diff_text_for(filename)
 
     def diff_text_for(self, filename):
-        size = _config.get('cola.readsize', 1024 * 2)
+        cfg = gitcfg.current()
+        size = cfg.get('cola.readsize', 1024 * 2)
         try:
-            result = core.read(filename, size=size)
+            result = core.read(filename, size=size,
+                               encoding='utf-8', errors='ignore')
         except:
             result = ''
 
@@ -1279,8 +1404,9 @@ class SignOff(Command):
         except ImportError:
             user = os.getenv('USER', N_('unknown'))
 
-        name = _config.get('user.name', user)
-        email = _config.get('user.email', '%s@%s' % (user, core.node()))
+        cfg = gitcfg.current()
+        name = cfg.get('user.name', user)
+        email = cfg.get('user.email', '%s@%s' % (user, core.node()))
         return '\nSigned-off-by: %s <%s>' % (name, email)
 
 
@@ -1349,6 +1475,31 @@ class StageUntracked(Stage):
         self.paths = self.model.untracked
 
 
+class StageOrUnstage(Command):
+    """If the selection is staged, unstage it, otherwise stage"""
+
+    SHORTCUT = 'Ctrl+S'
+
+    @staticmethod
+    def name():
+        return N_('Stage / Unstage')
+
+    def do(self):
+        s = selection.selection()
+        if s.staged:
+            do(Unstage, s.staged)
+
+        unstaged = []
+        if s.unmerged:
+            unstaged.extend(s.unmerged)
+        if s.modified:
+            unstaged.extend(s.modified)
+        if s.untracked:
+            unstaged.extend(s.untracked)
+        if unstaged:
+            do(Stage, unstaged)
+
+
 class Tag(Command):
     """Create a tag object."""
 
@@ -1363,21 +1514,21 @@ class Tag(Command):
         log_msg = (N_('Tagging "%(revision)s" as "%(name)s"') %
                    dict(revision=self._revision, name=self._name))
         opts = {}
-        if self._message:
-            opts['F'] = utils.tmp_filename('tag-message')
-            core.write(opts['F'], self._message)
+        try:
+            if self._message:
+                opts['F'] = utils.tmp_filename('tag-message')
+                core.write(opts['F'], self._message)
 
-        if self._sign:
-            log_msg += ' (%s)' % N_('GPG-signed')
-            opts['s'] = True
+            if self._sign:
+                log_msg += ' (%s)' % N_('GPG-signed')
+                opts['s'] = True
+            else:
+                opts['a'] = bool(self._message)
             status, output, err = self.model.git.tag(self._name,
                                                      self._revision, **opts)
-        else:
-            opts['a'] = bool(self._message)
-            status, output, err = self.model.git.tag(self._name,
-                                                     self._revision, **opts)
-        if 'F' in opts:
-            os.unlink(opts['F'])
+        finally:
+            if 'F' in opts:
+                os.unlink(opts['F'])
 
         if output:
             log_msg += '\n' + (N_('Output: %s') % output)

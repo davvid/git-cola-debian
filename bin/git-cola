@@ -6,7 +6,7 @@
 from __future__ import division, absolute_import, unicode_literals
 
 __copyright__ = """
-Copyright (C) 2007, 2008, 2009, 2010, 2011, 2012, 2013
+Copyright (C) 2007-2015
 David Aguilar <davvid@gmail.com> and contributors
 
 This program is free software; you can redistribute it and/or modify
@@ -92,6 +92,7 @@ def parse_args():
     add_dag_command(subparser)
     add_diff_command(subparser)
     add_fetch_command(subparser)
+    add_find_command(subparser)
     add_grep_command(subparser)
     add_merge_command(subparser)
     add_pull_command(subparser)
@@ -107,7 +108,7 @@ def parse_args():
 
 
 def add_command(parent, name, description, func):
-    parser = parent.add_parser(name, help=description)
+    parser = parent.add_parser(str(name), help=description)
     parser.set_defaults(func=func)
     add_common_arguments(parser)
     return parser
@@ -166,6 +167,12 @@ def add_fetch_command(subparser):
     add_command(subparser, 'fetch', 'fetch remotes', cmd_fetch)
 
 
+def add_find_command(subparser):
+    parser = add_command(subparser, 'find', 'find files', cmd_find)
+    parser.add_argument('paths', nargs='*', metavar='<path>',
+                        help='filter by path')
+
+
 def add_grep_command(subparser):
     parser = add_command(subparser, 'grep', 'grep source', cmd_grep)
     parser.add_argument('args', nargs='*', metavar='<args>',
@@ -187,10 +194,87 @@ def add_push_command(subparser):
 
 def add_rebase_command(subparser):
     parser = add_command(subparser, 'rebase', 'interactive rebase', cmd_rebase)
-    parser.add_argument('branch', metavar='<branch>',
-                        help='New upstream branch')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='display a diffstat of what changed upstream')
+    parser.add_argument('-q', '--quiet', default=False, action='store_true',
+                        help='be quiet. implies --no-stat')
     parser.add_argument('-i', '--interactive', default=True, action='store_true',
                         help=argparse.SUPPRESS)
+    parser.add_argument('--autostash', default=False, action='store_true',
+                        help='automatically stash/stash pop before and after')
+    parser.add_argument('--fork-point', default=False, action='store_true',
+                        help="use 'merge-base --fork-point' to refine upstream")
+    parser.add_argument('--onto', default=None, metavar='<newbase>',
+                        help='rebase onto given branch instead of upstream')
+    parser.add_argument('-p', '--preserve-merges',
+                        default=False, action='store_true',
+                        help='try to recreate merges instead of ignoring them')
+    parser.add_argument('-s', '--strategy', default=None, metavar='<strategy>',
+                        help='use the given merge strategy')
+    parser.add_argument('--no-ff', default=False, action='store_true',
+                        help='cherry-pick all commits, even if unchanged')
+    parser.add_argument('-m', '--merge', default=False, action='store_true',
+                        help='use merging strategies to rebase')
+    parser.add_argument('-x', '--exec', default=None,
+                        help='add exec lines after each commit of the editable list')
+    parser.add_argument('-k', '--keep-empty', default=False, action='store_true',
+                        help='preserve empty commits during rebase')
+    parser.add_argument('-f', '--force-rebase', default=False, action='store_true',
+                        help='force rebase even if branch is up to date')
+    parser.add_argument('-X', '--strategy-option', default=None, metavar='<arg>',
+                        help='pass the argument through to the merge strategy')
+    parser.add_argument('--stat', default=False, action='store_true',
+                        help='display a diffstat of what changed upstream')
+    parser.add_argument('-n', '--no-stat', default=False, action='store_true',
+                        help='do not show diffstat of what changed upstream')
+    parser.add_argument('--verify', default=False, action='store_true',
+                        help='allow pre-rebase hook to run')
+    parser.add_argument('--rerere-autoupdate',
+                        default=False, action='store_true',
+                        help='allow rerere to update index with '
+                             'resolved conflicts')
+    parser.add_argument('--root', default=False, action='store_true',
+                        help='rebase all reachable commits up to the root(s)')
+    parser.add_argument('--autosquash', default=True, action='store_true',
+                        help='move commits that begin with '
+                             'squash!/fixup! under -i')
+    parser.add_argument('--no-autosquash', default=True, action='store_false',
+                        dest='autosquash',
+                        help='do not move commits that begin with '
+                             'squash!/fixup! under -i')
+    parser.add_argument('--committer-date-is-author-date',
+                        default=False, action='store_true',
+                        help="passed to 'git am' by 'git rebase'")
+    parser.add_argument('--ignore-date', default=False, action='store_true',
+                        help="passed to 'git am' by 'git rebase'")
+    parser.add_argument('--whitespace', default=False, action='store_true',
+                        help="passed to 'git apply' by 'git rebase'")
+    parser.add_argument('--ignore-whitespace', default=False, action='store_true',
+                        help="passed to 'git apply' by 'git rebase'")
+    parser.add_argument('-C', dest='context_lines', default=None, metavar='<n>',
+                        help="passed to 'git apply' by 'git rebase'")
+
+    actions = parser.add_argument_group('actions')
+    actions.add_argument('--continue', default=False, action='store_true',
+                        help='continue')
+    actions.add_argument('--abort', default=False, action='store_true',
+                        help='abort and check out the original branch')
+    actions.add_argument('--skip', default=False, action='store_true',
+                        help='skip current patch and continue')
+    actions.add_argument('--edit-todo', default=False, action='store_true',
+                        help='edit the todo list during an interactive rebase')
+
+    parser.add_argument('upstream', nargs='?', default=None, metavar='<upstream>',
+                        help='the upstream configured in branch.<name>.remote '
+                             'and branch.<name>.merge options will be used '
+                             'when <upstream> is omitted; see git-rebase(1) '
+                             'for details. If you are currently not on any '
+                             'branch or if the current branch does not have '
+                             'a configured upstream, the rebase will abort')
+    parser.add_argument('branch', nargs='?', default=None, metavar='<branch>',
+                        help='git rebase will perform an automatic '
+                             '"git checkout <branch>" before doing anything '
+                             'else when <branch> is specified')
 
 
 def add_remote_command(subparser):
@@ -301,6 +385,14 @@ def cmd_fetch(args):
     return application_start(context, view)
 
 
+def cmd_find(args):
+    context = application_init(args)
+    from cola.widgets import finder
+    paths = subprocess.list2cmdline(map(core.decode, args.paths))
+    view = finder.finder(paths=paths)
+    return application_start(context, view)
+
+
 def cmd_grep(args):
     context = application_init(args)
     from cola.widgets import grep
@@ -312,7 +404,7 @@ def cmd_grep(args):
 def cmd_merge(args):
     context = application_init(args, update=True)
     from cola.widgets.merge import MergeView
-    view = MergeView(context.model, parent=None)
+    view = MergeView(context.cfg, context.model, parent=None)
     return application_start(context, view)
 
 
@@ -339,7 +431,40 @@ def cmd_push(args):
 
 
 def cmd_rebase(args):
-    status, out, err = cmds.do(cmds.Rebase, args.branch, capture_output=False)
+    kwargs = {
+            'verbose': args.verbose,
+            'quiet': args.quiet,
+            'autostash': args.autostash,
+            'fork_point': args.fork_point,
+            'onto': args.onto,
+            'preserve_merges': args.preserve_merges,
+            'strategy': args.strategy,
+            'no_ff': args.no_ff,
+            'merge': args.merge,
+            'exec': getattr(args, 'exec', None), # python keyword
+            'keep_empty': args.keep_empty,
+            'force_rebase': args.force_rebase,
+            'strategy_option': args.strategy_option,
+            'stat': args.stat,
+            'no_stat': args.no_stat,
+            'verify': args.verify,
+            'rerere_autoupdate': args.rerere_autoupdate,
+            'root': args.root,
+            'autosquash': args.autosquash,
+            'committer_date_is_author_date': args.committer_date_is_author_date,
+            'ignore_date': args.ignore_date,
+            'whitespace': args.whitespace,
+            'ignore_whitespace': args.ignore_whitespace,
+            'C': args.context_lines,
+            'continue': getattr(args, 'continue', False), # python keyword
+            'abort': args.abort,
+            'skip': args.skip,
+            'edit_todo': args.edit_todo,
+            'upstream': args.upstream,
+            'branch': args.branch,
+            'capture_output': False,
+    }
+    status, out, err = cmds.do(cmds.Rebase, **kwargs)
     if out:
         core.stdout(out)
     if err:

@@ -119,7 +119,7 @@ class Commit(object):
     def parse(self, log_entry, sep=logsep):
         self.sha1 = log_entry[:40]
         (parents, tags, author, authdate, email, summary) = \
-                log_entry[41:].split(sep, 6)
+                log_entry[41:].split(sep, 5)
 
         self.summary = summary and summary or ''
         self.author = author and author or ''
@@ -176,8 +176,8 @@ class Commit(object):
 
 class RepoReader(object):
 
-    def __init__(self, dag, git=git):
-        self.dag = dag
+    def __init__(self, ctx, git=git):
+        self.ctx = ctx
         self.git = git
         self._proc = None
         self._objects = {}
@@ -223,8 +223,8 @@ class RepoReader(object):
                 raise StopIteration
 
         if self._proc is None:
-            ref_args = utils.shell_split(self.dag.ref)
-            cmd = self._cmd + ['-%d' % self.dag.count] + ref_args
+            ref_args = utils.shell_split(self.ctx.ref)
+            cmd = self._cmd + ['-%d' % self.ctx.count] + ref_args
             self._proc = core.start_command(cmd)
             self._topo_list = []
 

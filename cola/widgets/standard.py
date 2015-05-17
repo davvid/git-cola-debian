@@ -45,7 +45,7 @@ class WidgetMixin(object):
         if settings is None:
             settings = Settings()
             settings.load()
-        if gitcfg.instance().get('cola.savewindowsettings', True):
+        if gitcfg.current().get('cola.savewindowsettings', True):
             settings.save_gui_state(self)
 
     def restore_state(self, settings=None):
@@ -201,6 +201,19 @@ class TreeMixin(object):
 
         # Re-read the event key to take the remappings into account
         key = event.key()
+        if key == Qt.Key_Up:
+            idxs = self.selectedIndexes()
+            rows = [idx.row() for idx in idxs]
+            if len(rows) == 1 and rows[0] == 0:
+                # The cursor is at the beginning of the line.
+                # If we have selection then simply reset the cursor.
+                # Otherwise, emit a signal so that the parent can
+                # change focus.
+                self.emit(SIGNAL('up()'))
+
+        elif key == Qt.Key_Space:
+            self.emit(SIGNAL('space()'))
+
         result = self.QtClass.keyPressEvent(self, event)
 
         # Let others hook in here before we change the indexes
@@ -259,6 +272,8 @@ class TreeMixin(object):
 class DraggableTreeMixin(TreeMixin):
     """A tree widget with internal drag+drop reordering of rows"""
 
+    ITEMS_MOVED_SIGNAL = 'items_moved'
+
     def __init__(self, QtClass):
         super(DraggableTreeMixin, self).__init__(QtClass)
         self.setAcceptDrops(True)
@@ -299,6 +314,7 @@ class DraggableTreeMixin(TreeMixin):
             self.clearSelection()
             for item in clicked_items:
                 self.setItemSelected(item, True)
+            self.emit(SIGNAL(self.ITEMS_MOVED_SIGNAL), clicked_items)
         self._inner_drag = False
         event.accept() # must be called after dropEvent()
 
@@ -430,3 +446,12 @@ class ProgressAnimationThread(QtCore.QThread):
         while self.running:
             self.emit(SIGNAL('update_progress'), self.next())
             time.sleep(self.timeout)
+
+
+class SpinBox(QtGui.QSpinBox):
+    def __init__(self, parent=None):
+        QtGui.QSpinBox.__init__(self, parent)
+        self.setMinimum(1)
+        self.setMaximum(99999)
+        self.setPrefix('')
+        self.setSuffix('')
