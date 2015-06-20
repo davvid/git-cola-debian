@@ -174,6 +174,13 @@ class Git(object):
             startupinfo.wShowWindow = subprocess.SW_HIDE
             extra['startupinfo'] = startupinfo
 
+        if hasattr(os, 'setsid'):
+            # SSH uses the SSH_ASKPASS variable only if the process is really
+            # detached from the TTY (stdin redirection and setting the
+            # SSH_ASKPASS environment variable is not enough).  To detach a
+            # process from the console it should fork and call os.setsid().
+            extra['preexec_fn'] = os.setsid
+
         # Start the process
         # Guard against thread-unsafe .git/index.lock files
         INDEX_LOCK.acquire()
@@ -264,9 +271,18 @@ class Git(object):
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise e
-            core.stderr("ERROR: Unable to execute 'git'.\n"
-                        "Ensure that 'git' is in your $PATH, or specify the "
-                        "path to 'git' using the --git-path argument.")
+            core.stderr("error: unable to execute 'git'\n"
+                        "error: please ensure that 'git' is in your $PATH")
+            if sys.platform == 'win32':
+                hint = ('\n'
+                        'hint: If you have Git installed in a custom location, e.g.\n'
+                        'hint: C:\\Tools\\Git, then you can create a file at\n'
+                        'hint: ~/.config/git-cola/git-bindir with the following text\n'
+                        'hint: and git-cola will add the specified location to your $PATH\n'
+                        'hint: automatically when starting cola:\n'
+                        'hint:\n'
+                        'hint: C:\\Tools\\Git\\bin\n')
+                core.stderr(hint)
             sys.exit(1)
 
 

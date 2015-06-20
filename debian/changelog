@@ -1,3 +1,10 @@
+git-cola (2.2.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Add python-sip to depends (closes: #789257).
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sat, 20 Jun 2015 12:45:29 +0000
+
 git-cola (2.1.2-1) unstable; urgency=low
 
   * New upstream release.

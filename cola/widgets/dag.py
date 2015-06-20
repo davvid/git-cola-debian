@@ -67,12 +67,14 @@ class ViewerMixin(object):
     def diff_selected_this(self):
         clicked_sha1 = self.clicked.sha1
         selected_sha1 = self.selected.sha1
-        self.emit(SIGNAL('diff_commits'), selected_sha1, clicked_sha1)
+        self.emit(SIGNAL('diff_commits(PyQt_PyObject,PyQt_PyObject)'),
+                  selected_sha1, clicked_sha1)
 
     def diff_this_selected(self):
         clicked_sha1 = self.clicked.sha1
         selected_sha1 = self.selected.sha1
-        self.emit(SIGNAL('diff_commits'), clicked_sha1, selected_sha1)
+        self.emit(SIGNAL('diff_commits(PyQt_PyObject,PyQt_PyObject)'),
+                  clicked_sha1, selected_sha1)
 
     def cherry_pick(self):
         sha1 = self.selected_sha1()
@@ -438,10 +440,12 @@ class GitDAG(standard.MainWindow):
 
         self.thread.connect(self.thread, self.thread.done, self.thread_done)
 
-        self.connect(self.treewidget, SIGNAL('diff_commits'),
+        self.connect(self.treewidget,
+                     SIGNAL('diff_commits(PyQt_PyObject,PyQt_PyObject)'),
                      self.diff_commits)
 
-        self.connect(self.graphview, SIGNAL('diff_commits'),
+        self.connect(self.graphview,
+                     SIGNAL('diff_commits(PyQt_PyObject,PyQt_PyObject)'),
                      self.diff_commits)
 
         self.connect(self.maxresults, SIGNAL('editingFinished()'),
@@ -459,7 +463,8 @@ class GitDAG(standard.MainWindow):
         self.model.add_observer(self.model.message_updated,
                                 self.emit_model_updated)
 
-        self.connect(self, SIGNAL('model_updated'), self.model_updated)
+        self.connect(self, SIGNAL('model_updated()'), self.model_updated,
+                     Qt.QueuedConnection)
 
         qtutils.add_action(self, 'Focus Input', self.focus_input, 'Ctrl+L')
         qtutils.add_close_action(self)
@@ -501,7 +506,7 @@ class GitDAG(standard.MainWindow):
         return result
 
     def emit_model_updated(self):
-        self.emit(SIGNAL('model_updated'))
+        self.emit(SIGNAL('model_updated()'))
 
     def model_updated(self):
         self.display()
@@ -924,7 +929,7 @@ class Label(QtGui.QGraphicsItem):
         self.setZValue(-1)
 
         # Starts with enough space for two tags. Any more and the commit
-        # needs to be taller to accomodate.
+        # needs to be taller to accommodate.
         self.commit = commit
 
         if 'HEAD' in commit.tags:

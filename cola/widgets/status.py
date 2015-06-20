@@ -119,13 +119,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                 cmds.RevertUnstagedEdits.name(),
                 cmds.run(cmds.RevertUnstagedEdits),
                 cmds.RevertUnstagedEdits.SHORTCUT)
-        self.revert_unstaged_edits_action.setIcon(qtutils.icon('undo.svg'))
-
-        self.revert_uncommitted_edits_action = qtutils.add_action(self,
-                cmds.RevertUncommittedEdits.name(),
-                cmds.run(cmds.RevertUncommittedEdits),
-                cmds.RevertUncommittedEdits.SHORTCUT)
-        self.revert_uncommitted_edits_action.setIcon(qtutils.icon('undo.svg'))
+        self.revert_unstaged_edits_action.setIcon(qtutils.theme_icon('edit-undo.svg'))
 
         self.launch_difftool_action = qtutils.add_action(self,
                 cmds.LaunchDifftool.name(),
@@ -184,8 +178,10 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                 self._delete_untracked_files, delete_shortcut)
         self.delete_untracked_files_action.setIcon(qtutils.discard_icon())
 
-        self.connect(self, SIGNAL('about_to_update'), self._about_to_update)
-        self.connect(self, SIGNAL('updated'), self._updated)
+        self.connect(self, SIGNAL('about_to_update()'),
+                     self._about_to_update, Qt.QueuedConnection)
+        self.connect(self, SIGNAL('updated()'),
+                     self._updated, Qt.QueuedConnection)
 
         self.m = main.model()
         self.m.add_observer(self.m.message_about_to_update,
@@ -345,7 +341,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         return parent.child(itemidx)
 
     def about_to_update(self):
-        self.emit(SIGNAL('about_to_update'))
+        self.emit(SIGNAL('about_to_update()'))
 
     def _about_to_update(self):
         self.save_selection()
@@ -380,7 +376,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
     def updated(self):
         """Update display from model data."""
-        self.emit(SIGNAL('updated'))
+        self.emit(SIGNAL('updated()'))
 
     def _updated(self):
         self.set_staged(self.m.staged)
@@ -397,7 +393,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             selected = selection.selection()
         can_revert_edits = bool(selected.staged or selected.modified)
         self.revert_unstaged_edits_action.setEnabled(can_revert_edits)
-        self.revert_uncommitted_edits_action.setEnabled(can_revert_edits)
 
     def set_staged(self, items):
         """Adds items to the 'Staged' subtree."""
@@ -490,25 +485,25 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
     def _create_header_context_menu(self, menu, idx):
         if idx == self.idx_staged:
-            menu.addAction(qtutils.icon('remove.svg'),
+            menu.addAction(qtutils.remove_icon(),
                            N_('Unstage All'),
                            cmds.run(cmds.UnstageAll))
             return menu
         elif idx == self.idx_unmerged:
-            action = menu.addAction(qtutils.icon('add.svg'),
+            action = menu.addAction(qtutils.add_icon(),
                                     cmds.StageUnmerged.name(),
                                     cmds.run(cmds.StageUnmerged))
             action.setShortcut(cmds.StageUnmerged.SHORTCUT)
             return menu
         elif idx == self.idx_modified:
-            action = menu.addAction(qtutils.icon('add.svg'),
+            action = menu.addAction(qtutils.add_icon(),
                                     cmds.StageModified.name(),
                                     cmds.run(cmds.StageModified))
             action.setShortcut(cmds.StageModified.SHORTCUT)
             return menu
 
         elif idx == self.idx_untracked:
-            action = menu.addAction(qtutils.icon('add.svg'),
+            action = menu.addAction(qtutils.add_icon(),
                                     cmds.StageUntracked.name(),
                                     cmds.run(cmds.StageUntracked))
             action.setShortcut(cmds.StageUntracked.SHORTCUT)
@@ -519,7 +514,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             return self._create_staged_submodule_context_menu(menu, s)
 
         if self.m.unstageable():
-            action = menu.addAction(qtutils.icon('remove.svg'),
+            action = menu.addAction(qtutils.remove_icon(),
                                     N_('Unstage Selected'),
                                     cmds.run(cmds.Unstage, self.staged()))
             action.setShortcut(cmds.Unstage.SHORTCUT)
@@ -562,7 +557,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         menu.addAction(self.launch_editor_action)
         menu.addSeparator()
 
-        action = menu.addAction(qtutils.icon('remove.svg'),
+        action = menu.addAction(qtutils.remove_icon(),
                                 N_('Unstage Selected'),
                                 cmds.run(cmds.Unstage, self.staged()))
         action.setShortcut(cmds.Unstage.SHORTCUT)
@@ -575,7 +570,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def _create_unmerged_context_menu(self, menu, s):
         menu.addAction(self.launch_difftool_action)
 
-        action = menu.addAction(qtutils.icon('add.svg'),
+        action = menu.addAction(qtutils.add_icon(),
                                 N_('Stage Selected'),
                                 cmds.run(cmds.Stage, self.unstaged()))
         action.setShortcut(cmds.Stage.SHORTCUT)
@@ -606,7 +601,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             return self._create_modified_submodule_context_menu(menu, s)
 
         if self.m.stageable():
-            action = menu.addAction(qtutils.icon('add.svg'),
+            action = menu.addAction(qtutils.add_icon(),
                                     N_('Stage Selected'),
                                     cmds.run(cmds.Stage, self.unstaged()))
             action.setShortcut(cmds.Stage.SHORTCUT)
@@ -625,7 +620,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             if self.m.undoable():
                 menu.addSeparator()
                 menu.addAction(self.revert_unstaged_edits_action)
-                menu.addAction(self.revert_uncommitted_edits_action)
 
         if all_exist and self.unstaged() and not utils.is_win32():
             menu.addSeparator()
@@ -645,7 +639,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                 menu.addAction(self.move_to_trash_action)
             menu.addAction(self.delete_untracked_files_action)
             menu.addSeparator()
-            menu.addAction(qtutils.icon('edit-clear.svg'),
+            menu.addAction(qtutils.theme_icon('edit-clear.svg'),
                            N_('Add to .gitignore'),
                            cmds.run(cmds.Ignore,
                                 map(lambda x: '/' + x, self.untracked())))
@@ -663,7 +657,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
 
         if self.m.stageable():
             menu.addSeparator()
-            action = menu.addAction(qtutils.icon('add.svg'),
+            action = menu.addAction(qtutils.add_icon(),
                                     N_('Stage Selected'),
                                     cmds.run(cmds.Stage, self.unstaged()))
             action.setShortcut(cmds.Stage.SHORTCUT)

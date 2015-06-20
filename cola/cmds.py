@@ -1053,18 +1053,19 @@ class Clone(Command):
 class GitXBaseContext(object):
 
     def __init__(self, **kwargs):
-        self.extras = kwargs
+        self.env = {'GIT_EDITOR': prefs.editor()}
+        self.env.update(kwargs)
 
     def __enter__(self):
         compat.setenv('GIT_SEQUENCE_EDITOR',
                       resources.share('bin', 'git-xbase'))
-        for var, value in self.extras.items():
+        for var, value in self.env.items():
             compat.setenv(var, value)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         compat.unsetenv('GIT_SEQUENCE_EDITOR')
-        for var in self.extras:
+        for var in self.env:
             compat.unsetenv(var)
 
 
@@ -1113,17 +1114,13 @@ class Rebase(Command):
         return args, kwargs
 
     def do(self):
-        status = 1
-        out = ''
-        err = ''
+        (status, out, err) = (1, '', '')
         args, kwargs = self.prepare_arguments()
         upstream_title = self.upstream or '@{upstream}'
         with GitXBaseContext(
-                GIT_EDITOR=prefs.editor(),
                 GIT_XBASE_TITLE=N_('Rebase onto %s') % upstream_title,
                 GIT_XBASE_ACTION=N_('Rebase')):
             status, out, err = self.model.git.rebase(*args, **kwargs)
-
         Interaction.log_status(status, out, err)
         self.model.update_status()
         return status, out, err
@@ -1132,28 +1129,40 @@ class Rebase(Command):
 class RebaseEditTodo(Command):
 
     def do(self):
+        (status, out, err) = (1, '', '')
         with GitXBaseContext(
                 GIT_XBASE_TITLE=N_('Edit Rebase'),
                 GIT_XBASE_ACTION=N_('Save')):
             status, out, err = self.model.git.rebase(edit_todo=True)
         Interaction.log_status(status, out, err)
         self.model.update_status()
+        return status, out, err
 
 
 class RebaseContinue(Command):
 
     def do(self):
-        status, out, err = self.model.git.rebase('--continue')
+        (status, out, err) = (1, '', '')
+        with GitXBaseContext(
+                GIT_XBASE_TITLE=N_('Rebase'),
+                GIT_XBASE_ACTION=N_('Rebase')):
+            status, out, err = self.model.git.rebase('--continue')
         Interaction.log_status(status, out, err)
         self.model.update_status()
+        return status, out, err
 
 
 class RebaseSkip(Command):
 
     def do(self):
-        status, out, err = self.model.git.rebase(skip=True)
+        (status, out, err) = (1, '', '')
+        with GitXBaseContext(
+                GIT_XBASE_TITLE=N_('Rebase'),
+                GIT_XBASE_ACTION=N_('Rebase')):
+            status, out, err = self.model.git.rebase(skip=True)
         Interaction.log_status(status, out, err)
         self.model.update_status()
+        return status, out, err
 
 
 class RebaseAbort(Command):
@@ -1189,7 +1198,7 @@ class RevertEditsCommand(ConfirmAction):
     def __init__(self):
         ConfirmAction.__init__(self)
         self.model = main.model()
-        self.icon = resources.icon('undo.svg')
+        self.icon = resources.icon('edit-undo.svg')
 
     def ok_to_run(self):
         return self.model.undoable()
