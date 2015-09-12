@@ -1,6 +1,7 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import os
+import re
 import subprocess
 import sys
 from fnmatch import fnmatch
@@ -370,7 +371,8 @@ class Commit(ResetMode):
 
     def do(self):
         # Create the commit message file
-        msg = self.strip_comments(self.msg)
+        comment_char = prefs.comment_char()
+        msg = self.strip_comments(self.msg, comment_char=comment_char)
         tmpfile = utils.tmp_filename('commit-message')
         try:
             core.write(tmpfile, msg)
@@ -395,10 +397,10 @@ class Commit(ResetMode):
         return status, out, err
 
     @staticmethod
-    def strip_comments(msg):
+    def strip_comments(msg, comment_char='#'):
         # Strip off comments
         message_lines = [line for line in msg.split('\n')
-                            if not line.startswith('#')]
+                            if not line.startswith(comment_char)]
         msg = '\n'.join(message_lines)
         if not msg.endswith('\n'):
             msg += '\n'
@@ -821,7 +823,7 @@ class LaunchDifftool(BaseCommand):
 
 class LaunchTerminal(BaseCommand):
 
-    SHORTCUT = 'Ctrl+T'
+    SHORTCUT = 'Ctrl+Shift+T'
 
     @staticmethod
     def name():
@@ -1050,6 +1052,19 @@ class Clone(Command):
         return self
 
 
+def unix_path(path, is_win32=utils.is_win32):
+    """Git for Windows requires unix paths, so force them here
+    """
+    unix_path = path
+    if is_win32():
+        first = path[0]
+        second = path[1]
+        if second == ':': # sanity check, this better be a Windows-style path
+            unix_path = '/' + first + path[2:].replace('\\', '/')
+
+    return unix_path
+
+
 class GitXBaseContext(object):
 
     def __init__(self, **kwargs):
@@ -1058,7 +1073,7 @@ class GitXBaseContext(object):
 
     def __enter__(self):
         compat.setenv('GIT_SEQUENCE_EDITOR',
-                      resources.share('bin', 'git-xbase'))
+                      unix_path(resources.share('bin', 'git-xbase')))
         for var, value in self.env.items():
             compat.setenv(var, value)
         return self
@@ -1419,6 +1434,52 @@ class SignOff(Command):
         return '\nSigned-off-by: %s <%s>' % (name, email)
 
 
+def check_conflicts(unmerged):
+    """Check paths for conflicts
+
+    Conflicting files can be filtered out one-by-one.
+
+    """
+    if prefs.check_conflicts():
+        unmerged = [path for path in unmerged if is_conflict_free(path)]
+    return unmerged
+
+
+def is_conflict_free(path):
+    """Return True if `path` contains no conflict markers
+    """
+    rgx = re.compile(r'^(<<<<<<<|\|\|\|\|\|\|\||>>>>>>>) ')
+    try:
+        with core.xopen(path, 'r') as f:
+            for line in f:
+                line = core.decode(line, errors='ignore')
+                if rgx.match(line):
+                    if should_stage_conflicts(path):
+                        return True
+                    else:
+                        return False
+    except IOError:
+        # We can't read this file ~ we may be staging a removal
+        pass
+    return True
+
+
+def should_stage_conflicts(path):
+    """Inform the user that a file contains merge conflicts
+
+    Return `True` if we should stage the path nonetheless.
+
+    """
+    title = msg = N_('Stage conflicts?')
+    info = N_('%s appears to contain merge conflicts.\n\n'
+              'You should probably skip this file.\n'
+              'Stage it anyways?') % path
+    ok_text = N_('Stage conflicts')
+    cancel_text = N_('Skip')
+    return Interaction.confirm(title, msg, info, ok_text,
+                               default=False, cancel_text=cancel_text)
+
+
 class Stage(Command):
     """Stage a set of paths."""
     SHORTCUT = 'Ctrl+S'
@@ -1442,7 +1503,33 @@ class Stage(Command):
             self.model.stage_paths(self.paths)
 
 
-class StageModified(Stage):
+class StageCarefully(Stage):
+    """Only stage when the path list is non-empty
+
+    We use "git add -u -- <pathspec>" to stage, and it stages everything by
+    default when no pathspec is specified, so this class ensures that paths
+    are specified before calling git.
+
+    When no paths are specified, the command does nothing.
+
+    """
+    def __init__(self):
+        Stage.__init__(self, None)
+        self.init_paths()
+
+    def init_paths(self):
+        pass
+
+    def ok_to_run(self):
+        """Prevent catch-all "git add -u" from adding unmerged files"""
+        return self.paths or not self.model.unmerged
+
+    def do(self):
+        if self.ok_to_run():
+            Stage.do(self)
+
+
+class StageModified(StageCarefully):
     """Stage all modified files."""
 
     SHORTCUT = 'Ctrl+S'
@@ -1451,13 +1538,12 @@ class StageModified(Stage):
     def name():
         return N_('Stage Modified')
 
-    def __init__(self):
-        Stage.__init__(self, None)
+    def init_paths(self):
         self.paths = self.model.modified
 
 
-class StageUnmerged(Stage):
-    """Stage all modified files."""
+class StageUnmerged(StageCarefully):
+    """Stage unmerged files."""
 
     SHORTCUT = 'Ctrl+S'
 
@@ -1465,12 +1551,11 @@ class StageUnmerged(Stage):
     def name():
         return N_('Stage Unmerged')
 
-    def __init__(self):
-        Stage.__init__(self, None)
-        self.paths = self.model.unmerged
+    def init_paths(self):
+        self.paths = check_conflicts(self.model.unmerged)
 
 
-class StageUntracked(Stage):
+class StageUntracked(StageCarefully):
     """Stage all untracked files."""
 
     SHORTCUT = 'Ctrl+S'
@@ -1479,8 +1564,7 @@ class StageUntracked(Stage):
     def name():
         return N_('Stage Untracked')
 
-    def __init__(self):
-        Stage.__init__(self, None)
+    def init_paths(self):
         self.paths = self.model.untracked
 
 
@@ -1499,8 +1583,9 @@ class StageOrUnstage(Command):
             do(Unstage, s.staged)
 
         unstaged = []
-        if s.unmerged:
-            unstaged.extend(s.unmerged)
+        unmerged = check_conflicts(s.unmerged)
+        if unmerged:
+            unstaged.extend(unmerged)
         if s.modified:
             unstaged.extend(s.modified)
         if s.untracked:
