@@ -3,17 +3,16 @@ from __future__ import division, absolute_import, unicode_literals
 import os
 import re
 
-from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4.QtCore import SIGNAL
 
 from cola import cmds
 from cola import core
 from cola import difftool
 from cola import gitcmds
+from cola import icons
 from cola import qtutils
 from cola import utils
-from cola.git import git
+from cola import git
 from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.models import main
@@ -25,7 +24,8 @@ from cola.compat import ustr
 
 def delete_branch():
     """Launch the 'Delete Branch' dialog."""
-    branch = choose_branch(N_('Delete Branch'), N_('Delete'))
+    icon = icons.discard()
+    branch = choose_branch(N_('Delete Branch'), N_('Delete'), icon=icon)
     if not branch:
         return
     cmds.do(cmds.DeleteBranch, branch)
@@ -33,7 +33,8 @@ def delete_branch():
 
 def delete_remote_branch():
     """Launch the 'Delete Remote Branch' dialog."""
-    branch = choose_remote_branch(N_('Delete Remote Branch'), N_('Delete'))
+    branch = choose_remote_branch(N_('Delete Remote Branch'), N_('Delete'),
+                                  icon=icons.discard())
     if not branch:
         return
     rgx = re.compile(r'^(?P<remote>[^/]+)/(?P<branch>.+)$')
@@ -42,6 +43,7 @@ def delete_remote_branch():
         remote = match.group('remote')
         branch = match.group('branch')
         cmds.do(cmds.DeleteRemoteBranch, remote, branch)
+
 
 def browse_current():
     """Launch the 'Browse Current Branch' dialog."""
@@ -60,7 +62,7 @@ def browse_other():
 
 def checkout_branch():
     """Launch the 'Checkout Branch' dialog."""
-    branch = choose_branch(N_('Checkout Branch'), N_('Checkout'))
+    branch = choose_potential_branch(N_('Checkout Branch'), N_('Checkout'))
     if not branch:
         return
     cmds.do(cmds.CheckoutBranch, branch)
@@ -224,24 +226,29 @@ def load_commitmsg():
         cmds.do(cmds.LoadCommitMessageFromFile, filename)
 
 
-def choose_from_dialog(get, title, button_text, default):
+def choose_from_dialog(get, title, button_text, default, icon=None):
     parent = qtutils.active_window()
-    return get(title, button_text, parent, default=default)
+    return get(title, button_text, parent, default=default, icon=icon)
 
 
-def choose_ref(title, button_text, default=None):
+def choose_ref(title, button_text, default=None, icon=None):
     return choose_from_dialog(completion.GitRefDialog.get,
-                              title, button_text, default)
+                              title, button_text, default, icon=icon)
 
 
-def choose_branch(title, button_text, default=None):
+def choose_branch(title, button_text, default=None, icon=None):
     return choose_from_dialog(completion.GitBranchDialog.get,
-                              title, button_text, default)
+                              title, button_text, default, icon=icon)
 
 
-def choose_remote_branch(title, button_text, default=None):
+def choose_potential_branch(title, button_text, default=None, icon=None):
+    return choose_from_dialog(completion.GitPotentialBranchDialog.get,
+                              title, button_text, default, icon=icon)
+
+
+def choose_remote_branch(title, button_text, default=None, icon=None):
     return choose_from_dialog(completion.GitRemoteBranchDialog.get,
-                              title, button_text, default)
+                              title, button_text, default, icon=icon)
 
 
 def review_branch():
@@ -253,75 +260,23 @@ def review_branch():
     difftool.diff_commits(qtutils.active_window(), merge_base, branch)
 
 
-class TaskRunner(QtCore.QObject):
-    """Runs QRunnable instances and transfers control when they finish"""
-
-    def __init__(self, parent):
-        QtCore.QObject.__init__(self, parent)
-        self.tasks = []
-        self.task_details = {}
-        self.connect(self, Task.FINISHED, self.finish)
-
-    def start(self, task, progress=None, finish=None):
-        """Start the task and register a callback"""
-        if progress is not None:
-            progress.show()
-        # prevents garbage collection bugs in certain PyQt4 versions
-        self.tasks.append(task)
-        task_id = id(task)
-        self.task_details[task_id] = (progress, finish)
-        QtCore.QThreadPool.globalInstance().start(task)
-
-    def finish(self, task, *args, **kwargs):
-        task_id = id(task)
-        try:
-            self.tasks.remove(task)
-        except:
-            pass
-        try:
-            progress, finish = self.task_details[task_id]
-            del self.task_details[task_id]
-        except KeyError:
-            finish = progress = None
-
-        if progress is not None:
-            progress.hide()
-
-        if finish is not None:
-            finish(task, *args, **kwargs)
-
-
-class Task(QtCore.QRunnable):
-    """Base class for concrete tasks"""
-
-    FINISHED = SIGNAL('finished')
-
-    def __init__(self, sender):
-        QtCore.QRunnable.__init__(self)
-        self.sender = sender
-
-    def finish(self, *args, **kwargs):
-        self.sender.emit(self.FINISHED, self, *args, **kwargs)
-
-
-class CloneTask(Task):
+class CloneTask(qtutils.Task):
     """Clones a Git repository"""
 
-    def __init__(self, sender, url, destdir, spawn):
-        Task.__init__(self, sender)
+    def __init__(self, url, destdir, spawn, parent):
+        qtutils.Task.__init__(self, parent)
         self.url = url
         self.destdir = destdir
         self.spawn = spawn
         self.cmd = None
 
-    def run(self):
+    def task(self):
         """Runs the model action and captures the result"""
-        self.cmd = cmds.do(cmds.Clone, self.url, self.destdir,
-                           spawn=self.spawn)
-        self.finish()
+        self.cmd = cmds.do(cmds.Clone, self.url, self.destdir, spawn=self.spawn)
+        return self.cmd
 
 
-def clone_repo(task_runner, progress, finish, spawn):
+def clone_repo(parent, runtask, progress, finish, spawn):
     """Clone a repostiory asynchronously with progress animation"""
     result = prompt_for_clone()
     if result is None:
@@ -330,10 +285,8 @@ def clone_repo(task_runner, progress, finish, spawn):
     url, destdir = result
     progress.set_details(N_('Clone Repository'),
                          N_('Cloning repository at %s') % url)
-    task = CloneTask(task_runner, url, destdir, spawn)
-    task_runner.start(task,
-                      finish=finish,
-                      progress=progress)
+    task = CloneTask(url, destdir, spawn, parent)
+    runtask.start(task, finish=finish, progress=progress)
 
 
 def report_clone_repo_errors(task):

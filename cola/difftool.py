@@ -6,10 +6,13 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 from cola import core
-from cola import utils
-from cola import qtutils
 from cola import gitcmds
+from cola import hotkeys
+from cola import icons
+from cola import qtutils
+from cola import utils
 from cola.i18n import N_
+from cola.interaction import Interaction
 from cola.models import main
 from cola.models import selection
 from cola.widgets import completion
@@ -28,20 +31,48 @@ def run():
 
 
 def launch_with_head(filenames, staged, head):
-    args = []
-    if staged:
-        args.append('--cached')
-    if head != 'HEAD':
-        args.append(head)
-    args.append('--')
-    args.extend(filenames)
-    launch(args)
+    if head == 'HEAD':
+        left = None
+    else:
+        left = head
+    launch(left=left, staged=staged, paths=filenames)
 
 
-def launch(args):
-    """Launches 'git difftool' with args"""
+def launch(left=None, right=None, paths=None,
+           left_take_parent=False, staged=False):
+    """Launches 'git difftool' with given parameters"""
+
     difftool_args = ['git', 'difftool', '--no-prompt']
-    difftool_args.extend(args)
+    if staged:
+        difftool_args.append('--cached')
+
+    if left:
+        if left_take_parent:
+            # Check root commit (no parents and thus cannot execute '~')
+            model = main.model()
+            git = model.git
+            status, out, err = git.rev_list(left, parents=True, n=1)
+            Interaction.log_status(status, out, err)
+            if status:
+                raise StandardError('git rev-list command failed')
+
+            if len(out.split()) >= 2:
+                # Commit has a parent, so we can take its child as requested
+                left += '~'
+            else:
+                # No parent, assume it's the root commit, so we have to diff
+                # against the empty tree.  The empty tree is a built-in
+                # git constant SHA1.  The empty tree is a built-in Git SHA1.
+                left = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+        difftool_args.append(left)
+
+    if right:
+        difftool_args.append(right)
+
+    if paths:
+        difftool_args.append('--')
+        difftool_args.extend(paths)
+
     core.fork(difftool_args)
 
 
@@ -88,12 +119,10 @@ class FileDiffDialog(QtGui.QDialog):
 
         self.tree = filetree.FileTree(parent=self)
 
-        self.diff_button = QtGui.QPushButton(N_('Compare'))
-        self.diff_button.setIcon(qtutils.ok_icon())
-        self.diff_button.setEnabled(False)
-
-        self.close_button = QtGui.QPushButton(N_('Close'))
-        self.close_button.setIcon(qtutils.close_icon())
+        self.diff_button = qtutils.create_button(text=N_('Compare'),
+                                                 icon=icons.diff(),
+                                                 enabled=False)
+        self.close_button = qtutils.close_button()
 
         self.button_layout = qtutils.hbox(defs.no_margin, defs.spacing,
                                           qtutils.STRETCH,
@@ -123,7 +152,7 @@ class FileDiffDialog(QtGui.QDialog):
         qtutils.connect_button(self.diff_button, self.diff)
         qtutils.connect_button(self.close_button, self.close)
 
-        qtutils.add_action(self, 'Focus Input', self.focus_input, 'Ctrl+L')
+        qtutils.add_action(self, 'Focus Input', self.focus_input, hotkeys.FOCUS)
         qtutils.add_close_action(self)
 
         self.resize(720, 420)
@@ -160,9 +189,21 @@ class FileDiffDialog(QtGui.QDialog):
 
     def tree_double_clicked(self, item, column):
         path = self.tree.filename_from_item(item)
-        launch(self.diff_arg + ['--', path])
+        left, right = self._left_right_args()
+        launch(left=left, right=right, paths=[path])
 
     def diff(self):
         paths = self.tree.selected_filenames()
-        for path in paths:
-            launch(self.diff_arg + ['--', ustr(path)])
+        left, right = self._left_right_args()
+        launch(left=left, right=right, paths=paths)
+
+    def _left_right_args(self):
+        if self.diff_arg:
+            left = self.diff_arg[0]
+        else:
+            left = None
+        if len(self.diff_arg) > 1:
+            right = self.diff_arg[1]
+        else:
+            right = None
+        return (left, right)

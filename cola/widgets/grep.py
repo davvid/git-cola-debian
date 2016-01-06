@@ -6,16 +6,18 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 from cola import cmds
+from cola import hotkeys
 from cola import utils
 from cola import qtutils
 from cola.cmds import do
+from cola.compat import ustr
 from cola.git import git
 from cola.i18n import N_
 from cola.qtutils import diff_font
+from cola.utils import Group
 from cola.widgets import defs
 from cola.widgets.standard import Dialog
 from cola.widgets.text import VimHintedTextView, HintedLineEdit
-from cola.compat import ustr
 
 
 def grep():
@@ -73,12 +75,10 @@ class Grep(Dialog):
             self.setWindowModality(Qt.WindowModal)
 
         self.edit_action = qtutils.add_action(
-                self, N_('Edit'), self.edit, cmds.Edit.SHORTCUT)
-        self.edit_action.setEnabled(False)
+                self, N_('Edit'), self.edit, hotkeys.EDIT)
 
         self.refresh_action = qtutils.add_action(
-                self, N_('Refresh'), self.search, *cmds.Refresh.SHORTCUTS)
-        self.refresh_action.setEnabled(False)
+                self, N_('Refresh'), self.search, *hotkeys.REFRESH_HOTKEYS)
 
         self.input_label = QtGui.QLabel('git grep')
         self.input_label.setFont(diff_font())
@@ -108,23 +108,24 @@ class Grep(Dialog):
         self.result_txt = GrepTextView(N_('grep result...'), self)
         self.result_txt.hint.enable(True)
 
-        self.edit_button = QtGui.QPushButton(N_('Edit'))
-        self.edit_button.setIcon(qtutils.open_file_icon())
-        self.edit_button.setEnabled(False)
+        self.edit_button = qtutils.edit_button()
         qtutils.button_action(self.edit_button, self.edit_action)
 
-        self.refresh_button = QtGui.QPushButton(N_('Refresh'))
-        self.refresh_button.setIcon(qtutils.reload_icon())
-        self.refresh_button.setEnabled(False)
+        self.refresh_button = qtutils.refresh_button()
         qtutils.button_action(self.refresh_button, self.refresh_action)
 
-        self.shell_checkbox = QtGui.QCheckBox(N_('Shell arguments'))
-        self.shell_checkbox.setToolTip(
-                N_('Parse arguments using a shell.\n'
-                   'Queries with spaces will require "double quotes".'))
-        self.shell_checkbox.setChecked(False)
+        text = N_('Shell arguments')
+        tooltip = N_('Parse arguments using a shell.\n'
+                     'Queries with spaces will require "double quotes".')
+        self.shell_checkbox = qtutils.checkbox(text=text, tooltip=tooltip,
+                                               checked=False)
+        self.close_button = qtutils.close_button()
 
-        self.close_button = QtGui.QPushButton(N_('Close'))
+        self.refresh_group = Group(self.refresh_action, self.refresh_button)
+        self.refresh_group.setEnabled(False)
+
+        self.edit_group = Group(self.edit_action, self.edit_button)
+        self.edit_group.setEnabled(False)
 
         self.input_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                          self.input_label, self.input_txt,
@@ -155,8 +156,8 @@ class Grep(Dialog):
                      lambda: self.input_txt.setFocus())
 
         qtutils.add_action(self.input_txt, 'Focus Results', self.focus_results,
-                           Qt.Key_Down, Qt.Key_Enter, Qt.Key_Return)
-        qtutils.add_action(self, 'Focus Input', self.focus_input, 'Ctrl+L')
+                           hotkeys.DOWN, *hotkeys.ACCEPT)
+        qtutils.add_action(self, 'Focus Input', self.focus_input, hotkeys.FOCUS)
 
         qtutils.connect_toggle(self.shell_checkbox, lambda x: self.search())
         qtutils.connect_button(self.close_button, self.close)
@@ -183,10 +184,8 @@ class Grep(Dialog):
         return ustr(data)
 
     def search(self):
-        self.edit_action.setEnabled(False)
-        self.edit_button.setEnabled(False)
-        self.refresh_action.setEnabled(False)
-        self.refresh_button.setEnabled(False)
+        self.edit_group.setEnabled(False)
+        self.refresh_group.setEnabled(False)
         query = self.input_txt.value()
         if len(query) < 2:
             self.result_txt.set_value('')
@@ -237,10 +236,8 @@ class Grep(Dialog):
         self.set_text_offset(offset)
 
         enabled = status == 0
-        self.edit_action.setEnabled(enabled)
-        self.edit_button.setEnabled(enabled)
-        self.refresh_button.setEnabled(True)
-        self.refresh_action.setEnabled(True)
+        self.edit_group.setEnabled(enabled)
+        self.refresh_group.setEnabled(True)
 
     def edit(self):
         goto_grep(self.result_txt.selected_line()),
@@ -252,7 +249,7 @@ class GrepTextView(VimHintedTextView):
         VimHintedTextView.__init__(self, hint=hint, parent=parent)
 
         self.goto_action = qtutils.add_action(self, 'Launch Editor', self.edit)
-        self.goto_action.setShortcut(cmds.Edit.SHORTCUT)
+        self.goto_action.setShortcut(hotkeys.EDIT)
 
     def contextMenuEvent(self, event):
         menu = self.createStandardContextMenu(event.pos())

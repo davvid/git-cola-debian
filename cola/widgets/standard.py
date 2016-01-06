@@ -14,6 +14,7 @@ from cola import gitcfg
 from cola import qtcompat
 from cola import qtutils
 from cola.settings import Settings
+from cola.widgets import defs
 
 
 class WidgetMixin(object):
@@ -86,11 +87,14 @@ class WidgetMixin(object):
             'maximized': maximized,
         }
 
-    def closeEvent(self, event):
+    def save_settings(self):
         settings = Settings()
         settings.load()
         settings.add_recent(core.getcwd())
-        self.save_state(settings=settings)
+        return self.save_state(settings=settings)
+
+    def closeEvent(self, event):
+        self.save_settings()
         self.QtClass.closeEvent(self, event)
 
 
@@ -144,10 +148,6 @@ class MainWindowMixin(WidgetMixin):
     def update_dockwidget_tooltips(self):
         for widget in self.dockwidgets:
             widget.titleBarWidget().update_tooltips()
-
-    def closeEvent(self, event):
-        qtutils.persist_clipboard()
-        WidgetMixin.closeEvent(self, event)
 
 
 class TreeMixin(object):
@@ -272,6 +272,17 @@ class TreeMixin(object):
             return None
         return selected_items[0]
 
+    def current_item(self):
+        if hasattr(self, 'currentItem'):
+            item = self.currentItem()
+        else:
+            index = self.currentIndex()
+            if index.isValid():
+                item = self.model().itemFromIndex(index)
+            else:
+                item = None
+        return item
+
 
 class DraggableTreeMixin(TreeMixin):
     """A tree widget with internal drag+drop reordering of rows"""
@@ -339,9 +350,20 @@ class Widget(WidgetMixin, QtGui.QWidget):
 
 class Dialog(WidgetMixin, QtGui.QDialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, save_settings=False):
         QtGui.QDialog.__init__(self, parent)
         WidgetMixin.__init__(self, QtGui.QDialog)
+        self._save_settings = save_settings
+
+    def close(self):
+        if self._save_settings:
+            self.save_settings()
+        return self.QtClass.close(self)
+
+    def reject(self):
+        if self._save_settings:
+            self.save_settings()
+        return self.QtClass.reject(self)
 
 
 class MainWindow(MainWindowMixin, QtGui.QMainWindow):
@@ -349,6 +371,15 @@ class MainWindow(MainWindowMixin, QtGui.QMainWindow):
     def __init__(self, parent=None):
         QtGui.QMainWindow.__init__(self, parent)
         MainWindowMixin.__init__(self, QtGui.QMainWindow)
+        self.setStyleSheet("""
+            QMainWindow::separator {
+                width: %(separator)spx;
+                height: %(separator)spx;
+            }
+            QMainWindow::separator:hover {
+                background: white;
+            }
+            """ % dict(separator=defs.separator))
 
 
 class TreeView(TreeMixin, QtGui.QTreeView):

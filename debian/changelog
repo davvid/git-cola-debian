@@ -1,3 +1,10 @@
+git-cola (2.5-1) unstable; urgency=low
+
+  * New upstream release.
+  * Remove own menu file in favor to desktop file.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Wed, 06 Jan 2016 19:30:30 +0100
+
 git-cola (2.3-1) unstable; urgency=low
 
   * New upstream release.

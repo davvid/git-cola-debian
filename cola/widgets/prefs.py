@@ -11,9 +11,6 @@ from cola import qtutils
 from cola import gitcfg
 from cola.i18n import N_
 from cola.models import prefs
-from cola.models.prefs import PreferencesModel
-from cola.models.prefs import SetConfig
-from cola.models.prefs import FONTDIFF
 from cola.qtutils import diff_font
 from cola.widgets import defs
 from cola.widgets import standard
@@ -22,7 +19,7 @@ from cola.compat import ustr
 
 def preferences(model=None, parent=None):
     if model is None:
-        model = PreferencesModel()
+        model = prefs.PreferencesModel()
     view = PreferencesView(model, parent=parent)
     view.show()
     view.raise_()
@@ -68,18 +65,18 @@ class FormWidget(QtGui.QWidget):
 
     def _int_config_changed(self, config):
         def runner(value):
-            cmds.do(SetConfig, self.model, self.source, config, value)
+            cmds.do(prefs.SetConfig, self.model, self.source, config, value)
         return runner
 
     def _bool_config_changed(self, config):
         def runner(value):
-            cmds.do(SetConfig, self.model, self.source, config, value)
+            cmds.do(prefs.SetConfig, self.model, self.source, config, value)
         return runner
 
     def _text_config_changed(self, config):
         def runner():
             value = ustr(self.sender().text())
-            cmds.do(SetConfig, self.model, self.source, config, value)
+            cmds.do(prefs.SetConfig, self.model, self.source, config, value)
         return runner
 
     def update_from_config(self):
@@ -122,19 +119,12 @@ class RepoFormWidget(FormWidget):
         self.diff_context.setMaximum(99)
         self.diff_context.setProperty('value', QtCore.QVariant(5))
 
-        self.merge_summary = QtGui.QCheckBox()
-        self.merge_summary.setChecked(True)
-
-        self.merge_diffstat = QtGui.QCheckBox()
-        self.merge_diffstat.setChecked(True)
-
-        self.display_untracked = QtGui.QCheckBox()
-        self.display_untracked.setChecked(True)
+        self.merge_summary = qtutils.checkbox(checked=True)
+        self.merge_diffstat = qtutils.checkbox(checked=True)
+        self.display_untracked = qtutils.checkbox(checked=True)
 
         tooltip = N_('Detect conflict markers in unmerged files')
-        self.check_conflicts = QtGui.QCheckBox()
-        self.check_conflicts.setChecked(True)
-        self.check_conflicts.setToolTip(tooltip)
+        self.check_conflicts = qtutils.checkbox(checked=True, tooltip=tooltip)
 
         self.add_row(N_('User Name'), self.name)
         self.add_row(N_('Email Address'), self.email)
@@ -163,7 +153,6 @@ class SettingsFormWidget(FormWidget):
         FormWidget.__init__(self, model, parent)
 
         self.fixed_font = QtGui.QFontComboBox()
-        self.fixed_font.setFontFilters(QtGui.QFontComboBox.MonospacedFonts)
 
         self.font_size = QtGui.QSpinBox()
         self.font_size.setMinimum(8)
@@ -178,14 +167,16 @@ class SettingsFormWidget(FormWidget):
         self.textwidth.setWrapping(True)
         self.textwidth.setMaximum(150)
 
-        self.linebreak = QtGui.QCheckBox()
+        self.linebreak = qtutils.checkbox()
         self.editor = QtGui.QLineEdit()
         self.historybrowser = QtGui.QLineEdit()
+        self.blameviewer = QtGui.QLineEdit()
         self.difftool = QtGui.QLineEdit()
         self.mergetool = QtGui.QLineEdit()
-        self.keep_merge_backups = QtGui.QCheckBox()
-        self.sort_bookmarks = QtGui.QCheckBox()
-        self.save_gui_settings = QtGui.QCheckBox()
+        self.keep_merge_backups = qtutils.checkbox()
+        self.sort_bookmarks = qtutils.checkbox()
+        self.bold_headers = qtutils.checkbox()
+        self.save_gui_settings = qtutils.checkbox()
 
         self.add_row(N_('Fixed-Width Font'), self.fixed_font)
         self.add_row(N_('Font Size'), self.font_size)
@@ -194,10 +185,13 @@ class SettingsFormWidget(FormWidget):
         self.add_row(N_('Auto-Wrap Lines'), self.linebreak)
         self.add_row(N_('Editor'), self.editor)
         self.add_row(N_('History Browser'), self.historybrowser)
+        self.add_row(N_('Blame Viewer'), self.blameviewer)
         self.add_row(N_('Diff Tool'), self.difftool)
         self.add_row(N_('Merge Tool'), self.mergetool)
         self.add_row(N_('Keep *.orig Merge Backups'), self.keep_merge_backups)
         self.add_row(N_('Sort bookmarks alphabetically'), self.sort_bookmarks)
+        self.add_row(N_('Bold with dark background font instead of italic '
+                        'headers (restart required)'), self.bold_headers)
         self.add_row(N_('Save GUI Settings'), self.save_gui_settings)
 
         self.set_config({
@@ -206,10 +200,13 @@ class SettingsFormWidget(FormWidget):
             prefs.TEXTWIDTH: (self.textwidth, 72),
             prefs.LINEBREAK: (self.linebreak, True),
             prefs.SORT_BOOKMARKS: (self.sort_bookmarks, True),
+            prefs.BOLD_HEADERS: (self.bold_headers, False),
             prefs.DIFFTOOL: (self.difftool, 'xxdiff'),
             prefs.EDITOR: (self.editor, os.getenv('VISUAL', 'gvim')),
             prefs.HISTORY_BROWSER: (self.historybrowser,
                                     prefs.default_history_browser()),
+            prefs.BLAME_VIEWER: (self.blameviewer,
+                                 prefs.default_blame_viewer()),
             prefs.MERGE_KEEPBACKUP: (self.keep_merge_backups, True),
             prefs.MERGETOOL: (self.mergetool, 'xxdiff'),
         })
@@ -236,12 +233,12 @@ class SettingsFormWidget(FormWidget):
     def font_size_changed(self, size):
         font = self.fixed_font.currentFont()
         font.setPointSize(size)
-        cmds.do(SetConfig, self.model,
-                'user', FONTDIFF, ustr(font.toString()))
+        cmds.do(prefs.SetConfig, self.model,
+                'user', prefs.FONTDIFF, ustr(font.toString()))
 
     def current_font_changed(self, font):
-        cmds.do(SetConfig, self.model,
-                'user', FONTDIFF, ustr(font.toString()))
+        cmds.do(prefs.SetConfig, self.model,
+                'user', prefs.FONTDIFF, ustr(font.toString()))
 
 
 class PreferencesView(standard.Dialog):
@@ -269,9 +266,7 @@ class PreferencesView(standard.Dialog):
         self.stack_widget.addWidget(self.repo_form)
         self.stack_widget.addWidget(self.options_form)
 
-        self.close_button = QtGui.QPushButton(self)
-        self.close_button.setText(N_('Close'))
-        self.close_button.setIcon(qtutils.close_icon())
+        self.close_button = qtutils.close_button()
 
         self.button_layout = qtutils.hbox(defs.no_margin, defs.spacing,
                                           qtutils.STRETCH, self.close_button)

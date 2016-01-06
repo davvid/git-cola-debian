@@ -12,34 +12,34 @@ import time
 import traceback
 
 from cola import core
+from cola.decorators import memoize
 
 random.seed(hash(time.time()))
 
 
 def add_parents(paths):
     """Iterate over each item in the set and add its parent directories."""
-    path_entry_set = set(paths)
-    for path in list(path_entry_set):
+    all_paths = set()
+    for path in paths:
         while '//' in path:
             path = path.replace('//', '/')
-        if path not in path_entry_set:
-            path_entry_set.add(path)
+        all_paths.add(path)
         if '/' in path:
             parent_dir = dirname(path)
-            while parent_dir and parent_dir not in path_entry_set:
-                path_entry_set.add(parent_dir)
+            while parent_dir:
+                all_paths.add(parent_dir)
                 parent_dir = dirname(parent_dir)
-    return path_entry_set
+    return all_paths
 
 
 def format_exception(e):
     exc_type, exc_value, exc_tb = sys.exc_info()
     details = traceback.format_exception(exc_type, exc_value, exc_tb)
-    details = '\n'.join(details)
+    details = '\n'.join(map(core.decode, details))
     if hasattr(e, 'msg'):
         msg = e.msg
     else:
-        msg = str(e)
+        msg = core.decode(repr(e))
     return (msg, details)
 
 
@@ -178,16 +178,16 @@ else:
         return [core.decode(arg) for arg in _shell_split(s)]
 
 
-def tmp_file_pattern():
-    return os.path.join(tempfile.gettempdir(), 'git-cola-%s-*' % os.getpid())
-
-
 def tmp_filename(label):
-    prefix = 'git-cola-%s-' % (os.getpid())
-    suffix = '-%s' % label.replace('/', '-').replace('\\', '-')
-    fd, path = tempfile.mkstemp(suffix, prefix)
-    os.close(fd)
-    return path
+    label = label.replace('/', '-').replace('\\', '-')
+    fd = tempfile.NamedTemporaryFile(dir=tmpdir(), prefix=label+'-')
+    fd.close()
+    return fd.name
+
+
+@memoize
+def tmpdir():
+    return tempfile.mkdtemp(prefix='git-cola-')
 
 
 def is_linux():
@@ -216,3 +216,31 @@ def expandpath(path):
     if path.startswith('~'):
         path = os.path.expanduser(path)
     return path
+
+
+class Group(object):
+    """Operate on a collection of objects as a single unit"""
+
+    def __init__(self, *members):
+        self._members = members
+
+    def __getattr__(self, name):
+        """Return a function that relays calls to the group"""
+        def relay(*args, **kwargs):
+            for member in self._members:
+                method = getattr(member, name)
+                method(*args, **kwargs)
+        setattr(self, name, relay)
+        return relay
+
+
+class Proxy(object):
+    """Wrap an object and override attributes"""
+
+    def __init__(self, obj, **overrides):
+        self._obj = obj
+        for k, v in overrides.items():
+            setattr(self, k, v)
+
+    def __getattr__(self, name):
+        return getattr(self._obj, name)

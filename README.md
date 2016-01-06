@@ -24,7 +24,7 @@ Screenshots are available on the
 
 ## DOWNLOAD
 
-    apt-get install git-cola python-pyinotify
+    apt-get install git-cola
 
 New releases are available on the
 [git-cola download page](https://git-cola.github.io/downloads.html).
@@ -32,6 +32,8 @@ New releases are available on the
 ## FORK
 
     git clone git://github.com/git-cola/git-cola.git
+
+[![git-cola build status](https://api.travis-ci.org/git-cola/git-cola.svg?branch=master)](https://travis-ci.org/git-cola/git-cola)
 
 [git-cola on github](https://github.com/git-cola/git-cola)
 
@@ -53,13 +55,12 @@ New releases are available on the
   argparse is part of the stdlib in Python 2.7; install argparse separately if
   you are running on Python 2.6.
 
+* [Sphinx](http://sphinx-doc.org/) for building the documentation.
+
 ## ADDITIVES
 
 *git-cola* enables additional features when the following
 Python modules are installed.
-
-[pyinotify](https://github.com/seb-m/pyinotify) 0.7.1 or newer
-enables inotify support on Linux.
 
 [send2trash](https://github.com/hsoft/send2trash) enables cross-platform
 "Send to Trash" functionality.
@@ -119,7 +120,7 @@ If not, please file a bug against your distribution ;-)
 
 ### fedora
 
-    yum install git-cola
+    dnf install git-cola
 
 ### gentoo
 
@@ -131,8 +132,17 @@ Use the [one-click install link](http://software.opensuse.org/package/git-cola).
 
 ## MAC OS X
 
+Before setting up homebrew, use
+[pip](https://pip.readthedocs.org/en/latest/installing.html) to install
+[sphinx](http://sphinx-doc.org/latest/install.html).
+
+Sphinx is used to build the documentation.
+
+    sudo pip install sphinx
+
 [Homebrew](http://mxcl.github.com/homebrew/) is the easiest way to install
-git-cola, *Qt4* and *PyQt4*.
+git-cola's *Qt4* and *PyQt4* dependencies.  We will use homebrew to install
+the git-cola recipe, but build our own .app bundle from source.
 
     brew install git-cola
 

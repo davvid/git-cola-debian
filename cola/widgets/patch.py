@@ -8,6 +8,8 @@ from PyQt4.QtCore import Qt
 
 from cola import core
 from cola import cmds
+from cola import hotkeys
+from cola import icons
 from cola import qtutils
 from cola.i18n import N_
 from cola.widgets import defs
@@ -85,25 +87,24 @@ class ApplyPatches(Dialog):
         self.tree.setHeaderHidden(True)
 
         self.add_button = qtutils.create_toolbutton(
-                text=N_('Add'), icon=qtutils.add_icon(),
+                text=N_('Add'), icon=icons.add(),
                 tooltip=N_('Add patches (+)'))
 
         self.remove_button = qtutils.create_toolbutton(
-                text=N_('Remove'), icon=qtutils.remove_icon(),
+                text=N_('Remove'), icon=icons.remove(),
                 tooltip=N_('Remove selected (Delete)'))
 
         self.apply_button = qtutils.create_button(
-                text=N_('Apply'), icon=qtutils.apply_icon())
+                text=N_('Apply'), icon=icons.ok())
 
-        self.close_button = qtutils.create_button(
-                text=N_('Close'), icon=qtutils.close_icon())
+        self.close_button = qtutils.close_button()
 
         self.add_action = qtutils.add_action(self,
-                N_('Add'), self.add_files, Qt.Key_Plus)
+                N_('Add'), self.add_files, hotkeys.ADD_ITEM)
 
         self.remove_action = qtutils.add_action(self,
                 N_('Remove'), self.tree.remove_selected,
-                QtGui.QKeySequence.Delete, Qt.Key_Backspace, Qt.Key_Minus)
+                hotkeys.DELETE, hotkeys.BACKSPACE, hotkeys.REMOVE_ITEM)
 
         self.top_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                        self.add_button, self.remove_button,
@@ -173,7 +174,7 @@ class PatchTreeWidget(DraggableTreeWidget):
         if not patches:
             return
         items = []
-        icon = qtutils.file_icon()
+        icon = icons.file_text()
         for patch in patches:
             item = QtGui.QTreeWidgetItem()
             flags = item.flags() & ~Qt.ItemIsDropEnabled

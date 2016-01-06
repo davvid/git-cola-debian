@@ -2,7 +2,6 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import time
-import subprocess
 
 from PyQt4 import QtGui
 from PyQt4 import QtCore
@@ -11,6 +10,7 @@ from PyQt4.QtCore import SIGNAL
 
 from cola import core
 from cola import gitcmds
+from cola import icons
 from cola import utils
 from cola import qtutils
 from cola.i18n import N_
@@ -19,7 +19,6 @@ from cola.git import git
 from cola.git import STDOUT
 from cola.qtutils import connect_button
 from cola.qtutils import create_toolbutton
-from cola.qtutils import dir_icon
 from cola.widgets import defs
 from cola.widgets import standard
 from cola.widgets.diff import DiffTextEdit
@@ -45,7 +44,7 @@ class SearchWidget(standard.Dialog):
         self.setWindowTitle(N_('Search'))
 
         self.mode_combo = QtGui.QComboBox()
-        self.browse_button = create_toolbutton(icon=dir_icon(),
+        self.browse_button = create_toolbutton(icon=icons.folder(),
                                                tooltip=N_('Browse...'))
         self.query = QtGui.QLineEdit()
 
@@ -59,9 +58,9 @@ class SearchWidget(standard.Dialog):
         self.end_date.setCalendarPopup(True)
         self.end_date.setDisplayFormat(N_('yyyy-MM-dd'))
 
-        self.search_button = QtGui.QPushButton()
-        self.search_button.setText(N_('Search'))
-        self.search_button.setDefault(True)
+        icon = icons.search()
+        self.search_button = qtutils.create_button(text=N_('Search'),
+                                                   icon=icon, default=True)
 
         self.max_count = QtGui.QSpinBox()
         self.max_count.setMinimum(5)
@@ -72,18 +71,17 @@ class SearchWidget(standard.Dialog):
         self.commit_list = QtGui.QListWidget()
         self.commit_list.setMinimumSize(QtCore.QSize(1, 1))
         self.commit_list.setAlternatingRowColors(True)
-        self.commit_list.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+        selection_mode = QtGui.QAbstractItemView.SingleSelection
+        self.commit_list.setSelectionMode(selection_mode)
 
         self.commit_text = DiffTextEdit(self, whitespace=False)
 
-        self.button_export = QtGui.QPushButton()
-        self.button_export.setText(N_('Export Patches'))
+        self.button_export = qtutils.create_button(text=N_('Export Patches'),
+                                                   icon=icons.diff())
 
-        self.button_cherrypick = QtGui.QPushButton()
-        self.button_cherrypick.setText(N_('Cherry Pick'))
-
-        self.button_close = QtGui.QPushButton()
-        self.button_close.setText(N_('Close'))
+        self.button_cherrypick = qtutils.create_button(text=N_('Cherry Pick'),
+                                                       icon=icons.save())
+        self.button_close = qtutils.close_button()
 
         self.top_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                        self.query, self.start_date,
@@ -313,7 +311,7 @@ class Search(SearchWidget):
             if not path.startswith(core.getcwd()):
                 continue
             filepaths.append(path[lenprefix:])
-        query = subprocess.list2cmdline(filepaths)
+        query = core.list2cmdline(filepaths)
         self.query.setText(query)
         if query:
             self.search_callback()

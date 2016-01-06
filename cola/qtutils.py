@@ -3,10 +3,6 @@
 """
 from __future__ import division, absolute_import, unicode_literals
 
-import mimetypes
-import os
-import subprocess
-
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
@@ -14,34 +10,16 @@ from PyQt4.QtCore import SIGNAL
 
 from cola import core
 from cola import gitcfg
+from cola import hotkeys
+from cola import icons
 from cola import utils
 from cola import resources
-from cola.decorators import memoize
 from cola.i18n import N_
 from cola.interaction import Interaction
-from cola.models.prefs import FONTDIFF
-from cola.widgets import defs
 from cola.compat import ustr
-
-
-KNOWN_FILE_MIME_TYPES = [
-    ('text',    'script.png'),
-    ('image',   'image.png'),
-    ('python',  'script.png'),
-    ('ruby',    'script.png'),
-    ('shell',   'script.png'),
-    ('perl',    'script.png'),
-    ('octet',   'binary.png'),
-]
-
-KNOWN_FILE_EXTENSIONS = {
-    '.java':    'script.png',
-    '.groovy':  'script.png',
-    '.cpp':     'script.png',
-    '.c':       'script.png',
-    '.h':       'script.png',
-    '.cxx':     'script.png',
-}
+from cola.compat import PY3
+from cola.models import prefs
+from cola.widgets import defs
 
 
 def connect_action(action, fn):
@@ -80,6 +58,13 @@ def vbox(margin, spacing, *items):
     return box(QtGui.QVBoxLayout, margin, spacing, *items)
 
 
+def buttongroup(*items):
+    group = QtGui.QButtonGroup()
+    for i in items:
+        group.addButton(i)
+    return group
+
+
 STRETCH = object()
 SKIPPED = object()
 
@@ -91,17 +76,22 @@ def box(cls, margin, spacing, *items):
     layout.setMargin(margin)
     layout.setSpacing(spacing)
 
+    if PY3:
+        int_types = (int,)
+    else:
+        int_types = (int, long)
+
     for i in items:
-        if i is stretch:
-            layout.addStretch()
-        elif i is skipped:
-            continue
-        elif isinstance(i, QtGui.QWidget):
+        if isinstance(i, QtGui.QWidget):
             layout.addWidget(i)
         elif isinstance(i, (QtGui.QHBoxLayout, QtGui.QVBoxLayout,
                             QtGui.QFormLayout, QtGui.QLayout)):
             layout.addLayout(i)
-        elif isinstance(i, (int, long)):
+        elif i is stretch:
+            layout.addStretch()
+        elif i is skipped:
+            continue
+        elif isinstance(i, int_types):
             layout.addSpacing(i)
 
     return layout
@@ -149,6 +139,7 @@ def splitter(orientation, *widgets):
 
     return layout
 
+
 def prompt(msg, title=None, text=''):
     """Presents the user with an input widget and returns the input."""
     if title is None:
@@ -162,6 +153,7 @@ def create_listwidget_item(text, filename):
     """Creates a QListWidgetItem with text and the icon at filename."""
     item = QtGui.QListWidgetItem()
     item.setIcon(QtGui.QIcon(filename))
+    item.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
     item.setText(text)
     return item
 
@@ -174,7 +166,7 @@ class TreeWidgetItem(QtGui.QTreeWidgetItem):
         QtGui.QTreeWidgetItem.__init__(self)
         self.path = path
         self.deleted = deleted
-        self.setIcon(0, cached_icon_from_path(icon))
+        self.setIcon(0, icons.from_name(icon))
         self.setText(0, path)
 
     def type(self):
@@ -199,19 +191,6 @@ def paths_from_items(items,
             if i.type() == item_type and item_filter(i)]
 
 
-@memoize
-def cached_icon_from_path(filename):
-    return QtGui.QIcon(filename)
-
-
-def mkicon(icon, default=None):
-    if icon is None and default is not None:
-        icon = default()
-    elif icon and isinstance(icon, (str, ustr)):
-        icon = QtGui.QIcon(icon)
-    return icon
-
-
 def confirm(title, text, informative_text, ok_text,
             icon=None, default=True,
             cancel_text=None, cancel_icon=None):
@@ -222,12 +201,12 @@ def confirm(title, text, informative_text, ok_text,
     msgbox.setText(text)
     msgbox.setInformativeText(informative_text)
 
-    icon = mkicon(icon, ok_icon)
+    icon = icons.mkicon(icon, icons.ok)
     ok = msgbox.addButton(ok_text, QtGui.QMessageBox.ActionRole)
     ok.setIcon(icon)
 
     cancel = msgbox.addButton(QtGui.QMessageBox.Cancel)
-    cancel_icon = mkicon(cancel_icon, discard_icon)
+    cancel_icon = icons.mkicon(cancel_icon, icons.close)
     cancel.setIcon(cancel_icon)
     if cancel_text:
         cancel.setText(cancel_text)
@@ -252,7 +231,7 @@ class ResizeableMessageBox(QtGui.QMessageBox):
         event_type = event.type()
         if (event_type == QtCore.QEvent.MouseMove or
                 event_type == QtCore.QEvent.MouseButtonPress):
-            maxi = QtCore.QSize(1024*4, 1024*4)
+            maxi = QtCore.QSize(defs.max_size, defs.max_size)
             self.setMaximumSize(maxi)
             text = self.findChild(QtGui.QTextEdit)
             if text is not None:
@@ -293,8 +272,8 @@ def information(title, message=None, details=None, informative_text=None):
         mbox.setInformativeText(informative_text)
     if details:
         mbox.setDetailedText(details)
-    # Render git-cola.svg into a 1-inch wide pixmap
-    pixmap = git_icon().pixmap(96)
+    # Render into a 1-inch wide pixmap
+    pixmap = icons.cola().pixmap(defs.large_icon)
     mbox.setIconPixmap(pixmap)
     mbox.exec_()
 
@@ -391,11 +370,6 @@ def save_as(filename, title='Save As...'):
                         .getSaveFileName(active_window(), title, filename))
 
 
-def icon(basename):
-    """Given a basename returns a QIcon from the corresponding cola icon."""
-    return QtGui.QIcon(resources.icon(basename))
-
-
 def copy_path(filename, absolute=True):
     """Copy a filename to the clipboard"""
     if filename is None:
@@ -432,22 +406,31 @@ def persist_clipboard():
 
 
 def add_action_bool(widget, text, fn, checked, *shortcuts):
-    action = _add_action(widget, text, fn, connect_action_bool, *shortcuts)
+    tip = text
+    action = _add_action(widget, text, tip, fn, connect_action_bool, *shortcuts)
     action.setCheckable(True)
     action.setChecked(checked)
     return action
 
 
 def add_action(widget, text, fn, *shortcuts):
-    return _add_action(widget, text, fn, connect_action, *shortcuts)
+    tip = text
+    return _add_action(widget, text, tip, fn, connect_action, *shortcuts)
 
 
-def _add_action(widget, text, fn, connect, *shortcuts):
+def add_action_with_status_tip(widget, text, tip, fn, *shortcuts):
+    return _add_action(widget, text, tip, fn, connect_action, *shortcuts)
+
+
+def _add_action(widget, text, tip, fn, connect, *shortcuts):
     action = QtGui.QAction(text, widget)
+    if tip:
+        action.setStatusTip(tip)
     connect(action, fn)
     if shortcuts:
         action.setShortcuts(shortcuts)
-        action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        if hasattr(Qt, 'WidgetWithChildrenShortcut'):
+            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
         widget.addAction(action)
     return action
 
@@ -464,6 +447,8 @@ def set_selected_item(widget, idx):
 def add_items(widget, items):
     """Adds items to a widget."""
     for item in items:
+        if item is None:
+            continue
         widget.addItem(item)
 
 
@@ -473,148 +458,21 @@ def set_items(widget, items):
     add_items(widget, items)
 
 
-def icon_name_for_filename(filename):
-    """Returns an icon name based on the filename."""
-    mimetype = mimetypes.guess_type(filename)[0]
-    if mimetype is not None:
-        mimetype = mimetype.lower()
-        for filetype, icon_name in KNOWN_FILE_MIME_TYPES:
-            if filetype in mimetype:
-                return icon_name
-    extension = os.path.splitext(filename)[1]
-    return KNOWN_FILE_EXTENSIONS.get(extension.lower(), 'generic.png')
-
-
-def icon_from_filename(filename):
-    icon_name = icon_name_for_filename(filename)
-    return cached_icon_from_path(resources.icon(icon_name))
-
 
 def create_treeitem(filename, staged=False, deleted=False, untracked=False):
-    """Given a filename, return a TreeListItem suitable for adding to a
-    QListWidget.  "staged", "deleted, and "untracked" control whether to use
-    the appropriate icons."""
-    if deleted:
-        icon_name = 'removed.png'
-    elif staged:
-        icon_name = 'staged-item.png'
-    elif untracked:
-        icon_name = 'untracked.png'
-    else:
-        icon_name = icon_name_for_filename(filename)
+    """Given a filename, return a TreeWidgetItem for a status widget
+
+    "staged", "deleted, and "untracked" control which icon is used.
+
+    """
+    icon_name = icons.status(filename, deleted, staged, untracked)
     return TreeWidgetItem(filename, resources.icon(icon_name), deleted=deleted)
-
-
-@memoize
-def cached_icon(key):
-    """Maintain a cache of standard icons and return cache entries."""
-    style = QtGui.QApplication.instance().style()
-    return style.standardIcon(key)
-
-
-def dir_icon():
-    """Return a standard icon for a directory."""
-    return cached_icon(QtGui.QStyle.SP_DirIcon)
-
-
-def file_icon():
-    """Return a standard icon for a file."""
-    return cached_icon(QtGui.QStyle.SP_FileIcon)
-
-
-def apply_icon():
-    """Return a standard Apply icon"""
-    return cached_icon(QtGui.QStyle.SP_DialogApplyButton)
-
-
-def new_icon():
-    return cached_icon(QtGui.QStyle.SP_FileDialogNewFolder)
-
-
-def save_icon():
-    """Return a standard Save icon"""
-    return cached_icon(QtGui.QStyle.SP_DialogSaveButton)
-
-
-def ok_icon():
-    """Return a standard Ok icon"""
-    return cached_icon(QtGui.QStyle.SP_DialogOkButton)
-
-
-def open_icon():
-    """Return a standard open directory icon"""
-    return cached_icon(QtGui.QStyle.SP_DirOpenIcon)
-
-
-def help_icon():
-    """Return a standard open directory icon"""
-    return cached_icon(QtGui.QStyle.SP_DialogHelpButton)
-
-
-def add_icon():
-    return theme_icon('list-add', fallback='add.svg')
-
-
-def remove_icon():
-    return theme_icon('list-remove', fallback='remove.svg')
-
-
-def open_file_icon():
-    return theme_icon('document-open', fallback='open.svg')
-
-
-def options_icon():
-    """Return a standard open directory icon"""
-    return theme_icon('configure', fallback='options.svg')
-
-
-def filter_icon():
-    """Return a filter icon"""
-    return theme_icon('view-filter.png')
-
-
-def dir_close_icon():
-    """Return a standard closed directory icon"""
-    return cached_icon(QtGui.QStyle.SP_DirClosedIcon)
-
-
-def titlebar_close_icon():
-    """Return a dock widget close icon"""
-    return cached_icon(QtGui.QStyle.SP_TitleBarCloseButton)
-
-
-def titlebar_normal_icon():
-    """Return a dock widget close icon"""
-    return cached_icon(QtGui.QStyle.SP_TitleBarNormalButton)
-
-
-def git_icon():
-    """
-    Return git-cola icon from X11 theme if it exists.
-    Else fallback to default hardcoded icon.
-    """
-    return theme_icon('git-cola.svg')
-
-
-def reload_icon():
-    """Returna  standard Refresh icon"""
-    return cached_icon(QtGui.QStyle.SP_BrowserReload)
-
-
-def discard_icon():
-    """Return a standard Discard icon"""
-    return cached_icon(QtGui.QStyle.SP_DialogDiscardButton)
-
-
-def close_icon():
-    """Return a standard Close icon"""
-    return cached_icon(QtGui.QStyle.SP_DialogCloseButton)
 
 
 def add_close_action(widget):
     """Adds close action and shortcuts to a widget."""
     return add_action(widget, N_('Close...'),
-                      widget.close, QtGui.QKeySequence.Close, 'Ctrl+Q')
+                      widget.close, hotkeys.CLOSE, hotkeys.QUIT)
 
 
 def center_on_screen(widget):
@@ -633,23 +491,6 @@ def default_size(parent, width, height):
         height = parent.height()
     return (width, height)
 
-@memoize
-def theme_icon(name, fallback=None):
-    """Grab an icon from the current theme with a fallback
-
-    Support older versions of Qt checking for fromTheme's availability.
-
-    """
-    if hasattr(QtGui.QIcon, 'fromTheme'):
-        base, ext = os.path.splitext(name)
-        if fallback:
-            qicon = QtGui.QIcon.fromTheme(base, icon(fallback))
-        else:
-            qicon = QtGui.QIcon.fromTheme(base)
-        if not qicon.isNull():
-            return qicon
-    return icon(fallback or name)
-
 
 def default_monospace_font():
     font = QtGui.QFont()
@@ -661,7 +502,7 @@ def default_monospace_font():
 
 
 def diff_font_str():
-    font_str = gitcfg.current().get(FONTDIFF)
+    font_str = gitcfg.current().get(prefs.FONTDIFF)
     if font_str is None:
         font = default_monospace_font()
         font_str = ustr(font.toString())
@@ -669,13 +510,17 @@ def diff_font_str():
 
 
 def diff_font():
-    font_str = diff_font_str()
+    return font(diff_font_str())
+
+
+def font(string):
     font = QtGui.QFont()
-    font.fromString(font_str)
+    font.fromString(string)
     return font
 
 
-def create_button(text='', layout=None, tooltip=None, icon=None):
+def create_button(text='', layout=None, tooltip=None, icon=None,
+                  enabled=True, default=False):
     """Create a button, set its title, and add it to the parent."""
     button = QtGui.QPushButton()
     button.setCursor(Qt.PointingHandCursor)
@@ -683,24 +528,47 @@ def create_button(text='', layout=None, tooltip=None, icon=None):
         button.setText(text)
     if icon is not None:
         button.setIcon(icon)
+        button.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
     if tooltip is not None:
         button.setToolTip(tooltip)
     if layout is not None:
         layout.addWidget(button)
+    if not enabled:
+        button.setEnabled(False)
+    if default:
+        button.setDefault(True)
     return button
 
 
 def create_action_button(tooltip=None, icon=None):
     button = QtGui.QPushButton()
-    button.setFixedSize(QtCore.QSize(16, 16))
     button.setCursor(Qt.PointingHandCursor)
     button.setFlat(True)
     if tooltip is not None:
         button.setToolTip(tooltip)
     if icon is not None:
-        pixmap = icon.pixmap(QtCore.QSize(16, 16))
-        button.setIcon(QtGui.QIcon(pixmap))
+        button.setIcon(icon)
+        button.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
     return button
+
+
+def ok_button(text, default=False, enabled=True):
+    return create_button(text=text, icon=icons.ok(),
+                         default=default, enabled=enabled)
+
+
+def close_button():
+    return create_button(text=N_('Close'), icon=icons.close())
+
+
+def edit_button(enabled=True, default=False):
+    return create_button(text=N_('Edit'), icon=icons.edit(),
+                         enabled=enabled, default=default)
+
+
+def refresh_button(enabled=True, default=False):
+    return create_button(text=N_('Refresh'), icon=icons.sync(),
+                         enabled=enabled, default=default)
 
 
 def hide_button_menu_indicator(button):
@@ -720,6 +588,71 @@ def hide_button_menu_indicator(button):
     button.setStyleSheet(stylesheet % {'name': name})
 
 
+def checkbox(text='', tooltip='', checked=None):
+    cb = QtGui.QCheckBox()
+    if text:
+        cb.setText(text)
+    if tooltip:
+        cb.setToolTip(tooltip)
+    if checked is not None:
+        cb.setChecked(checked)
+
+    url = icons.check_name()
+    style = """
+        QCheckBox::indicator {
+            width: %(size)dpx;
+            height: %(size)dpx;
+        }
+        QCheckBox::indicator::unchecked {
+            border: %(border)dpx solid #999;
+            background: #fff;
+        }
+        QCheckBox::indicator::checked {
+            image: url(%(url)s);
+            border: %(border)dpx solid black;
+            background: #fff;
+        }
+    """ % dict(size=defs.checkbox, border=defs.border, url=url)
+    cb.setStyleSheet(style)
+
+    return cb
+
+
+def radio(text='', tooltip='', checked=None):
+    rb = QtGui.QRadioButton()
+    if text:
+        rb.setText(text)
+    if tooltip:
+        rb.setToolTip(tooltip)
+    if checked is not None:
+        rb.setChecked(checked)
+
+    size = defs.checkbox
+    radius = size / 2
+    border = defs.radio_border
+    url = icons.dot_name()
+    style = """
+        QRadioButton::indicator {
+            width: %(size)dpx;
+            height: %(size)dpx;
+        }
+        QRadioButton::indicator::unchecked {
+            background: #fff;
+            border: %(border)dpx solid #999;
+            border-radius: %(radius)dpx;
+        }
+        QRadioButton::indicator::checked {
+            image: url(%(url)s);
+            background: #fff;
+            border: %(border)dpx solid black;
+            border-radius: %(radius)dpx;
+        }
+    """ % dict(size=size, radius=radius, border=border, url=url)
+    rb.setStyleSheet(style)
+
+    return rb
+
+
 class DockTitleBarWidget(QtGui.QWidget):
 
     def __init__(self, parent, title, stretch=True):
@@ -729,14 +662,13 @@ class DockTitleBarWidget(QtGui.QWidget):
         font.setBold(True)
         label.setFont(font)
         label.setText(title)
-
-        self.setCursor(Qt.OpenHandCursor)
+        label.setCursor(Qt.OpenHandCursor)
 
         self.close_button = create_action_button(
-                tooltip=N_('Close'), icon=titlebar_close_icon())
+            tooltip=N_('Close'), icon=icons.close())
 
         self.toggle_button = create_action_button(
-                tooltip=N_('Detach'), icon=titlebar_normal_icon())
+            tooltip=N_('Detach'), icon=icons.external())
 
         self.corner_layout = hbox(defs.no_margin, defs.spacing)
 
@@ -800,6 +732,7 @@ def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
     button.setCursor(Qt.PointingHandCursor)
     if icon is not None:
         button.setIcon(icon)
+        button.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
     if text is not None:
         button.setText(text)
         button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
@@ -826,7 +759,7 @@ def mimedata_from_paths(paths):
     # gnome-terminal expects utf-16 encoded text, but other terminals,
     # e.g. terminator, prefer utf-8, so allow cola.dragencoding
     # to override the default.
-    paths_text = subprocess.list2cmdline(abspaths)
+    paths_text = core.list2cmdline(abspaths)
     encoding = gitcfg.current().get('cola.dragencoding', 'utf-16')
     moz_text = core.encode(paths_text, encoding=encoding)
     mimedata.setData('text/x-moz-url', moz_text)
@@ -853,6 +786,95 @@ class BlockSignals(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         for w in self.widgets:
             w.blockSignals(self.values[w])
+
+
+class Task(QtCore.QRunnable):
+    """Disable auto-deletion to avoid gc issues
+
+    Python's garbage collector will try to double-free the task
+    once it's finished, so disable Qt's auto-deletion as a workaround.
+
+    """
+
+    FINISHED = SIGNAL('TASK_FINISHED')
+    RESULT = SIGNAL('TASK_RESULT')
+
+    def __init__(self, parent, *args, **kwargs):
+        QtCore.QRunnable.__init__(self)
+
+        self.channel = QtCore.QObject(parent)
+        self.result = None
+        self.setAutoDelete(False)
+
+    def run(self):
+        self.result = self.task()
+        self.channel.emit(self.RESULT, self.result)
+        self.done()
+
+    def task(self):
+        pass
+
+    def done(self):
+        self.channel.emit(self.FINISHED, self)
+
+    def connect(self, handler):
+        self.channel.connect(self.channel, self.RESULT,
+                             handler, Qt.QueuedConnection)
+
+
+class SimpleTask(Task):
+    """Run a simple callable as a task"""
+
+    def __init__(self, parent, fn, *args, **kwargs):
+        Task.__init__(self, parent)
+
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+
+    def task(self):
+        return self.fn(*self.args, **self.kwargs)
+
+
+class RunTask(QtCore.QObject):
+    """Runs QRunnable instances and transfers control when they finish"""
+
+    def __init__(self, parent=None):
+        QtCore.QObject.__init__(self, parent)
+        self.tasks = []
+        self.task_details = {}
+        self.threadpool = QtCore.QThreadPool.globalInstance()
+
+    def start(self, task, progress=None, finish=None):
+        """Start the task and register a callback"""
+        if progress is not None:
+            progress.show()
+        # prevents garbage collection bugs in certain PyQt4 versions
+        self.tasks.append(task)
+        task_id = id(task)
+        self.task_details[task_id] = (progress, finish)
+
+        self.connect(task.channel, Task.FINISHED, self.finish,
+                     Qt.QueuedConnection)
+        self.threadpool.start(task)
+
+    def finish(self, task, *args, **kwargs):
+        task_id = id(task)
+        try:
+            self.tasks.remove(task)
+        except:
+            pass
+        try:
+            progress, finish = self.task_details[task_id]
+            del self.task_details[task_id]
+        except KeyError:
+            finish = progress = None
+
+        if progress is not None:
+            progress.hide()
+
+        if finish is not None:
+            finish(task, *args, **kwargs)
 
 
 # Syntax highlighting

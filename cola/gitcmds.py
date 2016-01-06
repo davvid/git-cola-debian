@@ -114,21 +114,21 @@ def current_branch():
 
 def _read_git_head(head, default='master', git=git):
     """Pure-python .git/HEAD reader"""
-    # Legacy .git/HEAD symlinks
-    if core.islink(head):
-        refs_heads = core.realpath(git.git_path('refs', 'heads'))
-        path = core.abspath(head).replace('\\', '/')
-        if path.startswith(refs_heads + '/'):
-            return path[len(refs_heads)+1:]
-
-    # Common .git/HEAD "ref: refs/heads/master" file
-    elif core.isfile(head):
+    # Common .git/HEAD "ref: refs/heads/master" files
+    islink = core.islink(head)
+    if core.isfile(head) and not islink:
         data = core.read(head).rstrip()
         ref_prefix = 'ref: '
         if data.startswith(ref_prefix):
             return data[len(ref_prefix):]
         # Detached head
         return data
+    # Legacy .git/HEAD symlinks
+    elif islink:
+        refs_heads = core.realpath(git.git_path('refs', 'heads'))
+        path = core.abspath(head).replace('\\', '/')
+        if path.startswith(refs_heads + '/'):
+            return path[len(refs_heads)+1:]
 
     return default
 
@@ -384,14 +384,18 @@ def format_patchsets(to_export, revs, output='patches'):
     # Group the patches into continuous sets
     for idx, rev in enumerate(to_export[1:]):
         # Limit the search to the current neighborhood for efficiency
-        master_idx = revs[cur_master_idx:].index(rev)
-        master_idx += cur_master_idx
+        try:
+            master_idx = revs[cur_master_idx:].index(rev)
+            master_idx += cur_master_idx
+        except ValueError:
+            master_idx  = revs.index(rev)
+
         if master_idx == cur_master_idx + 1:
-            patches_to_export[ patchset_idx ].append(rev)
+            patches_to_export[patchset_idx].append(rev)
             cur_master_idx += 1
             continue
         else:
-            patches_to_export.append([ rev ])
+            patches_to_export.append([rev])
             cur_master_idx = master_idx
             patchset_idx += 1
 
@@ -649,9 +653,9 @@ def abort_merge():
         merge_msg_path = merge_message_path()
 
 
-def merge_message(revision):
-    """Return a merge message for FETCH_HEAD."""
-    fetch_head = git.git_path('FETCH_HEAD')
-    if core.exists(fetch_head):
-        return git.fmt_merge_msg('--file', fetch_head)[STDOUT]
-    return "Merge branch '%s'" % revision
+def strip_remote(remotes, remote_branch):
+    for remote in remotes:
+        prefix = remote + '/'
+        if remote_branch.startswith(prefix):
+            return remote_branch[len(prefix):]
+    return remote_branch.split('/', 1)[-1]

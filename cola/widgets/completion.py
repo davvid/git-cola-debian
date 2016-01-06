@@ -1,16 +1,15 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import re
-import subprocess
 
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-from cola import decorators
+from cola import core
 from cola import gitcmds
-from cola.i18n import N_
+from cola import icons
 from cola import qtutils
 from cola import utils
 from cola.models import main
@@ -128,7 +127,7 @@ class CompletionLineEdit(text.HintedLineEdit):
             words.pop()
 
         words.append(completion)
-        text = subprocess.list2cmdline(words)
+        text = core.list2cmdline(words)
         self.setText(text)
         self.emit(SIGNAL('changed()'))
         self._do_text_changed(text, '')
@@ -344,7 +343,6 @@ class CompletionModel(QtGui.QStandardItemModel):
         self.match_text = ''
         self.full_text = ''
         self.case_sensitive = False
-        self.icon_from_filename = decorators.memoize(qtutils.icon_from_filename)
 
         self.update_thread = GatherCompletionsThread(self)
         self.connect(self.update_thread,
@@ -370,11 +368,11 @@ class CompletionModel(QtGui.QStandardItemModel):
         return ((), (), set())
 
     def apply_matches(self, match_tuple):
-        self.match_tuple = match_tuple
         matched_refs, matched_paths, dirs = match_tuple
         QStandardItem = QtGui.QStandardItem
-        dir_icon = qtutils.dir_icon()
-        git_icon = qtutils.git_icon()
+
+        dir_icon = icons.directory()
+        git_icon = icons.cola()
 
         items = []
         for ref in matched_refs:
@@ -383,13 +381,14 @@ class CompletionModel(QtGui.QStandardItemModel):
             item.setIcon(git_icon)
             items.append(item)
 
+        from_filename = icons.from_filename
         for match in matched_paths:
             item = QStandardItem()
             item.setText(match)
             if match in dirs:
                 item.setIcon(dir_icon)
             else:
-                item.setIcon(self.icon_from_filename(match))
+                item.setIcon(from_filename(match))
             items.append(item)
 
         self.clear()
@@ -484,6 +483,37 @@ class GitRefCompletionModel(GitCompletionModel):
     def matches(self):
         model = self.main_model
         return model.local_branches + model.remote_branches + model.tags
+
+
+class GitPotentialBranchCompletionModel(GitCompletionModel):
+    """Completer for branches, tags, and potential branches"""
+
+    def __init__(self, parent):
+        GitCompletionModel.__init__(self, parent)
+
+    def matches(self):
+        model = self.main_model
+        remotes = model.remotes
+        remote_branches = model.remote_branches
+
+        ambiguous = set()
+        allnames = set(model.local_branches)
+        potential = []
+
+        for remote_branch in remote_branches:
+            branch = gitcmds.strip_remote(remotes, remote_branch)
+            if branch in allnames or branch == remote_branch:
+                ambiguous.add(branch)
+                continue
+            potential.append(branch)
+            allnames.add(branch)
+
+        potential_branches = [p for p in potential if p not in ambiguous]
+
+        return (model.local_branches +
+                potential_branches +
+                model.remote_branches +
+                model.tags)
 
 
 class GitBranchCompletionModel(GitCompletionModel):
@@ -605,6 +635,7 @@ def bind_lineedit(model):
 # Concrete classes
 GitLogLineEdit = bind_lineedit(GitLogCompletionModel)
 GitRefLineEdit = bind_lineedit(GitRefCompletionModel)
+GitPotentialBranchLineEdit = bind_lineedit(GitPotentialBranchCompletionModel)
 GitBranchLineEdit = bind_lineedit(GitBranchCompletionModel)
 GitRemoteBranchLineEdit = bind_lineedit(GitRemoteBranchCompletionModel)
 GitStatusFilterLineEdit = bind_lineedit(GitStatusFilterCompletionModel)
@@ -613,7 +644,7 @@ GitTrackedLineEdit = bind_lineedit(GitTrackedCompletionModel)
 
 class GitDialog(QtGui.QDialog):
 
-    def __init__(self, lineedit, title, button_text, parent):
+    def __init__(self, lineedit, title, button_text, parent, icon=None):
         QtGui.QDialog.__init__(self, parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(333)
@@ -624,12 +655,10 @@ class GitDialog(QtGui.QDialog):
         self.lineedit = lineedit()
         self.setFocusProxy(self.lineedit)
 
-        self.ok_button = QtGui.QPushButton()
-        self.ok_button.setText(button_text)
-        self.ok_button.setIcon(qtutils.apply_icon())
-
-        self.close_button = QtGui.QPushButton()
-        self.close_button.setText(N_('Close'))
+        if icon is None:
+            icon = icons.ok()
+        self.ok_button = qtutils.create_button(text=button_text, icon=icon)
+        self.close_button = qtutils.close_button()
 
         self.button_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                           qtutils.STRETCH,
@@ -660,8 +689,8 @@ class GitDialog(QtGui.QDialog):
         self.lineedit.setText(ref)
 
     @classmethod
-    def get(cls, title, button_text, parent, default=None):
-        dlg = cls(title, button_text, parent)
+    def get(cls, title, button_text, parent, default=None, icon=None):
+        dlg = cls(title, button_text, parent, icon=icon)
         if default:
             dlg.set_text(default)
 
@@ -687,20 +716,27 @@ class GitDialog(QtGui.QDialog):
 
 class GitRefDialog(GitDialog):
 
-    def __init__(self, title, button_text, parent):
+    def __init__(self, title, button_text, parent, icon=None):
         GitDialog.__init__(self, GitRefLineEdit,
-                           title, button_text, parent)
+                           title, button_text, parent, icon=icon)
+
+
+class GitPotentialBranchDialog(GitDialog):
+
+    def __init__(self, title, button_text, parent, icon=None):
+        GitDialog.__init__(self, GitPotentialBranchLineEdit,
+                           title, button_text, parent, icon=icon)
 
 
 class GitBranchDialog(GitDialog):
 
-    def __init__(self, title, button_text, parent):
+    def __init__(self, title, button_text, parent, icon=None):
         GitDialog.__init__(self, GitBranchLineEdit,
-                           title, button_text, parent)
+                           title, button_text, parent, icon=icon)
 
 
 class GitRemoteBranchDialog(GitDialog):
 
-    def __init__(self, title, button_text, parent):
+    def __init__(self, title, button_text, parent, icon=None):
         GitDialog.__init__(self, GitRemoteBranchLineEdit,
-                           title, button_text, parent)
+                           title, button_text, parent, icon=icon)

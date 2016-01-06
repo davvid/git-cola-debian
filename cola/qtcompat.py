@@ -3,6 +3,8 @@ from __future__ import division, absolute_import, unicode_literals
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 
+from cola import hotkeys
+
 
 def patch(obj, attr, value):
     if not hasattr(obj, attr):
@@ -18,13 +20,14 @@ def install():
     patch(QtGui.QHBoxLayout, 'setMargin', set_margin)
     patch(QtGui.QVBoxLayout, 'setMargin', set_margin)
 
-    patch(QtGui.QKeySequence, 'Preferences', 'Ctrl+,')
+    patch(QtGui.QKeySequence, 'Preferences', hotkeys.PREFERENCES)
     patch(QtGui.QGraphicsItem, 'mapRectToScene', _map_rect_to_scene)
 
 
 def add_search_path(prefix, path):
     if hasattr(QtCore.QDir, 'addSearchPath'):
         QtCore.QDir.addSearchPath(prefix, path)
+
 
 def set_common_dock_options(window):
     if not hasattr(window, 'setDockOptions'):

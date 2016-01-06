@@ -6,8 +6,8 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 from cola import gitcmds
+from cola import icons
 from cola import qtutils
-from cola import utils
 from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.models import main
@@ -20,11 +20,12 @@ from cola.compat import ustr
 COMMAND_SIGNAL = 'command(PyQt_PyObject,PyQt_PyObject,PyQt_PyObject)'
 
 
-def create_new_branch(revision=''):
+def create_new_branch(revision='', settings=None):
     """Launches a dialog for creating a new branch"""
     model = main.MainModel()
     model.update_status()
-    view = CreateBranchDialog(model, qtutils.active_window())
+    view = CreateBranchDialog(model, settings=settings,
+                              parent=qtutils.active_window())
     if revision:
         view.set_revision(revision)
     view.show()
@@ -82,7 +83,7 @@ class CreateThread(QtCore.QThread):
 class CreateBranchDialog(Dialog):
     """A dialog for creating branches."""
 
-    def __init__(self, model, parent=None):
+    def __init__(self, model, settings=None, parent=None):
         Dialog.__init__(self, parent=parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
         self.setWindowTitle(N_('Create Branch'))
@@ -112,105 +113,88 @@ class CreateBranchDialog(Dialog):
         if current:
             self.revision.setText(current)
 
-        self.local_radio = QtGui.QRadioButton()
-        self.local_radio.setText(N_('Local branch'))
-        self.local_radio.setChecked(True)
-
-        self.remote_radio = QtGui.QRadioButton()
-        self.remote_radio.setText(N_('Tracking branch'))
-
-        self.tag_radio = QtGui.QRadioButton()
-        self.tag_radio.setText(N_('Tag'))
+        self.local_radio = qtutils.radio(text=N_('Local branch'), checked=True)
+        self.remote_radio = qtutils.radio(text=N_('Tracking branch'))
+        self.tag_radio = qtutils.radio(text=N_('Tag'))
 
         self.branch_list = QtGui.QListWidget()
 
         self.update_existing_label = QtGui.QLabel()
         self.update_existing_label.setText(N_('Update Existing Branch:'))
 
-        self.no_update_radio = QtGui.QRadioButton()
-        self.no_update_radio.setText(N_('No'))
+        self.no_update_radio = qtutils.radio(text=N_('No'))
+        self.ffwd_only_radio = qtutils.radio(text=N_('Fast Forward Only'),
+                                             checked=True)
+        self.reset_radio = qtutils.radio(text=N_('Reset'))
 
-        self.ffwd_only_radio = QtGui.QRadioButton()
-        self.ffwd_only_radio.setText(N_('Fast Forward Only'))
-        self.ffwd_only_radio.setChecked(True)
+        text = N_('Fetch Tracking Branch')
+        self.fetch_checkbox = qtutils.checkbox(text=text, checked=True)
 
-        self.reset_radio = QtGui.QRadioButton()
-        self.reset_radio.setText(N_('Reset'))
+        text = N_('Checkout After Creation')
+        self.checkout_checkbox = qtutils.checkbox(text=text, checked=True)
 
-        self.fetch_checkbox = QtGui.QCheckBox()
-        self.fetch_checkbox.setText(N_('Fetch Tracking Branch'))
-        self.fetch_checkbox.setChecked(True)
-
-        self.checkout_checkbox = QtGui.QCheckBox()
-        self.checkout_checkbox.setText(N_('Checkout After Creation'))
-        self.checkout_checkbox.setChecked(True)
-
+        icon = icons.branch()
         self.create_button = qtutils.create_button(text=N_('Create Branch'),
-                                                   icon=qtutils.git_icon())
-        self.create_button.setDefault(True)
+                                                   icon=icon, default=True)
+        self.close_button = qtutils.close_button()
 
-        self.close_button = qtutils.create_button(text=N_('Close'))
-
-        self.rev_start_group = QtGui.QGroupBox()
-        self.rev_start_group.setTitle(N_('Starting Revision'))
-
-        self.option_group = QtGui.QGroupBox()
-        self.option_group.setTitle(N_('Options'))
-
-        self.options_checkbox_layout = qtutils.vbox(defs.margin, defs.spacing,
+        self.options_checkbox_layout = qtutils.hbox(defs.margin, defs.spacing,
                                                     self.fetch_checkbox,
-                                                    self.checkout_checkbox)
-
-        self.options_bottom_layout = qtutils.hbox(defs.margin, defs.spacing,
-                                                  self.options_checkbox_layout,
-                                                  qtutils.STRETCH)
+                                                    self.checkout_checkbox,
+                                                    qtutils.STRETCH)
 
         self.branch_name_layout = qtutils.hbox(defs.margin, defs.spacing,
                                                self.branch_name_label,
                                                self.branch_name)
 
-        self.rev_start_radiobtn_layout = qtutils.hbox(defs.margin, defs.spacing,
-                                                      self.local_radio,
-                                                      self.remote_radio,
-                                                      self.tag_radio,
-                                                      qtutils.STRETCH)
+        self.rev_radio_group = qtutils.buttongroup(self.local_radio,
+                                                   self.remote_radio,
+                                                   self.tag_radio)
 
-        self.rev_start_textinput_layout = qtutils.hbox(defs.no_margin, defs.spacing,
+        self.rev_radio_layout = qtutils.hbox(defs.margin, defs.spacing,
+                                             self.local_radio,
+                                             self.remote_radio,
+                                             self.tag_radio,
+                                             qtutils.STRETCH)
+
+        self.rev_start_textinput_layout = qtutils.hbox(defs.no_margin,
+                                                       defs.spacing,
                                                        self.rev_label,
+                                                       defs.spacing,
                                                        self.revision)
 
         self.rev_start_layout = qtutils.vbox(defs.no_margin, defs.spacing,
-                                             self.rev_start_radiobtn_layout,
+                                             self.rev_radio_layout,
                                              self.branch_list,
                                              self.rev_start_textinput_layout)
-        self.rev_start_group.setLayout(self.rev_start_layout)
+
+        self.options_radio_group = qtutils.buttongroup(self.no_update_radio,
+                                                       self.ffwd_only_radio,
+                                                       self.reset_radio)
 
         self.options_radio_layout = qtutils.hbox(defs.no_margin, defs.spacing,
                                                  self.update_existing_label,
                                                  self.no_update_radio,
                                                  self.ffwd_only_radio,
-                                                 self.reset_radio)
-
-        self.options_grp_layout = qtutils.vbox(defs.no_margin, defs.spacing,
-                                               self.options_radio_layout,
-                                               self.options_bottom_layout)
-        self.option_group.setLayout(self.options_grp_layout)
+                                                 self.reset_radio,
+                                                 qtutils.STRETCH)
 
         self.buttons_layout = qtutils.hbox(defs.margin, defs.spacing,
+                                           qtutils.STRETCH,
                                            self.create_button,
                                            self.close_button)
 
-        self.options_section_layout = qtutils.hbox(defs.no_margin, defs.spacing,
-                                                   self.option_group,
-                                                   self.buttons_layout)
-
         self.main_layout = qtutils.vbox(defs.margin, defs.spacing,
                                         self.branch_name_layout,
-                                        self.rev_start_group,
-                                        self.options_section_layout)
+                                        self.rev_start_layout,
+                                        defs.button_spacing,
+                                        self.options_radio_layout,
+                                        self.options_checkbox_layout,
+                                        self.buttons_layout)
         self.setLayout(self.main_layout)
 
-        qtutils.connect_button(self.close_button, self.reject)
+        qtutils.add_close_action(self)
+        qtutils.connect_button(self.close_button, self.close)
         qtutils.connect_button(self.create_button, self.create_branch)
         qtutils.connect_button(self.local_radio, self.display_model)
         qtutils.connect_button(self.remote_radio, self.display_model)
@@ -225,7 +209,9 @@ class CreateBranchDialog(Dialog):
         self.connect(self.thread, SIGNAL('done(PyQt_PyObject)'),
                      self.thread_done, Qt.QueuedConnection)
 
-        self.resize(555, 333)
+        if not self.restore_state(settings=settings):
+            self.resize(555, 333)
+
         self.display_model()
 
     def set_revision(self, revision):
@@ -289,7 +275,7 @@ class CreateBranchDialog(Dialog):
                                     dict(branch=branch, revision=revision)),
                                    N_('Reset Branch'),
                                    default=False,
-                                   icon=qtutils.theme_icon('edit-undo.svg')):
+                                   icon=icons.undo()):
                 return
         self.setEnabled(False)
         self.progress.setEnabled(True)
@@ -323,16 +309,16 @@ class CreateBranchDialog(Dialog):
         # When the branch selection changes then we should update
         # the "Revision Expression" accordingly.
         qlist = self.branch_list
-        rev = qtutils.selected_item(qlist, self.branch_sources())
-        if rev is None:
+        remote_branch = qtutils.selected_item(qlist, self.branch_sources())
+        if not remote_branch:
             return
         # Update the model with the selection
-        self.revision.setText(rev)
+        self.revision.setText(remote_branch)
 
         # Set the branch field if we're branching from a remote branch.
         if not self.remote_radio.isChecked():
             return
-        branch = utils.basename(rev)
+        branch = gitcmds.strip_remote(self.model.remotes, remote_branch)
         if branch == 'HEAD':
             return
         # Signal that we've clicked on a remote branch

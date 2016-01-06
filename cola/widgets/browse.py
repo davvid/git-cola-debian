@@ -9,6 +9,8 @@ from cola import cmds
 from cola import core
 from cola import difftool
 from cola import gitcmds
+from cola import hotkeys
+from cola import icons
 from cola import utils
 from cola import qtutils
 from cola.cmds import BaseCommand
@@ -16,8 +18,8 @@ from cola.git import git
 from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.models import main
+from cola.models.browse import GitRepoEntryStore
 from cola.models.browse import GitRepoModel
-from cola.models.browse import GitRepoEntryManager
 from cola.models.browse import GitRepoNameItem
 from cola.models.selection import State
 from cola.models.selection import selection_model
@@ -27,36 +29,44 @@ from cola.widgets.selectcommits import select_commits
 from cola.compat import ustr
 
 
-def worktree_browser_widget(parent, update=True):
+def worktree_browser_widget(parent, update=True, settings=None):
     """Return a widget for immediate use."""
-    view = Browser(parent, update=update)
+    view = Browser(parent, update=update, settings=settings)
     view.tree.setModel(GitRepoModel(view.tree))
     view.ctl = BrowserController(view.tree)
+    if update:
+        view.tree.refresh()
     return view
 
 
-def worktree_browser(update=True):
+def worktree_browser(update=True, settings=None):
     """Launch a new worktree browser session."""
-    view = worktree_browser_widget(None, update=update)
+    view = worktree_browser_widget(None, update=update, settings=settings)
     view.show()
     return view
 
 
 class Browser(standard.Widget):
-    def __init__(self, parent, update=True):
+
+    def __init__(self, parent, update=True, settings=None):
         standard.Widget.__init__(self, parent)
+        self.settings = settings
         self.tree = RepoTreeView(self)
         self.mainlayout = qtutils.hbox(defs.no_margin, defs.spacing, self.tree)
         self.setLayout(self.mainlayout)
-        self.resize(720, 420)
 
         self.connect(self, SIGNAL('updated()'),
                      self._updated_callback, Qt.QueuedConnection)
         self.model = main.model()
         self.model.add_observer(self.model.message_updated, self.model_updated)
-        qtutils.add_close_action(self)
+        if parent is None:
+            qtutils.add_close_action(self)
         if update:
             self.model_updated()
+
+        # Restore saved settings
+        if not self.restore_state(settings=settings):
+            self.resize(720, 420)
 
     # Read-only mode property
     mode = property(lambda self: self.model.mode)
@@ -73,7 +83,8 @@ class Browser(standard.Widget):
         msg += N_('Branch: %s') % branch
         self.setToolTip(msg)
 
-        title = N_('%(project)s: %(branch)s - Browse') % dict(project=self.model.project, branch=branch)
+        scope = dict(project=self.model.project, branch=branch)
+        title = N_('%(project)s: %(branch)s - Browse') % scope
         if self.mode == self.model.mode_amend:
             title += ' %s' % N_('(Amending)')
         self.setWindowTitle(title)
@@ -85,77 +96,179 @@ class RepoTreeView(standard.TreeView):
     def __init__(self, parent):
         standard.TreeView.__init__(self, parent)
 
+        self.saved_selection = []
+        self.saved_current_path = None
+        self.saved_open_folders = set()
+        self.restoring_selection = False
+
         self.setDragEnabled(True)
-        self.setRootIsDecorated(True)
+        self.setRootIsDecorated(False)
         self.setSortingEnabled(False)
         self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
 
         # Observe model updates
         model = main.model()
+        model.add_observer(model.message_about_to_update,
+                           self.emit_about_to_update)
         model.add_observer(model.message_updated, self.emit_update)
 
-        self.connect(self, SIGNAL('update()'), self.update_actions)
+        self.connect(self, SIGNAL('about_to_update()'), self.save_selection,
+                     Qt.QueuedConnection)
+        self.connect(self, SIGNAL('update()'), self.update_actions,
+                     Qt.QueuedConnection)
 
         # The non-Qt cola application model
         self.connect(self, SIGNAL('expanded(QModelIndex)'), self.size_columns)
+        self.connect(self, SIGNAL('expanded(QModelIndex)'), self.expanded)
+
         self.connect(self, SIGNAL('collapsed(QModelIndex)'), self.size_columns)
+        self.connect(self, SIGNAL('collapsed(QModelIndex)'), self.collapsed)
 
         # Sync selection before the key press event changes the model index
-        self.connect(self, SIGNAL('indexAboutToChange()'), self.sync_selection)
+        self.connect(self, SIGNAL('indexAboutToChange()'), self.sync_selection,
+                     Qt.QueuedConnection)
 
-        self.action_history = self._create_action(
-                N_('View History...'),
+        self.action_history = qtutils.add_action_with_status_tip(
+                self, N_('View History...'),
                 N_('View history for selected path(s)'),
-                self.view_history,
-                'Ctrl+Shift+H')
+                self.view_history, hotkeys.HISTORY)
 
-        self.action_stage = self._create_action(
-                cmds.StageOrUnstage.name(),
+        self.action_stage = qtutils.add_action_with_status_tip(
+                self, cmds.StageOrUnstage.name(),
                 N_('Stage/unstage selected path(s) for commit'),
-                cmds.run(cmds.StageOrUnstage),
-                cmds.StageOrUnstage.SHORTCUT)
+                cmds.run(cmds.StageOrUnstage), hotkeys.STAGE_SELECTION)
 
-        self.action_untrack = self._create_action(
-                N_('Untrack Selected'),
+        self.action_untrack = qtutils.add_action_with_status_tip(
+                self, N_('Untrack Selected'),
                 N_('Stop tracking path(s)'),
                 self.untrack_selected)
 
-        self.action_difftool = self._create_action(
-                cmds.LaunchDifftool.name(),
+        self.action_difftool = qtutils.add_action_with_status_tip(
+                self, cmds.LaunchDifftool.name(),
                 N_('Launch git-difftool on the current path.'),
-                cmds.run(cmds.LaunchDifftool),
-                cmds.LaunchDifftool.SHORTCUT)
+                cmds.run(cmds.LaunchDifftool), hotkeys.DIFF)
 
-        self.action_difftool_predecessor =self._create_action(
-                N_('Diff Against Predecessor...'),
+        self.action_difftool_predecessor = qtutils.add_action_with_status_tip(
+                self, N_('Diff Against Predecessor...'),
                 N_('Launch git-difftool against previous versions.'),
-                self.difftool_predecessor,
-                'Ctrl+Shift+D')
+                self.difftool_predecessor, hotkeys.DIFF_SECONDARY)
 
-        self.action_revert_unstaged = self._create_action(
-                cmds.RevertUnstagedEdits.name(),
+        self.action_revert_unstaged = qtutils.add_action_with_status_tip(
+                self, cmds.RevertUnstagedEdits.name(),
                 N_('Revert unstaged changes to selected paths.'),
-                cmds.run(cmds.RevertUnstagedEdits),
-                cmds.RevertUnstagedEdits.SHORTCUT)
+                cmds.run(cmds.RevertUnstagedEdits), hotkeys.REVERT)
 
-        self.action_revert_uncommitted = self._create_action(
-                cmds.RevertUncommittedEdits.name(),
+        self.action_revert_uncommitted = qtutils.add_action_with_status_tip(
+                self, cmds.RevertUncommittedEdits.name(),
                 N_('Revert uncommitted changes to selected paths.'),
-                cmds.run(cmds.RevertUncommittedEdits),
-                cmds.RevertUncommittedEdits.SHORTCUT)
+                cmds.run(cmds.RevertUncommittedEdits), hotkeys.UNDO)
 
-        self.action_editor = self._create_action(
-                cmds.LaunchEditor.name(),
+        self.action_editor = qtutils.add_action_with_status_tip(
+                self, cmds.LaunchEditor.name(),
                 N_('Edit selected path(s).'),
-                cmds.run(cmds.LaunchEditor),
-                cmds.LaunchEditor.SHORTCUT)
+                cmds.run(cmds.LaunchEditor), hotkeys.EDIT)
+
+        self.action_refresh  = qtutils.add_action(
+                self, N_('Refresh'), cmds.run(cmds.Refresh), hotkeys.REFRESH)
+
+        self.x_width = QtGui.QFontMetrics(self.font()).width('x')
+        self.size_columns()
+
+    def expanded(self, index):
+        item = self.model().itemFromIndex(index)
+        self.saved_open_folders.add(item.path)
+
+    def collapsed(self, index):
+        item = self.model().itemFromIndex(index)
+        self.saved_open_folders.remove(item.path)
+
+    def refresh(self):
+        self.model().refresh()
 
     def size_columns(self):
         """Set the column widths."""
         self.resizeColumnToContents(0)
+        self.resizeColumnToContents(1)
+        self.resizeColumnToContents(2)
+        self.resizeColumnToContents(3)
+        self.resizeColumnToContents(4)
+
+    def sizeHintForColumn(self, column):
+        x_width = self.x_width
+
+        if column == 1:
+            # Status
+            size = x_width * 10
+        elif column == 2:
+            # Summary
+            size = x_width * 64
+        elif column == 3:
+            # Author
+            size = x_width * 18
+        elif column == 4:
+            # Age
+            size = x_width * 16
+        else:
+            # Filename and others use the actual content
+            size = super(RepoTreeView, self).sizeHintForColumn(column)
+        return size
 
     def emit_update(self):
         self.emit(SIGNAL('update()'))
+
+    def emit_about_to_update(self):
+        self.emit(SIGNAL('about_to_update()'))
+
+    def save_selection(self):
+        selection = self.selected_paths()
+        if selection:
+            self.saved_selection = selection
+
+        current = self.current_item()
+        if current:
+            self.saved_current_path = current.path
+
+    def restore(self):
+        selection = self.selectionModel()
+        flags = selection.Select | selection.Rows
+
+        self.restoring_selection = True
+
+        # Restore opened folders
+        for path in sorted(self.saved_open_folders):
+            row = self.model().row(path, create=False)
+            if not row:
+                continue
+            index = row[0].index()
+            if index.isValid():
+                self.setExpanded(index, True)
+
+        # Restore the current item.  We do this first, otherwise
+        #  setCurrentIndex() can mess with the selection we set below
+        current_index = None
+        current_path = self.saved_current_path
+        if current_path:
+            row = self.model().row(current_path, create=False)
+            if row:
+                current_index = row[0].index()
+
+        if current_index and current_index.isValid():
+            self.setCurrentIndex(current_index)
+
+        # Restore selected items
+        for path in self.saved_selection:
+            row = self.model().row(path, create=False)
+            if not row:
+                continue
+            index = row[0].index()
+            if index.isValid():
+                self.scrollTo(index)
+                selection.select(index, flags)
+
+        self.restoring_selection = False
+
+        self.size_columns()
+        self.update_diff()
 
     def update_actions(self):
         """Enable/disable actions."""
@@ -227,21 +340,25 @@ class RepoTreeView(standard.TreeView):
         selection_model().set_selection(state)
         return paths
 
-    def selectionChanged(self, old_selection, new_selection):
+    def selectionChanged(self, old, new):
         """Override selectionChanged to update available actions."""
-        result = QtGui.QTreeView.selectionChanged(self, old_selection, new_selection)
-        self.update_actions()
-        paths = self.sync_selection()
+        result = QtGui.QTreeView.selectionChanged(self, old, new)
+        if not self.restoring_selection:
+            self.update_actions()
+            self.update_diff()
+        return result
 
+    def update_diff(self):
+        paths = self.sync_selection()
         if paths and self.model().path_is_interesting(paths[0]):
             cached = paths[0] in main.model().staged
             cmds.do(cmds.Diff, paths[0], cached)
-        return result
 
     def setModel(self, model):
         """Set the concrete QAbstractItemModel instance."""
         QtGui.QTreeView.setModel(self, model)
-        self.size_columns()
+        self.connect(model, SIGNAL('restore()'), self.restore,
+                     Qt.QueuedConnection)
 
     def item_from_index(self, model_index):
         """Return the name item corresponding to the model index."""
@@ -293,18 +410,6 @@ class RepoTreeView(standard.TreeView):
         return [p for p in selection
                 if p not in untracked or p in tracked]
 
-    def _create_action(self, name, tooltip, slot, shortcut=None):
-        """Create an action with a shortcut, tooltip, and callback slot."""
-        action = QtGui.QAction(name, self)
-        action.setStatusTip(tooltip)
-        if shortcut is not None:
-            if hasattr(Qt, 'WidgetWithChildrenShortcut'):
-                action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-            action.setShortcut(shortcut)
-        self.addAction(action)
-        qtutils.connect_action(action, slot)
-        return action
-
     def view_history(self):
         """Signal that we should view history for paths."""
         self.emit(SIGNAL('history(PyQt_PyObject)'), self.selected_paths())
@@ -327,11 +432,12 @@ class RepoTreeView(standard.TreeView):
 
 
 class BrowserController(QtCore.QObject):
+
     def __init__(self, view=None):
         QtCore.QObject.__init__(self, view)
         self.model = main.model()
         self.view = view
-        self.updated = set()
+        self.runtask = qtutils.RunTask(parent=self)
         self.connect(view, SIGNAL('history(PyQt_PyObject)'),
                      self.view_history)
         self.connect(view, SIGNAL('expanded(QModelIndex)'),
@@ -347,15 +453,15 @@ class BrowserController(QtCore.QObject):
     def query_model(self, model_index):
         """Update information about a directory as it is expanded."""
         item = self.view.item_from_index(model_index)
-        path = item.path
-        if path in self.updated:
+        if item.cached:
             return
-        self.updated.add(path)
-        GitRepoEntryManager.entry(path).update()
-        entry = GitRepoEntryManager.entry
+        path = item.path
+        GitRepoEntryStore.entry(path, self.view, self.runtask).update()
+        entry = GitRepoEntryStore.entry
         for row in range(item.rowCount()):
             path = item.child(row, 0).path
-            entry(path).update()
+            entry(path, self.view, self.runtask).update()
+        item.cached = True
 
     def difftool_predecessor(self, paths):
         """Prompt for an older commit and launch difftool against it."""
@@ -366,10 +472,11 @@ class BrowserController(QtCore.QObject):
         if not commits:
             return
         commit = commits[0]
-        difftool.launch([commit, '--'] + paths)
+        difftool.launch(left=commit, paths=paths)
 
 
 class BrowseModel(object):
+
     def __init__(self, ref):
         self.ref = ref
         self.relpath = None
@@ -377,6 +484,7 @@ class BrowseModel(object):
 
 
 class SaveBlob(BaseCommand):
+
     def __init__(self, model):
         BaseCommand.__init__(self)
         self.model = model
@@ -464,10 +572,14 @@ class BrowseDialog(QtGui.QDialog):
 
         # widgets
         self.tree = GitTreeWidget(parent=self)
-        self.close = QtGui.QPushButton(N_('Close'))
-        self.save = QtGui.QPushButton(select_file and N_('Select') or N_('Save'))
-        self.save.setDefault(True)
-        self.save.setEnabled(False)
+        self.close = qtutils.close_button()
+
+        if select_file:
+            text = N_('Select')
+        else:
+            text = N_('Save')
+        self.save = qtutils.create_button(text=text, enabled=False,
+                                          default=True)
 
         # layouts
         self.btnlayt = qtutils.hbox(defs.margin, defs.spacing,
@@ -486,7 +598,7 @@ class BrowseDialog(QtGui.QDialog):
                          self.save_path)
 
         self.connect(self.tree, SIGNAL('selectionChanged()'),
-                     self.selection_changed)
+                     self.selection_changed, Qt.QueuedConnection)
 
         qtutils.connect_button(self.close, self.reject)
         qtutils.connect_button(self.save, self.save_blob)
@@ -530,6 +642,7 @@ class BrowseDialog(QtGui.QDialog):
 
 
 class GitTreeWidget(standard.TreeView):
+
     def __init__(self, parent=None):
         standard.TreeView.__init__(self, parent)
         self.setHeaderHidden(True)
@@ -546,7 +659,7 @@ class GitTreeWidget(standard.TreeView):
         self.emit(SIGNAL('path_chosen(PyQt_PyObject)'), item.path)
 
     def selected_files(self):
-        items = map(self.model().itemFromIndex, self.selectedIndexes())
+        items = self.selected_items()
         return [i.path for i in items if not i.is_dir]
 
     def selectionChanged(self, old_selection, new_selection):
@@ -568,6 +681,7 @@ class GitTreeWidget(standard.TreeView):
 
 class GitFileTreeModel(QtGui.QStandardItemModel):
     """Presents a list of file paths as a hierarchical tree."""
+
     def __init__(self, parent):
         QtGui.QStandardItemModel.__init__(self, parent)
         self.dir_entries = {'': self.invisibleRootItem()}
@@ -601,14 +715,19 @@ class GitFileTreeModel(QtGui.QStandardItemModel):
         # Create model items
         row_items = self.create_row(path, True)
 
+        try:
+            parent_path = parent.path
+        except AttributeError:  # root QStandardItem
+            parent_path = ''
+
         # Insert directories before file paths
         try:
-            row = self.dir_rows[parent]
+            row = self.dir_rows[parent_path]
         except KeyError:
-            row = self.dir_rows[parent] = 0
+            row = self.dir_rows[parent_path] = 0
 
         parent.insertRow(row, row_items)
-        self.dir_rows[parent] += 1
+        self.dir_rows[parent_path] += 1
         self.dir_entries[path] = row_items[0]
 
         return row_items[0]
@@ -643,6 +762,7 @@ class GitFileTreeModel(QtGui.QStandardItemModel):
 
 
 class GitTreeModel(GitFileTreeModel):
+
     def __init__(self, ref, parent):
         GitFileTreeModel.__init__(self, parent)
         self.ref = ref
@@ -689,6 +809,7 @@ class GitTreeItem(QtGui.QStandardItem):
         self.setDragEnabled(False)
         self.setText(utils.basename(path))
         if is_dir:
-            self.setIcon(qtutils.dir_icon())
+            icon = icons.directory()
         else:
-            self.setIcon(qtutils.file_icon())
+            icon = icons.file_text()
+        self.setIcon(icon)

@@ -1,5 +1,4 @@
-"""
-Provides the git-cola startup dialog
+"""Provides the git-cola startup dialog
 
 The startup dialog is presented when no repositories can be
 found at startup.
@@ -13,39 +12,38 @@ from PyQt4.QtCore import SIGNAL
 
 from cola import core
 from cola import guicmds
+from cola import icons
 from cola import qtutils
 from cola.compat import ustr
-from cola.guicmds import TaskRunner
 from cola.i18n import N_
 from cola.settings import Settings
 from cola.widgets import defs
-from cola.widgets.standard import ProgressDialog
+from cola.widgets import standard
 
 
-class StartupDialog(QtGui.QDialog):
+class StartupDialog(standard.Dialog):
     """Provides a GUI to Open or Clone a git repository."""
 
-    def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+    def __init__(self, parent=None, settings=None):
+        standard.Dialog.__init__(self, parent, save_settings=True)
         self.setWindowTitle(N_('git-cola'))
 
         self.repodir = None
-        self.task_runner = TaskRunner(self)
-        self.progress = ProgressDialog('', '', self)
+        self.runtask = qtutils.RunTask(parent=self)
+        self.progress = standard.ProgressDialog('', '', self)
 
-        self.new_button = QtGui.QPushButton(N_('New...'))
-        self.new_button.setIcon(qtutils.new_icon())
+        self.new_button = qtutils.create_button(text=N_('New...'),
+                                                icon=icons.new())
+        self.open_button = qtutils.create_button(text=N_('Open...'),
+                                                 icon=icons.repo())
+        self.clone_button = qtutils.create_button(text=N_('Clone...'),
+                                                  icon=icons.cola())
+        self.close_button = qtutils.close_button()
 
-        self.open_button = QtGui.QPushButton(N_('Open...'))
-        self.open_button.setIcon(qtutils.open_icon())
-
-        self.clone_button = QtGui.QPushButton(N_('Clone...'))
-        self.clone_button.setIcon(qtutils.git_icon())
-
-        self.close_button = QtGui.QPushButton(N_('Close'))
-
-        settings = Settings()
+        if settings is None:
+            settings = Settings()
         settings.load()
+        self.settings = settings
 
         self.bookmarks_label = QtGui.QLabel(N_('Select Repository...'))
         self.bookmarks_label.setAlignment(Qt.AlignCenter)
@@ -98,6 +96,11 @@ class StartupDialog(QtGui.QDialog):
         self.connect(self.bookmarks,
                      SIGNAL('activated(QModelIndex)'), self.open_bookmark)
 
+        if not self.restore_state(settings=settings):
+            screen = QtGui.QApplication.instance().desktop()
+            self.setGeometry(screen.width() // 4, screen.height() // 4,
+                            screen.width() // 2, screen.height() // 2)
+
     def find_git_repo(self):
         """
         Return a path to a git repository
@@ -123,7 +126,7 @@ class StartupDialog(QtGui.QDialog):
             self.accept()
 
     def clone_repo(self):
-        guicmds.clone_repo(self.task_runner, self.progress,
+        guicmds.clone_repo(self, self.runtask, self.progress,
                            self.clone_repo_done, False)
 
     def clone_repo_done(self, task):

@@ -1,7 +1,6 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import collections
-import subprocess
 import math
 
 from PyQt4 import QtGui
@@ -11,8 +10,11 @@ from PyQt4.QtCore import SIGNAL
 from PyQt4.QtCore import QPointF
 from PyQt4.QtCore import QRectF
 
+from cola import core
 from cola import cmds
 from cola import difftool
+from cola import hotkeys
+from cola import icons
 from cola import observable
 from cola import qtutils
 from cola.i18n import N_
@@ -213,7 +215,7 @@ class CommitTreeWidget(ViewerMixin, standard.TreeWidget):
         standard.TreeWidget.__init__(self, parent)
         ViewerMixin.__init__(self)
 
-        self.setSelectionMode(self.ContiguousSelection)
+        self.setSelectionMode(self.ExtendedSelection)
         self.setHeaderLabels([N_('Summary'), N_('Author'), N_('Date, Time')])
 
         self.sha1map = {}
@@ -221,11 +223,11 @@ class CommitTreeWidget(ViewerMixin, standard.TreeWidget):
         self.selecting = False
         self.commits = []
 
-        self.action_up = qtutils.add_action(self, N_('Go Up'), self.go_up,
-                                            Qt.Key_K)
+        self.action_up = qtutils.add_action(self, N_('Go Up'),
+                                            self.go_up, hotkeys.MOVE_UP)
 
-        self.action_down = qtutils.add_action(self, N_('Go Down'), self.go_down,
-                                              Qt.Key_J)
+        self.action_down = qtutils.add_action(self, N_('Go Down'),
+                                              self.go_down, hotkeys.MOVE_DOWN)
 
         notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
 
@@ -247,6 +249,12 @@ class CommitTreeWidget(ViewerMixin, standard.TreeWidget):
         found = finder(item)
         if found:
             self.select([found.commit.sha1])
+
+    def selected_commit_range(self):
+        selected_items = self.selected_items()
+        if not selected_items:
+            return None, None
+        return selected_items[-1].commit.sha1, selected_items[0].commit.sha1
 
     def set_selecting(self, selecting):
         self.selecting = selecting
@@ -345,22 +353,21 @@ class GitDAG(standard.MainWindow):
         self.maxresults = standard.SpinBox()
 
         self.zoom_out = qtutils.create_action_button(
-                tooltip=N_('Zoom Out'),
-                icon=qtutils.theme_icon('zoom-out.png'))
+                tooltip=N_('Zoom Out'), icon=icons.zoom_out())
 
         self.zoom_in = qtutils.create_action_button(
-                tooltip=N_('Zoom In'),
-                icon=qtutils.theme_icon('zoom-in.png'))
+                tooltip=N_('Zoom In'), icon=icons.zoom_in())
 
         self.zoom_to_fit = qtutils.create_action_button(
-                tooltip=N_('Zoom to Fit'),
-                icon=qtutils.theme_icon('zoom-fit-best.png'))
+                tooltip=N_('Zoom to Fit'), icon=icons.zoom_fit_best())
 
         self.notifier = notifier = observable.Observable()
         self.notifier.refs_updated = refs_updated = 'refs_updated'
         self.notifier.add_observer(refs_updated, self.display)
         self.notifier.add_observer(filelist.HISTORIES_SELECTED,
                                    self.histories_selected)
+        self.notifier.add_observer(filelist.DIFFTOOL_SELECTED,
+                                   self.difftool_selected)
         self.notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
 
         self.treewidget = CommitTreeWidget(notifier, self)
@@ -387,7 +394,8 @@ class GitDAG(standard.MainWindow):
 
         self.graph_controls_layout = qtutils.hbox(
                 defs.no_margin, defs.button_spacing,
-                self.zoom_out, self.zoom_in, self.zoom_to_fit)
+                self.zoom_out, self.zoom_in, self.zoom_to_fit,
+                defs.spacing)
 
         self.graph_controls_widget = QtGui.QWidget()
         self.graph_controls_widget.setLayout(self.graph_controls_layout)
@@ -401,7 +409,7 @@ class GitDAG(standard.MainWindow):
                 N_('Lock Layout'), self.set_lock_layout, False)
 
         self.refresh_action = qtutils.add_action(self,
-                N_('Refresh'), self.refresh, 'Ctrl+R')
+                N_('Refresh'), self.refresh, hotkeys.REFRESH)
 
         # Create the application menu
         self.menubar = QtGui.QMenuBar(self)
@@ -443,6 +451,8 @@ class GitDAG(standard.MainWindow):
 
         self.thread.connect(self.thread, self.thread.begin, self.thread_begin,
                             Qt.QueuedConnection)
+        self.thread.connect(self.thread, self.thread.status, self.thread_status,
+                            Qt.QueuedConnection)
         self.thread.connect(self.thread, self.thread.add, self.add_commits,
                             Qt.QueuedConnection)
         self.thread.connect(self.thread, self.thread.end, self.thread_end,
@@ -474,7 +484,7 @@ class GitDAG(standard.MainWindow):
         self.connect(self, SIGNAL('model_updated()'), self.model_updated,
                      Qt.QueuedConnection)
 
-        qtutils.add_action(self, 'Focus Input', self.focus_input, 'Ctrl+L')
+        qtutils.add_action(self, 'Focus Input', self.focus_input, hotkeys.FOCUS)
         qtutils.add_close_action(self)
 
     def focus_input(self):
@@ -562,6 +572,9 @@ class GitDAG(standard.MainWindow):
         self.focus_tree()
         self.restore_selection()
 
+    def thread_status(self, successful):
+        self.revtext.hint.set_error(not successful)
+
     def restore_selection(self):
         selection = self.selection
         try:
@@ -591,7 +604,7 @@ class GitDAG(standard.MainWindow):
     def diff_commits(self, a, b):
         paths = self.ctx.paths()
         if paths:
-            difftool.launch([a, b, '--'] + paths)
+            difftool.launch(left=a, right=b, paths=paths)
         else:
             difftool.diff_commits(self, a, b)
 
@@ -608,15 +621,23 @@ class GitDAG(standard.MainWindow):
     def histories_selected(self, histories):
         argv = [self.model.currentbranch, '--']
         argv.extend(histories)
-        text = subprocess.list2cmdline(argv)
+        text = core.list2cmdline(argv)
         self.revtext.setText(text)
         self.display()
+
+    def difftool_selected(self, files):
+        bottom, top = self.treewidget.selected_commit_range()
+        if not top:
+            return
+        difftool.launch(left=bottom, left_take_parent=True,
+                        right=top, paths=files)
 
 
 class ReaderThread(QtCore.QThread):
     begin = SIGNAL('begin')
     add = SIGNAL('add')
     end = SIGNAL('end')
+    status = SIGNAL('status')
 
     def __init__(self, ctx, parent):
         QtCore.QThread.__init__(self, parent)
@@ -644,6 +665,7 @@ class ReaderThread(QtCore.QThread):
                 self.emit(self.add, commits)
                 commits = []
 
+        self.emit(self.status, repo.returncode == 0)
         if commits:
             self.emit(self.add, commits)
         self.emit(self.end)
@@ -802,6 +824,10 @@ class EdgeColor(object):
     @classmethod
     def current(cls):
         return cls.colors[cls.current_color_index]
+
+    @classmethod
+    def reset(cls):
+        cls.current_color_index = 0
 
 
 class Commit(QtGui.QGraphicsItem):
@@ -1052,30 +1078,31 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
         self.setResizeAnchor(QtGui.QGraphicsView.NoAnchor)
         self.setBackgroundBrush(QtGui.QColor(Qt.white))
 
-        qtutils.add_action(self, N_('Zoom In'),
-                           self.zoom_in, Qt.Key_Plus, Qt.Key_Equal)
+        qtutils.add_action(self, N_('Zoom In'), self.zoom_in,
+                           hotkeys.ZOOM_IN, hotkeys.ZOOM_IN_SECONDARY)
 
-        qtutils.add_action(self, N_('Zoom Out'),
-                           self.zoom_out, Qt.Key_Minus)
+        qtutils.add_action(self, N_('Zoom Out'), self.zoom_out,
+                           hotkeys.ZOOM_OUT)
 
         qtutils.add_action(self, N_('Zoom to Fit'),
-                           self.zoom_to_fit, Qt.Key_F)
+                           self.zoom_to_fit, hotkeys.FIT)
 
         qtutils.add_action(self, N_('Select Parent'),
-                           self.select_parent, 'Shift+J')
+                           self.select_parent, hotkeys.MOVE_DOWN_TERTIARY)
 
         qtutils.add_action(self, N_('Select Oldest Parent'),
-                           self.select_oldest_parent, Qt.Key_J)
+                           self.select_oldest_parent, hotkeys.MOVE_DOWN)
 
         qtutils.add_action(self, N_('Select Child'),
-                           self.select_child, 'Shift+K')
+                           self.select_child, hotkeys.MOVE_UP_TERTIARY)
 
         qtutils.add_action(self, N_('Select Newest Child'),
-                           self.select_newest_child, Qt.Key_K)
+                           self.select_newest_child, hotkeys.MOVE_UP)
 
         notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
 
     def clear(self):
+        EdgeColor.reset()
         self.scene().clear()
         self.selection_list = []
         self.items.clear()
