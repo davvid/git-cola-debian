@@ -19,7 +19,6 @@ from cola.models import main
 from cola.widgets import completion
 from cola.widgets.browse import BrowseDialog
 from cola.widgets.selectcommits import select_commits
-from cola.compat import ustr
 
 
 def delete_branch():
@@ -94,11 +93,11 @@ def new_repo():
     paths = dlg.selectedFiles()
     if not paths:
         return None
-    path = ustr(paths[0])
+    path = paths[0]
     if not path:
         return None
     # Avoid needlessly calling `git init`.
-    if git.is_git_dir(path):
+    if git.is_git_worktree(path) or git.is_git_dir(path):
         # We could prompt here and confirm that they really didn't
         # mean to open an existing repository, but I think
         # treating it like an "Open" is a sensible DWIM answer.
@@ -297,12 +296,25 @@ def report_clone_repo_errors(task):
                          message=task.cmd.error_message,
                          details=task.cmd.error_details)
 
+
 def rename_branch():
     """Launch the 'Rename Branch' dialogs."""
     branch = choose_branch(N_('Rename Existing Branch'), N_('Select'))
     if not branch:
         return
-    new_branch = choose_branch(N_('Enter Branch New Name'), N_('Rename'))
+    new_branch = choose_branch(N_('Enter New Branch Name'), N_('Rename'))
     if not new_branch:
         return
     cmds.do(cmds.RenameBranch, branch, new_branch)
+
+
+def reset_branch_head():
+    ref = choose_ref(N_('Reset Branch Head'), N_('Reset'), default='HEAD^')
+    if ref:
+        cmds.do(cmds.ResetBranchHead, ref)
+
+
+def reset_worktree():
+    ref = choose_ref(N_('Reset Worktree'), N_('Reset'))
+    if ref:
+        cmds.do(cmds.ResetWorktree, ref)

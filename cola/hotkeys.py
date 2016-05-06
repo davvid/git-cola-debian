@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from PyQt4.QtGui import QKeySequence
 from PyQt4.QtCore import Qt
 
@@ -30,9 +32,9 @@ MOVE_UP_SECONDARY = Qt.AltModifier + Qt.Key_K
 MOVE_UP_TERTIARY = Qt.ShiftModifier + Qt.Key_K
 MOVE_RIGHT = Qt.Key_L
 FOCUS = Qt.ControlModifier + Qt.Key_L
+FOCUS_STATUS = Qt.ControlModifier + Qt.Key_K
 AMEND = Qt.ControlModifier + Qt.Key_M
 MERGE = Qt.ControlModifier + Qt.ShiftModifier + Qt.Key_M
-OPEN = Qt.ControlModifier + Qt.Key_O
 PUSH = Qt.ControlModifier + Qt.Key_P
 PULL = Qt.ControlModifier + Qt.ShiftModifier + Qt.Key_P
 # Q-Z

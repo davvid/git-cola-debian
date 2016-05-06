@@ -1,7 +1,19 @@
 #!/usr/bin/env python
 
-import os
+from __future__ import absolute_import, division, unicode_literals
+
+# Hacktastic hack to fix python's stupid ascii default encoding, which
+# breaks inside distutils when installing from utf-8 paths.
 import sys
+try:
+    # pylint: disable=reload-builtin
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
+except NameError:  # Python3
+    pass
+
+
+import os
 from glob import glob
 from distutils.core import setup
 

@@ -15,7 +15,6 @@ from cola.git import git
 from cola.git import STDOUT
 from cola.i18n import N_
 from cola.widgets import defs
-from cola.compat import ustr
 
 
 class ExpandableGroupBox(QtGui.QGroupBox):
@@ -74,15 +73,17 @@ class ExpandableGroupBox(QtGui.QGroupBox):
             painter.drawPrimitive(style.PE_IndicatorArrowRight, option)
 
 
+def show_save_dialog(oid, parent=None):
+    shortoid = oid[:7]
+    dlg = GitArchiveDialog(oid, shortoid, parent=parent)
+    dlg.show()
+    dlg.raise_()
+    if dlg.exec_() != dlg.Accepted:
+        return None
+    return dlg
+
 
 class GitArchiveDialog(QtGui.QDialog):
-
-    @staticmethod
-    def save_hashed_objects(ref, shortref, parent=None):
-        dlg = GitArchiveDialog(ref, shortref, parent)
-        if dlg.exec_() != dlg.Accepted:
-            return None
-        return dlg
 
     def __init__(self, ref, shortref=None, parent=None):
         QtGui.QDialog.__init__(self, parent)
@@ -203,14 +204,14 @@ class GitArchiveDialog(QtGui.QDialog):
         self.filetext.setText(filename)
         self.update_filetext_for_format(self.format_combo.currentIndex())
 
-    def filetext_changed(self, qstr):
-        self.filename = ustr(qstr)
+    def filetext_changed(self, filename):
+        self.filename = filename
         self.save.setEnabled(bool(self.filename))
         prefix = self.strip_exts(os.path.basename(self.filename)) + '/'
         self.prefix_text.setText(prefix)
 
-    def prefix_text_changed(self, qstr):
-        self.prefix = ustr(qstr)
+    def prefix_text_changed(self, prefix):
+        self.prefix = prefix
 
     def strip_exts(self, text):
         for format_string in self.format_strings:
@@ -221,7 +222,7 @@ class GitArchiveDialog(QtGui.QDialog):
 
     def update_filetext_for_format(self, idx):
         self.fmt = self.format_strings[idx]
-        text = self.strip_exts(ustr(self.filetext.text()))
+        text = self.strip_exts(self.filetext.text())
         self.filename = '%s.%s' % (text, self.fmt)
         self.filetext.setText(self.filename)
         self.filetext.setFocus()

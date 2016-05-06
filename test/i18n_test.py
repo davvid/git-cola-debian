@@ -1,12 +1,9 @@
-# -*- encoding: utf-8 -*-
-from __future__ import unicode_literals
-
-import sip
-sip.setapi('QString', 1)
+from __future__ import absolute_import, division, unicode_literals
 
 import unittest
 
-from PyQt4 import QtCore
+from cola import sipcompat
+sipcompat.initialize()
 
 from cola import i18n
 from cola.i18n import N_
@@ -58,14 +55,6 @@ class ColaI18nTestCase(unittest.TestCase):
         i18n.install('en_US.UTF-8')
         expect = 'Random'
         actual = N_('Random')
-        self.assertEqual(expect, actual)
-
-    def test_guards_against_qstring(self):
-        """Test that random QString is passed through as-is
-        """
-        i18n.install('en_US.UTF-8')
-        expect = 'Random'
-        actual = i18n.gettext(QtCore.QString('Random'))
         self.assertEqual(expect, actual)
 
 

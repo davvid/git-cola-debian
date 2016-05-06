@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from __future__ import unicode_literals
+
+from __future__ import absolute_import, division, unicode_literals
 
 import unittest
 from cola import textwrap
@@ -108,6 +109,21 @@ Link: This also avoids word-wrap
         expect = """0 1 2 3 4 5 6 7 8 9\n0 1 2 3 4 5 6 7 8"""
         self.limit = 20
         actual = self.wrap(inputs)
+        self.assertEqual(expect, actual)
+
+    def test_word_wrap_ranges(self):
+        text = 'a bb ccc dddd\neeeee'
+        expect = 'a\nbb\nccc\ndddd\neeeee'
+        actual = textwrap.word_wrap(text, 8, 2)
+        self.assertEqual(expect, actual)
+
+        expect = 'a bb\nccc\ndddd\neeeee'
+        actual = textwrap.word_wrap(text, 8, 4)
+        self.assertEqual(expect, actual)
+
+        text = 'a bb ccc dddd\n\teeeee'
+        expect = 'a bb\nccc\ndddd\n\t\neeeee'
+        actual = textwrap.word_wrap(text, 8, 4)
         self.assertEqual(expect, actual)
 
 

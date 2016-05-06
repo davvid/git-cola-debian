@@ -1,15 +1,16 @@
 #!/usr/bin/env python
 
+from __future__ import absolute_import, division, unicode_literals
+
 import os
 import sys
 import re
 from argparse import ArgumentParser
 
-from os.path import abspath
-from os.path import dirname
-
 
 def setup_environment():
+    abspath = os.path.abspath
+    dirname = os.path.dirname
     prefix = dirname(dirname(dirname(dirname(abspath(__file__)))))
     source_tree = os.path.join(prefix, 'cola', '__init__.py')
     if os.path.exists(source_tree):
@@ -27,7 +28,6 @@ from cola import icons
 from cola import observable
 from cola import qtutils
 from cola import utils
-from cola.compat import ustr
 from cola.i18n import N_
 from cola.models import dag
 from cola.models import prefs
@@ -429,7 +429,7 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
         self.validate()
 
     def contextMenuEvent(self, event):
-        menu = QtGui.QMenu(self)
+        menu = qtutils.create_menu(N_('Actions'), self)
         menu.addAction(self.action_pick)
         menu.addAction(self.action_reword)
         menu.addAction(self.action_edit)
@@ -536,7 +536,6 @@ class RebaseTreeWidgetItem(QtGui.QTreeWidgetItem):
         """Set the item to a different command, no-op for exec items"""
         if self.is_exec():
             return
-        command = ustr(command)
         self.command = command
 
     def refresh(self):

@@ -495,7 +495,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def create_context_menu(self):
         """Set up the status menu for the repo status tree."""
         s = self.selection()
-        menu = QtGui.QMenu(self)
+        menu = qtutils.create_menu('Status', self)
 
         selected_indexes = self.selected_indexes()
         if selected_indexes:
@@ -667,7 +667,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             menu.addAction(icons.edit(),
                            N_('Add to .gitignore'),
                            cmds.run(cmds.Ignore,
-                                    map(lambda x: '/' + x, self.untracked())))
+                                    [('/' + x) for x in self.untracked()]))
         menu.addSeparator()
         menu.addAction(self.copy_path_action)
         menu.addAction(self.copy_relpath_action)

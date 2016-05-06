@@ -2,6 +2,9 @@ from __future__ import division, absolute_import, unicode_literals
 
 import time
 
+from cola import sipcompat
+sipcompat.initialize()
+
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import QtNetwork
@@ -9,7 +12,7 @@ from PyQt4.QtCore import SIGNAL
 
 from cola import core
 from cola import icons
-from cola.compat import ustr, urllib
+from cola.compat import ustr, parse
 from cola.widgets import defs
 import hashlib
 
@@ -18,10 +21,12 @@ class Gravatar(object):
 
     @staticmethod
     def url_for_email(email, imgsize):
-        email_hash = hashlib.md5(core.encode(email)).hexdigest()
-        default_url = b'https://git-cola.github.io/images/git-64x64.jpg'
-        encoded_url = urllib.quote(default_url, b'')
-        query = '?s=%d&d=%s' % (imgsize, encoded_url)
+        email_hash = core.decode(hashlib.md5(core.encode(email)).hexdigest())
+        # Python2.6 requires byte strings for urllib2.quote() so we have
+        # to force
+        default_url = 'https://git-cola.github.io/images/git-64x64.jpg'
+        encoded_url = parse.quote(core.encode(default_url), core.encode(''))
+        query = '?s=%d&d=%s' % (imgsize, core.decode(encoded_url))
         url = 'https://gravatar.com/avatar/' + email_hash + query
         return url
 
@@ -74,18 +79,16 @@ class GravatarLabel(QtGui.QLabel):
         email = self.email
 
         header = QtCore.QByteArray('Location')
-        raw_header = reply.rawHeader(header)
-        if raw_header:
-            location = ustr(QtCore.QString(raw_header)).strip()
-            request_location = ustr(
-                    Gravatar.url_for_email(self.email, self.imgsize))
+        location = ustr(reply.rawHeader(header)).strip()
+        if location:
+            request_location = Gravatar.url_for_email(self.email, self.imgsize)
             relocated = location != request_location
         else:
             relocated = False
 
         if reply.error() == QtNetwork.QNetworkReply.NoError:
             if relocated:
-                # We could do get_url(urllib.unquote(location)) to
+                # We could do get_url(parse.unquote(location)) to
                 # download the default image.
                 # Save bandwidth by using a pixmap.
                 self.response = self.default_pixmap_as_bytes()
@@ -103,7 +106,7 @@ class GravatarLabel(QtGui.QLabel):
         # email address.  We can't blindly trust self.email else
         # we may add cache entries for thee wrong email address.
         url = Gravatar.url_for_email(email, self.imgsize)
-        if url == ustr(reply.url().toString()):
+        if url == reply.url().toString():
             self.pixmaps[email] = pixmap
 
     def set_pixmap_from_response(self):

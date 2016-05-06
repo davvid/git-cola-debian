@@ -1,5 +1,7 @@
 """build_mo command for setup.py"""
 
+from __future__ import absolute_import, division, unicode_literals
+
 from distutils import log
 from distutils.command.build import build
 from distutils.core import Command
@@ -18,12 +20,16 @@ class build_mo(Command):
     #   - long name,
     #   - short name (None if no short name),
     #   - help string.
-    user_options = [('build-dir=', 'd', 'Directory to build locale files'),
-                    ('output-base=', 'o', 'mo-files base name'),
-                    ('source-dir=', None, 'Directory with sources po files'),
-                    ('force', 'f', 'Force creation of mo files'),
-                    ('lang=', None, 'Comma-separated list of languages '
-                                    'to process')]
+    user_options = [(str('build-dir='), str('d'),
+                        'Directory to build locale files'),
+                    (str('output-base='), str('o'),
+                        'mo-files base name'),
+                    (str('source-dir='), None,
+                        'Directory with sources po files'),
+                    (str('force'), str('f'),
+                        'Force creation of mo files'),
+                    (str('lang='), None,
+                        'Comma-separated list of languages to process')]
 
     boolean_options = ['force']
 

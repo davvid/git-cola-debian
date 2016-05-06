@@ -11,6 +11,7 @@ from os.path import join
 from cola import core
 from cola import git
 from cola import observable
+from cola.compat import int_types
 from cola.decorators import memoize
 from cola.git import STDOUT
 from cola.compat import ustr
@@ -30,10 +31,13 @@ def current():
 
 def _stat_info():
     # Try /etc/gitconfig as a fallback for the system config
-    paths = (('system', '/etc/gitconfig'),
+    paths = [('system', '/etc/gitconfig'),
              ('user', _USER_XDG_CONFIG),
-             ('user', _USER_CONFIG),
-             ('repo', git.current().git_path('config')))
+             ('user', _USER_CONFIG)]
+    config = git.current().git_path('config')
+    if config:
+         paths.append(('repo', config))
+
     statinfo = []
     for category, path in paths:
         try:
@@ -45,10 +49,13 @@ def _stat_info():
 
 def _cache_key():
     # Try /etc/gitconfig as a fallback for the system config
-    paths = ('/etc/gitconfig',
+    paths = ['/etc/gitconfig',
              _USER_XDG_CONFIG,
-             _USER_CONFIG,
-             git.current().git_path('config'))
+             _USER_CONFIG]
+    config = git.current().git_path('config')
+    if config:
+        paths.append(config)
+
     mtimes = []
     for path in paths:
         try:
@@ -142,7 +149,7 @@ class GitConfig(observable.Observable):
         """
         # Try the git config in git's installation prefix
         statinfo = _stat_info()
-        self._configs = map(lambda x: x[1], statinfo)
+        self._configs = [x[1] for x in statinfo]
         self._config_files = {}
         for (cat, path, mtime) in statinfo:
             self._config_files[cat] = path
@@ -219,8 +226,10 @@ class GitConfig(observable.Observable):
         header_subkey = re.compile(r'^\[(\s+) "(\s+)"\]$')
 
         with core.xopen(path, 'rt') as f:
-            lines = filter(bool, [line.strip() for line in f.readlines()])
+            file_lines  = f.readlines()
 
+        stripped_lines = [line.strip() for line in file_lines]
+        lines = [line for line in stripped_lines if bool(line)]
         prefix = ''
         for line in lines:
             if line.startswith('#'):
@@ -282,7 +291,7 @@ class GitConfig(observable.Observable):
                 return 'true'
             else:
                 return 'false'
-        if type(value) is int:
+        if isinstance(value, int_types):
             return ustr(value)
         return value
 
