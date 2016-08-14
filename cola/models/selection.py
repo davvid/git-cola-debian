@@ -3,8 +3,8 @@ from __future__ import division, absolute_import, unicode_literals
 
 import collections
 
-from cola.observable import Observable
-from cola.decorators import memoize
+from ..observable import Observable
+from ..decorators import memoize
 
 State = collections.namedtuple('State', 'staged unmerged modified untracked')
 
@@ -68,9 +68,8 @@ class SelectionModel(Observable):
 
     # These properties wrap the individual selection items
     # to provide higher-level pseudo-selections.
-    unstaged = property(lambda self: self.unmerged +
-                                     self.modified +
-                                     self.untracked)
+    unstaged = property(lambda self:
+                        self.unmerged + self.modified + self.untracked)
 
     def __init__(self):
         Observable.__init__(self)

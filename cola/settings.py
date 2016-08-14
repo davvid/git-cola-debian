@@ -1,15 +1,13 @@
-# Copyright (c) 2008 David Aguilar
-"""This handles saving complex settings such as bookmarks, etc.
+"""Save settings, bookmarks, etc.
 """
 from __future__ import division, absolute_import, unicode_literals
-
+import json
 import os
 import sys
 
-from cola import core
-from cola import git
-from cola import resources
-import json
+from . import core
+from . import git
+from . import resources
 
 
 def mkdict(obj):
@@ -30,7 +28,7 @@ def read_json(path):
     try:
         with core.xopen(path, 'rt') as fp:
             return mkdict(json.load(fp))
-    except: # bad path or json
+    except:  # bad path or json
         return {}
 
 

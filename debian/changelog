@@ -1,3 +1,11 @@
+git-cola (2.7-1) unstable; urgency=low
+
+  * New upstream release.
+  * Compile with PyQt5 .
+  * Move to debhelper level 9 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sun, 14 Aug 2016 09:13:52 +0000
+
 git-cola (2.6-1) unstable; urgency=low
 
   * New upstream release.

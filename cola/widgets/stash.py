@@ -1,23 +1,22 @@
 """Provides the StashView dialog."""
 from __future__ import division, absolute_import, unicode_literals
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtCore
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
 
-from cola import cmds
-from cola import icons
-from cola import qtutils
-from cola import utils
-from cola.i18n import N_
-from cola.models.stash import StashModel
-from cola.models.stash import ApplyStash
-from cola.models.stash import SaveStash
-from cola.models.stash import DropStash
-from cola.widgets import defs
-from cola.widgets.diff import DiffTextEdit
-from cola.widgets.standard import Dialog
+from .. import cmds
+from .. import icons
+from .. import qtutils
+from .. import utils
+from ..i18n import N_
+from ..models.stash import StashModel
+from ..models.stash import ApplyStash
+from ..models.stash import SaveStash
+from ..models.stash import DropStash
+from . import defs
+from .diff import DiffTextEdit
+from .standard import Dialog
 
 
 def stash():
@@ -46,7 +45,7 @@ class StashView(Dialog):
         else:
             self.resize(700, 420)
 
-        self.stash_list = QtGui.QListWidget(self)
+        self.stash_list = QtWidgets.QListWidget(self)
         self.stash_text = DiffTextEdit(self)
 
         self.button_apply = qtutils.create_toolbutton(
@@ -91,8 +90,7 @@ class StashView(Dialog):
         self.setTabOrder(self.button_drop, self.keep_index)
         self.setTabOrder(self.keep_index, self.button_close)
 
-        self.connect(self.stash_list, SIGNAL('itemSelectionChanged()'),
-                     self.item_selected)
+        self.stash_list.itemSelectionChanged.connect(self.item_selected)
 
         qtutils.connect_button(self.button_apply, self.stash_apply)
         qtutils.connect_button(self.button_save, self.stash_save)
@@ -167,8 +165,9 @@ class StashView(Dialog):
         # Sanitize the stash name
         stash_name = utils.sanitize(stash_name)
         if stash_name in self.names:
-            qtutils.critical(N_('Error: Stash exists'),
-                             N_('A stash named "%s" already exists') % stash_name)
+            qtutils.critical(
+                    N_('Error: Stash exists'),
+                    N_('A stash named "%s" already exists') % stash_name)
             return
 
         keep_index = self.keep_index.isChecked()
@@ -183,11 +182,12 @@ class StashView(Dialog):
         name = self.selected_name()
         if not selection:
             return
-        if not qtutils.confirm(N_('Drop Stash?'),
-                               N_('Recovering a dropped stash is not possible.'),
-                               N_('Drop the "%s" stash?') % name,
-                               N_('Drop Stash'),
-                               default=True, icon=icons.discard()):
+        if not qtutils.confirm(
+                N_('Drop Stash?'),
+                N_('Recovering a dropped stash is not possible.'),
+                N_('Drop the "%s" stash?') % name,
+                N_('Drop Stash'),
+                default=True, icon=icons.discard()):
             return
         cmds.do(DropStash, selection)
         self.update_from_model()

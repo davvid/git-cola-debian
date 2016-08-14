@@ -1,36 +1,43 @@
 from __future__ import division, absolute_import, unicode_literals
 import re
 
-from PyQt4 import QtGui
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
+from qtpy.QtCore import Signal
 
-from cola import actions
-from cola import cmds
-from cola import core
-from cola import gitcmds
-from cola import gitcfg
-from cola import hotkeys
-from cola import icons
-from cola import textwrap
-from cola import qtutils
-from cola.cmds import Interaction
-from cola.gitcmds import commit_message_path
-from cola.i18n import N_
-from cola.models import dag
-from cola.models import prefs
-from cola.models import selection
-from cola.utils import Group
-from cola.widgets import defs
-from cola.widgets.selectcommits import select_commits
-from cola.widgets.spellcheck import SpellCheckTextEdit
-from cola.widgets.text import HintedLineEdit
+from .. import actions
+from .. import cmds
+from .. import core
+from .. import gitcmds
+from .. import gitcfg
+from .. import hotkeys
+from .. import icons
+from .. import textwrap
+from .. import qtutils
+from ..cmds import Interaction
+from ..gitcmds import commit_message_path
+from ..i18n import N_
+from ..models import dag
+from ..models import prefs
+from ..models import selection
+from ..utils import Group
+from . import defs
+from .selectcommits import select_commits
+from .spellcheck import SpellCheckTextEdit
+from .text import HintedLineEdit
 
 
-class CommitMessageEditor(QtGui.QWidget):
+class CommitMessageEditor(QtWidgets.QWidget):
+    commit_message_changed = Signal(object)
+    cursor_changed = Signal(int, int)
+    down = Signal()
+    up = Signal()
+    updated = Signal()
+
     def __init__(self, model, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
         self.model = model
         self.spellcheck_initialized = False
@@ -97,7 +104,7 @@ class CommitMessageEditor(QtGui.QWidget):
         self.actions_button = qtutils.create_toolbutton(
             icon=icons.configure(), tooltip=N_('Actions...'))
         self.actions_button.setMenu(self.actions_menu)
-        self.actions_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+        self.actions_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         qtutils.hide_button_menu_indicator(self.actions_button)
 
         self.actions_menu.addAction(self.signoff_action)
@@ -140,13 +147,11 @@ class CommitMessageEditor(QtGui.QWidget):
         self.actions_menu.addSeparator()
         self.load_commitmsg_menu = self.actions_menu.addMenu(
                 N_('Load Previous Commit Message'))
-        self.connect(self.load_commitmsg_menu, SIGNAL('aboutToShow()'),
-                     self.build_commitmsg_menu)
+        self.load_commitmsg_menu.aboutToShow.connect(self.build_commitmsg_menu)
 
         self.fixup_commit_menu = self.actions_menu.addMenu(
                 N_('Fixup Previous Commit'))
-        self.connect(self.fixup_commit_menu, SIGNAL('aboutToShow()'),
-                     self.build_fixup_menu)
+        self.fixup_commit_menu.aboutToShow.connect(self.build_fixup_menu)
 
         self.toplayout = qtutils.hbox(defs.no_margin, defs.spacing,
                                       self.actions_button, self.summary,
@@ -176,42 +181,27 @@ class CommitMessageEditor(QtGui.QWidget):
 
         self.selection_model = selection_model = selection.selection_model()
         selection_model.add_observer(selection_model.message_selection_changed,
-                                     self._update)
+                                     self.updated.emit)
 
         self.model.add_observer(self.model.message_commit_message_changed,
-                                self._set_commit_message)
+                                self.commit_message_changed.emit)
 
-        self.connect(self, SIGNAL('set_commit_message(PyQt_PyObject)'),
-                     self.set_commit_message, Qt.QueuedConnection)
+        self.commit_message_changed.connect(self.set_commit_message,
+                                            type=Qt.QueuedConnection)
 
-        self.connect(self.summary, SIGNAL('cursorPosition(int,int)'),
-                     self.emit_position)
+        self.summary.cursor_changed.connect(self.cursor_changed.emit)
+        self.description.cursor_changed.connect(
+                # description starts at line 2
+                lambda row, col: self.cursor_changed.emit(row + 2, col))
 
-        self.connect(self.description, SIGNAL('cursorPosition(int,int)'),
-                     # description starts at line 2
-                     lambda row, col: self.emit_position(row + 2, col))
-
-        # Keep model informed of changes
-        self.connect(self.summary, SIGNAL('textChanged(QString)'),
-                     self.commit_summary_changed)
-
-        self.connect(self.description, SIGNAL('textChanged()'),
-                     self.commit_message_changed)
-
-        self.connect(self.description, SIGNAL('leave()'),
-                     self.focus_summary)
-
-        self.connect(self, SIGNAL('update()'),
-                     self._update_callback, Qt.QueuedConnection)
-
-        self.setFont(qtutils.diff_font())
+        self.summary.textChanged.connect(self.commit_summary_changed)
+        self.description.textChanged.connect(self._commit_message_changed)
+        self.description.leave.connect(self.focus_summary)
+        self.updated.connect(self.refresh)
 
         self.summary.hint.enable(True)
         self.description.hint.enable(True)
-
         self.commit_group.setEnabled(False)
-
-        self.setFocusProxy(self.summary)
 
         self.set_tabwidth(prefs.tabwidth())
         self.set_textwidth(prefs.textwidth())
@@ -226,11 +216,10 @@ class CommitMessageEditor(QtGui.QWidget):
 
         # Allow tab to jump from the summary to the description
         self.setTabOrder(self.summary, self.description)
+        self.setFont(qtutils.diff_font())
+        self.setFocusProxy(self.summary)
 
-    def _update(self):
-        self.emit(SIGNAL('update()'))
-
-    def _update_callback(self):
+    def refresh(self):
         enabled = self.model.stageable() or self.model.unstageable()
         if self.model.stageable():
             text = N_('Stage')
@@ -308,9 +297,9 @@ class CommitMessageEditor(QtGui.QWidget):
             # so disable signals for `summary` only.
             self.summary.set_value(summary, block=True)
             self.description.set_value(description)
-        self.commit_message_changed()
+        self._commit_message_changed()
 
-    def commit_message_changed(self, value=None):
+    def _commit_message_changed(self, value=None):
         """Update the model when values change"""
         message = self.commit_message()
         self.model.set_commitmsg(message, notify=False)
@@ -334,9 +323,6 @@ class CommitMessageEditor(QtGui.QWidget):
         """Update the color palette for the hint text"""
         self.summary.hint.refresh()
         self.description.hint.refresh()
-
-    def _set_commit_message(self, message):
-        self.emit(SIGNAL('set_commit_message(PyQt_PyObject)'), message)
 
     def set_commit_message(self, message):
         """Set the commit message to match the observed model"""
@@ -426,14 +412,11 @@ class CommitMessageEditor(QtGui.QWidget):
         self.amend_action.setChecked(checked)
         self.amend_action.blockSignals(blocksignals)
 
-    def emit_position(self, row, col):
-        self.emit(SIGNAL('cursorPosition(int,int)'), row, col)
-
     def commit(self):
         """Attempt to create a commit from the index and commit message."""
         if not bool(self.summary.value()):
             # Describe a good commit message
-            error_msg = N_(''
+            error_msg = N_(
                 'Please supply a commit message.\n\n'
                 'A good commit message has the following format:\n\n'
                 '- First line: Describe in one sentence what you did.\n'
@@ -446,7 +429,7 @@ class CommitMessageEditor(QtGui.QWidget):
         msg = self.commit_message(raw=False)
 
         if not self.model.staged:
-            error_msg = N_(''
+            error_msg = N_(
                 'No changes to commit.\n\n'
                 'You must stage at least 1 file before you can commit.')
             if self.model.modified:
@@ -480,7 +463,7 @@ class CommitMessageEditor(QtGui.QWidget):
         if status != 0:
             Interaction.critical(N_('Commit failed'),
                                  N_('"git commit" returned exit code %s') %
-                                    (status,),
+                                 (status,),
                                  out + err)
 
     def build_fixup_menu(self):
@@ -511,7 +494,6 @@ class CommitMessageEditor(QtGui.QWidget):
         if len(commits) == 6:
             menu.addSeparator()
             menu.addAction(N_('More...'), chooser)
-
 
     def choose_commit(self, cmd):
         revs, summaries = gitcmds.log_helper()
@@ -558,6 +540,8 @@ class CommitMessageEditor(QtGui.QWidget):
 
 class CommitSummaryLineEdit(HintedLineEdit):
 
+    cursor = Signal(int, int)
+
     def __init__(self, parent=None):
         hint = N_('Commit summary')
         HintedLineEdit.__init__(self, hint, parent)
@@ -582,14 +566,15 @@ class CommitSummaryLineEdit(HintedLineEdit):
 
 
 class CommitMessageTextEdit(SpellCheckTextEdit):
+    leave = Signal()
 
     def __init__(self, parent=None):
         hint = N_('Extended description...')
         SpellCheckTextEdit.__init__(self, hint, parent)
         self.extra_actions = []
 
-        self.action_emit_leave = qtutils.add_action(self,
-                'Shift Tab', self.emit_leave, hotkeys.LEAVE)
+        self.action_emit_leave = qtutils.add_action(
+                self, 'Shift Tab', self.leave.emit, hotkeys.LEAVE)
 
     def contextMenuEvent(self, event):
         menu, spell_menu = self.context_menu()
@@ -615,7 +600,7 @@ class CommitMessageTextEdit(SpellCheckTextEdit):
                     cursor.setPosition(0)
                     self.setTextCursor(cursor)
                 else:
-                    self.emit_leave()
+                    self.leave.emit()
                 event.accept()
                 return
             text_before = self.toPlainText()[:position]
@@ -648,9 +633,6 @@ class CommitMessageTextEdit(SpellCheckTextEdit):
                 event.accept()
                 return
         SpellCheckTextEdit.keyPressEvent(self, event)
-
-    def emit_leave(self):
-        self.emit(SIGNAL('leave()'))
 
     def setFont(self, font):
         SpellCheckTextEdit.setFont(self, font)

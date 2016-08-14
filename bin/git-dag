@@ -4,10 +4,13 @@
 """
 
 from __future__ import division, absolute_import, unicode_literals
+import os
+import sys
+from argparse import ArgumentParser
+
 
 __copyright__ = """
-Copyright (C) 2007, 2008, 2009, 2010, 2011, 2012, 2013
-David Aguilar <davvid@gmail.com> and contributors
+Copyright (C) 2007-2016 David Aguilar and contributors
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2 as
@@ -20,21 +23,19 @@ GNU General Public License for more details.
 
 """
 
-import os
-import sys
-from argparse import ArgumentParser
-from os.path import abspath
-from os.path import dirname
-from os.path import join
-from os.path import realpath
-
 
 def setup_environment():
     """Provides access to the cola modules"""
     # Try to detect where it is run from and set prefix and the search path.
     # It is assumed that the user installed Cola using the --prefix= option
+    abspath = os.path.abspath
+    dirname = os.path.dirname
+    realpath = os.path.realpath
+    join = os.path.join
+
     python2 = sys.version_info[0] == 2
     prefix = dirname(dirname(realpath(abspath(__file__))))
+
     if python2:
         cola_mod = join(prefix, str('cola'), str('__init__.py'))
         install_lib = join(prefix, str('share'), str('git-cola'), str('lib'))
@@ -52,9 +53,7 @@ def setup_environment():
 setup_environment()
 
 
-from cola.app import add_common_arguments
-from cola.app import application_init
-from cola.app import application_start
+from cola import app
 from cola.widgets.dag import git_dag
 
 
@@ -67,7 +66,7 @@ def parse_args():
     parser = ArgumentParser()
     parser.set_defaults(func=cmd_dag)
 
-    add_common_arguments(parser)
+    app.add_common_arguments(parser)
     parser.add_argument('-c', '--count', '--max-count', metavar='<count>',
                         type=int, default=1000,
                         help='number of commits to display')
@@ -82,9 +81,9 @@ def parse_args():
 
 
 def cmd_dag(args):
-    context = application_init(args)
+    context = app.application_init(args)
     view = git_dag(context.model, args=args, settings=args.settings)
-    return application_start(context, view, monitor_refs_only=True)
+    return app.application_start(context, view, monitor_refs_only=True)
 
 
 if __name__ == '__main__':

@@ -1,13 +1,14 @@
-# Copyright (C) 2009, 2010, 2011, 2012, 2013
-# David Aguilar <davvid@gmail.com>
 """Provides the main() routine and ColaApplication"""
 from __future__ import division, absolute_import, unicode_literals
-
 import argparse
 import os
-import shutil
 import signal
 import sys
+
+
+__copyright__ = """
+Copyright (C) 2009-2016 David Aguilar and contributors
+"""
 
 # Make homebrew work by default
 if sys.platform == 'darwin':
@@ -17,61 +18,49 @@ if sys.platform == 'darwin':
     if os.path.isdir(homebrew_mods):
         sys.path.append(homebrew_mods)
 
-
-errmsg = """Sorry, you do not seem to have PyQt4 installed.
-Please install it before using git-cola.
-e.g.: sudo apt-get install python-qt4
-"""
-
 # /usr/include/sysexits.h
-#define EX_OK           0   /* successful termination */
-#define EX_USAGE        64  /* command line usage error */
-#define EX_NOINPUT      66  /* cannot open input */
-#define EX_UNAVAILABLE  69  /* service unavailable */
+# #define EX_OK           0   /* successful termination */
+# #define EX_USAGE        64  /* command line usage error */
+# #define EX_NOINPUT      66  /* cannot open input */
+# #define EX_UNAVAILABLE  69  /* service unavailable */
 EX_OK = 0
 EX_USAGE = 64
 EX_NOINPUT = 66
 EX_UNAVAILABLE = 69
 
-
 try:
-    from cola import sipcompat
+    from qtpy import QtCore
 except ImportError:
+    errmsg = """
+Sorry, you do not seem to have PyQt5, Pyside, or PyQt4 installed.
+Please install it before using git-cola, e.g.:
+    $ sudo apt-get install python-qt4
+"""
     sys.stderr.write(errmsg)
     sys.exit(EX_UNAVAILABLE)
 
-sipcompat.initialize()
-
-try:
-    from PyQt4 import QtCore
-except ImportError:
-    sys.stderr.write(errmsg)
-    sys.exit(EX_UNAVAILABLE)
-
-from PyQt4 import QtGui
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtWidgets
 
 # Import cola modules
-from cola import cmds
-from cola import core
-from cola import compat
-from cola import fsmonitor
-from cola import git
-from cola import gitcfg
-from cola import icons
-from cola import i18n
-from cola import qtcompat
-from cola import qtutils
-from cola import resources
-from cola import utils
-from cola import version
-from cola.decorators import memoize
-from cola.i18n import N_
-from cola.interaction import Interaction
-from cola.models import main
-from cola.widgets import cfgactions
-from cola.widgets import startup
-from cola.settings import Session
+from . import cmds
+from . import core
+from . import compat
+from . import fsmonitor
+from . import git
+from . import gitcfg
+from . import icons
+from . import i18n
+from . import qtcompat
+from . import qtutils
+from . import resources
+from . import version
+from .decorators import memoize
+from .i18n import N_
+from .interaction import Interaction
+from .models import main
+from .widgets import cfgactions
+from .widgets import startup
+from .settings import Session
 
 
 def setup_environment():
@@ -79,7 +68,7 @@ def setup_environment():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Session management wants an absolute path when restarting
-    sys.argv[0] = sys_argv0 = core.abspath(sys.argv[0])
+    sys.argv[0] = sys_argv0 = os.path.abspath(sys.argv[0])
 
     # Spoof an X11 display for SSH
     os.environ.setdefault('DISPLAY', ':0')
@@ -162,8 +151,7 @@ class ColaApplication(object):
         qtutils.install()
         icons.install()
 
-        QtCore.QObject.connect(fsmonitor.current(), SIGNAL('files_changed'),
-                               self._update_files)
+        fsmonitor.current().files_changed.connect(self._update_files)
 
         if gui:
             self._app = current(tuple(argv))
@@ -196,18 +184,18 @@ def current(argv):
     return ColaQApplication(list(argv))
 
 
-class ColaQApplication(QtGui.QApplication):
+class ColaQApplication(QtWidgets.QApplication):
 
     def __init__(self, argv):
-        QtGui.QApplication.__init__(self, argv)
-        self.view = None ## injected by application_start()
+        super(ColaQApplication, self).__init__(argv)
+        self.view = None  # injected by application_start()
 
     def event(self, e):
         if e.type() == QtCore.QEvent.ApplicationActivate:
             cfg = gitcfg.current()
             if cfg.get('cola.refreshonfocus', False):
                 cmds.do(cmds.Refresh)
-        return QtGui.QApplication.event(self, e)
+        return super(ColaQApplication, self).event(e)
 
     def commitData(self, session_mgr):
         """Save session data"""
@@ -287,7 +275,7 @@ def application_start(context, view, monitor_refs_only=False):
 
     msg_timer = QtCore.QTimer()
     msg_timer.setSingleShot(True)
-    msg_timer.connect(msg_timer, SIGNAL('timeout()'), _send_msg)
+    msg_timer.timeout.connect(_send_msg)
     msg_timer.start(0)
 
     # Start the event loop

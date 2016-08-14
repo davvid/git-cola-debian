@@ -1,33 +1,34 @@
 """The "Actions" widget"""
 from __future__ import division, absolute_import, unicode_literals
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
 
-from cola import cmds
-from cola.i18n import N_
-from cola.models.selection import selection_model
-from cola.widgets import defs
-from cola.widgets import remote
-from cola.widgets import stash
-from cola.qtutils import create_button
-from cola.qtutils import connect_button
+from .. import cmds
+from .. import qtutils
+from ..i18n import N_
+from ..models.selection import selection_model
+from ..widgets import defs
+from ..widgets import remote
+from ..widgets import stash
+from ..qtutils import create_button
+from ..qtutils import connect_button
 
 
-class QFlowLayoutWidget(QtGui.QWidget):
+class QFlowLayoutWidget(QtWidgets.QWidget):
 
-    _horizontal = QtGui.QBoxLayout.LeftToRight
-    _vertical = QtGui.QBoxLayout.TopToBottom
+    _horizontal = QtWidgets.QBoxLayout.LeftToRight
+    _vertical = QtWidgets.QBoxLayout.TopToBottom
 
     def __init__(self, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self._direction = self._vertical
-        self._layout = layout = QtGui.QBoxLayout(self._direction)
+        self._layout = layout = QtWidgets.QBoxLayout(self._direction)
         layout.setSpacing(defs.spacing)
-        layout.setMargin(defs.margin)
+        qtutils.set_margin(layout, defs.margin)
         self.setLayout(layout)
-        policy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum,
-                                   QtGui.QSizePolicy.Minimum)
+        policy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                                       QtWidgets.QSizePolicy.Minimum)
         self.setSizePolicy(policy)
         self.setMinimumSize(QtCore.QSize(1, 1))
         self.aspect_ratio = 0.8

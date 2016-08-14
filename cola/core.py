@@ -7,16 +7,17 @@ e.g. when python raises an IOError or OSError with errno == EINTR.
 from __future__ import division, absolute_import, unicode_literals
 
 import os
+import functools
 import sys
 import itertools
 import platform
 import subprocess
 
-from cola.decorators import interruptable
-from cola.compat import ustr
-from cola.compat import PY2
-from cola.compat import PY3
-from cola.compat import WIN32
+from .decorators import interruptable
+from .compat import ustr
+from .compat import PY2
+from .compat import PY3
+from .compat import WIN32
 
 # Some files are not in UTF-8; some other aren't in any codification.
 # Remember that GIT doesn't care about encodings (saves binary data)
@@ -27,6 +28,7 @@ _encoding_tests = [
     'ascii',
     # <-- add encodings here
 ]
+
 
 def decode(enc, encoding=None, errors='strict'):
     """decode(encoded_string) returns an unencoded unicode string
@@ -137,6 +139,9 @@ def start_command(cmd, cwd=None, add_env=None,
         # the subprocess.
         cwd = None
 
+    if PY2 and cwd:
+        cwd = encode(cwd)
+
     if WIN32:
         CREATE_NO_WINDOW = 0x08000000
         extra['creationflags'] = CREATE_NO_WINDOW
@@ -203,7 +208,8 @@ def _fork_win32(args, cwd=None):
         argv = [decode(arg) for arg in args]
     else:
         argv = [encode(arg) for arg in args]
-    DETACHED_PROCESS = 0x00000008 # Amazing!
+
+    DETACHED_PROCESS = 0x00000008  # Amazing!
     return subprocess.Popen(argv, cwd=cwd, creationflags=DETACHED_PROCESS).pid
 
 
@@ -224,8 +230,8 @@ def _win32_find_exe(exe):
     # extensions specified in PATHEXT
     if '.' not in exe:
         extensions = getenv('PATHEXT', '').split(os.pathsep)
-        candidates.extend([exe+ext for ext in extensions
-                            if ext.startswith('.')])
+        candidates.extend([(exe + ext) for ext in extensions
+                           if ext.startswith('.')])
     # search the current directory first
     for candidate in candidates:
         if exists(candidate):
@@ -250,17 +256,25 @@ else:
     fork = _fork_posix
 
 
+def _decorator_noop(x):
+    return x
+
+
 def wrap(action, fn, decorator=None):
     """Wrap arguments with `action`, optionally decorate the result"""
     if decorator is None:
-        decorator = lambda x: x
+        decorator = _decorator_noop
+
+    @functools.wraps(fn)
     def wrapped(*args, **kwargs):
         return decorator(fn(action(*args, **kwargs)))
+
     return wrapped
 
 
 def decorate(decorator, fn):
     """Decorate the result of `fn` with `action`"""
+    @functools.wraps(fn)
     def decorated(*args, **kwargs):
         return decorator(fn(*args, **kwargs))
     return decorated
@@ -297,9 +311,9 @@ abspath = wrap(mkpath, os.path.abspath, decorator=decode)
 chdir = wrap(mkpath, os.chdir)
 exists = wrap(mkpath, os.path.exists)
 expanduser = wrap(encode, os.path.expanduser, decorator=decode)
-try:  # Python 2
-    getcwd = os.getcwdu
-except AttributeError:
+if PY2:
+    getcwd = decorate(decode, os.getcwd)
+else:
     getcwd = os.getcwd
 isdir = wrap(mkpath, os.path.isdir)
 isfile = wrap(mkpath, os.path.isfile)
@@ -308,7 +322,12 @@ makedirs = wrap(mkpath, os.makedirs)
 try:
     readlink = wrap(mkpath, os.readlink, decorator=decode)
 except AttributeError:
-    readlink = lambda p: p
+
+    def _readlink_noop(p):
+        return p
+
+    readlink = _readlink_noop
+
 realpath = wrap(mkpath, os.path.realpath, decorator=decode)
 relpath = wrap(mkpath, os.path.relpath, decorator=decode)
 stat = wrap(mkpath, os.stat)

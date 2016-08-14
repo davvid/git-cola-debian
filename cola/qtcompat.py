@@ -1,12 +1,12 @@
 from __future__ import division, absolute_import, unicode_literals
 
-from cola import sipcompat
-sipcompat.initialize()
+from qtpy import PYQT4
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
 
-from PyQt4 import QtGui
-from PyQt4 import QtCore
-
-from cola import hotkeys
+from . import hotkeys
 
 
 def patch(obj, attr, value):
@@ -15,16 +15,8 @@ def patch(obj, attr, value):
 
 
 def install():
-    set_contents_margins = lambda self, *args: self.setMargin(max(args))
-    patch(QtGui.QHBoxLayout, 'setContentsMargins', set_contents_margins)
-    patch(QtGui.QVBoxLayout, 'setContentsMargins', set_contents_margins)
-
-    set_margin = lambda self, x: self.setContentsMargins(x, x, x, x)
-    patch(QtGui.QHBoxLayout, 'setMargin', set_margin)
-    patch(QtGui.QVBoxLayout, 'setMargin', set_margin)
-
+    patch(QtWidgets.QGraphicsItem, 'mapRectToScene', _map_rect_to_scene)
     patch(QtGui.QKeySequence, 'Preferences', hotkeys.PREFERENCES)
-    patch(QtGui.QGraphicsItem, 'mapRectToScene', _map_rect_to_scene)
 
 
 def add_search_path(prefix, path):
@@ -35,12 +27,41 @@ def add_search_path(prefix, path):
 def set_common_dock_options(window):
     if not hasattr(window, 'setDockOptions'):
         return
-    nested = QtGui.QMainWindow.AllowNestedDocks
-    tabbed = QtGui.QMainWindow.AllowTabbedDocks
-    animated = QtGui.QMainWindow.AnimatedDocks
+    nested = QtWidgets.QMainWindow.AllowNestedDocks
+    tabbed = QtWidgets.QMainWindow.AllowTabbedDocks
+    animated = QtWidgets.QMainWindow.AnimatedDocks
     window.setDockOptions(nested | tabbed | animated)
 
 
 def _map_rect_to_scene(self, rect):
     """Only available in newer PyQt4 versions"""
     return self.sceneTransform().mapRect(rect)
+
+
+def wheel_translation(event):
+    """Return the Tx Ty translation delta for a pan"""
+    if PYQT4:
+        tx = event.delta()
+        ty = 0.0
+        if event.orientation() == Qt.Vertical:
+            (tx, ty) = (ty, tx)
+    else:
+        angle = event.angleDelta()
+        tx = angle.x()
+        ty = angle.y()
+    return (tx, ty)
+
+
+def wheel_delta(event):
+    """Return a single wheel delta"""
+    if PYQT4:
+        delta = event.delta()
+    else:
+        angle = event.angleDelta()
+        x = angle.x()
+        y = angle.y()
+        if abs(x) > abs(y):
+            delta = x
+        else:
+            delta = y
+    return delta

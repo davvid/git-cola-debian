@@ -10,8 +10,8 @@ import os.path
 import select
 from threading import Lock
 
-from cola import utils
-from cola.decorators import memoize
+from . import utils
+from .decorators import memoize
 
 AVAILABLE = None
 
@@ -27,25 +27,28 @@ if utils.is_win32():
         AVAILABLE = 'pywin32'
 elif utils.is_linux():
     try:
-        from cola import inotify
+        from . import inotify
     except ImportError:
         pass
     else:
         AVAILABLE = 'inotify'
 
-from PyQt4 import QtCore
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtCore
+from qtpy.QtCore import Signal
 
-from cola import core
-from cola import gitcfg
-from cola import gitcmds
-from cola.compat import bchr
-from cola.git import git
-from cola.i18n import N_
-from cola.interaction import Interaction
+from . import core
+from . import gitcfg
+from . import gitcmds
+from .compat import bchr
+from .git import git
+from .i18n import N_
+from .interaction import Interaction
 
 
 class _Monitor(QtCore.QObject):
+
+    files_changed = Signal()
+
     def __init__(self, thread_class):
         QtCore.QObject.__init__(self)
         self._thread_class = thread_class
@@ -89,7 +92,7 @@ class _BaseThread(QtCore.QThread):
     def notify(self):
         """Notifies all observers"""
         self._pending = False
-        self._monitor.emit(SIGNAL('files_changed'))
+        self._monitor.files_changed.emit()
 
     @staticmethod
     def _log_enabled_message():
@@ -98,6 +101,7 @@ class _BaseThread(QtCore.QThread):
 
 
 if AVAILABLE == 'inotify':
+
     class _InotifyThread(_BaseThread):
         _TRIGGER_MASK = (
                 inotify.IN_ATTRIB |
@@ -137,13 +141,13 @@ if AVAILABLE == 'inotify':
         @staticmethod
         def _log_out_of_wds_message():
             msg = N_('File system change monitoring: disabled because the'
-                         ' limit on the total number of inotify watches was'
-                         ' reached.  You may be able to increase the limit on'
-                         ' the number of watches by running:\n'
+                     ' limit on the total number of inotify watches was'
+                     ' reached.  You may be able to increase the limit on'
+                     ' the number of watches by running:\n'
                      '\n'
                      '    echo fs.inotify.max_user_watches=100000 |'
-                         ' sudo tee -a /etc/sysctl.conf &&'
-                         ' sudo sysctl -p\n')
+                     ' sudo tee -a /etc/sysctl.conf &&'
+                     ' sudo sysctl -p\n')
             Interaction.safe_log(msg)
 
         def run(self):
@@ -172,6 +176,8 @@ if AVAILABLE == 'inotify':
                             continue
                         else:
                             raise
+                    except select.error:
+                        continue
                     else:
                         if not self._running:
                             break
@@ -269,8 +275,8 @@ if AVAILABLE == 'inotify':
                     return True
                 elif not self._refs_only and name == 'index':
                     return True
-            elif (wd in self._git_dir_wds
-                    and not core.decode(name).endswith('.lock')):
+            elif (wd in self._git_dir_wds and
+                    not core.decode(name).endswith('.lock')):
                 return True
             else:
                 return False
@@ -290,7 +296,9 @@ if AVAILABLE == 'inotify':
 
 
 if AVAILABLE == 'pywin32':
+
     class _Win32Watch(object):
+
         def __init__(self, path, flags):
             self.flags = flags
 
@@ -300,12 +308,12 @@ if AVAILABLE == 'pywin32':
             try:
                 self.handle = win32file.CreateFileW(
                         path,
-                        0x0001, # FILE_LIST_DIRECTORY
+                        0x0001,  # FILE_LIST_DIRECTORY
                         win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
                         None,
                         win32con.OPEN_EXISTING,
                         win32con.FILE_FLAG_BACKUP_SEMANTICS |
-                            win32con.FILE_FLAG_OVERLAPPED,
+                        win32con.FILE_FLAG_OVERLAPPED,
                         None)
 
                 self.buffer = win32file.AllocateReadBuffer(8192)
@@ -338,7 +346,6 @@ if AVAILABLE == 'pywin32':
                 win32file.CloseHandle(self.handle)
             if self.event is not None:
                 win32file.CloseHandle(self.event)
-
 
     class _Win32Thread(_BaseThread):
         _FLAGS = (win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
@@ -423,8 +430,8 @@ if AVAILABLE == 'pywin32':
                     if not self._running:
                         break
                     path = self._worktree + '/' + self._transform_path(path)
-                    if (path != self._git_dir
-                            and not path.startswith(self._git_dir + '/')):
+                    if (path != self._git_dir and
+                            not path.startswith(self._git_dir + '/')):
                         self._pending = True
             for action, path in self._git_dir_watch.read():
                 if not self._running:

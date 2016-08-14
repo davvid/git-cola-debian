@@ -13,6 +13,7 @@ LN_S = $(LN) -s -f
 MARKDOWN = markdown
 MKDIR_P = mkdir -p
 NOSETESTS = nosetests
+PIP = pip
 PYLINT = pylint
 PYTHON = python
 RM = rm -f
@@ -39,9 +40,13 @@ cola_app = $(CURDIR)/$(cola_app_base)
 cola_version = $(shell $(PYTHON) bin/git-cola version --brief)
 cola_dist := $(cola_base)-$(cola_version)
 
-# Allows e.g. "make test flags=--stop"
+NOSE_FLAGS = --with-doctest
+NOSE_FLAGS += --with-id
+NOSE_FLAGS += --exclude=sphinxtogithub
+NOSE_FLAGS += --exclude=extras
+# Allows "make test flags=--stop"
 flags =
-NOSE ?= $(NOSETESTS) --with-doctest --with-id --exclude=sphinxtogithub $(flags)
+NOSE ?= $(NOSETESTS) $(NOSE_FLAGS) $(flags)
 
 SETUP ?= $(PYTHON) setup.py
 setup_args += --prefix=$(prefix)
@@ -55,6 +60,11 @@ ifdef DESTDIR
     export DESTDIR
 endif
 export prefix
+
+# If NO_VENDOR_LIBS is specified on the command line then pass it to setup.py
+ifdef NO_VENDOR_LIBS
+    setup_args += --no-vendor-libs
+endif
 
 PYTHON_DIRS = cola
 PYTHON_DIRS += test
@@ -189,3 +199,8 @@ flake8:
 pylint:
 	$(PYLINT) $(PYLINT_FLAGS) $(PYTHON_SOURCES) $(ALL_PYTHON_DIRS)
 .PHONY: pylint
+
+requirements:
+	$(PIP) install --requirement requirements.txt
+	$(PIP) install --requirement extras/requirements-dev.txt
+.PHONY: requirements

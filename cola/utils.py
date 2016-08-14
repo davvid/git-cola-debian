@@ -1,7 +1,6 @@
 # Copyright (c) 2008 David Aguilar
 """This module provides miscellaneous utility functions."""
 from __future__ import division, absolute_import, unicode_literals
-
 import os
 import random
 import re
@@ -11,8 +10,7 @@ import tempfile
 import time
 import traceback
 
-from cola import core
-from cola.decorators import memoize
+from . import core
 
 random.seed(hash(time.time()))
 
@@ -43,7 +41,7 @@ def format_exception(e):
     return (msg, details)
 
 
-def sublist(a,b):
+def sublist(a, b):
     """Subtracts list b from list a and returns the resulting list."""
     # conceptually, c = a - b
     c = []
@@ -54,9 +52,14 @@ def sublist(a,b):
 
 
 __grep_cache = {}
+
+
 def grep(pattern, items, squash=True):
-    """Greps a list for items that match a pattern and return a list of
-    matching items.  If only one item matches, return just that item.
+    """Greps a list for items that match a pattern
+
+    :param squash: If only one item matches, return just that item
+    :returns: List of matching items
+
     """
     isdict = type(items) is dict
     if pattern in __grep_cache:
