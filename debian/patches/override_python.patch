@@ -1,0 +1,17 @@
+Description: make python version overridable
+Author: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Last-Update: 2016-08-21
+
+---
+
+--- git-cola-2.7.orig/Makefile
++++ git-cola-2.7/Makefile
+@@ -15,7 +15,7 @@ MKDIR_P = mkdir -p
+ NOSETESTS = nosetests
+ PIP = pip
+ PYLINT = pylint
+-PYTHON = python
++PYTHON ?= python
+ RM = rm -f
+ RM_R = rm -fr
+ RMDIR = rmdir

@@ -1,3 +1,11 @@
+git-cola (2.8-1) unstable; urgency=low
+
+  * Really compile with PyQt5 (closes: #834804).
+  * Switch to Python 3 packaging (closes: #834805).
+  * Update packaging to match this release.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sat, 17 Sep 2016 18:17:29 +0000
+
 git-cola (2.7-1) unstable; urgency=low
 
   * New upstream release.
