@@ -23,6 +23,9 @@ _versions = {
     'python': '2.6',
     # git diff --submodule was introduced in 1.6.6
     'diff-submodule': '1.6.6',
+    # git check-ignore was introduced in 1.8.2, but did not follow the same
+    # rules as git add and git status until 1.8.5
+    'check-ignore': '1.8.5',
 }
 
 
@@ -81,12 +84,16 @@ def git_version():
         return '1.6.3'
 
 
+def cola_version():
+    return 'cola version %s' % version()
+
+
 def print_version(brief=False):
     if brief:
-        msg = '%s\n' % version()
+        msg = version()
     else:
-        msg = 'cola version %s\n' % version()
-    sys.stdout.write(msg)
+        msg = cola_version()
+    sys.stdout.write('%s\n' % msg)
 
 
 if __name__ == '__main__':

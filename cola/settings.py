@@ -63,7 +63,7 @@ class Settings(object):
         missing_recent = []
 
         for bookmark in self.bookmarks:
-            if not self.verify(bookmark):
+            if not self.verify(bookmark['path']):
                 missing_bookmarks.append(bookmark)
 
         for bookmark in missing_bookmarks:
@@ -73,7 +73,7 @@ class Settings(object):
                 pass
 
         for recent in self.recent:
-            if not self.verify(recent):
+            if not self.verify(recent['path']):
                 missing_recent.append(recent)
 
         for recent in missing_recent:
@@ -82,27 +82,63 @@ class Settings(object):
             except:
                 pass
 
-    def add_bookmark(self, bookmark):
+    def add_bookmark(self, path, name):
         """Adds a bookmark to the saved settings"""
+        bookmark = {'path': path, 'name': name}
         if bookmark not in self.bookmarks:
             self.bookmarks.append(bookmark)
 
-    def remove_bookmark(self, bookmark):
+    def remove_bookmark(self, path, name):
         """Remove a bookmark"""
-        if bookmark in self.bookmarks:
+        bookmark = {'path': path, 'name': name}
+        try:
             self.bookmarks.remove(bookmark)
+        except ValueError:
+            pass
 
-    def remove_recent(self, entry):
-        """Removes an item from the recent items list"""
-        if entry in self.recent:
-            self.recent.remove(entry)
+    def rename_entry(self, entries, path, name, new_name):
+        entry = {'name': name, 'path': path}
+        try:
+            index = entries.index(entry)
+        except ValueError:
+            return False
 
-    def add_recent(self, entry):
-        if entry in self.recent:
-            self.recent.remove(entry)
+        if all([item['name'] != new_name for item in entries]):
+            entries[index]['name'] = new_name
+            return True
+
+        return False
+
+    def rename_bookmark(self, path, name, new_name):
+        return self.rename_entry(self.bookmarks, path, name, new_name)
+
+    def add_recent(self, path):
+        try:
+            index = [recent['path'] for recent in self.recent].index(path)
+            entry = self.recent.pop(index)
+        except (IndexError, ValueError):
+            entry = {
+                'name': os.path.basename(path),
+                'path': path,
+            }
         self.recent.insert(0, entry)
+
         if len(self.recent) >= 8:
             self.recent.pop()
+
+    def remove_recent(self, path):
+        """Removes an item from the recent items list"""
+        try:
+            index = [recent.get('path', '') for recent in self.recent].index(path)
+        except ValueError:
+            return
+        try:
+            self.recent.pop(index)
+        except IndexError:
+            return
+
+    def rename_recent(self, path, name, new_name):
+        return self.rename_entry(self.recent, path, name, new_name)
 
     def path(self):
         return self._file
@@ -112,7 +148,21 @@ class Settings(object):
 
     def load(self):
         self.values.update(self.asdict())
+        self.upgrade_settings()
         self.remove_missing()
+
+    def upgrade_settings(self):
+        """Upgrade git-cola settings"""
+        # Upgrade bookmarks to the new dict-based bookmarks format.
+        if self.bookmarks and not isinstance(self.bookmarks[0], dict):
+            bookmarks = [dict(name=os.path.basename(path), path=path)
+                            for path in self.bookmarks]
+            self.values['bookmarks'] = bookmarks
+
+        if self.recent and not isinstance(self.recent[0], dict):
+            recent = [dict(name=os.path.basename(path), path=path)
+                        for path in self.recent]
+            self.values['recent'] = recent
 
     def asdict(self):
         path = self.path()

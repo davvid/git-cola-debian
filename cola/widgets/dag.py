@@ -2,14 +2,15 @@ from __future__ import division, absolute_import, unicode_literals
 import collections
 import math
 
+from qtpy.QtCore import Qt
+from qtpy.QtCore import Signal
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
-from qtpy.QtCore import Qt
-from qtpy.QtCore import Signal
-from qtpy.QtCore import QPointF
-from qtpy.QtCore import QRectF
 
+from ..compat import maxsize
+from ..i18n import N_
+from ..models import dag
 from .. import core
 from .. import cmds
 from .. import difftool
@@ -18,9 +19,6 @@ from .. import icons
 from .. import observable
 from .. import qtcompat
 from .. import qtutils
-from ..compat import maxsize
-from ..i18n import N_
-from ..models import dag
 from . import archive
 from . import browse
 from . import completion
@@ -32,7 +30,7 @@ from . import filelist
 from . import standard
 
 
-def git_dag(model, args=None, settings=None):
+def git_dag(model, args=None, settings=None, existing_view=None):
     """Return a pre-populated git DAG widget."""
     branch = model.currentbranch
     # disambiguate between branch names and filenames by using '--'
@@ -40,10 +38,37 @@ def git_dag(model, args=None, settings=None):
     ctx = dag.DAG(branch_doubledash, 1000)
     ctx.set_arguments(args)
 
-    view = GitDAG(model, ctx, settings=settings)
+    if existing_view is None:
+        view = GitDAG(model, ctx, settings=settings)
+    else:
+        view = existing_view
+        view.set_context(ctx)
     if ctx.ref:
         view.display()
     return view
+
+
+class FocusRedirectProxy(object):
+    """Redirect actions from the main widget to child widgets"""
+
+    def __init__(self, *widgets):
+        """Provide proxied widgets; the default widget must be first"""
+        self.widgets = widgets
+        self.default = widgets[0]
+
+    def __getattr__(self, name):
+        return (lambda *args, **kwargs:
+                self._forward_action(name, *args, **kwargs))
+
+    def _forward_action(self, name, *args, **kwargs):
+        """Forward the captured action to the focused or default widget"""
+        widget = QtWidgets.QApplication.focusWidget()
+        if widget in self.widgets and hasattr(widget, name):
+            fn = getattr(widget, name)
+        else:
+            fn = getattr(self.default, name)
+
+        return fn(*args, **kwargs)
 
 
 class ViewerMixin(object):
@@ -52,7 +77,7 @@ class ViewerMixin(object):
     def __init__(self):
         self.selected = None
         self.clicked = None
-        self.menu_actions = self.context_menu_actions()
+        self.menu_actions = None  # provided by implementation
 
     def selected_item(self):
         """Return the currently selected item"""
@@ -61,19 +86,19 @@ class ViewerMixin(object):
             return None
         return selected_items[0]
 
-    def selected_sha1(self):
+    def selected_oid(self):
         item = self.selected_item()
         if item is None:
             result = None
         else:
-            result = item.commit.sha1
+            result = item.commit.oid
         return result
 
-    def selected_sha1s(self):
+    def selected_oids(self):
         return [i.commit for i in self.selected_items()]
 
     def with_oid(self, fn):
-        oid = self.selected_sha1()
+        oid = self.selected_oid()
         if oid:
             result = fn(oid)
         else:
@@ -81,14 +106,14 @@ class ViewerMixin(object):
         return result
 
     def diff_selected_this(self):
-        clicked_sha1 = self.clicked.sha1
-        selected_sha1 = self.selected.sha1
-        self.diff_commits.emit(selected_sha1, clicked_sha1)
+        clicked_oid = self.clicked.oid
+        selected_oid = self.selected.oid
+        self.diff_commits.emit(selected_oid, clicked_oid)
 
     def diff_this_selected(self):
-        clicked_sha1 = self.clicked.sha1
-        selected_sha1 = self.selected.sha1
-        self.diff_commits.emit(clicked_sha1, selected_sha1)
+        clicked_oid = self.clicked.oid
+        selected_oid = self.selected.oid
+        self.diff_commits.emit(clicked_oid, selected_oid)
 
     def cherry_pick(self):
         self.with_oid(lambda oid: cmds.do(cmds.CherryPick, [oid]))
@@ -105,6 +130,15 @@ class ViewerMixin(object):
     def create_tarball(self):
         self.with_oid(lambda oid: archive.show_save_dialog(oid, parent=self))
 
+    def show_diff(self):
+        self.with_oid(lambda oid:
+                difftool.diff_expression(self, oid + '^!',
+                                         hide_expr=False, focus_tree=True))
+
+    def show_dir_diff(self):
+        self.with_oid(lambda oid:
+                difftool.launch(left=oid, left_take_magic=True, dir_diff=True))
+
     def reset_branch_head(self):
         self.with_oid(lambda oid: cmds.do(cmds.ResetBranchHead, ref=oid))
 
@@ -113,44 +147,6 @@ class ViewerMixin(object):
 
     def save_blob_dialog(self):
         self.with_oid(lambda oid: browse.BrowseDialog.browse(oid))
-
-    def context_menu_actions(self):
-        return {
-            'diff_this_selected':
-            qtutils.add_action(self, N_('Diff this -> selected'),
-                               self.diff_this_selected),
-            'diff_selected_this':
-            qtutils.add_action(self, N_('Diff selected -> this'),
-                               self.diff_selected_this),
-            'create_branch':
-            qtutils.add_action(self, N_('Create Branch'),
-                               self.create_branch),
-            'create_patch':
-            qtutils.add_action(self, N_('Create Patch'),
-                               self.create_patch),
-            'create_tag':
-            qtutils.add_action(self, N_('Create Tag'),
-                               self.create_tag),
-            'create_tarball':
-            qtutils.add_action(self, N_('Save As Tarball/Zip...'),
-                               self.create_tarball),
-            'cherry_pick':
-            qtutils.add_action(self, N_('Cherry Pick'),
-                               self.cherry_pick),
-            'reset_branch_head':
-            qtutils.add_action(self, N_('Reset Branch Head'),
-                               self.reset_branch_head),
-            'reset_worktree':
-            qtutils.add_action(self, N_('Reset Worktree'),
-                               self.reset_worktree),
-            'save_blob':
-            qtutils.add_action(self, N_('Grab File...'),
-                               self.save_blob_dialog),
-            'copy':
-            qtutils.add_action(self, N_('Copy SHA-1'),
-                               self.copy_to_clipboard,
-                               QtGui.QKeySequence.Copy),
-        }
 
     def update_menu_actions(self, event):
         selected_items = self.selected_items()
@@ -172,6 +168,8 @@ class ViewerMixin(object):
 
         self.menu_actions['diff_this_selected'].setEnabled(can_diff)
         self.menu_actions['diff_selected_this'].setEnabled(can_diff)
+        self.menu_actions['diff_commit'].setEnabled(has_single_selection)
+        self.menu_actions['diff_commit_all'].setEnabled(has_single_selection)
 
         self.menu_actions['cherry_pick'].setEnabled(has_single_selection)
         self.menu_actions['copy'].setEnabled(has_single_selection)
@@ -188,6 +186,8 @@ class ViewerMixin(object):
         menu = qtutils.create_menu(N_('Actions'), self)
         menu.addAction(self.menu_actions['diff_this_selected'])
         menu.addAction(self.menu_actions['diff_selected_this'])
+        menu.addAction(self.menu_actions['diff_commit'])
+        menu.addAction(self.menu_actions['diff_commit_all'])
         menu.addSeparator()
         menu.addAction(self.menu_actions['create_branch'])
         menu.addAction(self.menu_actions['create_tag'])
@@ -203,6 +203,51 @@ class ViewerMixin(object):
         menu.addAction(self.menu_actions['save_blob'])
         menu.addAction(self.menu_actions['copy'])
         menu.exec_(self.mapToGlobal(event.pos()))
+
+
+def viewer_actions(widget):
+    return {
+        'diff_this_selected':
+        qtutils.add_action(widget, N_('Diff this -> selected'),
+                           widget.proxy.diff_this_selected),
+        'diff_selected_this':
+        qtutils.add_action(widget, N_('Diff selected -> this'),
+                           widget.proxy.diff_selected_this),
+        'create_branch':
+        qtutils.add_action(widget, N_('Create Branch'),
+                           widget.proxy.create_branch),
+        'create_patch':
+        qtutils.add_action(widget, N_('Create Patch'),
+                           widget.proxy.create_patch),
+        'create_tag':
+        qtutils.add_action(widget, N_('Create Tag'),
+                           widget.proxy.create_tag),
+        'create_tarball':
+        qtutils.add_action(widget, N_('Save As Tarball/Zip...'),
+                           widget.proxy.create_tarball),
+        'cherry_pick':
+        qtutils.add_action(widget, N_('Cherry Pick'),
+                           widget.proxy.cherry_pick),
+        'diff_commit':
+        qtutils.add_action(widget, N_('Launch Diff Tool'),
+                           widget.proxy.show_diff, hotkeys.DIFF),
+        'diff_commit_all':
+        qtutils.add_action(widget, N_('Launch Directory Diff Tool'),
+                           widget.proxy.show_dir_diff, hotkeys.DIFF_SECONDARY),
+        'reset_branch_head':
+        qtutils.add_action(widget, N_('Reset Branch Head'),
+                           widget.proxy.reset_branch_head),
+        'reset_worktree':
+        qtutils.add_action(widget, N_('Reset Worktree'),
+                           widget.proxy.reset_worktree),
+        'save_blob':
+        qtutils.add_action(widget, N_('Grab File...'),
+                           widget.proxy.save_blob_dialog),
+        'copy':
+        qtutils.add_action(widget, N_('Copy SHA-1'),
+                           widget.proxy.copy_to_clipboard,
+                           QtGui.QKeySequence.Copy),
+    }
 
 
 class CommitTreeWidgetItem(QtWidgets.QTreeWidgetItem):
@@ -226,7 +271,8 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
         self.setSelectionMode(self.ExtendedSelection)
         self.setHeaderLabels([N_('Summary'), N_('Author'), N_('Date, Time')])
 
-        self.sha1map = {}
+        self.oidmap = {}
+        self.menu_actions = None
         self.notifier = notifier
         self.selecting = False
         self.commits = []
@@ -255,13 +301,13 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
             return
         found = finder(item)
         if found:
-            self.select([found.commit.sha1])
+            self.select([found.commit.oid])
 
     def selected_commit_range(self):
         selected_items = self.selected_items()
         if not selected_items:
             return None, None
-        return selected_items[-1].commit.sha1, selected_items[0].commit.sha1
+        return selected_items[-1].commit.oid, selected_items[0].commit.oid
 
     def set_selecting(self, selecting):
         self.selecting = selecting
@@ -279,15 +325,15 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
         if self.selecting:
             return
         with qtutils.BlockSignals(self):
-            self.select([commit.sha1 for commit in commits])
+            self.select([commit.oid for commit in commits])
 
-    def select(self, sha1s):
-        if not sha1s:
+    def select(self, oids):
+        if not oids:
             return
         self.clearSelection()
-        for idx, sha1 in enumerate(sha1s):
+        for idx, oid in enumerate(oids):
             try:
-                item = self.sha1map[sha1]
+                item = self.oidmap[oid]
             except KeyError:
                 continue
             self.scrollToItem(item)
@@ -295,15 +341,15 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
 
     def adjust_columns(self):
         width = self.width()-20
-        zero = width*2//3
-        onetwo = width//6
+        zero = width * 2 / 3
+        onetwo = width / 6
         self.setColumnWidth(0, zero)
         self.setColumnWidth(1, onetwo)
         self.setColumnWidth(2, onetwo)
 
     def clear(self):
         QtWidgets.QTreeWidget.clear(self)
-        self.sha1map.clear()
+        self.oidmap.clear()
         self.commits = []
 
     def add_commits(self, commits):
@@ -312,18 +358,18 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
         for c in reversed(commits):
             item = CommitTreeWidgetItem(c)
             items.append(item)
-            self.sha1map[c.sha1] = item
+            self.oidmap[c.oid] = item
             for tag in c.tags:
-                self.sha1map[tag] = item
+                self.oidmap[tag] = item
         self.insertTopLevelItems(0, items)
 
     def create_patch(self):
         items = self.selectedItems()
         if not items:
             return
-        sha1s = [item.commit.sha1 for item in reversed(items)]
-        all_sha1s = [c.sha1 for c in self.commits]
-        cmds.do(cmds.FormatPatch, sha1s, all_sha1s)
+        oids = [item.commit.oid for item in reversed(items)]
+        all_oids = [c.oid for c in self.commits]
+        cmds.do(cmds.FormatPatch, oids, all_oids)
 
     # Qt overrides
     def contextMenuEvent(self, event):
@@ -356,7 +402,7 @@ class GitDAG(standard.MainWindow):
         self.commit_list = []
         self.selection = []
 
-        self.thread = ReaderThread(ctx, self)
+        self.thread = None
         self.revtext = completion.GitLogLineEdit()
         self.maxresults = standard.SpinBox()
 
@@ -379,9 +425,17 @@ class GitDAG(standard.MainWindow):
         self.notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
 
         self.treewidget = CommitTreeWidget(notifier, self)
-        self.diffwidget = diff.DiffWidget(notifier, self)
+        self.diffwidget = diff.DiffWidget(notifier, self, is_commit=True)
         self.filewidget = filelist.FileWidget(notifier, self)
         self.graphview = GraphView(notifier, self)
+
+        self.proxy = FocusRedirectProxy(self.treewidget,
+                                        self.graphview,
+                                        self.filewidget)
+
+        self.viewer_actions = actions = viewer_actions(self)
+        self.treewidget.menu_actions = actions
+        self.graphview.menu_actions = actions
 
         self.controls_layout = qtutils.hbox(defs.no_margin, defs.spacing,
                                             self.revtext, self.maxresults)
@@ -443,11 +497,6 @@ class GitDAG(standard.MainWindow):
         self.addDockWidget(right, self.graphview_dock)
         self.addDockWidget(right, self.file_dock)
 
-        # Update fields affected by model
-        self.revtext.setText(ctx.ref)
-        self.maxresults.setValue(ctx.count)
-        self.update_window_title()
-
         # Also re-loads dag.* from the saved state
         self.init_state(settings, self.resize_to_desktop)
 
@@ -455,11 +504,6 @@ class GitDAG(standard.MainWindow):
         qtutils.connect_button(self.zoom_in, self.graphview.zoom_in)
         qtutils.connect_button(self.zoom_to_fit,
                                self.graphview.zoom_to_fit)
-        thread = self.thread
-        thread.begin.connect(self.thread_begin, type=Qt.QueuedConnection)
-        thread.status.connect(self.thread_status, type=Qt.QueuedConnection)
-        thread.add.connect(self.add_commits, type=Qt.QueuedConnection)
-        thread.end.connect(self.thread_end, type=Qt.QueuedConnection)
 
         self.treewidget.diff_commits.connect(self.diff_commits)
         self.graphview.diff_commits.connect(self.diff_commits)
@@ -478,6 +522,26 @@ class GitDAG(standard.MainWindow):
 
         qtutils.add_action(self, 'Focus Input', self.focus_input, hotkeys.FOCUS)
         qtutils.add_close_action(self)
+
+        self.set_context(ctx)
+
+    def set_context(self, ctx):
+        self.ctx = ctx
+
+        # Update fields affected by model
+        self.revtext.setText(ctx.ref)
+        self.maxresults.setValue(ctx.count)
+        self.update_window_title()
+
+        if self.thread is not None:
+            self.thread.stop()
+        self.thread = ReaderThread(ctx, self)
+
+        thread = self.thread
+        thread.begin.connect(self.thread_begin, type=Qt.QueuedConnection)
+        thread.status.connect(self.thread_status, type=Qt.QueuedConnection)
+        thread.add.connect(self.add_commits, type=Qt.QueuedConnection)
+        thread.end.connect(self.thread_end, type=Qt.QueuedConnection)
 
     def focus_input(self):
         self.revtext.setFocus()
@@ -548,7 +612,7 @@ class GitDAG(standard.MainWindow):
         self.commit_list.extend(commits)
         # Keep track of commits
         for commit_obj in commits:
-            self.commits[commit_obj.sha1] = commit_obj
+            self.commits[commit_obj.oid] = commit_obj
             for tag in commit_obj.tags:
                 self.commits[tag] = commit_obj
         self.graphview.add_commits(commits)
@@ -572,7 +636,7 @@ class GitDAG(standard.MainWindow):
             # No commits, exist, early-out
             return
 
-        new_commits = [self.commits.get(s.sha1, None) for s in selection]
+        new_commits = [self.commits.get(s.oid, None) for s in selection]
         new_commits = [c for c in new_commits if c is not None]
         if new_commits:
             # The old selection exists in the new state
@@ -723,6 +787,8 @@ class Edge(QtWidgets.QGraphicsItem):
         return self.bound
 
     def paint(self, painter, option, widget):
+        QRectF = QtCore.QRectF
+        QPointF = QtCore.QPointF
 
         arc_rect = 10
         connector_length = 5
@@ -734,9 +800,7 @@ class Edge(QtWidgets.QGraphicsItem):
             path.moveTo(self.source.x(), self.source.y())
             path.lineTo(self.dest.x(), self.dest.y())
             painter.drawPath(path)
-
         else:
-
             # Define points starting from source
             point1 = QPointF(self.source.x(), self.source.y())
             point2 = QPointF(point1.x(), point1.y() - connector_length)
@@ -858,7 +922,7 @@ class Commit(QtWidgets.QGraphicsItem):
         self.setZValue(0)
         self.setFlag(selectable)
         self.setCursor(cursor)
-        self.setToolTip(commit.sha1[:7] + ': ' + commit.summary)
+        self.setToolTip(commit.oid[:7] + ': ' + commit.summary)
 
         if commit.tags:
             self.label = label = Label(commit)
@@ -1005,6 +1069,7 @@ class Label(QtWidgets.QGraphicsItem):
 
         current_width = 0
 
+        QRectF = QtCore.QRectF
         for tag in self.commit.tags:
             text_rect = painter.boundingRect(
                     QRectF(current_width, 0, 0, 0), Qt.TextSingleLine, tag)
@@ -1037,6 +1102,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         Commit.selected_outline_color = highlight.darker()
 
         self.selection_list = []
+        self.menu_actions = None
         self.notifier = notifier
         self.commits = []
         self.items = {}
@@ -1109,14 +1175,14 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
     def commits_selected(self, commits):
         if self.selecting:
             return
-        self.select([commit.sha1 for commit in commits])
+        self.select([commit.oid for commit in commits])
 
-    def select(self, sha1s):
-        """Select the item for the SHA-1"""
+    def select(self, oids):
+        """Select the item for the oids"""
         self.scene().clearSelection()
-        for sha1 in sha1s:
+        for oid in oids:
             try:
-                item = self.items[sha1]
+                item = self.items[oid]
             except KeyError:
                 continue
             item.blockSignals(True)
@@ -1133,10 +1199,10 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         for commit in commits:
             if (generation is None or
                     criteria_fn(generation, commit.generation)):
-                sha1 = commit.sha1
+                oid = commit.oid
                 generation = commit.generation
         try:
-            return self.items[sha1]
+            return self.items[oid]
         except KeyError:
             return None
 
@@ -1153,9 +1219,9 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         if not items:
             return
         selected_commits = self.sort_by_generation([n.commit for n in items])
-        sha1s = [c.sha1 for c in selected_commits]
-        all_sha1s = [c.sha1 for c in self.commits]
-        cmds.do(cmds.FormatPatch, sha1s, all_sha1s)
+        oids = [c.oid for c in selected_commits]
+        all_oids = [c.oid for c in self.commits]
+        cmds.do(cmds.FormatPatch, oids, all_oids)
 
     def select_parent(self):
         """Select the parent with the newest generation number"""
@@ -1220,7 +1286,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         items = self.selected_items()
         if not items:
             commits = self_commits[-8:]
-            items = [self_items[c.sha1] for c in commits]
+            items = [self_items[c.oid] for c in commits]
 
         self.fit_view_to_items(items)
 
@@ -1372,7 +1438,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         scene = self.scene()
         for commit in commits:
             item = Commit(commit, self.notifier)
-            self.items[commit.sha1] = item
+            self.items[commit.oid] = item
             for ref in commit.tags:
                 self.items[ref] = item
             scene.addItem(item)
@@ -1385,13 +1451,13 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         scene = self.scene()
         for commit in commits:
             try:
-                commit_item = self.items[commit.sha1]
+                commit_item = self.items[commit.oid]
             except KeyError:
                 # TODO - Handle truncated history viewing
                 continue
             for parent in reversed(commit.parents):
                 try:
-                    parent_item = self.items[parent.sha1]
+                    parent_item = self.items[parent.oid]
                 except KeyError:
                     # TODO - Handle truncated history viewing
                     continue
@@ -1400,8 +1466,8 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
 
     def layout_commits(self, nodes):
         positions = self.position_nodes(nodes)
-        for sha1, (x, y) in positions.items():
-            item = self.items[sha1]
+        for oid, (x, y) in positions.items():
+            item = self.items[oid]
             item.setPos(x, y)
 
     def position_nodes(self, nodes):
@@ -1415,7 +1481,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
 
         for node in nodes:
             generation = node.generation
-            sha1 = node.sha1
+            oid = node.oid
 
             if node.is_fork():
                 # This is a fan-out so sweep over child generations and
@@ -1443,7 +1509,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
             y_pos = min(y_pos, y_min - y_off)
 
             # y_pos = y_off
-            positions[sha1] = (x_pos, y_pos)
+            positions[oid] = (x_pos, y_pos)
 
             x_max = max(x_max, x_pos)
             y_min = y_pos

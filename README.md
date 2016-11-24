@@ -63,11 +63,27 @@ if `pyqt5` is not installed.
 
 Any of the following Python Qt libraries must be installed:
 
-* [PyQt4](http://www.riverbankcomputing.co.uk/software/pyqt/download) 4.6 or newer
+* [PyQt4](https://www.riverbankcomputing.com/software/pyqt/download)
+  4.6 or newer
 
-* [PyQt5](http://www.riverbankcomputing.co.uk/software/pyqt/download5) 5.2 or newer
+* [PyQt5](https://www.riverbankcomputing.com/software/pyqt/download5)
+  5.2 or newer
 
-* [PySide](https://github.com/PySide/PySide) 1.1.0 or newer
+* [PySide](https://github.com/PySide/PySide)
+  1.1.0 or newer
+
+*NOTE*: We do not yet recommend using *PyQt5* because there are known
+exit-on-segfault bugs in *Qt5* that have not yet been addressed.
+*git-cola* is sensitive to this bug and is known to crash on exit
+when using `git dag` or the interactive rebase feature on *PyQt5*.
+
+[QTBUG-52988](https://bugreports.qt.io/browse/QTBUG-52988)
+
+*PyQt4* is stable and there are no known issues when using it so we recommend
+using *PyQt4* until the *Qt5* bugs have been resolved.
+
+Set `QT_API=pyqt4` in your environment if you have both
+versions of *PyQt* installed and want to ensure that PyQt4 is used.
 
 *NOTE*: *git-cola* includes a vendored copy of its *QtPy* dependency.
 
@@ -112,6 +128,18 @@ Having *git-cola*'s *bin/* directory in your path allows you to run
 The instructions below assume that you have *git-cola* present in your
 `$PATH`.  Replace "git cola" with "./bin/git-cola" as needed if you'd like to
 just run it in-place.
+
+# DOCUMENTATION
+
+* [HTML documentation](https://git-cola.readthedocs.io/en/latest/)
+
+* [git-cola manual](share/doc/git-cola/git-cola.rst)
+
+* [git-dag manual](share/doc/git-cola/git-dag.rst)
+
+* [Keyboard shortcuts](https://git-cola.github.io/share/doc/git-cola/hotkeys.html)
+
+* [Contributing guidelines](CONTRIBUTING.md)
 
 # INSTALLATION
 
@@ -161,8 +189,8 @@ Sphinx is used to build the documentation.
 
     sudo pip install --requirement requirements.txt
 
-[Homebrew](http://mxcl.github.com/homebrew/) is the easiest way to install
-git-cola's *Qt4* and *PyQt4* dependencies.  We will use homebrew to install
+[Homebrew](http://brew.sh/) is the easiest way to install
+git-cola's *Qt4* and *PyQt4* dependencies.  We will use Homebrew to install
 the git-cola recipe, but build our own .app bundle from source.
 
     brew install git-cola
@@ -183,37 +211,34 @@ Once brew has installed git-cola you can:
 
 ## WINDOWS INSTALLATION
 
-Download the latest stable Git, Python 2.x, and Py2x-PyQt4 installers
+**IMPORTANT** If you have a 64-bit machine, install the 64-bit versions only.
+Do not mix 32-bit and 64-bit versions.
 
-* [msysGit](http://msysgit.github.com/)
+Download and install the following:
 
-* [Python](http://python.org/download/)
+* [Git for Windows](https://git-for-windows.github.io/)
 
-* [PyQt](http://www.riverbankcomputing.co.uk/software/pyqt/download/)
+* [Python](https://www.python.org/downloads/)
+  * Python 3.4 is recommended.  Python 2.7 is also supported.
+  * [64-bit](https://www.python.org/ftp/python/3.4.4/python-3.4.4.amd64.msi)
+  * [32-bit](https://www.python.org/ftp/python/3.4.4/python-3.4.4.msi)
 
-* [git-cola Installer](https://github.com/git-cola/git-cola/downloads)
+* [PyQt](https://riverbankcomputing.com/software/pyqt/download/)
+  * PyQt4 4.11 is recommended.  PyQt4 requires a matching Python version.
+  * [64-bit](http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.11.4/PyQt4-4.11.4-gpl-Py3.4-Qt4.8.7-x64.exe)
+  * [32-bit](http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.11.4/PyQt4-4.11.4-gpl-Py3.4-Qt4.8.7-x32.exe)
 
-Once these are installed you can run *git-cola* from the Start menu or
+* [Git Cola](https://github.com/git-cola/git-cola/downloads)
+
+Once these are installed you can run *git cola* from the Start menu or
 by double-clicking on the `git-cola.pyw` script.
 
-If you are developing *git-cola* on Windows you can use `python.exe` to run
-*git-cola* directly from source.
+If you are developing *git cola* on Windows you can use `python.exe` to run
+directly from the source tree.  For example, from a Git Bash terminal:
 
-    python.exe ./bin/git-cola
+    /c/Python34/python.exe ./bin/git-cola
 
 See "WINDOWS (continued)" below for more details.
-
-# DOCUMENTATION
-
-* [HTML documentation](https://git-cola.readthedocs.io/en/latest/)
-
-* [git-cola manual](share/doc/git-cola/git-cola.rst)
-
-* [git-dag manual](share/doc/git-cola/git-dag.rst)
-
-* [Keyboard shortcuts](https://git-cola.github.io/share/doc/git-cola/hotkeys.html)
-
-* [Contributing guidelines](CONTRIBUTING.md)
 
 # GOODIES
 
@@ -296,31 +321,7 @@ When submitting patches, consult the [contributing guidelines](CONTRIBUTING.md).
 
 # WINDOWS (continued)
 
-## WINDOWS-ONLY HISTORY BROWSER CONFIGURATION UPGRADE
-
-You may need to configure your history browser if you are upgrading from an
-older version of *git-cola*.
-
-`gitk` was originally the default history browser, but `gitk` cannot be
-launched as-is on Windows because `gitk` is a shell script.
-
-If you are configured to use `gitk`, then change your configuration to
-go through Git's `sh.exe` on Windows.  Similarly,we must go through
-`python.exe` if we want to use `git-dag`.
-
-If you want to use *gitk* as your history browser open the
-*Preferences* screen and change the history browser command to:
-
-    C:/Git/bin/sh.exe --login -i C:/Git/bin/gitk
-
-Alternatively, if you'd like to use *git-dag* as your history browser, use:
-
-    C:/Python27/python.exe C:/git-cola/bin/git-dag
-
-*git-dag* became the default history browser on Windows in `v2.3`, so new
-users should not need to configure anything.
-
-# BUILDING WINDOWS INSTALLERS
+## BUILDING WINDOWS INSTALLERS
 
 Windows installers are built using
 
@@ -344,3 +345,27 @@ The *InnoSetup* scripts are still available:
     ./contrib/win32/create-installer.sh
 
 You have to make sure that the file */share/InnoSetup/ISCC.exe* exists.
+
+## WINDOWS HISTORY BROWSER CONFIGURATION UPGRADE
+
+You may need to configure your history browser if you are upgrading from an
+older version of *git-cola*.
+
+`gitk` was originally the default history browser, but `gitk` cannot be
+launched as-is on Windows because `gitk` is a shell script.
+
+If you are configured to use `gitk`, then change your configuration to
+go through Git's `sh.exe` on Windows.  Similarly,we must go through
+`python.exe` if we want to use `git-dag`.
+
+If you want to use *gitk* as your history browser open the
+*Preferences* screen and change the history browser command to:
+
+    "C:/Program Files/Git/bin/sh.exe" --login -i C:/Git/bin/gitk
+
+Alternatively, if you'd like to use *git-dag* as your history browser, use:
+
+    C:/Python34/python.exe C:/git-cola/bin/git-dag
+
+*git-dag* became the default history browser on Windows in `v2.3`, so new
+users should not need to configure anything.

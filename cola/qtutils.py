@@ -22,6 +22,10 @@ from .models import prefs
 from .widgets import defs
 
 
+STRETCH = object()
+SKIPPED = object()
+
+
 def connect_action(action, fn):
     """Connect an action to a function"""
     action.triggered[bool].connect(lambda x: fn())
@@ -34,7 +38,7 @@ def connect_action_bool(action, fn):
 
 def connect_button(button, fn):
     """Connect a button to a function"""
-    button.clicked.connect(fn)
+    button.pressed.connect(fn)
 
 
 def button_action(button, action):
@@ -43,37 +47,40 @@ def button_action(button, action):
 
 
 def connect_toggle(toggle, fn):
+    """Connect a toggle button to a function"""
     toggle.toggled.connect(fn)
 
 
 def active_window():
+    """Return the active window for the current application"""
     return QtWidgets.QApplication.activeWindow()
 
 
 def hbox(margin, spacing, *items):
+    """Create an HBoxLayout with the specified sizes and items"""
     return box(QtWidgets.QHBoxLayout, margin, spacing, *items)
 
 
 def vbox(margin, spacing, *items):
+    """Create a VBoxLayout with the specified sizes and items"""
     return box(QtWidgets.QVBoxLayout, margin, spacing, *items)
 
 
 def buttongroup(*items):
+    """Create a QButtonGroup for the specified items"""
     group = QtWidgets.QButtonGroup()
     for i in items:
         group.addButton(i)
     return group
 
 
-STRETCH = object()
-SKIPPED = object()
-
-
 def set_margin(layout, margin):
+    """Set the content margins for a layout"""
     layout.setContentsMargins(margin, margin, margin, margin)
 
 
 def box(cls, margin, spacing, *items):
+    """Create a QBoxLayout with the specified sizes and items"""
     stretch = STRETCH
     skipped = SKIPPED
     layout = cls()
@@ -97,22 +104,24 @@ def box(cls, margin, spacing, *items):
 
 
 def form(margin, spacing, *widgets):
+    """Create a QFormLayout with the specified sizes and items"""
     layout = QtWidgets.QFormLayout()
     layout.setSpacing(spacing)
     layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.ExpandingFieldsGrow)
     set_margin(layout, margin)
 
-    for idx, (label, widget) in enumerate(widgets):
-        if isinstance(label, (str, ustr)):
-            layout.addRow(label, widget)
+    for idx, (name, widget) in enumerate(widgets):
+        if isinstance(name, (str, ustr)):
+            layout.addRow(name, widget)
         else:
-            layout.setWidget(idx, QtWidgets.QFormLayout.LabelRole, label)
+            layout.setWidget(idx, QtWidgets.QFormLayout.LabelRole, name)
             layout.setWidget(idx, QtWidgets.QFormLayout.FieldRole, widget)
 
     return layout
 
 
 def grid(margin, spacing, *widgets):
+    """Create a QGridLayout with the specified sizes and items"""
     layout = QtWidgets.QGridLayout()
     layout.setSpacing(spacing)
     set_margin(layout, margin)
@@ -128,6 +137,11 @@ def grid(margin, spacing, *widgets):
 
 
 def splitter(orientation, *widgets):
+    """Create a spliter over the specified widgets
+
+    :param orientation: Qt.Horizontal or Qt.Vertical
+
+    """
     layout = QtWidgets.QSplitter()
     layout.setOrientation(orientation)
     layout.setHandleWidth(defs.handle_width)
@@ -139,6 +153,32 @@ def splitter(orientation, *widgets):
     return layout
 
 
+def label(text=None, align=None, fmt=None, selectable=True, stylesheet=None):
+    """Create a QLabel with the specified properties"""
+    widget = QtWidgets.QLabel()
+    if stylesheet:
+        widget.setStyleSheet(stylesheet)
+    if align is not None:
+        widget.setAlignment(align)
+    if fmt is not None:
+        widget.setTextFormat(fmt)
+    if selectable:
+        widget.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        widget.setOpenExternalLinks(True)
+    if text:
+        widget.setText(text)
+    return widget
+
+
+def textbrowser(text=None):
+    """Create a QTextBrowser for the specified text"""
+    widget = QtWidgets.QTextBrowser()
+    widget.setOpenExternalLinks(True)
+    if text:
+        widget.setText(text)
+    return widget
+
+
 def prompt(msg, title=None, text=''):
     """Presents the user with an input widget and returns the input."""
     if title is None:
@@ -147,6 +187,58 @@ def prompt(msg, title=None, text=''):
             active_window(), msg, title,
             QtWidgets.QLineEdit.Normal, text)
     return (result[0], result[1])
+
+
+def prompt_n(msg, inputs):
+    """Presents the user with N input widgets and returns the results"""
+    dialog = QtWidgets.QDialog(active_window())
+    dialog.setWindowModality(Qt.WindowModal)
+    dialog.setWindowTitle(msg)
+
+    long_value = msg
+    for k, v in inputs:
+        if len(k + v) > len(long_value):
+            long_value = k + v
+
+    metrics = QtGui.QFontMetrics(dialog.font())
+    min_width = metrics.width(long_value) + 100
+    if min_width > 720:
+        min_width = 720
+    dialog.setMinimumWidth(min_width)
+
+    ok_b = ok_button(msg, enabled=False)
+    close_b = close_button()
+
+    form_widgets = []
+
+    def get_values():
+        return [pair[1].text().strip() for pair in form_widgets]
+
+    for name, value in inputs:
+        lineedit = QtWidgets.QLineEdit()
+        # Enable the OK button only when all fields have been populated
+        lineedit.textChanged.connect(
+                lambda x: ok_b.setEnabled(all(get_values())))
+        if value:
+            lineedit.setText(value)
+        form_widgets.append((name, lineedit))
+
+    # layouts
+    form_layout = form(defs.no_margin, defs.button_spacing, *form_widgets)
+    button_layout = hbox(defs.no_margin, defs.button_spacing,
+                         STRETCH, close_b, ok_b)
+    main_layout = vbox(defs.margin, defs.button_spacing,
+                       form_layout, button_layout)
+    dialog.setLayout(main_layout)
+
+    # connections
+    connect_button(ok_b, dialog.accept)
+    connect_button(close_b, dialog.reject)
+
+    accepted = dialog.exec_() == QtWidgets.QDialog.Accepted
+    text = get_values()
+    ok = accepted and all(text)
+    return (ok, text)
 
 
 class TreeWidgetItem(QtWidgets.QTreeWidgetItem):
@@ -482,10 +574,14 @@ def add_close_action(widget):
                       widget.close, hotkeys.CLOSE, hotkeys.QUIT)
 
 
+def desktop():
+    return QtWidgets.QApplication.instance().desktop()
+
+
 def center_on_screen(widget):
     """Move widget to the center of the default screen"""
-    desktop = QtWidgets.QApplication.instance().desktop()
-    rect = desktop.screenGeometry(QtGui.QCursor().pos())
+    desk = desktop()
+    rect = desk.screenGeometry(QtGui.QCursor().pos())
     cy = rect.height()//2
     cx = rect.width()//2
     widget.move(cx - widget.width()//2, cy - widget.height()//2)
@@ -558,9 +654,10 @@ def create_action_button(tooltip=None, icon=None):
     return button
 
 
-def ok_button(text, default=False, enabled=True):
-    return create_button(text=text, icon=icons.ok(),
-                         default=default, enabled=enabled)
+def ok_button(text, default=True, enabled=True, icon=None):
+    if icon is None:
+        icon = icons.ok()
+    return create_button(text=text, icon=icon, default=default, enabled=enabled)
 
 
 def close_button():
@@ -663,12 +760,13 @@ class DockTitleBarWidget(QtWidgets.QWidget):
 
     def __init__(self, parent, title, stretch=True):
         QtWidgets.QWidget.__init__(self, parent)
-        self.label = label = QtWidgets.QLabel()
-        font = label.font()
+        self.setAutoFillBackground(True)
+        self.label = qlabel = QtWidgets.QLabel()
+        font = qlabel.font()
         font.setBold(True)
-        label.setFont(font)
-        label.setText(title)
-        label.setCursor(Qt.OpenHandCursor)
+        qlabel.setFont(font)
+        qlabel.setText(title)
+        qlabel.setCursor(Qt.OpenHandCursor)
 
         self.close_button = create_action_button(
             tooltip=N_('Close'), icon=icons.close())
@@ -684,7 +782,7 @@ class DockTitleBarWidget(QtWidgets.QWidget):
             separator = SKIPPED
 
         self.main_layout = hbox(defs.small_margin, defs.spacing,
-                                label, separator, self.corner_layout,
+                                qlabel, separator, self.corner_layout,
                                 self.toggle_button, self.close_button)
         self.setLayout(self.main_layout)
 

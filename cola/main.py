@@ -42,6 +42,7 @@ def parse_args(argv):
     subparser = parser.add_subparsers(title='valid commands')
 
     add_cola_command(subparser)
+    add_about_command(subparser)
     add_am_command(subparser)
     add_archive_command(subparser)
     add_branch_command(subparser)
@@ -82,6 +83,9 @@ def add_cola_command(subparser):
                         default='', help='status path filter')
 
 
+def add_about_command(parent):
+    parser = add_command(parent, 'about', 'about git-cola', cmd_about)
+
 def add_am_command(parent):
     parser = add_command(parent, 'am', 'apply patches using "git am"', cmd_am)
     parser.add_argument('patches', metavar='<patches>', nargs='*',
@@ -91,7 +95,7 @@ def add_am_command(parent):
 def add_archive_command(parent):
     parser = add_command(parent, 'archive', 'save an archive', cmd_archive)
     parser.add_argument('ref', metavar='<ref>', nargs='?', default=None,
-                        help='SHA-1 to archive')
+                        help='commit to archive')
 
 
 def add_branch_command(subparser):
@@ -260,7 +264,7 @@ def add_tag_command(subparser):
     parser.add_argument('name', metavar='<name>', nargs='?', default=None,
                         help='tag name')
     parser.add_argument('ref', metavar='<ref>', nargs='?', default=None,
-                        help='SHA-1 to tag')
+                        help='commit to tag')
     parser.add_argument('-s', '--sign', default=False, action='store_true',
                         help='annotated and GPG-signed tag')
 
@@ -286,6 +290,13 @@ def cmd_cola(args):
     if status_filter:
         view.set_filter(core.relpath(status_filter))
 
+    return application_start(context, view)
+
+
+def cmd_about(args):
+    from .widgets import about
+    context = application_init(args)
+    view = about.about_dialog()
     return application_start(context, view)
 
 

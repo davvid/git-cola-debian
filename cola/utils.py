@@ -110,7 +110,7 @@ def strip_one(path):
     return path.strip('/').split('/', 1)[-1]
 
 
-def dirname(path):
+def dirname(path, current_dir=''):
     """
     An os.path.dirname() implementation that always uses '/'
 
@@ -122,8 +122,20 @@ def dirname(path):
         path = path.replace('//', '/')
     path_dirname = path.rsplit('/', 1)[0]
     if path_dirname == path:
-        return ''
+        return current_dir
     return path.rsplit('/', 1)[0]
+
+
+def select_directory(paths):
+    """Return the first directory in a list of paths"""
+    if not paths:
+        return core.getcwd()
+
+    for path in paths:
+        if core.isdir(path):
+            return path
+
+    return os.path.dirname(paths[0])
 
 
 def strip_prefix(prefix, string):

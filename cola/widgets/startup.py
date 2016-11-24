@@ -6,16 +6,17 @@ found at startup.
 """
 from __future__ import division, absolute_import, unicode_literals
 
+from qtpy.QtCore import Qt
 from qtpy import QtGui
 from qtpy import QtWidgets
-from qtpy.QtCore import Qt
 
+from ..i18n import N_
+from ..settings import Settings
 from .. import core
 from .. import guicmds
 from .. import icons
 from .. import qtutils
-from ..i18n import N_
-from ..settings import Settings
+from .. import version
 from . import defs
 from . import standard
 
@@ -27,15 +28,25 @@ class StartupDialog(standard.Dialog):
         standard.Dialog.__init__(self, parent, save_settings=True)
         self.setWindowTitle(N_('git-cola'))
 
+        # Top-most large icon
+        logo_pixmap = icons.cola().pixmap(defs.huge_icon, defs.huge_icon)
+
+        self.logo_label = QtWidgets.QLabel()
+        self.logo_label.setPixmap(logo_pixmap)
+        self.logo_label.setAlignment(Qt.AlignCenter)
+
+        self.logo_text_label = qtutils.label(text=version.cola_version())
+        self.logo_text_label.setAlignment(Qt.AlignCenter)
+
         self.repodir = None
         self.runtask = qtutils.RunTask(parent=self)
 
-        self.new_button = qtutils.create_button(text=N_('New...'),
-                                                icon=icons.new())
-        self.open_button = qtutils.create_button(text=N_('Open...'),
-                                                 icon=icons.repo())
-        self.clone_button = qtutils.create_button(text=N_('Clone...'),
-                                                  icon=icons.cola())
+        self.new_button = qtutils.create_button(
+                text=N_('New...'), icon=icons.new())
+        self.open_button = qtutils.create_button(
+                text=N_('Open...'), icon=icons.repo())
+        self.clone_button = qtutils.create_button(
+                text=N_('Clone...'), icon=icons.cola())
         self.close_button = qtutils.close_button()
 
         if settings is None:
@@ -43,19 +54,22 @@ class StartupDialog(standard.Dialog):
         settings.load()
         self.settings = settings
 
-        self.bookmarks_label = QtWidgets.QLabel(N_('Select Repository...'))
+        self.bookmarks_label = qtutils.label(text=N_('Select Repository...'))
         self.bookmarks_label.setAlignment(Qt.AlignCenter)
-
         self.bookmarks_model = QtGui.QStandardItemModel()
 
         item = QtGui.QStandardItem(N_('Select manually...'))
         item.setEditable(False)
         self.bookmarks_model.appendRow(item)
 
-        added = set()
-        all_repos = settings.bookmarks + settings.recent
 
-        for repo in all_repos:
+        # Bookmarks/"Favorites" and Recent are lists of {name,path: str}
+        bookmarks = [i['path'] for i in settings.bookmarks]
+        recent = [i['path'] for i in settings.recent]
+        all_repos = bookmarks + recent
+
+        added = set()
+        for repo in sorted(all_repos, key=lambda x: x.lower()):
             if repo in added:
                 continue
             added.add(repo)
@@ -70,19 +84,23 @@ class StartupDialog(standard.Dialog):
         self.bookmarks.setAlternatingRowColors(True)
         self.bookmarks.setModel(self.bookmarks_model)
 
-        if not all_repos:
-            self.bookmarks_label.setMinimumHeight(1)
-            self.bookmarks.setMinimumHeight(1)
-            self.bookmarks_label.hide()
-            self.bookmarks.hide()
+        self.logo_layout = qtutils.vbox(defs.no_margin, defs.spacing,
+                                        self.logo_label,
+                                        self.logo_text_label,
+                                        defs.button_spacing,
+                                        qtutils.STRETCH)
 
         self.button_layout = qtutils.hbox(defs.no_margin, defs.spacing,
                                           self.open_button, self.clone_button,
                                           self.new_button, qtutils.STRETCH,
                                           self.close_button)
 
+        self.center_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
+                                          self.logo_layout, self.bookmarks)
+
         self.main_layout = qtutils.vbox(defs.margin, defs.spacing,
-                                        self.bookmarks_label, self.bookmarks,
+                                        self.bookmarks_label,
+                                        self.center_layout,
                                         self.button_layout)
         self.setLayout(self.main_layout)
 

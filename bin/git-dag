@@ -46,6 +46,7 @@ def setup_environment():
 
     if os.path.exists(cola_mod):
         # Source tree
+        sys.path.insert(1, join(prefix, str('extras'), str('qtpy')))
         sys.path.insert(1, prefix)
     else:
         # Install tree
@@ -83,7 +84,7 @@ def parse_args():
 def cmd_dag(args):
     context = app.application_init(args)
     view = git_dag(context.model, args=args, settings=args.settings)
-    return app.application_start(context, view, monitor_refs_only=True)
+    return app.application_start(context, view)
 
 
 if __name__ == '__main__':

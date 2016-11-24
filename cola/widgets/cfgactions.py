@@ -54,7 +54,7 @@ def run_command(title, command):
 
 
 class GitCommandWidget(standard.Dialog):
-    """Nice TextView that reads the output of a command syncronously"""
+    """Nice TextView that reads the output of a command synchronously"""
 
     # Keep us in scope otherwise PyQt kills the widget
     def __init__(self, title, parent=None):
@@ -113,22 +113,18 @@ class GitCommandWidget(standard.Dialog):
         self.proc.start(self.command[0], self.command[1:])
 
     def read_stdout(self):
-        rawbytes = self.proc.readAllStandardOutput()
-        data = ''
-        for b in rawbytes:
-            data += b
-        text = core.decode(data)
+        text = self.read_stream(self.proc.readAllStandardOutput)
         self.out += text
-        self.append_text(text)
 
     def read_stderr(self):
-        rawbytes = self.proc.readAllStandardError()
-        data = ''
-        for b in rawbytes:
-            data += b
-        text = core.decode(data)
+        text = self.read_stream(self.proc.readAllStandardError)
         self.err += text
+
+    def read_stream(self, fn):
+        data = fn().data()
+        text = core.decode(data)
         self.append_text(text)
+        return text
 
     def append_text(self, text):
         cursor = self.output_text.textCursor()
@@ -142,7 +138,7 @@ class GitCommandWidget(standard.Dialog):
             # Terminate seems to do nothing in windows
             self.proc.terminate()
             # Kill the process.
-            QtCore.QTimer.singleShot(1000, self.proc, QtCore.SLOT('kill()'))
+            QtCore.QTimer.singleShot(1000, self.proc)
 
     def closeEvent(self, event):
         if self.proc.state() != QtCore.QProcess.NotRunning:

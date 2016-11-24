@@ -1,5 +1,5 @@
-#define APP_NAME     'git-cola'
-#define APP_LONGNAME 'git-cola - The highly caffeinated Git GUI'
+#define APP_NAME     'Git Cola'
+#define APP_LONGNAME 'Git Cola: The highly caffeinated Git GUI'
 #define APP_VERSION  '%APPVERSION%'
 #define APP_URL      'https://git-cola.github.io/'
 
@@ -18,7 +18,7 @@ AppVersion={#emit APP_VERSION}
 AppVerName={#emit APP_LONGNAME+' '+APP_VERSION}
 ChangesEnvironment=yes
 DefaultDirName={pf}\{#emit APP_NAME}
-DefaultGroupName={#emit APP_LONGNAME}
+DefaultGroupName={#emit APP_NAME}
 DisableReadyPage=yes
 InfoBeforeFile=etc\gpl-2.0.rtf
 PrivilegesRequired=none
@@ -346,7 +346,7 @@ begin
         Modify the environment
 
         This must happen no later than usUninstall to make
-        "ChangesEnvironment=yes" not happend before the change!
+        "ChangesEnvironment=yes" not happen before the change!
     }
 
     AppDir:=ExpandConstant('{app}');
