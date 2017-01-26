@@ -5,15 +5,15 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: git-cola glossary\n"
-"PO-Revision-Date: 2014-06-06 09:08+0800\n"
-"Last-Translator: Ｖ字龍(Vdragon) <Vdragon.Taiwan@gmail.com>\n"
+"PO-Revision-Date: 2016-11-24 18:13+0800\n"
+"Last-Translator: Ｖ字龍 <Vdragon.Taiwan@gmail.com>\n"
 "Language-Team: Chinese Traditional <>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Language: zh_TW\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Lokalize 1.5\n"
+"X-Generator: Poedit 1.8.7.1\n"
 
 #. "English Definition (Dear translator: This file will never be visible to the user! It should only serve as a tool for you, the translator. Nothing more.)"
 msgid ""
@@ -27,7 +27,7 @@ msgstr "註：這個文件是為了幫助翻譯人員統一名詞術語。終端
 #              修正，其實每次amend的結果也不一定就是最後結果，說不定還需要修改。所以不
 #              如就叫修改
 msgid "amend"
-msgstr "修正前一次的版本提交(commit)"
+msgstr "修正前一次的修訂版提交"
 
 #. ""
 #. git annotate 文件名：用來標註文件的每一行在什麼時候被誰最後修改。
@@ -38,34 +38,31 @@ msgid "annotate"
 msgstr "標註"
 
 #. "A 'branch' is an active line of development."
-#, fuzzy
 msgid "branch [noun]"
 msgstr "分支"
 
 #. ""
-#, fuzzy
 msgid "branch [verb]"
-msgstr ""
+msgstr "建立新分支"
 
 #. ""
 #. [WANG Cong]: 網上有人翻譯成「檢出」，我感覺更好一些，畢竟把check的意思翻譯出來了。
 #. [ZHNAG Le]: 提取吧，提取分支／版本
 #. [rae l]: 簽出。subversion軟件中的大多詞彙已有翻譯，既然git與subversion同是SCM管理，可以參考同類軟件的翻譯也不錯。
 msgid "checkout [noun]"
-msgstr ""
+msgstr "取出"
 
 #. "The action of updating the working tree to a revision which was stored in the object database."
 msgid "checkout [verb]"
 msgstr "取出"
 
 #. "A single point in the git history."
-#, fuzzy
 msgid "commit [noun]"
-msgstr "版本提交(commit)"
+msgstr "修訂版提交"
 
 #. "The action of storing a new snapshot of the project's state in the git history."
 msgid "commit [verb]"
-msgstr "提交（至版本倉庫）"
+msgstr "提交（至版控庫）"
 
 #. ""
 #. 差異？差別？
@@ -88,12 +85,10 @@ msgstr "撈取"
 
 #. "A collection of files. The index is a stored version of your working tree."
 #. index是working tree和repository之間的緩存
-#, fuzzy
 msgid "index (in git-gui: staging area)"
-msgstr "工作緩存？"
+msgstr "新修訂版準備區域"
 
 #. "A successful merge results in the creation of a new commit representing the result of the merge."
-#, fuzzy
 msgid "merge [noun]"
 msgstr "分支合併"
 
@@ -108,32 +103,35 @@ msgstr "訊息"
 
 #. "Pulling a branch means to fetch it and merge it."
 msgid "pull"
-msgstr "撈取並合併至本地版本倉庫中"
+msgstr "撈取並合併至本地版控庫中"
 
 #. "Pushing a branch means to get the branch's head ref from a remote repository, and ... (well, can someone please explain it for mere mortals?)"
 msgid "push"
-msgstr "推送至遠端版本倉庫"
+msgstr "推送至遠端版控庫"
 
 #. ""
 msgid "redo"
 msgstr "重做"
 
 #. "A collection of refs (?) together with an object database containing all objects which are reachable from the refs... (oops, you've lost me here. Again, please an explanation for mere mortals?)"
+#. In revision control systems, a repository[1] is an on-disk data structure which stores metadata for a set of files and/or directory structure.（摘錄自 [Repository (version control) - Wikipedia](https://en.wikipedia.org/wiki/Repository_(version_control))）
+#. Ｖ字龍：過去所採用的「版本倉庫」翻譯之理解為「存放版本的倉庫」並不符合 VCS Repo 除了版本之外保存其他版本控制需要的詮釋資料的實際情況，所以被棄用）
+#. Ｖ字龍：「版控庫」為「因版本控制目的而建立的倉庫（至於倉庫內存了什麼哪些東西不是一般使用者該關心的細節）」的簡寫
 msgid "repository"
-msgstr "版本倉庫"
+msgstr "版控庫"
 
 #. ""
-#, fuzzy
 msgid "reset"
-msgstr "重置"
+msgstr "重設"
 
 #. ""
 msgid "revert"
 msgstr "撤銷"
 
 #. "A particular state of files and directories which was stored in the object database."
+#. Ｖ字龍：修訂版(revision)指得是版本控制系統控管內容修改的最小單位，與「版本(version)」的差異為「修訂版」微不足道到作者沒必要給它指定一個有意義的識別名稱（Vx.y.z）而是使用版本控制系統隨機產生的識別名稱（如 a3dfe84...）或是編號（如 Build 12345）
 msgid "revision"
-msgstr "版本"
+msgstr "修訂版"
 
 #. ""
 msgid "sign off"
@@ -143,13 +141,13 @@ msgstr "簽名"
 #. ""
 #. 似乎是git-gui裡面顯示的本次提交的文件清單區域
 msgid "staging area"
-msgstr "版本提交(commit)準備區域"
+msgstr "新修訂版準備區域"
 
 # 意思應該是 commit 的準備區域的樣子
 #. ""
 #. 似乎是git-gui裡面顯示的本次提交的文件清單區域
 msgid "stage"
-msgstr "移入版本提交(commit)準備區域"
+msgstr "移入新修訂版準備區域"
 
 #. ""
 msgid "status"
@@ -183,14 +181,12 @@ msgstr "驗證"
 #. "The tree of actual checked out files."
 #. "工作副本？工作區域？工作目錄"
 #. [LI Yang]: 當前副本， 當前源碼樹？
-#, fuzzy
 msgid "working copy, working tree"
-msgstr "工作副本，工作源碼樹"
+msgstr "當前工作目錄"
 
 #. ""
-#, fuzzy
 msgid "rebase"
-msgstr ""
+msgstr "變更基底"
 
 #. ""
 msgid "patch(noun)"
@@ -205,12 +201,9 @@ msgid "clone"
 msgstr "克隆"
 
 #. ""
-#, fuzzy
 msgid "(merge) conflict"
 msgstr "合併衝突"
 
 #. ""
-#, fuzzy
 msgid "stash"
-msgstr "stash"
-
+msgstr "蒐藏(stash)"

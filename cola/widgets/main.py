@@ -4,6 +4,7 @@ from __future__ import division, absolute_import, unicode_literals
 
 import os
 
+from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
@@ -19,6 +20,7 @@ from .. import core
 from .. import guicmds
 from .. import git
 from .. import gitcfg
+from .. import gitcmds
 from .. import hotkeys
 from .. import icons
 from .. import qtutils
@@ -59,7 +61,6 @@ class MainView(standard.MainWindow):
 
     def __init__(self, model, parent=None, settings=None):
         standard.MainWindow.__init__(self, parent)
-        self.setAttribute(Qt.WA_MacMetalStyle)
 
         # Default size; this is thrown out when save/restore is used
         self.dag = None
@@ -204,6 +205,10 @@ class MainView(standard.MainWindow):
 
         self.load_commitmsg_action = add_action(
             self, N_('Load Commit Message...'), guicmds.load_commitmsg)
+
+        self.prepare_commitmsg_hook_action = add_action(
+            self, N_('Prepare Commit Message'),
+            cmds.run(cmds.PrepareCommitMessageHook))
 
         self.save_tarball_action = add_action(
             self, N_('Save As Tarball/Zip...'), self.save_archive)
@@ -359,9 +364,6 @@ class MainView(standard.MainWindow):
         self.file_menu.addAction(self.edit_remotes_action)
         self.file_menu.addAction(self.browse_recently_modified_action)
         self.file_menu.addSeparator()
-        self.file_menu.addAction(self.load_commitmsg_action)
-        self.file_menu.addAction(self.load_commitmsg_template_action)
-        self.file_menu.addSeparator()
         self.file_menu.addAction(self.apply_patches_action)
         self.file_menu.addAction(self.export_patches_action)
         self.file_menu.addAction(self.save_tarball_action)
@@ -390,14 +392,18 @@ class MainView(standard.MainWindow):
         self.actions_menu.addAction(self.search_commits_action)
         self.menubar.addAction(self.actions_menu.menuAction())
 
-        # Staging Area Menu
-        self.commit_menu = create_menu(N_('Staging Area'), self.menubar)
-        self.commit_menu.setTitle(N_('Staging Area'))
+        # Commit Menu
+        self.commit_menu = create_menu(N_('Commit@@verb'), self.menubar)
+        self.commit_menu.setTitle(N_('Commit@@verb'))
         self.commit_menu.addAction(self.stage_modified_action)
         self.commit_menu.addAction(self.stage_untracked_action)
         self.commit_menu.addSeparator()
         self.commit_menu.addAction(self.unstage_all_action)
         self.commit_menu.addAction(self.unstage_selected_action)
+        self.commit_menu.addSeparator()
+        self.commit_menu.addAction(self.load_commitmsg_action)
+        self.commit_menu.addAction(self.load_commitmsg_template_action)
+        self.commit_menu.addAction(self.prepare_commitmsg_hook_action)
         self.menubar.addAction(self.commit_menu.menuAction())
 
         # Diff Menu
@@ -487,6 +493,7 @@ class MainView(standard.MainWindow):
         # Set a default value
         self.show_cursor_position(1, 0)
 
+        self.commit_menu.aboutToShow.connect(self.update_menu_actions)
         self.open_recent_menu.aboutToShow.connect(self.build_recent_menu)
         self.commitmsgeditor.cursor_changed.connect(self.show_cursor_position)
 
@@ -503,8 +510,6 @@ class MainView(standard.MainWindow):
                                             type=Qt.QueuedConnection)
         # Install .git-config-defined actions
         self.init_config_actions()
-        self.statusdockwidget.widget().setFocus()
-
         self.init_state(settings, self.set_initial_size)
 
         # Route command output here
@@ -513,6 +518,8 @@ class MainView(standard.MainWindow):
         Interaction.safe_log = self.logwidget.safe_log
         Interaction.log(version.git_version_str() + '\n' +
                         N_('git cola version %s') % version.version())
+        # Focus the status widget; this must be deferred
+        QtCore.QTimer.singleShot(0, lambda: self.statuswidget.setFocus())
 
     def set_initial_size(self):
         self.resize(987, 610)
@@ -526,7 +533,7 @@ class MainView(standard.MainWindow):
     def closeEvent(self, event):
         """Save state in the settings manager."""
         commit_msg = self.commitmsgeditor.commit_message(raw=True)
-        self.model.save_commitmsg(commit_msg)
+        self.model.save_commitmsg(msg=commit_msg)
         standard.MainWindow.closeEvent(self, event)
 
     def build_recent_menu(self):
@@ -540,7 +547,7 @@ class MainView(standard.MainWindow):
             name = r['name']
             directory = r['path']
             text = '%s %s %s' % (name, unichr(0x2192), directory)
-            menu.addAction(text, cmds.run(cmd, r))
+            menu.addAction(text, cmds.run(cmd, directory))
 
     # Accessors
     mode = property(lambda self: self.model.mode)
@@ -640,6 +647,12 @@ class MainView(standard.MainWindow):
         self.rename_branch_action.setEnabled(enabled)
         self.delete_branch_action.setEnabled(enabled)
 
+    def update_menu_actions(self):
+        # Enable the Prepare Commit Message action if the hook exists
+        hook = gitcmds.prepare_commit_message_hook()
+        enabled = os.path.exists(hook)
+        self.prepare_commitmsg_hook_action.setEnabled(enabled)
+
     def export_state(self):
         state = standard.MainWindow.export_state(self)
         show_status_filter = self.statuswidget.filter_widget.isVisible()
@@ -695,6 +708,7 @@ class MainView(standard.MainWindow):
             self.addAction(toggleview)
             qtutils.connect_action(toggleview, focusdock)
 
+        # These widgets warrant home-row hotkey status
         qtutils.add_action(self, 'Focus Commit Message',
                            lambda: focus_dock(self.commitdockwidget),
                            hotkeys.FOCUS)
@@ -702,6 +716,10 @@ class MainView(standard.MainWindow):
         qtutils.add_action(self, 'Focus Status Window',
                            lambda: focus_dock(self.statusdockwidget),
                            hotkeys.FOCUS_STATUS)
+
+        qtutils.add_action(self, 'Focus Diff Editor',
+                           lambda: focus_dock(self.diffdockwidget),
+                           hotkeys.FOCUS_DIFF)
 
     def preferences(self):
         return prefs_widget.preferences(model=self.prefs_model, parent=self)

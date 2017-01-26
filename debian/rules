@@ -26,6 +26,7 @@ clean:
 	dh_testroot
 	dh_clean build-stamp
 	[ ! -f Makefile ] || $(MAKE) clean
+	find . -name "*.pyc" -delete
 	rm -f $(CURDIR)/share/doc/git-cola/_build/html/.buildinfo
 
 install: build

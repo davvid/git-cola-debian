@@ -1,6 +1,6 @@
 Description: make python version overridable
 Author: Laszlo Boszormenyi (GCS) <gcs@debian.org>
-Last-Update: 2016-08-21
+Last-Update: 2017-01-26
 
 ---
 
@@ -12,6 +12,6 @@ Last-Update: 2016-08-21
  PYLINT = pylint
 -PYTHON = python
 +PYTHON ?= python
+ PYTHON_CONFIG = python-config
+ PYTHON_DARWIN_APP = $(shell $(PYTHON_CONFIG) --prefix)/Resources/Python.app/Contents/MacOS/Python
  RM = rm -f
- RM_R = rm -fr
- RMDIR = rmdir
