@@ -1,3 +1,10 @@
+git-cola (2.11-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Add dh-python build dependency.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Thu, 11 May 2017 15:54:15 +0000
+
 git-cola (2.10-1) unstable; urgency=low
 
   * New upstream release (closes: #851721).

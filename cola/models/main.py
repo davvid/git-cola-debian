@@ -66,6 +66,7 @@ class MainModel(Observable):
         # Initialize the git command object
         self.git = git.current()
 
+        self.initialized = False
         self.head = 'HEAD'
         self.diff_text = ''
         self.mode = self.mode_none
@@ -191,6 +192,7 @@ class MainModel(Observable):
     def update_status(self, update_index=False):
         # Give observers a chance to respond
         self.notify_observers(self.message_about_to_update)
+        self.initialized = True
         self._update_merge_rebase_status()
         self._update_files(update_index=update_index)
         self._update_remotes()
@@ -515,7 +517,8 @@ def remote_args(remote,
                 rebase=False,
                 pull=False,
                 push=False,
-                set_upstream=False):
+                set_upstream=False,
+                prune=False):
     """Return arguments for git fetch/push/pull"""
 
     args = [remote]
@@ -540,6 +543,8 @@ def remote_args(remote,
         kwargs['set_upstream'] = True
     if tags:
         kwargs['tags'] = True
+    if prune:
+        kwargs['prune'] = True
 
     return (args, kwargs)
 

@@ -2,7 +2,7 @@
 
     git-cola is a powerful Git GUI with a slick and intuitive user interface.
 
-    Copyright (C) 2007-2016, David Aguilar and contributors
+    Copyright (C) 2007-2017, David Aguilar and contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -337,7 +337,7 @@ The following commands should be run during development:
     $ make test
 
     # Check for pylint warnings.  All new code must pass 100%.
-    $ make pylint
+    $ make pylint3k
 
 The test suite can be found in the [test](test) directory.
 

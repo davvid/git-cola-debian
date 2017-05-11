@@ -5,17 +5,17 @@ from qtpy import QtCore
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
-from .. import gitcmds
-from .. import icons
-from .. import qtutils
 from ..i18n import N_
 from ..interaction import Interaction
 from ..models import main
-from . import defs
-from . import completion
+from .. import gitcmds
+from .. import icons
+from .. import qtutils
 from .standard import Dialog
 from .standard import ProgressDialog
 from .text import LineEdit
+from . import defs
+from . import completion
 
 
 def create_new_branch(revision='', settings=None):
@@ -176,9 +176,9 @@ class CreateBranchDialog(Dialog):
                                                  qtutils.STRETCH)
 
         self.buttons_layout = qtutils.hbox(defs.margin, defs.spacing,
+                                           self.close_button,
                                            qtutils.STRETCH,
-                                           self.create_button,
-                                           self.close_button)
+                                           self.create_button)
 
         self.main_layout = qtutils.vbox(defs.margin, defs.spacing,
                                         self.branch_name_layout,
@@ -192,9 +192,9 @@ class CreateBranchDialog(Dialog):
         qtutils.add_close_action(self)
         qtutils.connect_button(self.close_button, self.close)
         qtutils.connect_button(self.create_button, self.create_branch)
-        qtutils.connect_button(self.local_radio, self.display_model)
-        qtutils.connect_button(self.remote_radio, self.display_model)
-        qtutils.connect_button(self.tag_radio, self.display_model)
+        qtutils.connect_toggle(self.local_radio, self.display_model)
+        qtutils.connect_toggle(self.remote_radio, self.display_model)
+        qtutils.connect_toggle(self.tag_radio, self.display_model)
 
         branches = self.branch_list
         branches.itemSelectionChanged.connect(self.branch_item_changed)
@@ -203,7 +203,7 @@ class CreateBranchDialog(Dialog):
         thread.command.connect(self.thread_command, type=Qt.QueuedConnection)
         thread.result.connect(self.thread_result, type=Qt.QueuedConnection)
 
-        self.init_state(settings, self.resize, 555, 333)
+        self.init_size(settings=settings, parent=parent)
         self.display_model()
 
     def set_revision(self, revision):
