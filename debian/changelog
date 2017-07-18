@@ -1,3 +1,11 @@
+git-cola (2.11-2) unstable; urgency=medium
+
+  * Upload to Sid.
+  * Correct duplicate documentation removal (closes: #868751).
+  * Update Standards-Version to 4.0.0 and debhelper level to 10 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Tue, 18 Jul 2017 18:00:04 +0000
+
 git-cola (2.11-1) experimental; urgency=medium
 
   * New upstream release.
