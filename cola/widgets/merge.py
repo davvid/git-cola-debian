@@ -25,24 +25,10 @@ def local_merge():
     return view
 
 
-def abort_merge():
-    """Prompts before aborting a merge in progress
-    """
-    title = N_('Abort Merge...')
-    txt = N_('Aborting the current merge will cause '
-             '*ALL* uncommitted changes to be lost.\n'
-             'Recovering uncommitted changes is not possible.')
-    info_txt = N_('Aborting the current merge?')
-    ok_txt = N_('Abort Merge')
-    if qtutils.confirm(title, txt, info_txt, ok_txt,
-                       default=False, icon=icons.undo()):
-        gitcmds.abort_merge()
-
-
 class Merge(standard.Dialog):
     """Provides a dialog for merging branches."""
 
-    def __init__(self, cfg, model, parent=None):
+    def __init__(self, cfg, model, parent=None, ref=None):
         standard.Dialog.__init__(self, parent=parent)
         self.cfg = cfg
         self.model = model
@@ -55,8 +41,9 @@ class Merge(standard.Dialog):
         self.revision_label.setText(N_('Revision to Merge'))
 
         self.revision = completion.GitRefLineEdit()
-        self.revision.setFocus()
         self.revision.setToolTip(N_('Revision to Merge'))
+        if ref:
+            self.revision.set_value(ref)
 
         self.radio_local = qtutils.radio(text=N_('Local Branch'), checked=True)
         self.radio_remote = qtutils.radio(text=N_('Tracking Branch'))
@@ -117,6 +104,7 @@ class Merge(standard.Dialog):
 
         # Signal/slot connections
         self.revision.textChanged.connect(self.update_title)
+        self.revision.returnPressed.connect(self.merge_revision)
         self.revisions.itemSelectionChanged.connect(self.revision_selected)
 
         qtutils.connect_released(self.radio_local, self.update_revisions)
@@ -132,6 +120,7 @@ class Merge(standard.Dialog):
         self.update_all()
 
         self.init_size(parent=parent)
+        self.revision.setFocus(True)
 
     def update_all(self):
         """Set the branch name for the window title and label."""
@@ -146,6 +135,7 @@ class Merge(standard.Dialog):
                    dict(revision=revision, branch=branch))
         else:
             txt = N_('Merge into "%s"') % branch
+        self.button_merge.setEnabled(bool(revision))
         self.title_label.setText(txt)
         self.setWindowTitle(txt)
 
@@ -212,3 +202,19 @@ class Merge(standard.Dialog):
         sign = self.checkbox_sign.isChecked()
         cmds.do(cmds.Merge, revision, no_commit, squash, noff, sign)
         self.accept()
+
+    def export_state(self):
+        """Export persistent settings"""
+        state = super(Merge, self).export_state()
+        state['no-ff'] = self.checkbox_noff.isChecked()
+        state['sign'] = self.checkbox_sign.isChecked()
+        state['commit'] = self.checkbox_commit.isChecked()
+        return state
+
+    def apply_state(self, state):
+        """Apply persistent settings"""
+        result = super(Merge, self).apply_state(state)
+        self.checkbox_noff.setChecked(state.get('no-ff', False))
+        self.checkbox_sign.setChecked(state.get('sign', False))
+        self.checkbox_commit.setChecked(state.get('commit', True))
+        return result

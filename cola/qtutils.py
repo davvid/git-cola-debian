@@ -1,4 +1,4 @@
-# Copyright (c) 2008-2016 David Aguilar
+# Copyright (c) 2008-2017 David Aguilar
 """Miscellaneous Qt utility functions."""
 from __future__ import division, absolute_import, unicode_literals
 
@@ -46,7 +46,9 @@ def connect_action_bool(action, fn):
 
 def connect_button(button, fn):
     """Connect a button to a function"""
-    button.pressed.connect(fn)
+    # Some versions of Qt send the `bool` argument to the clicked callback,
+    # and some do not.  The lambda consumes all callback-provided arguments.
+    button.clicked.connect(lambda *args, **kwargs: fn())
 
 
 def connect_released(button, fn):
@@ -366,6 +368,13 @@ def critical(title, message=None, details=None):
     if details:
         mbox.setDetailedText(details)
     mbox.exec_()
+
+
+def command_error(title, cmd, status, out, err):
+    """Report an error message about a failed command"""
+    details = Interaction.format_out_err(out, err)
+    message = Interaction.format_command_status(cmd, status)
+    critical(title, message=message, details=details)
 
 
 def information(title, message=None, details=None, informative_text=None):
@@ -798,7 +807,7 @@ class DockTitleBarWidget(QtWidgets.QWidget):
         self.toggle_button.setToolTip(tooltip)
 
 
-def create_dock(title, parent, stretch=True):
+def create_dock(title, parent, stretch=True, widget=None, fn=None):
     """Create a dock widget and set it up accordingly."""
     dock = QtWidgets.QDockWidget(parent)
     dock.setWindowTitle(title)
@@ -808,6 +817,10 @@ def create_dock(title, parent, stretch=True):
     dock.setAutoFillBackground(True)
     if hasattr(parent, 'dockwidgets'):
         parent.dockwidgets.append(dock)
+    if fn:
+        widget = fn(dock)
+    if widget:
+        dock.setWidget(widget)
     return dock
 
 
@@ -815,6 +828,13 @@ def create_menu(title, parent):
     """Create a menu and set its title."""
     qmenu = QtWidgets.QMenu(title, parent)
     return qmenu
+
+
+def add_menu(title, parent):
+    """Create a menu and set its title."""
+    menu = create_menu(title, parent)
+    parent.addAction(menu.menuAction())
+    return menu
 
 
 def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
@@ -994,7 +1014,7 @@ def rgb_css(color):
 
 def rgb_hex(color):
     """Convert a QColor into a hex aabbcc string"""
-    return '%x%x%x' % (color.red(), color.green(), color.blue())
+    return '%02x%02x%02x' % (color.red(), color.green(), color.blue())
 
 
 def make_format(fg=None, bg=None, bold=False):
@@ -1013,3 +1033,4 @@ def install():
     Interaction.confirm = staticmethod(confirm)
     Interaction.question = staticmethod(question)
     Interaction.information = staticmethod(information)
+    Interaction.command_error = staticmethod(command_error)

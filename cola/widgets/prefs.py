@@ -171,10 +171,12 @@ class SettingsFormWidget(FormWidget):
         self.bold_headers = qtutils.checkbox()
         self.save_gui_settings = qtutils.checkbox()
         self.check_spelling = qtutils.checkbox()
+        self.expandtab = qtutils.checkbox()
 
         self.add_row(N_('Fixed-Width Font'), self.fixed_font)
         self.add_row(N_('Font Size'), self.font_size)
         self.add_row(N_('Tab Width'), self.tabwidth)
+        self.add_row(N_('Insert spaces instead of tabs'), self.expandtab)
         self.add_row(N_('Text Width'), self.textwidth)
         self.add_row(N_('Auto-Wrap Lines'), self.linebreak)
         self.add_row(N_('Editor'), self.editor)
@@ -192,6 +194,7 @@ class SettingsFormWidget(FormWidget):
         self.set_config({
             prefs.SAVEWINDOWSETTINGS: (self.save_gui_settings, True),
             prefs.TABWIDTH: (self.tabwidth, 8),
+            prefs.EXPANDTAB: (self.expandtab, False),
             prefs.TEXTWIDTH: (self.textwidth, 72),
             prefs.LINEBREAK: (self.linebreak, True),
             prefs.SORT_BOOKMARKS: (self.sort_bookmarks, True),
@@ -262,7 +265,7 @@ class PreferencesView(standard.Dialog):
         self.close_button = qtutils.close_button()
 
         self.button_layout = qtutils.hbox(defs.no_margin, defs.spacing,
-                                          self.close_button, qtutils.STRETCH)
+                                          qtutils.STRETCH, self.close_button)
 
         self.main_layout = qtutils.vbox(defs.margin, defs.spacing,
                                         self.tab_bar, self.stack_widget,

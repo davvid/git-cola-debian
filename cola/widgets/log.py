@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, unicode_literals
 import time
 
 from qtpy import QtGui
@@ -6,6 +6,7 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
+from .. import core
 from .. import qtutils
 from ..i18n import N_
 from . import defs
@@ -50,7 +51,8 @@ class LogWidget(QtWidgets.QWidget):
         cursor = self.output_text.textCursor()
         cursor.movePosition(cursor.End)
         text = self.output_text
-        prefix = time.asctime() + ':  '
+        # NOTE: the ':  ' colon-SP-SP suffix in used by the syntax highlighter
+        prefix = core.decode(time.strftime('%I:%M %p %Ss %Y-%m-%d:  '))
         for line in msg.splitlines():
             cursor.insertText(prefix + line + '\n')
         cursor.movePosition(cursor.End)
@@ -72,5 +74,6 @@ class LogSyntaxHighlighter(QtGui.QSyntaxHighlighter):
         self.disabled_color = palette.color(QPalette.Disabled, QPalette.Text)
 
     def highlightBlock(self, text):
-        log_end = text.find(':  ') + 1
-        self.setFormat(0, log_end, self.disabled_color)
+        end = text.find(':  ')
+        if end > 0:
+            self.setFormat(0, end + 1, self.disabled_color)

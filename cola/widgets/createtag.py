@@ -12,6 +12,7 @@ from . import defs
 from . import completion
 from . import standard
 from . import text
+from ..models import main
 
 
 def new_create_tag(name='', ref='', sign=False, settings=None, parent=None):
@@ -58,6 +59,7 @@ class CreateTag(standard.Dialog):
         self.tag_name = text.HintedLineEdit(N_('vX.Y.Z'), parent=self)
         self.tag_name.set_value(opts.name)
         self.tag_name.setToolTip(N_('Specifies the tag name'))
+        qtutils.add_completer(self.tag_name, main.model().tags)
 
         # Sign Tag
         self.sign_label = QtWidgets.QLabel(self)
@@ -118,30 +120,15 @@ class CreateTag(standard.Dialog):
             qtutils.critical(N_('Missing Revision'),
                              N_('Please specify a revision to tag.'))
             return
-        elif not tag_name:
+        if not tag_name:
             qtutils.critical(N_('Missing Name'),
                              N_('Please specify a name for the new tag.'))
             return
-        elif (sign_tag and not tag_msg and
-                not qtutils.confirm(N_('Missing Tag Message'),
-                                    N_('Tag-signing was requested but the tag '
-                                       'message is empty.'),
-                                    N_('An unsigned, lightweight tag will be '
-                                       'created instead.\n'
-                                       'Create an unsigned tag?'),
-                                    N_('Create Unsigned Tag'),
-                                    default=False, icon=icons.save())):
-            return
 
-        status, output, err = cmds.do(cmds.Tag, tag_name, revision,
-                                      sign=sign_tag, message=tag_msg)
-
+        status, out, err = cmds.do(cmds.Tag, tag_name, revision,
+                                   sign=sign_tag, message=tag_msg)
         if status == 0:
             qtutils.information(N_('Tag Created'),
                                 N_('Created a new tag named "%s"') % tag_name,
                                 details=tag_msg or None)
             self.close()
-        else:
-            qtutils.critical(N_('Error: could not create tag "%s"') % tag_name,
-                             (N_('git tag returned exit code %s') % status) +
-                             ((output+err) and ('\n\n' + output + err) or ''))

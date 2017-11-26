@@ -8,6 +8,7 @@ from .models import main
 from .widgets import completion
 from .widgets.browse import BrowseBranch
 from .widgets.selectcommits import select_commits
+from .widgets.selectcommits import select_commits_and_output
 from . import cmds
 from . import core
 from . import difftool
@@ -95,13 +96,7 @@ def new_repo():
         return path
     else:
         title = N_('Error Creating Repository')
-        msg = (N_('"%(command)s" returned exit status %(status)d') %
-               dict(command='git init %s' % path, status=status))
-        details = N_('Output:\n%s') % out
-        if err:
-            details += '\n\n'
-            details += N_('Errors: %s') % err
-        qtutils.critical(title, msg, details)
+        Interaction.command_error(title, 'git init', status, out, err)
         return None
 
 
@@ -170,10 +165,13 @@ def prompt_for_clone():
 def export_patches():
     """Run 'git format-patch' on a list of commits."""
     revs, summaries = gitcmds.log_helper()
-    to_export = select_commits(N_('Export Patches'), revs, summaries)
-    if not to_export:
+    to_export_and_output = select_commits_and_output(N_('Export Patches'), revs,
+                                                     summaries)
+    if not to_export_and_output['to_export']:
         return
-    cmds.do(cmds.FormatPatch, reversed(to_export), reversed(revs))
+
+    cmds.do(cmds.FormatPatch, reversed(to_export_and_output['to_export']),
+            reversed(revs), to_export_and_output['output'])
 
 
 def diff_expression():
@@ -277,11 +275,14 @@ def clone_repo(parent, runtask, progress, finish, spawn):
 
 def report_clone_repo_errors(task):
     """Report errors from the clone task if they exist"""
-    if task.cmd is None or task.cmd.ok:
+    cmd = task.cmd
+    if cmd is None:
         return
-    Interaction.critical(task.cmd.error_message,
-                         message=task.cmd.error_message,
-                         details=task.cmd.error_details)
+    status = cmd.status
+    out = cmd.out
+    err = cmd.err
+    title = N_('Error: could not clone "%s"') % task.cmd.url
+    Interaction.command(title, 'git clone', status, out, err)
 
 
 def rename_branch():

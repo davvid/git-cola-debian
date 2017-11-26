@@ -54,6 +54,7 @@ from . import search
 from . import standard
 from . import status
 from . import stash
+from .toolbar import ColaToolBar
 
 
 class MainView(standard.MainWindow):
@@ -81,42 +82,34 @@ class MainView(standard.MainWindow):
         self.browser_dockable = (cfg.get('cola.browserdockable') or
                                  cfg.get('cola.classicdockable'))
         if self.browser_dockable:
-            self.browserdockwidget = create_dock(N_('Browser'), self)
-            self.browserwidget = (
-                    browse.worktree_browser(parent=self, update=False))
-            self.browserdockwidget.setWidget(self.browserwidget)
+            self.browserdockwidget = create_dock(N_('Browser'), self,
+                    widget=browse.worktree_browser(parent=self, update=False))
 
         # "Actions" widget
-        self.actionsdockwidget = create_dock(N_('Actions'), self)
-        self.actionsdockwidgetcontents = action.ActionButtons(self)
-        self.actionsdockwidget.setWidget(self.actionsdockwidgetcontents)
-        self.actionsdockwidget.toggleViewAction().setChecked(False)
-        self.actionsdockwidget.hide()
+        self.actionsdock = create_dock(N_('Actions'), self,
+                widget=action.ActionButtons(self))
+        self.actionsdock.toggleViewAction().setChecked(False)
+        self.actionsdock.hide()
 
         # "Repository Status" widget
-        self.statusdockwidget = create_dock(N_('Status'), self)
-        titlebar = self.statusdockwidget.titleBarWidget()
-        self.statuswidget = status.StatusWidget(titlebar,
-                                                parent=self.statusdockwidget)
-        self.statusdockwidget.setWidget(self.statuswidget)
+        self.statusdock = create_dock(N_('Status'), self,
+            fn=lambda dock: status.StatusWidget(dock.titleBarWidget(), dock))
+        self.statuswidget = self.statusdock.widget()
 
         # "Switch Repository" widgets
-        self.bookmarksdockwidget = create_dock(N_('Favorites'), self)
-        self.bookmarkswidget = bookmarks.BookmarksWidget(
-                bookmarks.BOOKMARKS, parent=self.bookmarksdockwidget)
-        self.bookmarksdockwidget.setWidget(self.bookmarkswidget)
+        self.bookmarksdock = create_dock(
+            N_('Favorites'), self, fn=lambda dock:
+                bookmarks.BookmarksWidget(bookmarks.BOOKMARKS, parent=dock))
 
-        self.recentdockwidget = create_dock(N_('Recent'), self)
-        self.recentwidget = bookmarks.BookmarksWidget(
-                bookmarks.RECENT_REPOS, parent=self.recentdockwidget)
-        self.recentdockwidget.setWidget(self.recentwidget)
-        self.recentdockwidget.hide()
-        self.bookmarkswidget.connect_to(self.recentwidget)
+        self.recentdock = create_dock(
+            N_('Recent'), self, fn=lambda dock:
+                bookmarks.BookmarksWidget(bookmarks.RECENT_REPOS, parent=dock))
+        self.recentdock.hide()
+        self.bookmarksdock.widget().connect_to(self.recentdock.widget())
 
         # "Branch" widgets
-        self.branchdockwidget = create_dock(N_('Branches'), self)
-        self.branchwidget = branch.BranchesWidget(parent=self.branchdockwidget)
-        self.branchdockwidget.setWidget(self.branchwidget)
+        self.branchdock = create_dock(N_('Branches'), self,
+            fn=lambda dock: branch.BranchesWidget(dock.titleBarWidget(), dock))
 
         # "Commit Message Editor" widget
         self.position_label = QtWidgets.QLabel()
@@ -130,25 +123,21 @@ class MainView(standard.MainWindow):
         width = fm.width('99:999') + defs.spacing
         self.position_label.setMinimumWidth(width)
 
-        self.commitdockwidget = create_dock(N_('Commit'), self)
-        titlebar = self.commitdockwidget.titleBarWidget()
+        self.commiteditor = editor = commitmsg.CommitMessageEditor(model, self)
+        self.commitdock = create_dock(N_('Commit'), self, widget=editor)
+        titlebar = self.commitdock.titleBarWidget()
         titlebar.add_corner_widget(self.position_label)
-
-        self.commitmsgeditor = commitmsg.CommitMessageEditor(model, self)
-        self.commitdockwidget.setWidget(self.commitmsgeditor)
 
         # "Console" widget
         self.logwidget = log.LogWidget()
-        self.logdockwidget = create_dock(N_('Console'), self)
-        self.logdockwidget.setWidget(self.logwidget)
-        self.logdockwidget.toggleViewAction().setChecked(False)
-        self.logdockwidget.hide()
+        self.logdock = create_dock(N_('Console'), self, widget=self.logwidget)
+        self.logdock.toggleViewAction().setChecked(False)
+        self.logdock.hide()
 
         # "Diff Viewer" widget
-        self.diffdockwidget = create_dock(N_('Diff'), self)
-        self.diffeditorwidget = diff.DiffEditorWidget(self.diffdockwidget)
-        self.diffeditor = self.diffeditorwidget.editor
-        self.diffdockwidget.setWidget(self.diffeditorwidget)
+        self.diffdock = create_dock(N_('Diff'), self,
+            fn=lambda dock: diff.DiffEditorWidget(dock))
+        self.diffeditor = self.diffdock.widget().editor
 
         # All Actions
         add_action = qtutils.add_action
@@ -222,7 +211,8 @@ class MainView(standard.MainWindow):
 
         self.prepare_commitmsg_hook_action = add_action(
             self, N_('Prepare Commit Message'),
-            cmds.run(cmds.PrepareCommitMessageHook))
+            cmds.run(cmds.PrepareCommitMessageHook),
+            hotkeys.PREPARE_COMMIT_MESSAGE)
 
         self.save_tarball_action = add_action(
             self, N_('Save As Tarball/Zip...'), self.save_archive)
@@ -237,7 +227,7 @@ class MainView(standard.MainWindow):
             self, N_('Merge...'), merge.local_merge, hotkeys.MERGE)
 
         self.merge_abort_action = add_action(
-            self, N_('Abort Merge...'), merge.abort_merge)
+            self, N_('Abort Merge...'), cmds.run(cmds.AbortMerge))
 
         self.fetch_action = add_action(
             self, N_('Fetch...'), remote.fetch, hotkeys.FETCH)
@@ -334,16 +324,16 @@ class MainView(standard.MainWindow):
             self, N_('Start Interactive Rebase...'), self.rebase_start)
 
         self.rebase_edit_todo_action = add_action(
-            self, N_('Edit...'), self.rebase_edit_todo)
+            self, N_('Edit...'), cmds.rebase_edit_todo)
 
         self.rebase_continue_action = add_action(
-            self, N_('Continue'), self.rebase_continue)
+            self, N_('Continue'), cmds.rebase_continue)
 
         self.rebase_skip_action = add_action(
-            self, N_('Skip Current Patch'), self.rebase_skip)
+            self, N_('Skip Current Patch'), cmds.rebase_skip)
 
         self.rebase_abort_action = add_action(
-            self, N_('Abort'), self.rebase_abort)
+            self, N_('Abort'), cmds.rebase_abort)
 
         # For "Start Rebase" only, reverse the first argument to setEnabled()
         # so that we can operate on it as a group.
@@ -363,10 +353,11 @@ class MainView(standard.MainWindow):
 
         # Create the application menu
         self.menubar = QtWidgets.QMenuBar(self)
+        self.setMenuBar(self.menubar)
 
         # File Menu
-        create_menu = qtutils.create_menu
-        self.file_menu = create_menu(N_('File'), self.menubar)
+        add_menu = qtutils.add_menu
+        self.file_menu = add_menu(N_('File'), self.menubar)
         self.file_menu.addAction(self.new_repository_action)
         self.open_recent_menu = self.file_menu.addMenu(N_('Open Recent'))
         self.open_recent_menu.setIcon(icons.folder())
@@ -385,10 +376,25 @@ class MainView(standard.MainWindow):
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.preferences_action)
         self.file_menu.addAction(self.quit_action)
-        self.menubar.addAction(self.file_menu.menuAction())
+
+        # Edit Menu
+        self.edit_proxy = edit_proxy = (
+                FocusProxy(editor, editor.summary, editor.description))
+        edit_menu = self.edit_menu = add_menu(N_('Edit'), self.menubar)
+        edit_menu.addAction(N_('Undo'), edit_proxy.undo, hotkeys.UNDO)
+        edit_menu.addAction(N_('Redo'), edit_proxy.redo, hotkeys.REDO)
+        edit_menu.addSeparator()
+        edit_menu.addAction(N_('Cut'), edit_proxy.cut, hotkeys.CUT)
+        edit_menu.addAction(N_('Copy'), edit_proxy.copy, hotkeys.COPY)
+        edit_menu.addAction(N_('Paste'), edit_proxy.paste, hotkeys.PASTE)
+        edit_menu.addAction(N_('Delete'), edit_proxy.delete, hotkeys.DELETE)
+        edit_menu.addSeparator()
+        edit_menu.addAction(N_('Select All'), edit_proxy.selectAll)
+        edit_menu.addSeparator()
+        commitmsg.add_menu_actions(edit_menu, self.commiteditor.menu_actions)
 
         # Actions menu
-        self.actions_menu = create_menu(N_('Actions'), self.menubar)
+        self.actions_menu = add_menu(N_('Actions'), self.menubar)
         self.actions_menu.addAction(self.fetch_action)
         self.actions_menu.addAction(self.push_action)
         self.actions_menu.addAction(self.pull_action)
@@ -405,11 +411,11 @@ class MainView(standard.MainWindow):
         self.actions_menu.addSeparator()
         self.actions_menu.addAction(self.grep_action)
         self.actions_menu.addAction(self.search_commits_action)
-        self.menubar.addAction(self.actions_menu.menuAction())
 
         # Commit Menu
-        self.commit_menu = create_menu(N_('Commit@@verb'), self.menubar)
+        self.commit_menu = add_menu(N_('Commit@@verb'), self.menubar)
         self.commit_menu.setTitle(N_('Commit@@verb'))
+        self.commit_menu.addAction(self.commiteditor.commit_action)
         self.commit_menu.addAction(self.commit_amend_action)
         self.commit_menu.addSeparator()
         self.commit_menu.addAction(self.stage_modified_action)
@@ -421,18 +427,16 @@ class MainView(standard.MainWindow):
         self.commit_menu.addAction(self.load_commitmsg_action)
         self.commit_menu.addAction(self.load_commitmsg_template_action)
         self.commit_menu.addAction(self.prepare_commitmsg_hook_action)
-        self.menubar.addAction(self.commit_menu.menuAction())
 
         # Diff Menu
-        self.diff_menu = create_menu(N_('Diff'), self.menubar)
+        self.diff_menu = add_menu(N_('Diff'), self.menubar)
         self.diff_menu.addAction(self.diff_expression_action)
         self.diff_menu.addAction(self.branch_compare_action)
         self.diff_menu.addSeparator()
         self.diff_menu.addAction(self.show_diffstat_action)
-        self.menubar.addAction(self.diff_menu.menuAction())
 
         # Branch Menu
-        self.branch_menu = create_menu(N_('Branch'), self.menubar)
+        self.branch_menu = add_menu(N_('Branch'), self.menubar)
         self.branch_menu.addAction(self.branch_review_action)
         self.branch_menu.addSeparator()
         self.branch_menu.addAction(self.create_branch_action)
@@ -446,10 +450,9 @@ class MainView(standard.MainWindow):
         self.branch_menu.addSeparator()
         self.branch_menu.addAction(self.visualize_current_action)
         self.branch_menu.addAction(self.visualize_all_action)
-        self.menubar.addAction(self.branch_menu.menuAction())
 
         # Rebase menu
-        self.rebase_menu = create_menu(N_('Rebase'), self.actions_menu)
+        self.rebase_menu = add_menu(N_('Rebase'), self.actions_menu)
         self.rebase_menu.addAction(self.rebase_start_action)
         self.rebase_menu.addAction(self.rebase_edit_todo_action)
         self.rebase_menu.addSeparator()
@@ -457,48 +460,42 @@ class MainView(standard.MainWindow):
         self.rebase_menu.addAction(self.rebase_skip_action)
         self.rebase_menu.addSeparator()
         self.rebase_menu.addAction(self.rebase_abort_action)
-        self.menubar.addAction(self.rebase_menu.menuAction())
 
         # View Menu
-        self.view_menu = create_menu(N_('View'), self.menubar)
-        self.view_menu.addAction(self.browse_action)
-        self.view_menu.addAction(self.dag_action)
-        self.view_menu.addSeparator()
+        self.view_menu = add_menu(N_('View'), self.menubar)
+        self.view_menu.aboutToShow.connect(
+            lambda: self.build_view_menu(self.view_menu))
+
         if self.browser_dockable:
-            self.view_menu.addAction(self.browserdockwidget.toggleViewAction())
+            self.view_menu.addAction(self.browserdock.toggleViewAction())
 
         self.setup_dockwidget_view_menu()
         self.view_menu.addSeparator()
         self.view_menu.addAction(self.lock_layout_action)
-        self.menubar.addAction(self.view_menu.menuAction())
 
         # Help Menu
-        self.help_menu = create_menu(N_('Help'), self.menubar)
+        self.help_menu = add_menu(N_('Help'), self.menubar)
         self.help_menu.addAction(self.help_docs_action)
         self.help_menu.addAction(self.help_shortcuts_action)
         self.help_menu.addAction(self.help_about_action)
-        self.menubar.addAction(self.help_menu.menuAction())
-
-        # Set main menu
-        self.setMenuBar(self.menubar)
 
         # Arrange dock widgets
         left = Qt.LeftDockWidgetArea
         right = Qt.RightDockWidgetArea
         bottom = Qt.BottomDockWidgetArea
 
-        self.addDockWidget(left, self.commitdockwidget)
+        self.addDockWidget(left, self.commitdock)
         if self.browser_dockable:
-            self.addDockWidget(left, self.browserdockwidget)
-            self.tabifyDockWidget(self.browserdockwidget, self.commitdockwidget)
-        self.addDockWidget(left, self.diffdockwidget)
-        self.addDockWidget(right, self.statusdockwidget)
-        self.addDockWidget(right, self.bookmarksdockwidget)
-        self.addDockWidget(right, self.branchdockwidget)
-        self.addDockWidget(right, self.recentdockwidget)
-        self.addDockWidget(bottom, self.actionsdockwidget)
-        self.addDockWidget(bottom, self.logdockwidget)
-        self.tabifyDockWidget(self.actionsdockwidget, self.logdockwidget)
+            self.addDockWidget(left, self.browserdock)
+            self.tabifyDockWidget(self.browserdock, self.commitdock)
+        self.addDockWidget(left, self.diffdock)
+        self.addDockWidget(right, self.statusdock)
+        self.addDockWidget(right, self.bookmarksdock)
+        self.addDockWidget(right, self.branchdock)
+        self.addDockWidget(right, self.recentdock)
+        self.addDockWidget(bottom, self.actionsdock)
+        self.addDockWidget(bottom, self.logdock)
+        self.tabifyDockWidget(self.actionsdock, self.logdock)
 
         # Listen for model notifications
         model.add_observer(model.message_updated, self.updated.emit)
@@ -513,14 +510,14 @@ class MainView(standard.MainWindow):
 
         self.commit_menu.aboutToShow.connect(self.update_menu_actions)
         self.open_recent_menu.aboutToShow.connect(self.build_recent_menu)
-        self.commitmsgeditor.cursor_changed.connect(self.show_cursor_position)
+        self.commiteditor.cursor_changed.connect(self.show_cursor_position)
 
         self.diffeditor.options_changed.connect(self.statuswidget.refresh)
         self.diffeditor.up.connect(self.statuswidget.move_up)
         self.diffeditor.down.connect(self.statuswidget.move_down)
 
-        self.commitmsgeditor.up.connect(self.statuswidget.move_up)
-        self.commitmsgeditor.down.connect(self.statuswidget.move_down)
+        self.commiteditor.up.connect(self.statuswidget.move_up)
+        self.commiteditor.down.connect(self.statuswidget.move_down)
 
         self.updated.connect(self.refresh, type=Qt.QueuedConnection)
 
@@ -542,17 +539,49 @@ class MainView(standard.MainWindow):
     def set_initial_size(self):
         self.resize(987, 610)
         self.statuswidget.set_initial_size()
-        self.commitmsgeditor.set_initial_size()
+        self.commiteditor.set_initial_size()
 
     def set_filter(self, txt):
         self.statuswidget.set_filter(txt)
 
     # Qt overrides
     def closeEvent(self, event):
-        """Save state in the settings manager."""
-        commit_msg = self.commitmsgeditor.commit_message(raw=True)
+        """Save state in the settings"""
+        commit_msg = self.commiteditor.commit_message(raw=True)
         self.model.save_commitmsg(msg=commit_msg)
         standard.MainWindow.closeEvent(self, event)
+
+    def create_view_menu(self):
+        menu = qtutils.create_menu(N_('View'), self)
+        self.build_view_menu(menu)
+        return menu
+
+    def build_view_menu(self, menu):
+        menu.clear()
+        menu.addAction(self.browse_action)
+        menu.addAction(self.dag_action)
+        menu.addSeparator()
+
+        popup_menu = self.createPopupMenu()
+        for menu_action in popup_menu.actions():
+            menu_action.setParent(menu)
+            menu.addAction(menu_action)
+
+        menu.addSeparator()
+        menu_action = menu.addAction(N_('Add Toolbar'), self.add_toolbar)
+        menu_action.setIcon(icons.add())
+        return menu
+
+    def contextMenuEvent(self, event):
+        menu = self.create_view_menu()
+        menu.exec_(event.globalPos())
+
+    def add_toolbar(self):
+        name = 'ToolBar' + str(len(self.findChildren(ColaToolBar)) + 1)
+        toolbar = ColaToolBar.create(name)
+
+        self.addToolBar(toolbar)
+        toolbar.configure_toolbar()
 
     def build_recent_menu(self):
         settings = Settings()
@@ -578,23 +607,23 @@ class MainView(standard.MainWindow):
                 return
             self.logwidget.setFont(font)
             self.diffeditor.setFont(font)
-            self.commitmsgeditor.setFont(font)
+            self.commiteditor.setFont(font)
 
         elif config == prefs.TABWIDTH:
             # variable-tab-width setting
             self.diffeditor.set_tabwidth(value)
-            self.commitmsgeditor.set_tabwidth(value)
+            self.commiteditor.set_tabwidth(value)
 
         elif config == prefs.LINEBREAK:
             # enables automatic line breaks
-            self.commitmsgeditor.set_linebreak(value)
+            self.commiteditor.set_linebreak(value)
 
         elif config == prefs.SORT_BOOKMARKS:
-            self.bookmarkswidget.reload_bookmarks()
+            self.bookmarksdock.widget().reload_bookmarks()
 
         elif config == prefs.TEXTWIDTH:
             # text width used for line wrapping
-            self.commitmsgeditor.set_textwidth(value)
+            self.commiteditor.set_textwidth(value)
 
     def init_config_actions(self):
         """Do the expensive "get_config_actions()" call in the background"""
@@ -612,9 +641,10 @@ class MainView(standard.MainWindow):
         menu = self.actions_menu
         menu.addSeparator()
         for (name, shortcut) in names_and_shortcuts:
-            action = menu.addAction(name, cmds.run(cmds.RunConfigAction, name))
+            callback = cmds.run(cmds.RunConfigAction, name)
+            menu_action = menu.addAction(name, callback)
             if shortcut:
-                action.setShortcut(shortcut)
+                menu_action.setShortcut(shortcut)
 
     def refresh(self):
         """Update the title with the current branch and directory name."""
@@ -656,8 +686,8 @@ class MainView(standard.MainWindow):
                     self.model.git.worktree()))
 
         self.setWindowTitle(title)
-        self.commitdockwidget.setToolTip(msg)
-        self.commitmsgeditor.set_mode(self.mode)
+        self.commitdock.setToolTip(msg)
+        self.commiteditor.set_mode(self.mode)
         self.update_actions()
 
     def update_actions(self):
@@ -679,6 +709,8 @@ class MainView(standard.MainWindow):
         show_status_filter = self.statuswidget.filter_widget.isVisible()
         state['show_status_filter'] = show_status_filter
         state['show_diff_line_numbers'] = self.diffeditor.show_line_numbers()
+        state['toolbars'] = ColaToolBar.save_state(self)
+
         return state
 
     def apply_state(self, state):
@@ -692,6 +724,9 @@ class MainView(standard.MainWindow):
         diff_numbers = state.get('show_diff_line_numbers', False)
         self.diffeditor.enable_line_numbers(diff_numbers)
 
+        toolbars = state.get('toolbars', [])
+        ColaToolBar.apply_state(self, toolbars)
+
         return result
 
     def setup_dockwidget_view_menu(self):
@@ -701,14 +736,14 @@ class MainView(standard.MainWindow):
         else:
             optkey = 'Ctrl'
         dockwidgets = (
-            (optkey + '+0', self.logdockwidget),
-            (optkey + '+1', self.commitdockwidget),
-            (optkey + '+2', self.statusdockwidget),
-            (optkey + '+3', self.diffdockwidget),
-            (optkey + '+4', self.actionsdockwidget),
-            (optkey + '+5', self.bookmarksdockwidget),
-            (optkey + '+6', self.recentdockwidget),
-            (optkey + '+7', self.branchdockwidget),
+            (optkey + '+0', self.logdock),
+            (optkey + '+1', self.commitdock),
+            (optkey + '+2', self.statusdock),
+            (optkey + '+3', self.diffdock),
+            (optkey + '+4', self.actionsdock),
+            (optkey + '+5', self.bookmarksdock),
+            (optkey + '+6', self.recentdock),
+            (optkey + '+7', self.branchdock)
         )
         for shortcut, dockwidget in dockwidgets:
             # Associate the action with the shortcut
@@ -737,15 +772,15 @@ class MainView(standard.MainWindow):
 
         # These widgets warrant home-row hotkey status
         qtutils.add_action(self, 'Focus Commit Message',
-                           lambda: focus_dock(self.commitdockwidget),
+                           lambda: focus_dock(self.commitdock),
                            hotkeys.FOCUS)
 
         qtutils.add_action(self, 'Focus Status Window',
-                           lambda: focus_dock(self.statusdockwidget),
+                           lambda: focus_dock(self.statusdock),
                            hotkeys.FOCUS_STATUS)
 
         qtutils.add_action(self, 'Focus Diff Editor',
-                           lambda: focus_dock(self.diffdockwidget),
+                           lambda: focus_dock(self.diffdock),
                            hotkeys.FOCUS_DIFF)
 
     def preferences(self):
@@ -810,22 +845,42 @@ class MainView(standard.MainWindow):
         self.refresh()
         cmds.do(cmds.Rebase, upstream=upstream)
 
-    def rebase_edit_todo(self):
-        cmds.do(cmds.RebaseEditTodo)
-
-    def rebase_continue(self):
-        cmds.do(cmds.RebaseContinue)
-
-    def rebase_skip(self):
-        cmds.do(cmds.RebaseSkip)
-
-    def rebase_abort(self):
-        cmds.do(cmds.RebaseAbort)
-
     def clone_repo(self):
         progress = standard.ProgressDialog('', '', self)
         guicmds.clone_repo(self, self.runtask, progress,
                            guicmds.report_clone_repo_errors, True)
+
+
+
+class FocusProxy(object):
+    """Proxy over child widgets and operate on the focused widget"""
+
+    def __init__(self, parent, *widgets):
+        self.parent = parent
+        self.first = widgets[0]
+        self.widgets = widgets
+
+    def focus(self):
+        """Return the currently focused widget"""
+        focus = self.parent.focusWidget()
+        if focus not in self.widgets:
+            focus = self.first
+        return focus
+
+    def __getattr__(self, name):
+        """Return a callback that calls a common child method"""
+        def callback():
+            focus = self.focus()
+            getattr(focus, name)()
+        return callback
+
+    def delete(self):
+        """Specialized delete() to deal with QLineEdit vs QTextEdit"""
+        focus = self.focus()
+        if hasattr(focus, 'del_'):
+            focus.del_()
+        elif hasattr(focus, 'textCursor'):
+            focus.textCursor().deleteChar()
 
 
 def show_dock(dockwidget):

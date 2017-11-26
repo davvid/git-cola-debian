@@ -101,11 +101,15 @@ def _data_files(vendor_libs):
 def _package(package, subdirs=None):
     """Collect python files for a given python "package" name"""
     dirs = package.split('.')
-    app_dir = os.path.join('share', 'git-cola', 'lib', *dirs)
+    app_dir = _lib_path(*dirs)
     if subdirs:
         dirs = list(subdirs) + dirs
     src_dir = os.path.join(*dirs)
     return (app_dir, glob(os.path.join(src_dir, '*.py')))
+
+
+def _lib_path(*dirs):
+    return os.path.join('share', 'git-cola', 'lib', *dirs)
 
 
 def _app_path(dirname, entry):
