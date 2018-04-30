@@ -1,6 +1,24 @@
 # The default target of this Makefile is...
 all::
 
+# Development
+# -----------
+# make test     # unit tests
+# make doc      # build docs
+# make flake8   # style check
+# make pyint3k  # python2/3 compatibility checks
+# make pylint   # full pylint check
+#               # TODO pylint config, tox, yapf, others?
+# Release Prep
+# ------------
+# make pot      # update main translation template
+# make po       # merge translations
+#
+# Installation
+# ------------
+# make prefix=<path> install
+# DESTDIR is also supported.
+
 # The external commands used by this Makefile are...
 CTAGS = ctags
 CP = cp
@@ -12,22 +30,37 @@ LN = ln
 LN_S = $(LN) -s -f
 MARKDOWN = markdown
 MKDIR_P = mkdir -p
-NOSETESTS = nosetests
 PIP = pip
 PYLINT = pylint
 PYTHON = python
-PYTHON_CONFIG = python-config
-PYTHON_DARWIN_APP = $(shell $(PYTHON_CONFIG) --prefix)/Resources/Python.app/Contents/MacOS/Python
+PYTEST ?= py.test
 RM = rm -f
 RM_R = rm -fr
 RMDIR = rmdir
 TAR = tar
 
 # Flags
+# -----
+# "make V=1" increases verbosity
+# "make test V=2" increases test verbosity
+# "make pylint color=1" enables colorized pylint output
+# "make test flags={-x,--exitfirst}" exits on the first test failure
+ifdef V
+    VERBOSE = --verbose
+    ifeq ($(V),2)
+        TEST_VERBOSE = --verbose
+    endif
+else
+    QUIET = --quiet
+endif
+PYTEST_FLAGS = $(QUIET) $(TEST_VERBOSE) --doctest-modules
 FLAKE8_FLAGS = --max-line-length=80 --statistics --doctests --format=pylint
 PYLINT_FLAGS = --rcfile=.pylintrc
 ifdef color
     PYLINT_FLAGS += --output-format=colorized
+endif
+ifdef flags
+    PYTEST_FLAGS += $(flags)
 endif
 
 # These values can be overridden on the command-line or via config.mak
@@ -43,18 +76,8 @@ cola_app_base= $(cola_base).app
 cola_app = $(CURDIR)/$(cola_app_base)
 cola_version = $(shell $(PYTHON) bin/git-cola version --brief)
 cola_dist := $(cola_base)-$(cola_version)
-
-NOSE_FLAGS = --with-doctest
-NOSE_FLAGS += --with-id
-NOSE_FLAGS += --exclude=sphinxtogithub
-NOSE_FLAGS += --exclude=extras
-# Allows "make test flags=--stop"
-flags =
-NOSE ?= $(NOSETESTS) $(NOSE_FLAGS) $(flags)
-
 SETUP ?= $(PYTHON) setup.py
 setup_args += --prefix=$(prefix)
-setup_args += --quiet
 setup_args += --force
 setup_args += --install-scripts=$(bindir)
 setup_args += --record=build/MANIFEST
@@ -92,11 +115,11 @@ build_version:
 .PHONY: build_version
 
 build: build_version
-	$(SETUP) build
+	$(SETUP) $(VERBOSE) build
 .PHONY: build
 
 install: all
-	$(SETUP) install $(setup_args)
+	$(SETUP) $(QUIET) install $(setup_args)
 	$(MKDIR_P) $(DESTDIR)$(hicolordir)
 	$(LN_S) $(datadir)/icons/git-cola.svg $(DESTDIR)$(hicolordir)/git-cola.svg
 	$(LN_S) git-cola $(DESTDIR)$(bindir)/cola
@@ -163,11 +186,11 @@ uninstall:
 .PHONY: uninstall
 
 test: all
-	$(NOSE) $(PYTHON_DIRS)
+	$(PYTEST) $(PYTEST_FLAGS) $(PYTHON_DIRS)
 .PHONY: test
 
 coverage:
-	$(NOSE) --with-coverage --cover-package=cola $(PYTHON_DIRS)
+	$(PYTEST) $(PYTEST_FLAGS) --cov=cola $(PYTHON_DIRS)
 .PHONY: coverage
 
 clean:
@@ -182,17 +205,16 @@ tags:
 .PHONY: tags
 
 # Update i18n files
-i18n: mo pot
+i18n: pot mo
 .PHONY: i18n
 
-i18n-update: i18n
-	git add po
-	git commit -sm'i18n: update translation template'
-.PHONY: i18n-update
-
 pot:
-	$(SETUP) build_pot --no-lang --build-dir=po
+	$(SETUP) build_pot --build-dir=po --no-lang
 .PHONY: pot
+
+po:
+	$(SETUP) build_pot --build-dir=po
+.PHONY: po
 
 mo:
 	$(SETUP) build_mo --force
@@ -205,7 +227,6 @@ git-cola.app:
 	$(CP) contrib/darwin/git-cola $(cola_app)/Contents/MacOS
 	$(CP) contrib/darwin/git-cola.icns $(cola_app)/Contents/Resources
 	$(MAKE) prefix=$(cola_app)/Contents/Resources install install-doc
-	$(LN_S) $(PYTHON_DARWIN_APP) $(cola_app)/Contents/Resources/git-cola
 .PHONY: git-cola.app
 
 app-tarball: git-cola.app

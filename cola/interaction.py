@@ -117,4 +117,12 @@ class Interaction(object):
         if cls.VERBOSE:
             core.stdout(message)
 
-    safe_log = log
+    @classmethod
+    def save_as(cls, filename, title):
+        if cls.confirm(title, 'Save as %s?' % filename, '', ok_text='Save'):
+            return filename
+        return None
+
+    @staticmethod
+    def async_command(title, command, runtask):
+        pass

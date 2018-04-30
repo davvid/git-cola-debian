@@ -61,7 +61,7 @@ COMMANDS = {
     },
     'File::EditRemotes': {
         'title': 'Edit Remotes...',
-        'action': lambda: editremotes.remote_editor().exec_(),
+        'action': editremotes.editor,
         'icon': None
     },
     'File::RecentModified': {
@@ -106,7 +106,7 @@ COMMANDS = {
     },
     'Actions::Stash': {
         'title': 'Stash...',
-        'action': lambda: stash.stash(),
+        'action': lambda: stash.view(),
         'icon': None
     },
     'Actions::CreateTag': {

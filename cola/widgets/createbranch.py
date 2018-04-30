@@ -13,7 +13,6 @@ from .. import icons
 from .. import qtutils
 from .standard import Dialog
 from .standard import ProgressDialog
-from .text import LineEdit
 from . import defs
 from . import completion
 
@@ -99,7 +98,10 @@ class CreateBranchDialog(Dialog):
         self.branch_name_label = QtWidgets.QLabel()
         self.branch_name_label.setText(N_('Branch Name'))
 
-        self.branch_name = LineEdit()
+        self.branch_name = completion.GitCreateBranchLineEdit()
+        self.branch_validator = completion.BranchValidator(
+            model.git, parent=self.branch_name)
+        self.branch_name.setValidator(self.branch_validator)
 
         self.rev_label = QtWidgets.QLabel()
         self.rev_label.setText(N_('Starting Revision'))
@@ -228,14 +230,15 @@ class CreateBranchDialog(Dialog):
         check_branch = False
 
         if not branch or not revision:
-            qtutils.critical(N_('Missing Data'),
-                             N_('Please provide both a branch '
-                                'name and revision expression.'))
+            Interaction.critical(
+                N_('Missing Data'),
+                N_('Please provide both a branch '
+                   'name and revision expression.'))
             return
         if branch in existing_branches:
             if no_update:
                 msg = N_('Branch "%s" already exists.') % branch
-                qtutils.critical(N_('Branch Exists'), msg)
+                Interaction.critical(N_('Branch Exists'), msg)
                 return
             # Whether we should prompt the user for lost commits
             commits = gitcmds.rev_list_range(revision, branch)
@@ -246,7 +249,7 @@ class CreateBranchDialog(Dialog):
                       'will lose commits.') %
                    dict(branch=branch, revision=revision))
             if ffwd_only:
-                qtutils.critical(N_('Branch Exists'), msg)
+                Interaction.critical(N_('Branch Exists'), msg)
                 return
             lines = [msg]
             for idx, commit in enumerate(commits):
@@ -264,12 +267,9 @@ class CreateBranchDialog(Dialog):
             info_text = (N_('Reset "%(branch)s" to "%(revision)s"?') %
                          dict(branch=branch, revision=revision))
 
-            if not qtutils.confirm(N_('Reset Branch?'),
-                                   '\n'.join(lines),
-                                   info_text,
-                                   N_('Reset Branch'),
-                                   default=False,
-                                   icon=icons.undo()):
+            if not Interaction.confirm(
+                    N_('Reset Branch?'), '\n'.join(lines), info_text,
+                    N_('Reset Branch'), default=False, icon=icons.undo()):
                 return
 
         title = N_('Create Branch')

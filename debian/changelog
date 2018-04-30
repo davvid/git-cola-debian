@@ -1,3 +1,13 @@
+git-cola (3.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Prevent installation of upstream changelog (closes: #883216).
+  * Disable Vcs-* fields for now (closes: #834801).
+  * Update debhelper level to 11 .
+  * Update Standards-Version to 4.1.4 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Mon, 30 Apr 2018 07:17:02 +0000
+
 git-cola (3.0-1) unstable; urgency=medium
 
   * New upstream release.

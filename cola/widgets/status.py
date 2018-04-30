@@ -13,6 +13,7 @@ from ..models import prefs
 from ..models import selection
 from ..widgets import gitignore
 from ..widgets import standard
+from .. import actions
 from .. import cmds
 from .. import core
 from .. import hotkeys
@@ -35,8 +36,9 @@ class StatusWidget(QtWidgets.QWidget):
 
     """
 
-    def __init__(self, titlebar, parent):
+    def __init__(self, titlebar, parent, context):
         QtWidgets.QWidget.__init__(self, parent)
+        self.context = context
 
         tooltip = N_('Toggle the paths filter')
         icon = icons.ellipsis()
@@ -44,7 +46,7 @@ class StatusWidget(QtWidgets.QWidget):
                                                           icon=icon)
         self.filter_widget = StatusFilterWidget()
         self.filter_widget.hide()
-        self.tree = StatusTreeWidget()
+        self.tree = StatusTreeWidget(context, parent=self)
         self.setFocusProxy(self.tree)
 
         self.main_layout = qtutils.vbox(defs.no_margin, defs.no_spacing,
@@ -104,8 +106,9 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
     # Read-only access to the mode state
     mode = property(lambda self: self.m.mode)
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         QtWidgets.QTreeWidget.__init__(self, parent)
+        self.context = context
 
         self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.headerItem().setHidden(True)
@@ -134,9 +137,11 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
         self.old_current_item = None
         self.expanded_items = set()
 
+        self.image_formats = qtutils.ImageFormats()
+
         self.process_selection_action = qtutils.add_action(
-            self, cmds.StageOrUnstage.name(),
-            cmds.run(cmds.StageOrUnstage), hotkeys.STAGE_SELECTION)
+            self, cmds.StageOrUnstage.name(), self.stage_selection,
+            hotkeys.STAGE_SELECTION)
 
         self.revert_unstaged_edits_action = qtutils.add_action(
             self, cmds.RevertUnstagedEdits.name(),
@@ -145,13 +150,11 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
 
         self.launch_difftool_action = qtutils.add_action(
             self, cmds.LaunchDifftool.name(),
-            cmds.run(cmds.LaunchDifftool), hotkeys.DIFF)
+            cmds.run(cmds.LaunchDifftool, context=self.context), hotkeys.DIFF)
         self.launch_difftool_action.setIcon(icons.diff())
 
-        self.launch_editor_action = qtutils.add_action(
-            self, cmds.LaunchEditor.name(),
-            cmds.run(cmds.LaunchEditor), hotkeys.EDIT, *hotkeys.ACCEPT)
-        self.launch_editor_action.setIcon(icons.edit())
+        self.launch_editor_action = actions.launch_editor(
+            self, *hotkeys.ACCEPT)
 
         if not utils.is_win32():
             self.default_app_action = common.default_app_action(
@@ -197,6 +200,14 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
 
         self.view_blame_action = qtutils.add_action(
             self, N_('Blame...'), view_blame, hotkeys.BLAME)
+
+        self.annex_add_action = qtutils.add_action(
+            self, N_('Add to Git Annex'),
+            cmds.run(cmds.AnnexAdd, self.context))
+
+        self.lfs_track_action = qtutils.add_action(
+            self, N_('Add to Git LFS'),
+            cmds.run(cmds.LFSTrack, self.context))
 
         # MoveToTrash and Delete use the same shortcut.
         # We will only bind one of them, depending on whether or not the
@@ -348,6 +359,24 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
             hscroll.setValue(self.old_hscroll)
             self.old_hscroll = None
 
+    def stage_selection(self):
+        """Stage or unstage files according to the selection"""
+        selected_indexes = self.selected_indexes()
+        if selected_indexes:
+            category, idx = selected_indexes[0]
+            # A header item e.g. 'Staged', 'Modified', etc.
+            if category == self.idx_header:
+                if idx == self.idx_staged:
+                    cmds.do(cmds.UnstageAll)
+                elif idx == self.idx_modified:
+                    cmds.do(cmds.StageModified)
+                elif idx == self.idx_untracked:
+                    cmds.do(cmds.StageUntracked)
+                else:
+                    pass  # Do nothing for unmerged items, by design
+                return
+        cmds.do(cmds.StageOrUnstage)
+
     def staged_item(self, itemidx):
         return self._subtree_item(self.idx_staged, itemidx)
 
@@ -444,7 +473,9 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
 
     def set_unmerged(self, items):
         """Adds items to the 'Unmerged' subtree."""
-        self._set_subtree(items, self.idx_unmerged)
+        deleted_set = set([path for path in items if not core.exists(path)])
+        self._set_subtree(items, self.idx_unmerged,
+                          deleted_set=deleted_set)
 
     def set_untracked(self, items):
         """Adds items to the 'Untracked' subtree."""
@@ -665,6 +696,16 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
                 menu.addAction(self.revert_unstaged_edits_action)
 
         if all_exist and s.untracked:
+            # Git Annex / Git LFS
+            annex = self.m.annex
+            lfs = core.find_executable('git-lfs')
+            if annex or lfs:
+                menu.addSeparator()
+            if annex:
+                menu.addAction(self.annex_add_action)
+            if lfs:
+                menu.addAction(self.lfs_track_action)
+
             menu.addSeparator()
             if self.move_to_trash_action is not None:
                 menu.addAction(self.move_to_trash_action)
@@ -697,6 +738,10 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
     def _trash_untracked_files(self):
         cmds.do(cmds.MoveToTrash, self.untracked())
 
+    def selected_path(self):
+        s = self.single_selection()
+        return s.staged or s.unmerged or s.modified or s.untracked or None
+
     def single_selection(self):
         """Scan across staged, modified, etc. and return a single item."""
         staged = None
@@ -707,10 +752,10 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
         s = self.selection()
         if s.staged:
             staged = s.staged[0]
-        elif s.modified:
-            modified = s.modified[0]
         elif s.unmerged:
             unmerged = s.unmerged[0]
+        elif s.modified:
+            modified = s.modified[0]
         elif s.untracked:
             untracked = s.untracked[0]
 
@@ -837,7 +882,8 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
         """Show the selected item."""
         # Sync the selection model
         selected = self.selection()
-        selection.selection_model().set_selection(selected)
+        selection_model = selection.selection_model()
+        selection_model.set_selection(selected)
         self.update_actions(selected=selected)
 
         selected_indexes = self.selected_indexes()
@@ -847,9 +893,11 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
             else:
                 cmds.do(cmds.ResetMode)
             return
-        category, idx = selected_indexes[0]
+
         # A header item e.g. 'Staged', 'Modified', etc.
-        if category == self.idx_header:
+        category, idx = selected_indexes[0]
+        header = category == self.idx_header
+        if header:
             cls = {
                 self.idx_staged: cmds.DiffStagedSummary,
                 self.idx_modified: cmds.Diffstat,
@@ -858,23 +906,41 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
                 self.idx_untracked: cmds.UntrackedSummary,
             }.get(idx, cmds.Diffstat)
             cmds.do(cls)
-        # A staged file
-        elif category == self.idx_staged:
+            return
+
+        staged = category == self.idx_staged
+        modified = category == self.idx_modified
+        unmerged = category == self.idx_unmerged
+        untracked = category == self.idx_untracked
+
+        if staged:
             item = self.staged_items()[0]
-            cmds.do(cmds.DiffStaged, item.path, deleted=item.deleted)
-
-        # A modified file
-        elif category == self.idx_modified:
-            item = self.modified_items()[0]
-            cmds.do(cmds.Diff, item.path, deleted=item.deleted)
-
-        elif category == self.idx_unmerged:
+        elif unmerged:
             item = self.unmerged_items()[0]
-            cmds.do(cmds.Diff, item.path)
-
-        elif category == self.idx_untracked:
+        elif modified:
+            item = self.modified_items()[0]
+        elif untracked:
             item = self.unstaged_items()[0]
-            cmds.do(cmds.ShowUntracked, item.path)
+        else:
+            item = None  # this shouldn't happen
+        assert(item is not None)
+
+        path = item.path
+        deleted = item.deleted
+        image = self.image_formats.ok(path)
+
+        # Images are diffed differently
+        if image:
+            cmds.do(cmds.DiffImage, path, deleted,
+                    staged, modified, unmerged, untracked)
+        elif staged:
+            cmds.do(cmds.DiffStaged, path, deleted=deleted)
+        elif modified:
+            cmds.do(cmds.Diff, path, deleted=deleted)
+        elif unmerged:
+            cmds.do(cmds.Diff, path)
+        elif untracked:
+            cmds.do(cmds.ShowUntracked, path)
 
     def move_up(self):
         idx = self.selected_idx()
@@ -1109,7 +1175,7 @@ class CustomizeCopyActions(standard.Dialog):
         self.table.setRowCount(rows + 1)
 
         name = QtWidgets.QTableWidgetItem(N_('Name'))
-        fmt = QtWidgets.QTableWidgetItem(N_(r'%(path)s'))
+        fmt = QtWidgets.QTableWidgetItem(r'%(path)s')
         self.table.setItem(rows, 0, name)
         self.table.setItem(rows, 1, fmt)
 

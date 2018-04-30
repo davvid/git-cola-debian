@@ -17,6 +17,55 @@ from . import defs
 from . import text
 
 
+class ValidateRegex(object):
+
+    def __init__(self, regex):
+        self.regex = re.compile(regex)  # regex to scrub
+
+    def validate(self, string, idx):
+        """Scrub and validate the user-supplied input"""
+        state = QtGui.QValidator.Acceptable
+        if self.regex.search(string):
+            string = self.regex.sub('', string)  # scrub matching bits
+            idx = min(idx-1, len(string))
+        return (state, string, idx)
+
+
+class RemoteValidator(QtGui.QValidator):
+    """Prevent invalid remote names"""
+
+    def __init__(self, parent=None):
+        super(RemoteValidator, self).__init__(parent)
+        self._validate = ValidateRegex(r'[ \t\\/]')
+
+    def validate(self, string, idx):
+        return self._validate.validate(string, idx)
+
+
+class BranchValidator(QtGui.QValidator):
+    """Prevent invalid branch names"""
+
+    def __init__(self, git, parent=None):
+        super(BranchValidator, self).__init__(parent)
+        self._git = git
+        self._validate = ValidateRegex(r'[ \t\\]')  # forward-slash is okay
+
+    def validate(self, string, idx):
+        """Scrub and validate the user-supplied input"""
+        state, string, idx = self._validate.validate(string, idx)
+        if string:  # Allow empty strings
+            status, out, err = self._git.check_ref_format(string, branch=True)
+            if status != 0:
+                # The intermediate string, when deleting characters, might
+                # end in a name that is invalid to Git, but we must allow it
+                # otherwise we won't be able to delete it using backspace.
+                if string.endswith('/') or string.endswith('.'):
+                    state = self.Intermediate
+                else:
+                    state = self.Invalid
+        return (state, string, idx)
+
+
 class CompletionLineEdit(text.HintedLineEdit):
     """An lineedit with advanced completion abilities"""
 
@@ -41,7 +90,7 @@ class CompletionLineEdit(text.HintedLineEdit):
     def __init__(self, model_factory, hint='', parent=None):
         text.HintedLineEdit.__init__(self, hint, parent=parent)
         # Tracks when the completion popup was active during key events
-        self._was_visible = False
+
         # The most recently selected completion item
         self._selection = None
 
@@ -67,10 +116,6 @@ class CompletionLineEdit(text.HintedLineEdit):
 
     def dispose(self, *args):
         self._completer.dispose()
-
-    def was_visible(self):
-        """Was the popup visible during the last keypress event?"""
-        return self._was_visible
 
     def completion_selection(self):
         """Return the last completion's selection"""
@@ -146,11 +191,6 @@ class CompletionLineEdit(text.HintedLineEdit):
             return ''
         return words[-1]
 
-    def event(self, event):
-        if event.type() == QtCore.QEvent.Hide:
-            self.close_popup()
-        return text.HintedLineEdit.event(self, event)
-
     def complete_last_word(self):
         self.update_matches()
         self.complete()
@@ -158,13 +198,6 @@ class CompletionLineEdit(text.HintedLineEdit):
     def close_popup(self):
         if self.popup().isVisible():
             self.popup().close()
-
-    def _update_popup_items(self, prefix):
-        """
-        Filters the completer's popup items to only show items
-        with the given prefix.
-        """
-        self._completer.setCompletionPrefix(prefix)
 
     def _completions_updated(self):
         popup = self.popup()
@@ -177,6 +210,7 @@ class CompletionLineEdit(text.HintedLineEdit):
         popup.selectionModel().select(selection, mode)
 
     def selected_completion(self):
+        """Return the selected completion item"""
         popup = self.popup()
         if not popup.isVisible():
             return None
@@ -187,58 +221,61 @@ class CompletionLineEdit(text.HintedLineEdit):
         idx = indexes[0]
         item = self._completion_model.itemFromIndex(idx)
         if not item:
-            return
+            return None
         return item.text()
 
-    # Qt events
-    def keyPressEvent(self, event):
-        self._was_visible = visible = self.popup().isVisible()
-        key = event.key()
-        was_empty = not bool(self.value())
-
+    def select_completion(self):
+        """Choose the selected completion option from the completion popup"""
+        result = False
+        visible = self.popup().isVisible()
         if visible:
-            self._selection = self.selected_completion()
-        else:
-            self._selection = None
-            if event.key() in self.ACTIVATION_KEYS:
-                event.accept()
-                return
+            selection = self.selected_completion()
+            if selection:
+                self.choose_completion(selection)
+                result = True
+        return result
 
-        result = text.HintedLineEdit.keyPressEvent(self, event)
+    # Qt overrides
+    def event(self, event):
+        """Override QWidget::event() for tab completion"""
+        event_type = event.type()
 
-        # Backspace at the beginning of the line should hide the popup
-        if was_empty and visible and key == Qt.Key_Backspace:
-            self.popup().hide()
-        # Clearing a line should always emit a signal
-        is_empty = not bool(self.value())
+        if (event_type == QtCore.QEvent.KeyPress
+                and event.key() == Qt.Key_Tab
+                and self.select_completion()):
+            return True
+
+        # Make sure the popup goes away during teardown
+        if event_type == QtCore.QEvent.Hide:
+            self.close_popup()
+
+        return text.HintedLineEdit.event(self, event)
+
+    def keyPressEvent(self, event):
+        """Process completion and navigation events"""
+        text.HintedLineEdit.keyPressEvent(self, event)
+        visible = self.popup().isVisible()
+
+        # Hide the popup when the field is empty
+        is_empty = not self.value()
         if is_empty:
             self.cleared.emit()
-        return result
+            if visible:
+                self.popup().hide()
 
-    def keyReleaseEvent(self, event):
-        """React to release events, handle completion"""
+        # Activation keys select the completion when pressed and emit the
+        # activated signal.  Navigation keys have lower priority, and only
+        # emit when it wasn't already handled as an activation event.
         key = event.key()
-        visible = self.was_visible()
-        if not visible:
-            # If it's a navigation key then emit a signal
-            try:
-                event.accept()
-                msg = self.NAVIGATION_KEYS[key]
-                signal = getattr(self, msg)
-                signal.emit()
-                return
-            except KeyError:
-                pass
-        # Run the real release event
-        result = text.HintedLineEdit.keyReleaseEvent(self, event)
-        # If the popup was visible and we have a selected popup item
-        # then choose that completion.
-        selection = self.completion_selection()
-        if visible and selection and key in self.ACTIVATION_KEYS:
-            self.choose_completion(selection)
-            self.activated.emit()
+        if key in self.ACTIVATION_KEYS and visible:
+            if self.select_completion():
+                self.activated.emit()
             return
-        return result
+
+        navigation = self.NAVIGATION_KEYS.get(key, None)
+        if navigation:
+            signal = getattr(self, navigation)
+            signal.emit()
 
 
 class GatherCompletionsThread(QtCore.QThread):
@@ -249,17 +286,23 @@ class GatherCompletionsThread(QtCore.QThread):
         QtCore.QThread.__init__(self)
         self.model = model
         self.case_sensitive = False
+        self.running = False
+
+    def dispose(self):
+        self.running = False
+        self.wait()
 
     def run(self):
         text = None
+        self.running = True
         # Loop when the matched text changes between the start and end time.
         # This happens when gather_matches() takes too long and the
         # model's match_text changes in-between.
-        while text != self.model.match_text:
+        while self.running and text != self.model.match_text:
             text = self.model.match_text
             items = self.model.gather_matches(self.case_sensitive)
 
-        if text is not None:
+        if self.running and text is not None:
             self.items_gathered.emit(items)
 
 
@@ -397,9 +440,15 @@ class CompletionModel(QtGui.QStandardItemModel):
                 item.setIcon(from_filename(match))
             items.append(item)
 
-        self.clear()
-        self.invisibleRootItem().appendRows(items)
-        self.updated.emit()
+        try:
+            self.clear()
+            self.invisibleRootItem().appendRows(items)
+            self.updated.emit()
+        except RuntimeError:  # C++ object has been deleted
+            pass
+
+    def dispose(self):
+        self.update_thread.dispose()
 
 
 def _identity(x):
@@ -484,6 +533,7 @@ class GitCompletionModel(CompletionModel):
         return []
 
     def dispose(self):
+        super(GitCompletionModel, self).dispose()
         self.main_model.remove_observer(self.emit_model_updated)
 
 
@@ -498,31 +548,43 @@ class GitRefCompletionModel(GitCompletionModel):
         return model.local_branches + model.remote_branches + model.tags
 
 
-class GitPotentialBranchCompletionModel(GitCompletionModel):
-    """Completer for branches, tags, and potential branches"""
+def find_potential_branches(model):
+    remotes = model.remotes
+    remote_branches = model.remote_branches
 
-    def __init__(self, parent):
-        GitCompletionModel.__init__(self, parent)
+    ambiguous = set()
+    allnames = set(model.local_branches)
+    potential = []
+
+    for remote_branch in remote_branches:
+        branch = gitcmds.strip_remote(remotes, remote_branch)
+        if branch in allnames or branch == remote_branch:
+            ambiguous.add(branch)
+            continue
+        potential.append(branch)
+        allnames.add(branch)
+
+    potential_branches = [p for p in potential if p not in ambiguous]
+    return potential_branches
+
+
+class GitCreateBranchCompletionModel(GitCompletionModel):
+    """Completer for naming new branches"""
 
     def matches(self):
         model = self.main_model
-        remotes = model.remotes
-        remote_branches = model.remote_branches
+        potential_branches = find_potential_branches(model)
+        return (model.local_branches +
+                potential_branches +
+                model.tags)
 
-        ambiguous = set()
-        allnames = set(model.local_branches)
-        potential = []
 
-        for remote_branch in remote_branches:
-            branch = gitcmds.strip_remote(remotes, remote_branch)
-            if branch in allnames or branch == remote_branch:
-                ambiguous.add(branch)
-                continue
-            potential.append(branch)
-            allnames.add(branch)
+class GitCheckoutBranchCompletionModel(GitCompletionModel):
+    """Completer for git checkout <branch>"""
 
-        potential_branches = [p for p in potential if p not in ambiguous]
-
+    def matches(self):
+        model = self.main_model
+        potential_branches = find_potential_branches(model)
         return (model.local_branches +
                 potential_branches +
                 model.remote_branches +
@@ -530,7 +592,7 @@ class GitPotentialBranchCompletionModel(GitCompletionModel):
 
 
 class GitBranchCompletionModel(GitCompletionModel):
-    """Completer for remote branches"""
+    """Completer for local branches"""
 
     def __init__(self, parent):
         GitCompletionModel.__init__(self, parent)
@@ -644,8 +706,10 @@ def bind_lineedit(model, hint=''):
 # Concrete classes
 GitLogLineEdit = bind_lineedit(GitLogCompletionModel, hint='<ref>')
 GitRefLineEdit = bind_lineedit(GitRefCompletionModel, hint='<ref>')
-GitPotentialBranchLineEdit = bind_lineedit(GitPotentialBranchCompletionModel,
-                                           hint='<branch>')
+GitCheckoutBranchLineEdit = bind_lineedit(GitCheckoutBranchCompletionModel,
+                                          hint='<branch>')
+GitCreateBranchLineEdit = bind_lineedit(GitCreateBranchCompletionModel,
+                                        hint='<branch>')
 GitBranchLineEdit = bind_lineedit(GitBranchCompletionModel, hint='<branch>')
 GitRemoteBranchLineEdit = bind_lineedit(GitRemoteBranchCompletionModel,
                                         hint='<remote-branch>')
@@ -711,8 +775,9 @@ class GitDialog(QtWidgets.QDialog):
             dlg.lineedit.popup().move(mapped.x(), mapped.y())
             dlg.lineedit.popup().show()
             dlg.lineedit.refresh()
+            dlg.lineedit.setFocus(True)
 
-        QtCore.QTimer().singleShot(0, show_popup)
+        QtCore.QTimer().singleShot(100, show_popup)
 
         if dlg.exec_() == cls.Accepted:
             return dlg.text()
@@ -727,10 +792,10 @@ class GitRefDialog(GitDialog):
                            title, text, parent, icon=icon)
 
 
-class GitPotentialBranchDialog(GitDialog):
+class GitCheckoutBranchDialog(GitDialog):
 
     def __init__(self, title, text, parent, icon=None):
-        GitDialog.__init__(self, GitPotentialBranchLineEdit,
+        GitDialog.__init__(self, GitCheckoutBranchLineEdit,
                            title, text, parent, icon=icon)
 
 

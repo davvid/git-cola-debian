@@ -99,6 +99,7 @@ class GitConfig(observable.Observable):
 
     message_user_config_changed = 'user_config_changed'
     message_repo_config_changed = 'repo_config_changed'
+    message_updated = 'updated'
 
     def __init__(self):
         observable.Observable.__init__(self)
@@ -112,23 +113,24 @@ class GitConfig(observable.Observable):
         self._cache_key = None
         self._configs = []
         self._config_files = {}
-        self._value_cache = {}
         self._attr_cache = {}
         self._find_config_files()
 
     def reset(self):
+        self._cache_key = None
+        self._configs = []
+        self._config_files.clear()
+        self._attr_cache = {}
+        self._find_config_files()
+        self.reset_values()
+
+    def reset_values(self):
         self._map.clear()
         self._system.clear()
         self._user.clear()
         self._user_or_system.clear()
         self._repo.clear()
         self._all.clear()
-        self._cache_key = None
-        self._configs = []
-        self._config_files.clear()
-        self._value_cache = {}
-        self._attr_cache = {}
-        self._find_config_files()
 
     def user(self):
         return copy.deepcopy(self._user)
@@ -155,12 +157,6 @@ class GitConfig(observable.Observable):
         for (cat, path, mtime) in statinfo:
             self._config_files[cat] = path
 
-    def update(self):
-        """Read config values from git."""
-        if self._cached():
-            return
-        self._read_configs()
-
     def _cached(self):
         """
         Return True when the cache matches.
@@ -174,14 +170,12 @@ class GitConfig(observable.Observable):
             return False
         return True
 
-    def _read_configs(self):
+    def update(self):
         """Read git config value into the system, user and repo dicts."""
-        self._map.clear()
-        self._system.clear()
-        self._user.clear()
-        self._user_or_system.clear()
-        self._repo.clear()
-        self._all.clear()
+        if self._cached():
+            return
+
+        self.reset_values()
 
         if 'system' in self._config_files:
             self._system.update(
@@ -200,6 +194,8 @@ class GitConfig(observable.Observable):
 
         for dct in (self._system, self._user, self._repo):
             self._all.update(dct)
+
+        self.notify_observers(self.message_updated)
 
     def read_config(self, path):
         """Return git config data from a path as a dictionary."""
@@ -252,12 +248,16 @@ class GitConfig(observable.Observable):
 
         return config
 
-    def _get(self, src, key, default):
-        self.update()
+    def _get(self, src, key, default, fn=None, cached=True):
+        if not cached or not src:
+            self.update()
         try:
             value = self._get_with_fallback(src, key)
         except KeyError:
-            value = default
+            if fn:
+                value = fn()
+            else:
+                value = default
         return value
 
     def _get_with_fallback(self, src, key):
@@ -273,17 +273,56 @@ class GitConfig(observable.Observable):
         # Allow the final KeyError to bubble up
         return src[key.lower()]
 
-    def get(self, key, default=None):
+    def get(self, key, default=None, fn=None, cached=True):
         """Return the string value for a config key."""
-        return self._get(self._all, key, default)
+        return self._get(self._all, key, default, fn=fn, cached=cached)
 
     def get_all(self, key):
-        """Return all values for a key"""
-        status, out, err = self.git.config(key, z=True, get_all=True)
+        """Return all values for a key sorted in priority order
+
+        The purpose of this function is to group the values returned by
+        `git config --show-origin --get-all` so that the relative order is
+        preserved but can still be overridden at each level.
+
+        One use case is the `cola.icontheme` variable, which is an ordered
+        list of icon themes to load.  This value can be set both in
+        ~/.gitconfig as well as .git/config, and we want to allow a
+        relative order to be defined in either file.
+
+        The problem is that git will read the system /etc/gitconfig,
+        global ~/.gitconfig, and then the local .git/config settings
+        and return them in that order, so we must post-process them to
+        get them in an order which makes sense for use for our values.
+        Otherwise, we cannot replace the order, or make a specific theme used
+        first, in our local .git/config since the native order returned by
+        git will always list the global config before the local one.
+
+        get_all() allows for this use case by gathering all of the per-config
+        values separately and then orders them according to the expected
+        local > global > system order.
+
+        """
+        result = []
+        status, out, err = self.git.config(key, z=True, get_all=True,
+                                           show_origin=True)
         if status == 0:
-            result = [x for x in out.rstrip(chr(0)).split(chr(0)) if x]
-        else:
-            result = []
+            current_source = ''
+            current_result = []
+            partial_results = []
+            items = [x for x in out.rstrip(chr(0)).split(chr(0)) if x]
+            for i in range(len(items) // 2):
+                source = items[i * 2]
+                value = items[i * 2 + 1]
+                if source != current_source:
+                    current_source = source
+                    current_result = []
+                    partial_results.append(current_result)
+                current_result.append(value)
+            # Git's results are ordered System, Global, Local.
+            # Reverse the order here so that Local has the highest priority.
+            for partial_result in reversed(partial_results):
+                result.extend(partial_result)
+
         return result
 
     def get_user(self, key, default=None):
@@ -306,52 +345,44 @@ class GitConfig(observable.Observable):
         return value
 
     def set_user(self, key, value):
-        if value is None:
-            self.unset_user(key)
-            return
-        self.git.config('--global', key, self.python_to_git(value))
+        if value in (None, ''):
+            self.git.config('--global', key, unset=True)
+        else:
+            self.git.config('--global', key, self.python_to_git(value))
         self.update()
         msg = self.message_user_config_changed
         self.notify_observers(msg, key, value)
 
     def set_repo(self, key, value):
-        self.git.config(key, self.python_to_git(value))
+        if value in (None, ''):
+            self.git.config(key, unset=True)
+        else:
+            self.git.config(key, self.python_to_git(value))
         self.update()
         msg = self.message_repo_config_changed
         self.notify_observers(msg, key, value)
-
-    def unset_user(self, key):
-        self.git.config('--global', '--unset', key)
-        self.update()
-        msg = self.message_repo_config_changed
-        self.notify_observers(msg, key, None)
 
     def find(self, pat):
         pat = pat.lower()
         match = fnmatch.fnmatch
         result = {}
-        self.update()
+        if not self._all:
+            self.update()
         for key, val in self._all.items():
             if match(key.lower(), pat):
                 result[key] = val
         return result
 
-    def get_cached(self, key, default=None, fn=None):
-        cache = self._value_cache
-        try:
-            value = cache[key]
-        except KeyError:
-            if fn:
-                default = fn()
-            value = cache[key] = self.get(key, default=default)
-        return value
+    def is_annex(self):
+        """Return True when git-annex is enabled"""
+        return bool(self.get('annex.uuid', default=False))
 
     def gui_encoding(self):
-        return self.get_cached('gui.encoding', default=None)
+        return self.get('gui.encoding', default=None)
 
     def is_per_file_attrs_enabled(self):
-        return self.get_cached('cola.fileattributes',
-                               fn=lambda: os.path.exists('.gitattributes'))
+        return self.get('cola.fileattributes',
+                        fn=lambda: os.path.exists('.gitattributes'))
 
     def file_encoding(self, path):
         if not self.is_per_file_attrs_enabled():
@@ -404,19 +435,22 @@ class GitConfig(observable.Observable):
                 for name in names]
 
     def terminal(self):
-        term = self.get('cola.terminal', None)
+        term = self.get('cola.terminal', default=None)
         if not term:
             # find a suitable default terminal
             term = 'xterm -e'  # for mac osx
             candidates = ('xfce4-terminal', 'konsole', 'gnome-terminal')
             for basename in candidates:
                 if core.exists('/usr/bin/%s' % basename):
-                    term = '%s -e' % basename
+                    if basename == 'gnome-terminal':
+                        term = '%s --' % basename
+                    else:
+                        term = '%s -e' % basename
                     break
         return term
 
     def color(self, key, default):
-        string = self.get('cola.color.%s' % key, default)
+        string = self.get('cola.color.%s' % key, default=default)
         string = core.encode(string)
         default = core.encode(default)
         struct_layout = core.encode('BBB')

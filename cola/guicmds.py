@@ -1,11 +1,14 @@
 from __future__ import division, absolute_import, unicode_literals
+import functools
 import os
 import re
 
 from .i18n import N_
 from .interaction import Interaction
 from .models import main
+from .widgets import clone
 from .widgets import completion
+from .widgets import editremotes
 from .widgets.browse import BrowseBranch
 from .widgets.selectcommits import select_commits
 from .widgets.selectcommits import select_commits_and_output
@@ -30,15 +33,12 @@ def delete_branch():
 
 def delete_remote_branch():
     """Launch the 'Delete Remote Branch' dialog."""
-    branch = choose_remote_branch(N_('Delete Remote Branch'), N_('Delete'),
-                                  icon=icons.discard())
-    if not branch:
+    remote_branch = choose_remote_branch(
+        N_('Delete Remote Branch'), N_('Delete'), icon=icons.discard())
+    if not remote_branch:
         return
-    rgx = re.compile(r'^(?P<remote>[^/]+)/(?P<branch>.+)$')
-    match = rgx.match(branch)
-    if match:
-        remote = match.group('remote')
-        branch = match.group('branch')
+    remote, branch = gitcmds.parse_remote_branch(remote_branch)
+    if remote and branch:
         cmds.do(cmds.DeleteRemoteBranch, remote, branch)
 
 
@@ -107,59 +107,52 @@ def open_new_repo():
     cmds.do(cmds.OpenRepo, dirname)
 
 
-def prompt_for_clone():
-    """
-    Present a GUI for cloning a repository.
+def new_bare_repo():
+    result = None
+    repo = prompt_for_new_bare_repo()
+    if not repo:
+        return result
+    # Create bare repo
+    ok = cmds.do(cmds.NewBareRepo, repo)
+    if not ok:
+        return result
+    # Add a new remote pointing to the bare repo
+    parent = qtutils.active_window()
+    if editremotes.add_remote(parent,
+            name=os.path.basename(repo),
+            url=repo, readonly_url=True):
+        result = repo
 
-    Returns the target directory and URL
+    return result
 
-    """
-    url, ok = qtutils.prompt(N_('Path or URL to clone (Env. $VARS okay)'))
-    url = utils.expandpath(url)
-    if not ok or not url:
-        return None
-    try:
-        # Pick a suitable basename by parsing the URL
-        newurl = url.replace('\\', '/').rstrip('/')
-        default = newurl.rsplit('/', 1)[-1]
-        if default == '.git':
-            # The end of the URL is /.git, so assume it's a file path
-            default = os.path.basename(os.path.dirname(newurl))
-        if default.endswith('.git'):
-            # The URL points to a bare repo
-            default = default[:-4]
-        if url == '.':
-            # The URL is the current repo
-            default = os.path.basename(core.getcwd())
-        if not default:
-            raise
-    except:
-        Interaction.information(
-                N_('Error Cloning'),
-                N_('Could not parse Git URL: "%s"') % url)
-        Interaction.log(N_('Could not parse Git URL: "%s"') % url)
+
+
+def prompt_for_new_bare_repo():
+    path = qtutils.opendir_dialog(N_('Select Directory...'), core.getcwd())
+    if not path:
         return None
 
-    # Prompt the user for a directory to use as the parent directory
-    msg = N_('Select a parent directory for the new clone')
-    dirname = qtutils.opendir_dialog(msg, main.model().getcwd())
-    if not dirname:
-        return None
-    count = 1
-    destdir = os.path.join(dirname, default)
-    olddestdir = destdir
-    if core.exists(destdir):
-        # An existing path can be specified
-        msg = (N_('"%s" already exists, cola will create a new directory') %
-               destdir)
-        Interaction.information(N_('Directory Exists'), msg)
+    bare_repo = None
+    default = os.path.basename(core.getcwd())
+    if not default.endswith('.git'):
+        default += '.git'
+    while not bare_repo:
+        name, ok = qtutils.prompt(
+            N_('Enter a name for the new bare repo'),
+            title=N_('New Bare Repository...'),
+            text=default)
+        if not name:
+            return None
+        if not name.endswith('.git'):
+            name += '.git'
+        repo = os.path.join(path, name)
+        if core.isdir(repo):
+            Interaction.critical(
+                    N_('Error'), N_('"%s" already exists') % repo)
+        else:
+            bare_repo = repo
 
-    # Make sure the new destdir doesn't exist
-    while core.exists(destdir):
-        destdir = olddestdir + str(count)
-        count += 1
-
-    return url, destdir
+    return bare_repo
 
 
 def export_patches():
@@ -174,7 +167,7 @@ def export_patches():
             reversed(revs), to_export_and_output['output'])
 
 
-def diff_expression():
+def diff_expression(context=None):
     """Diff using an arbitrary expression."""
     tracked = gitcmds.tracked_branch()
     current = gitcmds.current_branch()
@@ -182,7 +175,7 @@ def diff_expression():
         ref = tracked + '..' + current
     else:
         ref = 'origin/master..'
-    difftool.diff_expression(qtutils.active_window(), ref)
+    difftool.diff_expression(qtutils.active_window(), ref, context=context)
 
 
 def open_repo():
@@ -226,7 +219,7 @@ def choose_branch(title, button_text, default=None, icon=None):
 
 
 def choose_potential_branch(title, button_text, default=None, icon=None):
-    return choose_from_dialog(completion.GitPotentialBranchDialog.get,
+    return choose_from_dialog(completion.GitCheckoutBranchDialog.get,
                               title, button_text, default, icon=icon)
 
 
@@ -235,41 +228,50 @@ def choose_remote_branch(title, button_text, default=None, icon=None):
                               title, button_text, default, icon=icon)
 
 
-def review_branch():
+def review_branch(context=None):
     """Diff against an arbitrary revision, branch, tag, etc."""
     branch = choose_ref(N_('Select Branch to Review'), N_('Review'))
     if not branch:
         return
     merge_base = gitcmds.merge_base_parent(branch)
-    difftool.diff_commits(qtutils.active_window(), merge_base, branch)
+    difftool.diff_commits(qtutils.active_window(), merge_base, branch,
+                          context=context)
 
 
 class CloneTask(qtutils.Task):
     """Clones a Git repository"""
 
-    def __init__(self, url, destdir, spawn, parent):
+    def __init__(self, url, destdir, submodules, shallow, spawn, parent):
         qtutils.Task.__init__(self, parent)
         self.url = url
         self.destdir = destdir
+        self.submodules = submodules
+        self.shallow = shallow
         self.spawn = spawn
         self.cmd = None
 
     def task(self):
         """Runs the model action and captures the result"""
-        self.cmd = cmds.do(cmds.Clone, self.url, self.destdir, spawn=self.spawn)
+        self.cmd = cmds.do(
+            cmds.Clone, self.url, self.destdir,
+            self.submodules, self.shallow, spawn=self.spawn)
         return self.cmd
 
 
 def clone_repo(parent, runtask, progress, finish, spawn):
     """Clone a repository asynchronously with progress animation"""
-    result = prompt_for_clone()
-    if result is None:
-        return
+    clone_callback = functools.partial(
+        clone_repository, parent, runtask, progress, finish, spawn)
+    prompt = clone.prompt_for_clone()
+    prompt.result.connect(clone_callback)
+
+
+def clone_repository(parent, runtask, progress, finish, spawn,
+                     url, destdir, submodules, shallow):
     # Use a thread to update in the background
-    url, destdir = result
     progress.set_details(N_('Clone Repository'),
                          N_('Cloning repository at %s') % url)
-    task = CloneTask(url, destdir, spawn, parent)
+    task = CloneTask(url, destdir, submodules, shallow, spawn, parent)
     runtask.start(task, finish=finish, progress=progress)
 
 

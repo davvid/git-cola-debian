@@ -14,13 +14,18 @@ def cmd_action(widget, cmd, icon, *shortcuts):
 
 
 def launch_editor(widget, *shortcuts):
-    icon = icons.configure()
-    return cmd_action(widget, cmds.LaunchEditor, icon, hotkeys.EDIT, *shortcuts)
+    icon = icons.edit()
+    return cmd_action(widget, cmds.LaunchEditor, icon,
+        hotkeys.EDIT, *shortcuts)
 
 
-def launch_difftool(widget):
+def launch_difftool(widget, context):
     icon = icons.diff()
-    return cmd_action(widget, cmds.LaunchDifftool, icon, hotkeys.DIFF)
+    cmd = cmds.LaunchDifftool
+    action = qtutils.add_action(
+        widget, cmd.name(), cmds.run(cmd, context=context), hotkeys.DIFF)
+    action.setIcon(icon)
+    return action
 
 
 def stage_or_unstage(widget):

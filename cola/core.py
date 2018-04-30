@@ -6,6 +6,7 @@ e.g. when python raises an IOError or OSError with errno == EINTR.
 """
 from __future__ import division, absolute_import, unicode_literals
 import os
+import distutils.spawn as spawn
 import functools
 import sys
 import itertools
@@ -32,10 +33,13 @@ EXIT_USAGE = 64
 EXIT_NOINPUT = 66
 EXIT_UNAVAILABLE = 69
 
+# Default encoding
+ENCODING = 'utf-8'
+
 # Some files are not in UTF-8; some other aren't in any codification.
 # Remember that GIT doesn't care about encodings (saves binary data)
 _encoding_tests = [
-    'utf-8',
+    ENCODING,
     'iso-8859-15',
     'windows1252',
     'ascii',
@@ -73,7 +77,7 @@ def decode(value, encoding=None, errors='strict'):
     if value is None:
         result = None
     elif isinstance(value, ustr):
-        result = UStr(value, 'utf-8')
+        result = UStr(value, ENCODING)
     else:
         result = None
         if encoding is None:
@@ -90,8 +94,9 @@ def decode(value, encoding=None, errors='strict'):
                 pass
 
         if result is None:
-            encoding = 'utf-8'
-            result = value.decode(encoding, errors='ignore')
+            encoding = ENCODING
+            decoded = value.decode(ENCODING, errors='ignore')
+            result = UStr(decoded, ENCODING)
 
     return result
 
@@ -101,7 +106,7 @@ def encode(string, encoding=None):
     """
     if type(string) is not ustr:
         return string
-    return string.encode(encoding or 'utf-8', 'replace')
+    return string.encode(encoding or ENCODING, 'replace')
 
 
 def mkpath(path, encoding=None):
@@ -243,7 +248,9 @@ def run_command(cmd, encoding=None, *args, **kwargs):
     output = decode(output, encoding=encoding)
     errors = decode(errors, encoding=encoding)
     exit_code = process.returncode
-    return (exit_code, output or '', errors or '')
+    return (exit_code,
+            output or UStr('', ENCODING),
+            errors or UStr('', ENCODING))
 
 
 @interruptable
@@ -349,14 +356,14 @@ def xopen(path, mode='r', encoding=None):
 def stdout(msg, linesep='\n'):
     msg = msg + linesep
     if PY2:
-        msg = encode(msg, encoding='utf-8')
+        msg = encode(msg, encoding=ENCODING)
     sys.stdout.write(msg)
 
 
 def stderr(msg, linesep='\n'):
     msg = msg + linesep
     if PY2:
-        msg = encode(msg, encoding='utf-8')
+        msg = encode(msg, encoding=ENCODING)
     sys.stderr.write(msg)
 
 
@@ -375,9 +382,16 @@ chdir = wrap(mkpath, os.chdir)
 exists = wrap(mkpath, os.path.exists)
 expanduser = wrap(encode, os.path.expanduser, decorator=decode)
 if PY2:
-    getcwd = decorate(decode, os.getcwd)
+    if hasattr(os, 'getcwdu'):
+        getcwd = os.getcwdu
+    else:
+        getcwd = decorate(decode, os.getcwd)
 else:
     getcwd = os.getcwd
+if PY2:
+    find_executable = wrap(mkpath, spawn.find_executable, decorator=decode)
+else:
+    find_executable = wrap(decode, spawn.find_executable, decorator=decode)
 isdir = wrap(mkpath, os.path.isdir)
 isfile = wrap(mkpath, os.path.isfile)
 islink = wrap(mkpath, os.path.islink)

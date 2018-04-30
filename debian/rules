@@ -48,9 +48,8 @@ install: build
 binary-indep: build install
 	dh_testdir
 	dh_testroot
-	dh_installchangelogs 
-	rm -r $(PKGDIR)/usr/share/doc/git-cola/changelog \
-		$(PKGDIR)/usr/share/doc/git-cola/html/sources/
+	dh_installchangelogs -XCHANGELOG
+	rm -r $(PKGDIR)/usr/share/doc/git-cola/html/sources/
 	dh_installdocs
 	dh_installexamples
 	dh_installman

@@ -6,15 +6,25 @@ import re
 from argparse import ArgumentParser
 
 def setup_environment():
-    abspath = os.path.abspath
-    dirname = os.path.dirname
-    prefix = dirname(dirname(dirname(dirname(abspath(__file__)))))
-    source_tree = os.path.join(prefix, 'cola', '__init__.py')
-    if os.path.exists(source_tree):
+    path = os.path
+    dirname = path.dirname
+    #       <prefix>/  share/git-cola/   bin/git-xbase
+    prefix = dirname(dirname(dirname(dirname(path.abspath(__file__)))))
+    # str() avoids unicode on python2 by staying in bytes
+    source_tree = path.join(prefix, str('cola'), str('__init__.py'))
+    unixpkgs = path.join(prefix, str('share'), str('git-cola'), str('lib'))
+    winpkgs = path.join(prefix, str('pkgs'))
+
+    if path.exists(source_tree):
         modules = prefix
+    elif path.exists(unixpkgs):
+        modules = unixpkgs
+    elif path.exists(winpkgs):
+        modules = winpkgs
     else:
-        modules = os.path.join(prefix, 'share', 'git-cola', 'lib')
-    sys.path.insert(1, modules)
+        modules = None
+    if modules:
+        sys.path.insert(1, modules)
 
 setup_environment()
 
@@ -64,8 +74,7 @@ def main():
     args = parse_args()
     context = app.application_init(args)
     view = new_window(context, args.filename)
-
-    app.application_run(context, view, stop=stop)
+    app.application_run(context, view, start=view.start, stop=stop)
     return view.status
 
 
@@ -84,7 +93,7 @@ def parse_args():
 
 def new_window(context, filename):
     window = XBaseWindow(context)
-    editor = Editor(filename, parent=window)
+    editor = Editor(context, filename, parent=window)
     window.set_editor(editor)
     return window
 
@@ -131,6 +140,9 @@ class XBaseWindow(standard.MainWindow):
         editor.exit.connect(self.exit)
         editor.setFocus()
 
+    def start(self, context, view):
+        self.editor.start()
+
     def exit(self, status):
         self.status = status
         self.close()
@@ -139,16 +151,17 @@ class XBaseWindow(standard.MainWindow):
 class Editor(QtWidgets.QWidget):
     exit = Signal(int)
 
-    def __init__(self, filename, parent=None):
+    def __init__(self, context, filename, parent=None):
         super(Editor, self).__init__(parent)
 
         self.widget_version = 1
         self.status = 1
+        self.context = context
         self.filename = filename
         self.comment_char = comment_char = prefs.comment_char()
 
         self.notifier = notifier = observable.Observable()
-        self.diff = diff.DiffWidget(notifier, self)
+        self.diff = diff.DiffWidget(notifier, context, self)
         self.tree = RebaseTreeWidget(notifier, comment_char, self)
         self.setFocusProxy(self.tree)
 
@@ -197,7 +210,8 @@ class Editor(QtWidgets.QWidget):
         qtutils.connect_button(self.help_button, show_help)
         qtutils.connect_button(self.cancel_button, self.cancel)
 
-        insns = core.read(filename)
+    def start(self):
+        insns = core.read(self.filename)
         self.parse_sequencer_instructions(insns)
 
     # notifier callbacks
@@ -506,6 +520,9 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
 
     def __eq__(self, other):
         return self is other
+
+    def __hash__(self):
+        return self.oid
 
     def copy(self):
         return self.__class__(self.idx, self.is_enabled(), self.command,
