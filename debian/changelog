@@ -1,3 +1,10 @@
+git-cola (3.1-2) unstable; urgency=medium
+
+  * Add python3-distutils as dependency (closes: #905294).
+  * Update Standards-Version to 4.1.5 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Fri, 03 Aug 2018 01:36:43 +0000
+
 git-cola (3.1-1) unstable; urgency=medium
 
   * New upstream release.

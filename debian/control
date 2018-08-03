@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
 Build-Depends: debhelper (>= 11), dh-python, python3-nose
 Build-Depends-Indep: python3, python3-qtpy, python3-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 4.1.4
+Standards-Version: 4.1.5
 Homepage: http://git-cola.github.com/
 #Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/git-cola.git
@@ -12,7 +12,7 @@ X-Python3-Version: >= 3.2
 
 Package: git-cola
 Architecture: all
-Depends: ${python3:Depends}, ${misc:Depends}, python3-qtpy, python3-sip, git-core, libjs-jquery, libjs-underscore, libjs-modernizr
+Depends: ${python3:Depends}, ${misc:Depends}, python3-distutils, python3-qtpy, python3-sip, git-core, libjs-jquery, libjs-underscore, libjs-modernizr
 Recommends: gitk, xxdiff
 Suggests: python3-pyinotify, python3-simplejson
 Description: highly caffeinated git GUI
