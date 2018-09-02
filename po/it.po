@@ -148,6 +148,10 @@ msgstr ""
 msgid " - DAG"
 msgstr ""
 
+#, fuzzy
+msgid " commits ago"
+msgstr "Messaggio di fusione:"
+
 #, python-format
 msgid "\"%(branch)s\" has been deleted from \"%(remote)s\"."
 msgstr ""
@@ -436,6 +440,9 @@ msgid "Apply Patches"
 msgstr ""
 
 msgid "Apply Patches..."
+msgstr ""
+
+msgid "Apply and drop the selected stash (git stash pop)"
 msgstr ""
 
 msgid "Apply the selected stash"
@@ -1240,6 +1247,9 @@ msgstr ""
 msgid "Help - git-xbase"
 msgstr ""
 
+msgid "Hide Details.."
+msgstr ""
+
 #, fuzzy
 msgid "History Browser"
 msgstr "File browser"
@@ -1618,6 +1628,9 @@ msgstr ""
 msgid "Polish translation"
 msgstr ""
 
+msgid "Pop"
+msgstr ""
+
 msgid "Preferences"
 msgstr "Preferenze"
 
@@ -1745,6 +1758,9 @@ msgstr ""
 msgid "Remove Element"
 msgstr "Remoto"
 
+msgid "Remove remote-tracking branches that no longer exist on the remote"
+msgstr ""
+
 #, fuzzy
 msgid "Remove selected (Delete)"
 msgstr "Rinomina ramo"
@@ -1785,10 +1801,6 @@ msgid "Rename remote \"%(current)s\" to \"%(new)s\"?"
 msgstr ""
 
 #, fuzzy
-msgid "Rename remote?"
-msgstr "Remoto"
-
-#, fuzzy
 msgid "Rename selected paths"
 msgstr "Rinomina ramo"
 
@@ -1815,8 +1827,32 @@ msgstr "Elimina ramo"
 msgid "Reset Branch?"
 msgstr "Elimina ramo"
 
+#, fuzzy
+msgid "Reset Hard"
+msgstr "Elimina ramo"
+
+#, fuzzy
+msgid "Reset Merge"
+msgstr "Revisione da fondere"
+
+#, fuzzy
+msgid "Reset Soft"
+msgstr "Ripristina"
+
 msgid "Reset Worktree"
 msgstr ""
+
+#, fuzzy
+msgid "Reset hard?"
+msgstr "Elimina ramo"
+
+#, fuzzy
+msgid "Reset merge?"
+msgstr "Elimina ramo"
+
+#, fuzzy
+msgid "Reset soft?"
+msgstr "Ripristinare '%s'?"
 
 msgid "Reset worktree?"
 msgstr ""
@@ -1824,6 +1860,9 @@ msgstr ""
 #, fuzzy, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Ripristinare '%s' a '%s' comporterà la perdita delle seguenti revisioni:"
+
+msgid "Revert"
+msgstr ""
 
 msgid "Revert Diff Hunk"
 msgstr ""
@@ -2018,10 +2057,6 @@ msgid "Select Directory..."
 msgstr "Archivio Git"
 
 #, fuzzy
-msgid "Select File"
-msgstr "Seleziona tutto"
-
-#, fuzzy
 msgid "Select New Upstream"
 msgstr "Seleziona"
 
@@ -2044,10 +2079,6 @@ msgstr "Archivio Git"
 
 msgid "Select a parent directory for the new clone"
 msgstr ""
-
-#, fuzzy, python-format
-msgid "Select file from \"%s\""
-msgstr "Cancellazione rami da %s"
 
 #, fuzzy
 msgid "Select manually..."
@@ -2096,6 +2127,10 @@ msgstr ""
 
 msgid "Shortcuts"
 msgstr ""
+
+#, fuzzy
+msgid "Show Details..."
+msgstr "Elimina..."
 
 msgid "Show Diffstat After Merge"
 msgstr "Mostra statistiche delle differenze dopo la fusione"
@@ -2309,7 +2344,19 @@ msgid "The branch will be no longer available."
 msgstr ""
 
 #, python-format
+msgid "The branch will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The branch will be reset using \"git reset --merge %s\""
+msgstr ""
+
+#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
+msgstr ""
+
+#, python-format
+msgid "The branch will be reset using \"git reset --soft %s\""
 msgstr ""
 
 #, fuzzy
@@ -2328,7 +2375,7 @@ msgid "The revision expression cannot be empty."
 msgstr "L'espressione di revisione è vuota."
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --merge %s\""
+msgid "The worktree will be reset using \"git reset --keep %s\""
 msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2495,6 +2542,9 @@ msgstr ""
 msgid "XOR"
 msgstr ""
 
+msgid "Yes"
+msgstr ""
+
 msgid ""
 "You are in the middle of a merge.\n"
 "Cannot amend while merging."
@@ -2520,6 +2570,9 @@ msgid "Zoom to Fit"
 msgstr ""
 
 msgid "command-line arguments"
+msgstr ""
+
+msgid "error: unable to execute git"
 msgstr ""
 
 #, fuzzy, python-format
@@ -3201,6 +3254,10 @@ msgstr ""
 #~ msgid "Remote:"
 #~ msgstr "Remoto:"
 
+#, fuzzy
+#~ msgid "Rename remote?"
+#~ msgstr "Remoto"
+
 #~ msgid "Repository"
 #~ msgstr "Archivio"
 
@@ -3209,9 +3266,6 @@ msgstr ""
 
 #~ msgid "Rescan"
 #~ msgstr "Analizza nuovamente"
-
-#~ msgid "Reset '%s'?"
-#~ msgstr "Ripristinare '%s'?"
 
 #~ msgid ""
 #~ "Reset changes?\n"
@@ -3231,6 +3285,14 @@ msgstr ""
 
 #~ msgid "Revert changes in these %i files?"
 #~ msgstr "Annullare le modifiche in questi %i file?"
+
+#, fuzzy
+#~ msgid "Select File"
+#~ msgstr "Seleziona tutto"
+
+#, fuzzy
+#~ msgid "Select file from \"%s\""
+#~ msgstr "Cancellazione rami da %s"
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "Shared (il più veloce, non raccomandato, nessun backup)"

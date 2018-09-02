@@ -83,6 +83,10 @@ own `qtpy` module, for example from the `python-qtpy` Debian package, then use
 `make NO_VENDOR_LIBS=1 ...` when invoking `make`, or export
 `GIT_COLA_NO_VENDOR_LIBS=1` into the build environment.
 
+Python3 users on debian will need to install `python3-distutils` in order
+to run the Makefile's installation steps.  `distutils` is a Python build
+requirement, but not needed at runtime.
+
 
 ## ADDITIVES
 
@@ -142,6 +146,13 @@ If you want to do a global install you can do
 The platform-specific installation methods below use the native
 package manager.  You should use one of these so that all of *git-cola*'s
 dependencies are installed.
+
+Distutils is used by the `Makefile` via `setup.py` to install *git-cola* and
+its launcher scripts.  distutils replaces the `#!/usr/bin/env python` lines in
+scripts with the full path to python at build time, which can be undesirable
+when the runtime python is not the same as the build-time python.  To disable
+the replacement of the `#!/usr/bin/env python` lines, pass `USE_ENV_PYTHON=1`
+to `make`.
 
 ## LINUX
 
@@ -309,14 +320,21 @@ The following commands should be run during development:
     # Run the unit tests
     $ make test
 
-    # Check for pylint warnings.  All new code must pass 100%.
-    $ make pylint3k
+    # Check for pylint and flake8 warnings
+    $ make precommit
+
+    # Run tests against multiple python interpretors using tox
+    $ make tox
 
 The test suite can be found in the [test](test) directory.
 
 The tests are setup to run automatically when code is pushed using
 [Travis CI](https://travis-ci.org/git-cola/git-cola).
 Checkout the [Travis config file](.travis.yml) for more details.
+
+Auto-format `po/*.po` files before committing when updating translations:
+
+    $ make po
 
 When submitting patches, consult the [contributing guidelines](CONTRIBUTING.md).
 

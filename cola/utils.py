@@ -17,7 +17,7 @@ random.seed(hash(time.time()))
 
 
 def asint(obj, default=0):
-    """Make any value into a int, even if the cast fails"""
+    """Make any value into an int, even if the cast fails"""
     try:
         value = int(obj)
     except TypeError:
@@ -80,7 +80,7 @@ def grep(pattern, items, squash=True):
     :returns: List of matching items
 
     """
-    isdict = type(items) is dict
+    isdict = isinstance(items, dict)
     if pattern in __grep_cache:
         regex = __grep_cache[pattern]
     else:
@@ -105,12 +105,13 @@ def grep(pattern, items, squash=True):
             matched.append(subitems)
 
     if isdict:
-        return matchdict
+        result = matchdict
+    elif squash and len(matched) == 1:
+        result = matched[0]
     else:
-        if squash and len(matched) == 1:
-            return matched[0]
-        else:
-            return matched
+        result = matched
+
+    return result
 
 
 def basename(path):
@@ -157,6 +158,7 @@ def join(*paths):
 
     """
     return '/'.join(paths)
+
 
 def pathset(path):
     """Return all of the path components for the specified path
@@ -344,8 +346,8 @@ def slice_fn(input_items, map_fn):
 
 class seq(object):
 
-    def __init__(self, seq):
-        self.seq = seq
+    def __init__(self, sequence):
+        self.seq = sequence
 
     def index(self, item, default=-1):
         try:

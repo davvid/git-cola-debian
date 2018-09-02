@@ -6,18 +6,16 @@ from qtpy import QtWidgets
 
 from ..i18n import N_
 from ..models import prefs
-from ..qtutils import diff_font
 from .. import cmds
 from .. import qtutils
-from .. import gitcfg
 from . import defs
 from . import standard
 
 
-def preferences(model=None, parent=None):
+def preferences(context, model=None, parent=None):
     if model is None:
-        model = prefs.PreferencesModel()
-    view = PreferencesView(model, parent=parent)
+        model = prefs.PreferencesModel(context)
+    view = PreferencesView(context, model, parent=parent)
     view.show()
     view.raise_()
     return view
@@ -25,13 +23,14 @@ def preferences(model=None, parent=None):
 
 class FormWidget(QtWidgets.QWidget):
 
-    def __init__(self, model, parent, source='user'):
+    def __init__(self, context, model, parent, source='user'):
         QtWidgets.QWidget.__init__(self, parent)
+        self.context = context
+        self.cfg = context.cfg
         self.model = model
         self.config_to_widget = {}
         self.widget_to_config = {}
         self.source = source
-        self.config = gitcfg.current()
         self.defaults = {}
         self.setLayout(QtWidgets.QFormLayout())
 
@@ -54,9 +53,9 @@ class FormWidget(QtWidgets.QWidget):
 
         elif isinstance(widget, QtWidgets.QLineEdit):
             widget.editingFinished.connect(
-                    self._text_config_changed(config, widget))
+                self._text_config_changed(config, widget))
             widget.returnPressed.connect(
-                    self._text_config_changed(config, widget))
+                self._text_config_changed(config, widget))
 
     def _int_config_changed(self, config):
         def runner(value):
@@ -76,9 +75,9 @@ class FormWidget(QtWidgets.QWidget):
 
     def update_from_config(self):
         if self.source == 'user':
-            getter = self.config.get_user_or_system
+            getter = self.cfg.get_user_or_system
         else:
-            getter = self.config.get
+            getter = self.cfg.get
 
         for config, widget in self.widget_to_config.items():
             value = getter(config)
@@ -99,9 +98,8 @@ class FormWidget(QtWidgets.QWidget):
 
 class RepoFormWidget(FormWidget):
 
-    def __init__(self, model, parent, source):
-        FormWidget.__init__(self, model, parent, source=source)
-
+    def __init__(self, context, model, parent, source):
+        FormWidget.__init__(self, context, model, parent, source=source)
         self.name = QtWidgets.QLineEdit()
         self.email = QtWidgets.QLineEdit()
 
@@ -147,8 +145,8 @@ class RepoFormWidget(FormWidget):
 
 class SettingsFormWidget(FormWidget):
 
-    def __init__(self, model, parent):
-        FormWidget.__init__(self, model, parent)
+    def __init__(self, context, model, parent):
+        FormWidget.__init__(self, context, model, parent)
 
         self.fixed_font = QtWidgets.QFontComboBox()
         self.font_size = standard.SpinBox(value=12, mini=8, maxi=192)
@@ -215,9 +213,9 @@ class SettingsFormWidget(FormWidget):
 
     def update_from_config(self):
         FormWidget.update_from_config(self)
-
+        context = self.context
         block = self.fixed_font.blockSignals(True)
-        font = diff_font()
+        font = qtutils.diff_font(context)
         self.fixed_font.setCurrentFont(font)
         self.fixed_font.blockSignals(block)
 
@@ -239,8 +237,9 @@ class SettingsFormWidget(FormWidget):
 
 class PreferencesView(standard.Dialog):
 
-    def __init__(self, model, parent=None):
+    def __init__(self, context, model, parent=None):
         standard.Dialog.__init__(self, parent=parent)
+        self.context = context
         self.setWindowTitle(N_('Preferences'))
         if parent is not None:
             self.setWindowModality(QtCore.Qt.WindowModal)
@@ -253,9 +252,9 @@ class PreferencesView(standard.Dialog):
         self.tab_bar.addTab(N_('Current Repository'))
         self.tab_bar.addTab(N_('Settings'))
 
-        self.user_form = RepoFormWidget(model, self, source='user')
-        self.repo_form = RepoFormWidget(model, self, source='repo')
-        self.options_form = SettingsFormWidget(model, self)
+        self.user_form = RepoFormWidget(context, model, self, source='user')
+        self.repo_form = RepoFormWidget(context, model, self, source='repo')
+        self.options_form = SettingsFormWidget(context, model, self)
 
         self.stack_widget = QtWidgets.QStackedWidget()
         self.stack_widget.addWidget(self.user_form)

@@ -191,6 +191,9 @@ msgstr ""
 msgid " - DAG"
 msgstr " - 历史视图"
 
+msgid " commits ago"
+msgstr " 个提交之前"
+
 #, python-format
 msgid "\"%(branch)s\" has been deleted from \"%(remote)s\"."
 msgstr "已从远端 \"%(remote)s\" 删除分支 \"%(branch)s\"."
@@ -477,6 +480,10 @@ msgstr "应用补丁"
 
 msgid "Apply Patches..."
 msgstr "应用补丁..."
+
+#, fuzzy
+msgid "Apply and drop the selected stash (git stash pop)"
+msgstr "应用所选暂存"
 
 msgid "Apply the selected stash"
 msgstr "应用所选暂存"
@@ -1209,6 +1216,9 @@ msgstr "帮助 - 查找文件"
 msgid "Help - git-xbase"
 msgstr ""
 
+msgid "Hide Details.."
+msgstr ""
+
 msgid "History Browser"
 msgstr "历史浏览器"
 
@@ -1557,6 +1567,9 @@ msgstr ""
 msgid "Polish translation"
 msgstr "波兰语翻译"
 
+msgid "Pop"
+msgstr ""
+
 msgid "Preferences"
 msgstr "首选项"
 
@@ -1669,6 +1682,9 @@ msgstr "将 %s 从最近使用列表中移除吗?"
 msgid "Remove Element"
 msgstr "移除元素"
 
+msgid "Remove remote-tracking branches that no longer exist on the remote"
+msgstr ""
+
 msgid "Remove selected (Delete)"
 msgstr "移除所选 (删除)"
 
@@ -1701,9 +1717,6 @@ msgstr "重命名分支"
 msgid "Rename remote \"%(current)s\" to \"%(new)s\"?"
 msgstr "重命名远端 \"%(current)s\" 为 \"%(new)s\"?"
 
-msgid "Rename remote?"
-msgstr "重命名远端吗?"
-
 #, fuzzy
 msgid "Rename selected paths"
 msgstr "编辑所选路径"
@@ -1728,8 +1741,32 @@ msgstr "复位分支头"
 msgid "Reset Branch?"
 msgstr "重置分支吗?"
 
+#, fuzzy
+msgid "Reset Hard"
+msgstr "复位分支头"
+
+#, fuzzy
+msgid "Reset Merge"
+msgstr "要合并的版本"
+
+#, fuzzy
+msgid "Reset Soft"
+msgstr "重置工作树"
+
 msgid "Reset Worktree"
 msgstr "重置工作树"
+
+#, fuzzy
+msgid "Reset hard?"
+msgstr "重置分支吗?"
+
+#, fuzzy
+msgid "Reset merge?"
+msgstr "要重置工作树吗？"
+
+#, fuzzy
+msgid "Reset soft?"
+msgstr "复位 '%s'?"
 
 msgid "Reset worktree?"
 msgstr "要重置工作树吗？"
@@ -1737,6 +1774,9 @@ msgstr "要重置工作树吗？"
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "复位 \"%(branch)s\" to \"%(revision)s\" 将丢失提交."
+
+msgid "Revert"
+msgstr ""
 
 msgid "Revert Diff Hunk"
 msgstr "撤销差异区域"
@@ -1914,9 +1954,6 @@ msgstr "选择提交"
 msgid "Select Directory..."
 msgstr "选择版本库..."
 
-msgid "Select File"
-msgstr "选择文件"
-
 msgid "Select New Upstream"
 msgstr "选择上游项目"
 
@@ -1937,10 +1974,6 @@ msgstr "选择版本库..."
 
 msgid "Select a parent directory for the new clone"
 msgstr "为新克隆选择上级文件夹"
-
-#, python-format
-msgid "Select file from \"%s\""
-msgstr "从“%s”中选择文件"
 
 msgid "Select manually..."
 msgstr "手动选择..."
@@ -1984,6 +2017,10 @@ msgstr ""
 
 msgid "Shortcuts"
 msgstr "快捷键"
+
+#, fuzzy
+msgid "Show Details..."
+msgstr "删除文件..."
 
 msgid "Show Diffstat After Merge"
 msgstr "在合并后显示 Diffstat"
@@ -2178,7 +2215,19 @@ msgid "The branch will be no longer available."
 msgstr "分支已不可用。"
 
 #, python-format
+msgid "The branch will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The branch will be reset using \"git reset --merge %s\""
+msgstr ""
+
+#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
+msgstr ""
+
+#, python-format
+msgid "The branch will be reset using \"git reset --soft %s\""
 msgstr ""
 
 msgid "The commit message will be cleared."
@@ -2195,7 +2244,7 @@ msgid "The revision expression cannot be empty."
 msgstr "版本表达式不能为空."
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --merge %s\""
+msgid "The worktree will be reset using \"git reset --keep %s\""
 msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2366,6 +2415,9 @@ msgstr "要缓存并提交所有已修改文件吗?"
 msgid "XOR"
 msgstr ""
 
+msgid "Yes"
+msgstr ""
+
 msgid ""
 "You are in the middle of a merge.\n"
 "Cannot amend while merging."
@@ -2393,6 +2445,9 @@ msgstr "缩放到适合"
 
 msgid "command-line arguments"
 msgstr "命令行参数"
+
+msgid "error: unable to execute git"
+msgstr ""
 
 #, python-format
 msgid "exit code %s"
@@ -2448,9 +2503,6 @@ msgstr "yyyy-MM-dd"
 #~ "\n"
 #~ "这是由 Cygwin 发布的 Tcl 代码中一个\n"
 #~ "已知问题所引起."
-
-#~ msgid " commits ago"
-#~ msgstr " 个提交之前"
 
 #, fuzzy
 #~ msgid "\"%s\" returned exit status %d"
@@ -3104,6 +3156,9 @@ msgstr "yyyy-MM-dd"
 #~ msgid "Remove selected paths from the staging area."
 #~ msgstr "从缓存区移除所选路径."
 
+#~ msgid "Rename remote?"
+#~ msgstr "重命名远端吗?"
+
 #~ msgid "Repository"
 #~ msgstr "版本库(repository)"
 
@@ -3112,9 +3167,6 @@ msgstr "yyyy-MM-dd"
 
 #~ msgid "Rescan"
 #~ msgstr "重新扫描"
-
-#~ msgid "Reset '%s'?"
-#~ msgstr "复位 '%s'?"
 
 #~ msgid ""
 #~ "Reset changes?\n"
@@ -3137,6 +3189,12 @@ msgstr "yyyy-MM-dd"
 
 #~ msgid "Revert changes in these %i files?"
 #~ msgstr "撤销这些 (%i个) 文件的改动?"
+
+#~ msgid "Select File"
+#~ msgstr "选择文件"
+
+#~ msgid "Select file from \"%s\""
+#~ msgstr "从“%s”中选择文件"
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "共享方式 (最快, 不推荐, 不做备份)"

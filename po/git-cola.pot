@@ -129,6 +129,9 @@ msgstr ""
 msgid " - DAG"
 msgstr ""
 
+msgid " commits ago"
+msgstr ""
+
 #, python-format
 msgid "\"%(branch)s\" has been deleted from \"%(remote)s\"."
 msgstr ""
@@ -395,6 +398,9 @@ msgid "Apply Patches"
 msgstr ""
 
 msgid "Apply Patches..."
+msgstr ""
+
+msgid "Apply and drop the selected stash (git stash pop)"
 msgstr ""
 
 msgid "Apply the selected stash"
@@ -1108,6 +1114,9 @@ msgstr ""
 msgid "Help - git-xbase"
 msgstr ""
 
+msgid "Hide Details.."
+msgstr ""
+
 msgid "History Browser"
 msgstr ""
 
@@ -1437,6 +1446,9 @@ msgstr ""
 msgid "Polish translation"
 msgstr ""
 
+msgid "Pop"
+msgstr ""
+
 msgid "Preferences"
 msgstr ""
 
@@ -1547,6 +1559,9 @@ msgstr ""
 msgid "Remove Element"
 msgstr ""
 
+msgid "Remove remote-tracking branches that no longer exist on the remote"
+msgstr ""
+
 msgid "Remove selected (Delete)"
 msgstr ""
 
@@ -1579,9 +1594,6 @@ msgstr ""
 msgid "Rename remote \"%(current)s\" to \"%(new)s\"?"
 msgstr ""
 
-msgid "Rename remote?"
-msgstr ""
-
 msgid "Rename selected paths"
 msgstr ""
 
@@ -1605,7 +1617,25 @@ msgstr ""
 msgid "Reset Branch?"
 msgstr ""
 
+msgid "Reset Hard"
+msgstr ""
+
+msgid "Reset Merge"
+msgstr ""
+
+msgid "Reset Soft"
+msgstr ""
+
 msgid "Reset Worktree"
+msgstr ""
+
+msgid "Reset hard?"
+msgstr ""
+
+msgid "Reset merge?"
+msgstr ""
+
+msgid "Reset soft?"
 msgstr ""
 
 msgid "Reset worktree?"
@@ -1613,6 +1643,9 @@ msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
+msgstr ""
+
+msgid "Revert"
 msgstr ""
 
 msgid "Revert Diff Hunk"
@@ -1788,9 +1821,6 @@ msgstr ""
 msgid "Select Directory..."
 msgstr ""
 
-msgid "Select File"
-msgstr ""
-
 msgid "Select New Upstream"
 msgstr ""
 
@@ -1810,10 +1840,6 @@ msgid "Select Repository..."
 msgstr ""
 
 msgid "Select a parent directory for the new clone"
-msgstr ""
-
-#, python-format
-msgid "Select file from \"%s\""
 msgstr ""
 
 msgid "Select manually..."
@@ -1853,6 +1879,9 @@ msgid "Shift Up"
 msgstr ""
 
 msgid "Shortcuts"
+msgstr ""
+
+msgid "Show Details..."
 msgstr ""
 
 msgid "Show Diffstat After Merge"
@@ -2042,7 +2071,19 @@ msgid "The branch will be no longer available."
 msgstr ""
 
 #, python-format
+msgid "The branch will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The branch will be reset using \"git reset --merge %s\""
+msgstr ""
+
+#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
+msgstr ""
+
+#, python-format
+msgid "The branch will be reset using \"git reset --soft %s\""
 msgstr ""
 
 msgid "The commit message will be cleared."
@@ -2059,7 +2100,7 @@ msgid "The revision expression cannot be empty."
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --merge %s\""
+msgid "The worktree will be reset using \"git reset --keep %s\""
 msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2215,6 +2256,9 @@ msgstr ""
 msgid "XOR"
 msgstr ""
 
+msgid "Yes"
+msgstr ""
+
 msgid ""
 "You are in the middle of a merge.\n"
 "Cannot amend while merging."
@@ -2239,6 +2283,9 @@ msgid "Zoom to Fit"
 msgstr ""
 
 msgid "command-line arguments"
+msgstr ""
+
+msgid "error: unable to execute git"
 msgstr ""
 
 #, python-format

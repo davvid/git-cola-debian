@@ -1,9 +1,12 @@
 #!/usr/bin/env python
+# flake8: noqa
 from __future__ import absolute_import, division, unicode_literals
 import os
 import sys
 import re
 from argparse import ArgumentParser
+from functools import partial
+
 
 def setup_environment():
     path = os.path
@@ -26,16 +29,17 @@ def setup_environment():
     if modules:
         sys.path.insert(1, modules)
 
+
 setup_environment()
 
-from cola import app
-
+from cola import app  # prints a message if Qt cannot be found
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
+# pylint: disable=ungrouped-imports
 from cola import core
 from cola import difftool
 from cola import hotkeys
@@ -58,7 +62,7 @@ FIXUP = 'fixup'
 SQUASH = 'squash'
 EXEC = 'exec'
 COMMANDS = (PICK, REWORD, EDIT, FIXUP, SQUASH,)
-COMMAND_IDX = dict([(cmd, idx) for idx, cmd in enumerate(COMMANDS)])
+COMMAND_IDX = dict([(cmd_, idx_) for idx_, cmd_ in enumerate(COMMANDS)])
 ABBREV = {
     'p': PICK,
     'r': REWORD,
@@ -78,7 +82,7 @@ def main():
     return view.status
 
 
-def stop(context, view):
+def stop(_context, _view):
     """All done, cleanup"""
     QtCore.QThreadPool.globalInstance().waitForDone()
 
@@ -115,7 +119,8 @@ class XBaseWindow(standard.MainWindow):
         self.setWindowTitle(title)
 
         self.show_help_action = qtutils.add_action(
-            self, N_('Show Help'), show_help, hotkeys.QUESTION)
+            self, N_('Show Help'), partial(show_help, context),
+            hotkeys.QUESTION)
 
         self.menubar = QtWidgets.QMenuBar(self)
         self.help_menu = self.menubar.addMenu(N_('Help'))
@@ -140,7 +145,7 @@ class XBaseWindow(standard.MainWindow):
         editor.exit.connect(self.exit)
         editor.setFocus()
 
-    def start(self, context, view):
+    def start(self, _context, _view):
         self.editor.start()
 
     def exit(self, status):
@@ -158,11 +163,12 @@ class Editor(QtWidgets.QWidget):
         self.status = 1
         self.context = context
         self.filename = filename
-        self.comment_char = comment_char = prefs.comment_char()
+        self.comment_char = comment_char = prefs.comment_char(context)
+        self.cancel_action = core.getenv('GIT_XBASE_CANCEL_ACTION', 'abort')
 
         self.notifier = notifier = observable.Observable()
-        self.diff = diff.DiffWidget(notifier, context, self)
-        self.tree = RebaseTreeWidget(notifier, comment_char, self)
+        self.diff = diff.DiffWidget(context, notifier, self)
+        self.tree = RebaseTreeWidget(context, notifier, comment_char, self)
         self.setFocusProxy(self.tree)
 
         self.rebase_button = qtutils.create_button(
@@ -207,7 +213,7 @@ class Editor(QtWidgets.QWidget):
 
         qtutils.connect_button(self.rebase_button, self.rebase)
         qtutils.connect_button(self.extdiff_button, self.external_diff)
-        qtutils.connect_button(self.help_button, show_help)
+        qtutils.connect_button(self.help_button, partial(show_help, context))
         qtutils.connect_button(self.cancel_button, self.cancel)
 
     def start(self):
@@ -224,7 +230,8 @@ class Editor(QtWidgets.QWidget):
         re_comment_char = re.escape(self.comment_char)
         exec_rgx = re.compile(r'^\s*(%s)?\s*(x|exec)\s+(.+)$'
                               % re_comment_char)
-        # The upper bound of 40 below must match OID_LENGTH.
+        # The upper bound of 40 below must match git.OID_LENGTH.
+        # We'll have to update this to the new hash length when that happens.
         pick_rgx = re.compile((r'^\s*(%s)?\s*'
                                r'(p|pick|r|reword|e|edit|f|fixup|s|squash)'
                                r'\s+([0-9a-f]{7,40})'
@@ -255,28 +262,38 @@ class Editor(QtWidgets.QWidget):
 
     # actions
     def cancel(self):
-        self.status = 1
-        self.exit.emit(1)
+        if self.cancel_action == 'save':
+            status = self.save('')
+        else:
+            status = 1
+
+        self.status = status
+        self.exit.emit(status)
 
     def rebase(self):
         lines = [item.value() for item in self.tree.items()]
         sequencer_instructions = '\n'.join(lines) + '\n'
+        status = self.save(sequencer_instructions)
+        self.status = status
+        self.exit.emit(status)
+
+    def save(self, string):
+        """Save the instruction sheet"""
         try:
-            core.write(self.filename, sequencer_instructions)
-            self.status = 0
-            self.exit.emit(0)
-        except Exception as e:
+            core.write(self.filename, string)
+            status = 0
+        except (OSError, IOError, ValueError) as e:
             msg, details = utils.format_exception(e)
             sys.stderr.write(msg + '\n\n' + details)
-            self.status = 128
-            self.exit.emit(128)
+            status = 128
+        return status
 
     def external_diff(self):
         items = self.tree.selected_items()
         if not items:
             return
         item = items[0]
-        difftool.diff_expression(self, item.oid + '^!',
+        difftool.diff_expression(self.context, self, item.oid + '^!',
                                  hide_expr=True)
 
 
@@ -284,16 +301,19 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
     external_diff = Signal()
     move_rows = Signal(object, object)
 
-    def __init__(self, notifier, comment_char, parent=None):
+    def __init__(self, context, notifier, comment_char, parent=None):
         super(RebaseTreeWidget, self).__init__(parent=parent)
+        self.context = context
         self.notifier = notifier
         self.comment_char = comment_char
         # header
-        self.setHeaderLabels([N_('#'),
-                              N_('Enabled'),
-                              N_('Command'),
-                              N_('SHA-1'),
-                              N_('Summary')])
+        self.setHeaderLabels([
+            N_('#'),
+            N_('Enabled'),
+            N_('Command'),
+            N_('SHA-1'),
+            N_('Summary'),
+        ])
         self.header().setStretchLastSection(True)
         self.setColumnCount(5)
 
@@ -318,23 +338,23 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
             *hotkeys.REBASE_REWORD)
 
         self.action_edit = qtutils.add_action(
-                self, N_('Edit'), lambda: self.set_selected_to(EDIT),
-                *hotkeys.REBASE_EDIT)
+            self, N_('Edit'), lambda: self.set_selected_to(EDIT),
+            *hotkeys.REBASE_EDIT)
 
         self.action_fixup = qtutils.add_action(
-                self, N_('Fixup'), lambda: self.set_selected_to(FIXUP),
-                *hotkeys.REBASE_FIXUP)
+            self, N_('Fixup'), lambda: self.set_selected_to(FIXUP),
+            *hotkeys.REBASE_FIXUP)
 
         self.action_squash = qtutils.add_action(
-                self, N_('Squash'), lambda: self.set_selected_to(SQUASH),
-                *hotkeys.REBASE_SQUASH)
+            self, N_('Squash'), lambda: self.set_selected_to(SQUASH),
+            *hotkeys.REBASE_SQUASH)
 
         self.action_shift_down = qtutils.add_action(
-                self, N_('Shift Down'), self.shift_down,
-                hotkeys.MOVE_DOWN_TERTIARY)
+            self, N_('Shift Down'), self.shift_down,
+            hotkeys.MOVE_DOWN_TERTIARY)
 
         self.action_shift_up = qtutils.add_action(
-                self, N_('Shift Up'), self.shift_up, hotkeys.MOVE_UP_TERTIARY)
+            self, N_('Shift Up'), self.shift_up, hotkeys.MOVE_UP_TERTIARY)
 
         self.itemChanged.connect(self.item_changed)
         self.itemSelectionChanged.connect(self.selection_changed)
@@ -393,11 +413,12 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
         item = self.selected_item()
         if item is None or not item.is_commit():
             return
+        context = self.context
         oid = item.oid
-        ctx = dag.DAG(oid, 2)
-        repo = dag.RepoReader(ctx)
+        params = dag.DAG(oid, 2)
+        repo = dag.RepoReader(context, params)
         commits = []
-        for c in repo:
+        for c in repo.get():
             commits.append(c)
         if commits:
             commits = commits[-1:]
@@ -561,7 +582,7 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
         else:
             comment = self.comment_char + ' '
         if self.is_exec():
-            return ('%s%s %s' % (comment, self.command, self.cmdexec))
+            return '%s%s %s' % (comment, self.command, self.cmdexec)
         return ('%s%s %s %s' %
                 (comment, self.command, self.oid, self.summary))
 
@@ -598,7 +619,7 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
         self.combo.validate.emit()
 
 
-def show_help():
+def show_help(context):
     help_text = N_("""
 Commands
 --------
@@ -635,7 +656,7 @@ ctrl+q     = cancel and abort the rebase
 ctrl+d     = launch difftool
 """)
     title = N_('Help - git-xbase')
-    return text.text_dialog(help_text, title)
+    return text.text_dialog(context, help_text, title)
 
 
 if __name__ == '__main__':

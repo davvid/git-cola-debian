@@ -8,13 +8,15 @@ try:
 except ValueError:
     scale_factor = 1.0
 
-def scale(value, scale_factor=scale_factor):
-    return int(value * scale_factor)
+
+def scale(value, factor=scale_factor):
+    return int(value * factor)
 
 
 no_margin = 0
 small_margin = scale(2)
 margin = scale(4)
+large_margin = scale(12)
 
 no_spacing = 0
 spacing = scale(4)
@@ -42,3 +44,5 @@ separator = scale(3)
 
 dialog_w = scale(720)
 dialog_h = scale(445)
+
+msgbox_h = scale(128)

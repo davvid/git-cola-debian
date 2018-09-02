@@ -5,16 +5,14 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
-from ..cmds import do
-from ..git import git
 from ..i18n import N_
-from ..qtutils import diff_font
 from ..utils import Group
 from .. import cmds
 from .. import core
 from .. import hotkeys
 from .. import utils
 from .. import qtutils
+from ..qtutils import get
 from .standard import Dialog
 from .text import HintedLineEdit
 from .text import VimHintedPlainTextEdit
@@ -22,17 +20,16 @@ from .text import VimTextBrowser
 from . import defs
 
 
-def grep():
+def grep(context):
     """Prompt and use 'git grep' to find the content."""
-    widget = new_grep(parent=qtutils.active_window())
+    widget = new_grep(context, parent=qtutils.active_window())
     widget.show()
-    widget.raise_()
     return widget
 
 
-def new_grep(text=None, parent=None):
+def new_grep(context, text=None, parent=None):
     """Construct a new Grep dialog"""
-    widget = Grep(parent=parent)
+    widget = Grep(context, parent=parent)
     if text:
         widget.search_for(text)
     return widget
@@ -48,13 +45,13 @@ def parse_grep_line(line):
     return result
 
 
-def goto_grep(line):
+def goto_grep(context, line):
     """Called when Search -> Grep's right-click 'goto' action."""
     parsed_line = parse_grep_line(line)
     if parsed_line:
-        filename, line_number, contents = parsed_line
-        do(cmds.Edit, [filename],
-            line_number=line_number, background_editor=True)
+        filename, line_number, _ = parsed_line
+        cmds.do(cmds.Edit, context, [filename],
+                line_number=line_number, background_editor=True)
 
 
 class GrepThread(QtCore.QThread):
@@ -62,8 +59,9 @@ class GrepThread(QtCore.QThread):
 
     result = Signal(object, object, object)
 
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         QtCore.QThread.__init__(self, parent)
+        self.context = context
         self.query = None
         self.shell = False
         self.regexp_mode = '--basic-regexp'
@@ -71,6 +69,7 @@ class GrepThread(QtCore.QThread):
     def run(self):
         if self.query is None:
             return
+        git = self.context.git
         query = self.query
         if self.shell:
             args = utils.shell_split(query)
@@ -86,8 +85,9 @@ class GrepThread(QtCore.QThread):
 class Grep(Dialog):
     """A dialog for searching content using `git grep`"""
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         Dialog.__init__(self, parent)
+        self.context = context
         self.grep_result = ''
 
         self.setWindowTitle(N_('Search'))
@@ -95,15 +95,16 @@ class Grep(Dialog):
             self.setWindowModality(Qt.WindowModal)
 
         self.edit_action = qtutils.add_action(
-                self, N_('Edit'), self.edit, hotkeys.EDIT)
+            self, N_('Edit'), self.edit, hotkeys.EDIT)
 
         self.refresh_action = qtutils.add_action(
-                self, N_('Refresh'), self.search, *hotkeys.REFRESH_HOTKEYS)
+            self, N_('Refresh'), self.search, *hotkeys.REFRESH_HOTKEYS)
 
         self.input_label = QtWidgets.QLabel('git grep')
-        self.input_label.setFont(diff_font())
+        self.input_label.setFont(qtutils.diff_font(context))
 
-        self.input_txt = HintedLineEdit(N_('command-line arguments'), self)
+        self.input_txt = HintedLineEdit(
+            context, N_('command-line arguments'), parent=self)
 
         self.regexp_combo = combo = QtWidgets.QComboBox()
         combo.setToolTip(N_('Choose the "git grep" regular expression mode'))
@@ -111,22 +112,19 @@ class Grep(Dialog):
         combo.addItems(items)
         combo.setCurrentIndex(0)
         combo.setEditable(False)
-        combo.setItemData(
-                0,
-                N_('Search using a POSIX basic regular expression'),
-                Qt.ToolTipRole)
-        combo.setItemData(
-                1,
-                N_('Search using a POSIX extended regular expression'),
-                Qt.ToolTipRole)
-        combo.setItemData(2, N_('Search for a fixed string'), Qt.ToolTipRole)
+
+        tooltip0 = N_('Search using a POSIX basic regular expression')
+        tooltip1 = N_('Search using a POSIX extended regular expression')
+        tooltip2 = N_('Search for a fixed string')
+        combo.setItemData(0, tooltip0, Qt.ToolTipRole)
+        combo.setItemData(1, tooltip1, Qt.ToolTipRole)
+        combo.setItemData(2, tooltip2, Qt.ToolTipRole)
         combo.setItemData(0, '--basic-regexp', Qt.UserRole)
         combo.setItemData(1, '--extended-regexp', Qt.UserRole)
         combo.setItemData(2, '--fixed-strings', Qt.UserRole)
 
-        self.result_txt = GrepTextView(N_('grep result...'), self)
-
-        self.preview_txt = PreviewTextView(self)
+        self.result_txt = GrepTextView(context, N_('grep result...'), self)
+        self.preview_txt = PreviewTextView(context, self)
         self.preview_txt.setFocusProxy(self.result_txt)
 
         self.edit_button = qtutils.edit_button(default=True)
@@ -168,7 +166,7 @@ class Grep(Dialog):
                                        self.bottom_layout)
         self.setLayout(self.mainlayout)
 
-        thread = self.worker_thread = GrepThread(self)
+        thread = self.worker_thread = GrepThread(context, self)
         thread.result.connect(self.process_result, type=Qt.QueuedConnection)
 
         self.input_txt.textChanged.connect(lambda s: self.search())
@@ -205,13 +203,13 @@ class Grep(Dialog):
         self.edit_group.setEnabled(False)
         self.refresh_group.setEnabled(False)
 
-        query = self.input_txt.value()
+        query = get(self.input_txt)
         if len(query) < 2:
             self.result_txt.clear()
             self.preview_txt.clear()
             return
         self.worker_thread.query = query
-        self.worker_thread.shell = self.shell_checkbox.isChecked()
+        self.worker_thread.shell = get(self.shell_checkbox)
         self.worker_thread.regexp_mode = self.regexp_mode()
         self.worker_thread.start()
 
@@ -223,7 +221,7 @@ class Grep(Dialog):
         """Return the scrollbar value for the results window"""
         scrollbar = self.result_txt.verticalScrollBar()
         if scrollbar:
-            return scrollbar.value()
+            return get(scrollbar)
         return None
 
     def set_text_scroll(self, scroll):
@@ -271,17 +269,17 @@ class Grep(Dialog):
         """Update the file preview window"""
         parsed_line = parse_grep_line(self.result_txt.selected_line())
         if parsed_line:
-            filename, line_number, content = parsed_line
+            filename, line_number, _ = parsed_line
             self.preview_txt.preview(filename, line_number)
 
     def edit(self):
         """Launch an editor on the currently selected line"""
-        goto_grep(self.result_txt.selected_line()),
+        goto_grep(self.context, self.result_txt.selected_line())
 
     def export_state(self):
         """Export persistent settings"""
         state = super(Grep, self).export_state()
-        state['sizes'] = self.splitter.sizes()
+        state['sizes'] = get(self.splitter)
         return state
 
     def apply_state(self, state):
@@ -289,7 +287,7 @@ class Grep(Dialog):
         result = super(Grep, self).apply_state(state)
         try:
             self.splitter.setSizes(state['sizes'])
-        except:
+        except (AttributeError, KeyError, ValueError, TypeError):
             result = False
         return result
 
@@ -297,9 +295,9 @@ class Grep(Dialog):
 class GrepTextView(VimHintedPlainTextEdit):
     """A text view with hotkeys for launching editors"""
 
-    def __init__(self, hint, parent):
-        VimHintedPlainTextEdit.__init__(self, hint, parent=parent)
-
+    def __init__(self, context, hint, parent):
+        VimHintedPlainTextEdit.__init__(self, context, hint, parent=parent)
+        self.context = context
         self.goto_action = qtutils.add_action(self, 'Launch Editor', self.edit)
         self.goto_action.setShortcut(hotkeys.EDIT)
 
@@ -310,7 +308,7 @@ class GrepTextView(VimHintedPlainTextEdit):
         menu.exec_(self.mapToGlobal(event.pos()))
 
     def edit(self):
-        goto_grep(self.selected_line())
+        goto_grep(self.context, self.selected_line())
 
 
 class PreviewTask(qtutils.Task):
@@ -334,8 +332,8 @@ class PreviewTask(qtutils.Task):
 class PreviewTextView(VimTextBrowser):
     """Preview window for file contents"""
 
-    def __init__(self, parent):
-        VimTextBrowser.__init__(self, parent)
+    def __init__(self, context, parent):
+        VimTextBrowser.__init__(self, context, parent)
         self.filename = None
         self.content = None
         self.runtask = qtutils.RunTask(parent=self)
@@ -352,7 +350,7 @@ class PreviewTextView(VimTextBrowser):
     def clear(self):
         self.filename = ''
         self.content = ''
-        super(VimTextBrowser, self).clear()
+        super(PreviewTextView, self).clear()
 
     def show_preview(self, task):
         """Show the results of the asynchronous file read"""

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-
-from __future__  import absolute_import, division, unicode_literals
-
+# flake8: noqa
+from __future__ import absolute_import, division, unicode_literals
+from __future__ import print_function
 import argparse
 import json
 import os
@@ -72,7 +72,7 @@ def get_platform(platform):
 
 
 def print_error(msg):
-    core.stderr('error: %s' % msg)
+    core.print_stderr('error: %s' % msg)
 
 
 def error(msg):
@@ -86,21 +86,21 @@ def parse_slug(url):
         url = url[:-len('.git')]
 
     github_prefixes = (
-            'https://github.com/',
-            'git://github.com/',
-            'git@github.com:',
+        'https://github.com/',
+        'git://github.com/',
+        'git@github.com:',
     )
     for prefix in github_prefixes:
         if url.startswith(prefix):
             return url[len(prefix):]
 
     patterns = (
-            # ssh+git://user:password@host/slug
-            r'^ssh\+git://[^@]+:[^@]+@[^@/]+/([^:]+)$',
-            # ssh+git://user@host/slug
-            r'^ssh\+git://[^@]+@[^@]+?/([^:]+)$',
-            # user@host:slug (no ports, etc
-            r'^[^@]+@[^@]+:([^:]+)$',
+        # ssh+git://user:password@host/slug
+        r'^ssh\+git://[^@]+:[^@]+@[^@/]+/([^:]+)$',
+        # ssh+git://user@host/slug
+        r'^ssh\+git://[^@]+@[^@]+?/([^:]+)$',
+        # user@host:slug (no ports, etc
+        r'^[^@]+@[^@]+:([^:]+)$',
     )
     for pattern in patterns:
         rgx = re.compile(pattern)
@@ -111,9 +111,9 @@ def parse_slug(url):
     return ''
 
 
-def guess_slug(remote):
+def guess_slug(context, remote):
     key = 'remote.%s.url' % remote
-    url = gitcfg.current().get(key)
+    url = context.cfg.get(key)
 
     default_slug = 'git-cola/git-cola'
     if url:
@@ -124,16 +124,28 @@ def guess_slug(remote):
     return slug
 
 
-def get_slug(args):
+def get_slug(context, args):
     if args.slug:
         slug = args.slug
     else:
-        slug = guess_slug(args.remote)
+        slug = guess_slug(context, args.remote)
     return slug
 
 
-def get_current_branch():
-    return gitcmds.current_branch()
+class ApplicationContext(object):
+
+    def __init__(self, args):
+        self.args = args
+        self.git = None
+        self.cfg = None
+
+
+def new_context(args):
+    """Create top-level ApplicationContext objects"""
+    context = ApplicationContext(args)
+    context.git = git.create()
+    context.cfg = gitcfg.create(context)
+    return context
 
 
 def setup_environment(args, language, version):
@@ -142,6 +154,8 @@ def setup_environment(args, language, version):
     repo = git.Git()
     if not repo.is_valid():
         error('%s is not a Git repository' % core.getcwd())
+
+    context = new_context(args)
 
     version_var = 'TRAVIS_%s_VERSION' % language.upper()
     env.setdefault(version_var, version)
@@ -157,7 +171,7 @@ def setup_environment(args, language, version):
     env.setdefault('RAILS_ENV', 'test')
     env.setdefault('RACK_ENV', 'test')
     env.setdefault('MERB_ENV', 'test')
-    env.setdefault('TRAVIS_BRANCH', gitcmds.current_branch())
+    env.setdefault('TRAVIS_BRANCH', gitcmds.current_branch(context))
     env.setdefault('TRAVIS_BUILD_DIR', core.getcwd())
     env.setdefault('TRAVIS_BUILD_ID', '1')
     env.setdefault('TRAVIS_BUILD_NUMBER', '1')
@@ -167,7 +181,7 @@ def setup_environment(args, language, version):
     env.setdefault('TRAVIS_JOB_NUMBER', '1.1')
     env.setdefault('TRAVIS_PULL_REQUEST', 'false')
     env.setdefault('TRAVIS_SECURE_ENV_VARS', 'false')
-    env.setdefault('TRAVIS_REPO_SLUG', get_slug(args))
+    env.setdefault('TRAVIS_REPO_SLUG', get_slug(context, args))
     env.setdefault('TRAVIS_OS_NAME', get_platform(sys.platform))
     env.setdefault('TRAVIS_TAG', '')
 
@@ -201,6 +215,7 @@ def expandvars(path, environ=None):
         return path
     if environ is None:
         environ = os.environ.copy()
+    # pylint: disable=protected-access
     try:
         expandvars_re = expandvars._re_cache
     except AttributeError:
@@ -383,9 +398,8 @@ class RunCommands(object):
 
     def run_command(self, cmd):
         environ = self.state.environ
-        status, out, err = core.run_command(cmd, env=environ, shell=True,
-                                            stdin=None, stdout=None,
-                                            stderr=None)
+        status, _, _ = core.run_command(cmd, env=environ, shell=True,
+                                        stdin=None, stdout=None, stderr=None)
         expanded = self.expandvars(cmd)
         print('The command "%s" exited with %d.' % (expanded, status))
         if status != 0:
@@ -403,66 +417,65 @@ class RunCommands(object):
         first = words[0]
 
         # Multi-command, e.g. "5s" skips 5 commands
-        rgx = re.compile('^(\d+)(.*)$')
+        rgx = re.compile(r'^(\d+)(.*)$')
 
         if answer in ('f', 'j', 'n', 'N', 'next', 'no', 's', 'skip'):
             self.goto_next()
-            return
 
         elif answer in ('b', 'k', 'p', 'back', 'prev'):
             self.goto_prev()
-            return
 
         elif answer in ('r', 'y', 'Y', 'yes', 'run'):
             self.run_current_command()
             self.goto_next()
-            return
+
         elif answer in ('rw', 'rewind'):
             self.rewind()
-            return
+
         elif answer in ('ff', 'last', 'end'):
             self.fast_forward()
-            return
+
         elif answer in ('ls', 'list'):
             self.list_commands()
-            return
+
         elif answer in ('shell',):
             self.run_shell(default_shell())
-            return
+
         elif answer in ('bash', 'sh', 'zsh', 'ash', 'dash', 'ksh', 'csh'):
             self.run_shell(answer)
-            return
+
         elif answer in ('st', 'status'):
             self.show_status()
-            return
+
         elif answer in ('pwd',):
             print(os.getcwd())
-            return
+
         elif answer in ('env',):
             print_environment(self.state.env)
-            return
+
         elif answer in ('environ',):
             print_environment(self.state.environ)
-            return
+
         elif first in ('g', 'go', 'goto'):
             self.goto(int(words[1]))
+
         elif first in ('cd', 'chdir'):
             self.chdir(self.expandvars(words[1]))
+
         elif answer in ('h', 'help', '?'):
             self.print_help()
-            return
+
         elif answer in ('q', 'quit'):
             self.quit()
-            return
+
         elif rgx.match(answer):
             match = rgx.match(answer)
             count = match.group(1)
             action = match.group(2)
-            for i in range(int(count)):
+            for _ in range(int(count)):
                 self.eval_input(action)
-            return
         else:
-            print('error: %s: unknown command')
+            print_error('%s: unknown command' % answer)
             self.print_help()
 
 
@@ -523,6 +536,7 @@ def build_version(args, data, language, version):
                       verbose=args.verbose,
                       version=version)
 
+        # pylint: disable=no-member
         if state.verbose:
             print_environment(environ)
 

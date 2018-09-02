@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-
 from __future__ import absolute_import, division, unicode_literals
-
 import unittest
+
 from cola import gravatar
 from cola.compat import ustr
 
@@ -18,7 +17,7 @@ class GravatarTestCase(unittest.TestCase):
                   r'%2Fimages%2Fgit-64x64.jpg')
         actual = gravatar.Gravatar.url_for_email(email, 64)
         self.assertEqual(expect, actual)
-        self.assertEqual(ustr, type(actual))
+        self.assertTrue(isinstance(actual, ustr))
 
 
 if __name__ == '__main__':

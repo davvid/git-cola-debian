@@ -1,29 +1,90 @@
 from __future__ import division, absolute_import, unicode_literals
 import os
+from functools import partial
 
 from qtpy import QtCore
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 
+from .. import cmds
 from .. import core
 from .. import icons
 from .. import utils
 from .. import qtutils
 from ..i18n import N_
 from ..interaction import Interaction
+from ..qtutils import get
 from . import defs
 from . import standard
 from . import text
-from ..models import main
 
 
-def prompt_for_clone(show=True, settings=None):
+def clone(context, spawn=True, show=True, settings=None, parent=None):
+    """Clone a repository and spawn a new git-cola instance"""
+    parent = qtutils.active_window()
+    progress = standard.ProgressDialog('', '', parent)
+    return clone_repo(context, parent, show, settings,
+                      progress, task_finished, spawn)
+
+
+def clone_repo(context, parent, show, settings, progress, finish, spawn):
+    """Clone a repository asynchronously with progress animation"""
+    fn = partial(start_clone_task, context, parent, progress, finish, spawn)
+    prompt = prompt_for_clone(context, show=show, settings=settings)
+    prompt.result.connect(fn)
+    return prompt
+
+
+def prompt_for_clone(context, show=True, settings=None):
     """Presents a GUI for cloning a repository"""
-    view = Clone(settings=settings, parent=qtutils.active_window())
+    view = Clone(context, settings=settings, parent=qtutils.active_window())
     if show:
         view.show()
-        view.raise_()
     return view
+
+
+def task_finished(task):
+    """Report errors from the clone task if they exist"""
+    cmd = task.cmd
+    if cmd is None:
+        return
+    status = cmd.status
+    out = cmd.out
+    err = cmd.err
+    title = N_('Error: could not clone "%s"') % cmd.url
+    Interaction.command(title, 'git clone', status, out, err)
+
+
+def start_clone_task(context, parent, progress, finish, spawn, url, destdir,
+                     submodules, shallow):
+    # Use a thread to update in the background
+    runtask = context.runtask
+    progress.set_details(N_('Clone Repository'),
+                         N_('Cloning repository at %s') % url)
+    task = CloneTask(context, url, destdir, submodules, shallow, spawn, parent)
+    runtask.start(task, finish=finish, progress=progress)
+
+
+class CloneTask(qtutils.Task):
+    """Clones a Git repository"""
+
+    def __init__(self, context, url, destdir, submodules,
+                 shallow, spawn, parent):
+        qtutils.Task.__init__(self, parent)
+        self.context = context
+        self.url = url
+        self.destdir = destdir
+        self.submodules = submodules
+        self.shallow = shallow
+        self.spawn = spawn
+        self.cmd = None
+
+    def task(self):
+        """Runs the model action and captures the result"""
+        self.cmd = cmds.do(
+            cmds.Clone, self.context, self.url, self.destdir,
+            self.submodules, self.shallow, spawn=self.spawn)
+        return self.cmd
 
 
 class Clone(standard.Dialog):
@@ -31,8 +92,10 @@ class Clone(standard.Dialog):
     # Signal binding for returning the input data
     result = QtCore.Signal(object, object, bool, bool)
 
-    def __init__(self, settings=None, parent=None):
+    def __init__(self, context, settings=None, parent=None):
         standard.Dialog.__init__(self, parent=parent)
+        self.context = context
+        self.model = context.model
 
         self.setWindowTitle(N_('Clone Repository'))
         if parent is not None:
@@ -41,7 +104,7 @@ class Clone(standard.Dialog):
         # Repository location
         self.url_label = QtWidgets.QLabel(N_('URL'))
         hint = 'git://git.example.com/repo.git'
-        self.url = text.HintedLineEdit(hint, parent=self)
+        self.url = text.HintedLineEdit(context, hint, parent=self)
         self.url.setToolTip(N_('Path or URL to clone (Env. $VARS okay)'))
 
         # Initialize submodules
@@ -80,47 +143,47 @@ class Clone(standard.Dialog):
         self.update_actions()
 
     def update_actions(self):
-        url = self.url.value().strip()
+        url = get(self.url).strip()
         enabled = bool(url)
         self.ok_button.setEnabled(enabled)
 
     def prepare_to_clone(self):
         """Grabs and validates the input data"""
 
-        submodules = self.submodules.isChecked()
-        shallow = self.shallow.isChecked()
+        submodules = get(self.submodules)
+        shallow = get(self.shallow)
 
-        url = self.url.value()
+        url = get(self.url)
         url = utils.expandpath(url)
         if not url:
-            return None
+            return
+        # Pick a suitable basename by parsing the URL
+        newurl = url.replace('\\', '/').rstrip('/')
         try:
-            # Pick a suitable basename by parsing the URL
-            newurl = url.replace('\\', '/').rstrip('/')
             default = newurl.rsplit('/', 1)[-1]
-            if default == '.git':
-                # The end of the URL is /.git, so assume it's a file path
-                default = os.path.basename(os.path.dirname(newurl))
-            if default.endswith('.git'):
-                # The URL points to a bare repo
-                default = default[:-4]
-            if url == '.':
-                # The URL is the current repo
-                default = os.path.basename(core.getcwd())
-            if not default:
-                raise
-        except:
+        except IndexError:
+            default = ''
+        if default == '.git':
+            # The end of the URL is /.git, so assume it's a file path
+            default = os.path.basename(os.path.dirname(newurl))
+        if default.endswith('.git'):
+            # The URL points to a bare repo
+            default = default[:-4]
+        if url == '.':
+            # The URL is the current repo
+            default = os.path.basename(core.getcwd())
+        if not default:
             Interaction.information(
-                    N_('Error Cloning'),
-                    N_('Could not parse Git URL: "%s"') % url)
+                N_('Error Cloning'),
+                N_('Could not parse Git URL: "%s"') % url)
             Interaction.log(N_('Could not parse Git URL: "%s"') % url)
-            return None
+            return
 
         # Prompt the user for a directory to use as the parent directory
         msg = N_('Select a parent directory for the new clone')
-        dirname = qtutils.opendir_dialog(msg, main.model().getcwd())
+        dirname = qtutils.opendir_dialog(msg, self.model.getcwd())
         if not dirname:
-            return None
+            return
         count = 1
         destdir = os.path.join(dirname, default)
         olddestdir = destdir

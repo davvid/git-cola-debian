@@ -1,25 +1,28 @@
 from __future__ import absolute_import, division, unicode_literals
-
 import os
 import shutil
 import stat
 import unittest
-import subprocess
 import tempfile
+
+import mock
 
 from cola import core
 from cola import git
 from cola import gitcfg
 from cola import gitcmds
+from cola.models import main
 
 
 def tmp_path(*paths):
     """Returns a path relative to the test/tmp directory"""
-    return os.path.join(os.path.dirname(__file__), 'tmp', *paths)
+    dirname = core.decode(os.path.dirname(__file__))
+    return os.path.join(dirname, 'tmp', *paths)
 
 
 def fixture(*paths):
-    return os.path.join(os.path.dirname(__file__), 'fixtures', *paths)
+    dirname = core.decode(os.path.dirname(__file__))
+    return os.path.join(dirname, 'fixtures', *paths)
 
 
 def run_unittest(suite):
@@ -29,12 +32,12 @@ def run_unittest(suite):
 # shutil.rmtree() can't remove read-only files on Windows.  This onerror
 # handler, adapted from <http://stackoverflow.com/a/1889686/357338>, works
 # around this by changing such files to be writable and then re-trying.
-def remove_readonly(func, path, exc_info):
+def remove_readonly(func, path, _exc_info):
     if func == os.remove and not os.access(path, os.W_OK):
         os.chmod(path, stat.S_IWRITE)
         func(path)
     else:
-        raise
+        raise AssertionError('Should not happen')
 
 
 class TmpPathTestCase(unittest.TestCase):
@@ -71,28 +74,30 @@ class TmpPathTestCase(unittest.TestCase):
 class GitRepositoryTestCase(TmpPathTestCase):
     """Tests that operate on temporary git repositories."""
 
-    def setUp(self, commit=True):
+    def setUp(self):
         TmpPathTestCase.setUp(self)
         self.initialize_repo()
-        if commit:
-            self.commit_files()
-        git.current().set_worktree(core.getcwd())
-        gitcfg.current().reset()
+        self.context = context = mock.Mock()
+        context.git = git.create()
+        context.git.set_worktree(core.getcwd())
+        context.cfg = gitcfg.create(context)
+        context.model = self.model = main.create(self.context)
+        self.git = context.git
+        self.cfg = context.cfg
+        self.cfg.reset()
         gitcmds.reset()
 
-    def git(self, *args):
-        p = subprocess.Popen(['git'] + list(args), stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        output, error = p.communicate()
-        self.failIf(p.returncode != 0)
-        return output.strip()
+    def run_git(self, *args):
+        status, out, _ = core.run_command(['git'] + list(args))
+        self.assertEqual(status, 0)
+        return out
 
     def initialize_repo(self):
-        self.git('init')
-        self.git('config', '--local', 'user.name', 'Your Name')
-        self.git('config', '--local', 'user.email', 'you@example.com')
+        self.run_git('init')
+        self.run_git('config', '--local', 'user.name', 'Your Name')
+        self.run_git('config', '--local', 'user.email', 'you@example.com')
         self.touch('A', 'B')
-        self.git('add', 'A', 'B')
+        self.run_git('add', 'A', 'B')
 
     def commit_files(self):
-        self.git('commit', '-m', 'initial commit')
+        self.run_git('commit', '-m', 'initial commit')

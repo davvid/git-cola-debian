@@ -1,10 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from __future__ import division, absolute_import, unicode_literals
-import collections
-import os
 import re
-import sys
 
 from qtpy.QtCore import Qt
 from qtpy.QtCore import QEvent
@@ -14,126 +10,24 @@ from qtpy.QtGui import QSyntaxHighlighter
 from qtpy.QtGui import QTextCharFormat
 from qtpy.QtGui import QTextCursor
 from qtpy.QtWidgets import QAction
-from qtpy.QtWidgets import QApplication
 
 from .. import qtutils
-from .. import gitcfg
+from .. import spellcheck
 from ..i18n import N_
 from .text import HintedTextEdit
 
 
-__copyright__ = """
-2012, Peter Norvig (http://norvig.com/spell-correct.html)
-2013, David Aguilar <davvid@gmail.com>
-"""
-
-alphabet = 'abcdefghijklmnopqrstuvwxyz'
-
-
-def train(features, model):
-    for f in features:
-        model[f] += 1
-    return model
-
-
-def edits1(word):
-    splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
-    deletes = [a + b[1:] for a, b in splits if b]
-    transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b) > 1]
-    replaces = [a + c + b[1:] for a, b in splits for c in alphabet if b]
-    inserts = [a + c + b for a, b in splits for c in alphabet]
-    return set(deletes + transposes + replaces + inserts)
-
-
-def known_edits2(word, words):
-    return set(e2 for e1 in edits1(word)
-               for e2 in edits1(e1) if e2 in words)
-
-
-def known(word, words):
-    return set(w for w in word if w in words)
-
-
-def suggest(word, words):
-    candidates = (known([word], words) or
-                  known(edits1(word), words) or
-                  known_edits2(word, words) or [word])
-    return candidates
-
-
-def correct(word, words):
-    candidates = suggest(word, words)
-    return max(candidates, key=words.get)
-
-
-class NorvigSpellCheck(object):
-
-    def __init__(self):
-        self.words = collections.defaultdict(lambda: 1)
-        self.extra_words = set()
-        self.initialized = False
-
-    def init(self):
-        if self.initialized:
-            return
-        self.initialized = True
-        train(self.read(), self.words)
-        train(self.extra_words, self.words)
-
-    def add_word(self, word):
-        self.extra_words.add(word)
-
-    def suggest(self, word):
-        self.init()
-        return suggest(word, self.words)
-
-    def check(self, word):
-        self.init()
-        return word.replace('.', '') in self.words
-
-    def read(self):
-        """Read dictionary words"""
-        paths = []
-
-        words = '/usr/share/dict/words'
-        cracklib = '/usr/share/dict/cracklib-small'
-        propernames = '/usr/share/dict/propernames'
-
-        cfg = gitcfg.current()
-        cfg_dictionary = cfg.get('cola.dictionary', None)
-
-        if os.path.exists(cracklib):
-            paths.append((cracklib, True))
-        else:
-            paths.append((words, True))
-
-        if os.path.exists(propernames):
-            paths.append((propernames, False))
-
-        if cfg_dictionary and os.path.exists(cfg_dictionary):
-            paths.append((cfg_dictionary, False))
-
-        for (path, title) in paths:
-            try:
-                with open(path, 'r') as f:
-                    for word in f:
-                        yield word.rstrip()
-                        if title:
-                            yield word.rstrip().title()
-            except IOError:
-                pass
-
-        raise StopIteration
-
-
 class SpellCheckTextEdit(HintedTextEdit):
 
-    def __init__(self, hint, parent=None):
-        HintedTextEdit.__init__(self, hint, parent)
+    def __init__(self, context, hint, parent=None):
+        HintedTextEdit.__init__(self, context, hint, parent)
 
         # Default dictionary based on the current locale.
-        self.spellcheck = NorvigSpellCheck()
+        self.spellcheck = spellcheck.NorvigSpellCheck()
         self.highlighter = Highlighter(self.document(), self.spellcheck)
+
+    def set_dictionary(self, dictionary):
+        self.spellcheck.set_dictionary(dictionary)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -168,14 +62,14 @@ class SpellCheckTextEdit(HintedTextEdit):
                     spell_menu.addAction(action)
                 # Only add the spelling suggests to the menu if there are
                 # suggestions.
-                if len(spell_menu.actions()) > 0:
+                if spell_menu.actions():
                     popup_menu.addSeparator()
                     popup_menu.addMenu(spell_menu)
 
         return popup_menu, spell_menu
 
     def contextMenuEvent(self, event):
-        popup_menu, _spell_menu = self.context_menu()
+        popup_menu, _ = self.context_menu()
         popup_menu.exec_(self.mapToGlobal(event.pos()))
 
     def correct(self, word):
@@ -193,9 +87,9 @@ class Highlighter(QSyntaxHighlighter):
 
     WORDS = r"(?iu)[\w']+"
 
-    def __init__(self, doc, spellcheck):
+    def __init__(self, doc, spellcheck_widget):
         QSyntaxHighlighter.__init__(self, doc)
-        self.spellcheck = spellcheck
+        self.spellcheck = spellcheck_widget
         self.enabled = False
 
     def enable(self, enabled):
@@ -226,17 +120,3 @@ class SpellAction(QAction):
 
     def correct(self):
         self.result.emit(self.text())
-
-
-def main(args=sys.argv):
-    app = QApplication(args)
-
-    widget = SpellCheckTextEdit('Type here')
-    widget.show()
-    widget.raise_()
-
-    return app.exec_()
-
-
-if __name__ == '__main__':
-    sys.exit(main())

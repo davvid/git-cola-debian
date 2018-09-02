@@ -1,3 +1,10 @@
+git-cola (3.2-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update Standards-Version to 4.2.1 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sun, 02 Sep 2018 18:40:59 +0000
+
 git-cola (3.1-2) unstable; urgency=medium
 
   * Add python3-distutils as dependency (closes: #905294).

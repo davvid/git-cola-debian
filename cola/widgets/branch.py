@@ -1,19 +1,18 @@
 """Provides widgets related to branches"""
 from __future__ import division, absolute_import, unicode_literals
-import functools
-import re
+from functools import partial
 
 from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
 from ..compat import odict
-from ..compat import unichr
+from ..compat import uchr
 from ..i18n import N_
 from ..interaction import Interaction
-from ..models import main
 from ..widgets import defs
 from ..widgets import standard
+from ..qtutils import get
 from .. import cmds
 from .. import gitcmds
 from .. import hotkeys
@@ -29,9 +28,7 @@ NAME_TAGS_BRANCH = N_('Tags')
 
 
 def defer_fn(parent, title, fn, *args, **kwargs):
-    partial = functools.partial(fn, *args, **kwargs)
-    action = qtutils.add_action(parent, title, partial)
-    return action
+    return qtutils.add_action(parent, title, partial(fn, *args, **kwargs))
 
 
 def add_branch_to_menu(menu, branch, remote_branch, remote, upstream, fn):
@@ -66,7 +63,7 @@ class AsyncGitActionTask(qtutils.Task):
 
 
 class BranchesWidget(QtWidgets.QWidget):
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
         tooltip = N_('Toggle the branches filter')
@@ -74,7 +71,7 @@ class BranchesWidget(QtWidgets.QWidget):
         self.filter_button = qtutils.create_action_button(tooltip=tooltip,
                                                           icon=icon)
 
-        self.tree = BranchesTreeWidget(parent=self)
+        self.tree = BranchesTreeWidget(context, parent=self)
         self.filter_widget = BranchesFilterWidget(self.tree)
         self.filter_widget.hide()
 
@@ -102,16 +99,17 @@ class BranchesWidget(QtWidgets.QWidget):
 class BranchesTreeWidget(standard.TreeWidget):
     updated = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         standard.TreeWidget.__init__(self, parent)
+
+        self.context = context
+        self.main_model = model = context.model
 
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.setHeaderHidden(True)
         self.setAlternatingRowColors(False)
         self.setColumnCount(1)
         self.setExpandsOnDoubleClick(False)
-
-        self.main_model = model = main.model()
 
         self.tree_helper = BranchesTreeHelper()
         self.git_helper = GitHelper(model.git)
@@ -173,6 +171,7 @@ class BranchesTreeWidget(standard.TreeWidget):
 
     def contextMenuEvent(self, event):
         """Build and execute the context menu"""
+        context = self.context
         selected = self.selected_item()
         root = self.tree_helper.get_root(selected)
 
@@ -203,7 +202,7 @@ class BranchesTreeWidget(standard.TreeWidget):
             # local branch
             if NAME_LOCAL_BRANCH == root.name:
 
-                remote = gitcmds.tracked_branch(full_name)
+                remote = gitcmds.tracked_branch(context, full_name)
                 if remote is not None:
                     menu.addSeparator()
 
@@ -247,8 +246,8 @@ class BranchesTreeWidget(standard.TreeWidget):
 
     def build_upstream_menu(self, menu):
         """Build the "Set Upstream Branch" sub-menu"""
+        context = self.context
         model = self.main_model
-        current_branch = model.currentbranch
         selected_item = self.selected_item()
         selected_branch = self.tree_helper.get_full_name(selected_item, SLASH)
         remote = None
@@ -258,8 +257,8 @@ class BranchesTreeWidget(standard.TreeWidget):
         other_branches = []
 
         if selected_branch:
-            remote = gitcmds.upstream_remote(selected_branch)
-            upstream = gitcmds.tracked_branch(branch=selected_branch)
+            remote = gitcmds.upstream_remote(context, selected_branch)
+            upstream = gitcmds.tracked_branch(context, branch=selected_branch)
 
         if not remote and 'origin' in model.remotes:
             remote = 'origin'
@@ -290,8 +289,9 @@ class BranchesTreeWidget(standard.TreeWidget):
         current_remote = remote
 
         for branch in branches:
-            current_remote = add_branch_to_menu(menu, selected_branch,
-                branch, current_remote, upstream, self.set_upstream)
+            current_remote = add_branch_to_menu(
+                menu, selected_branch, branch, current_remote,
+                upstream, self.set_upstream)
 
         # This list could be longer so we tuck it away in a sub-menu.
         # Selecting a branch from the non-default remote is less common.
@@ -299,14 +299,16 @@ class BranchesTreeWidget(standard.TreeWidget):
             menu.addSeparator()
             sub_menu = menu.addMenu(N_('Other branches'))
             for branch in other_branches:
-                current_remote = add_branch_to_menu(sub_menu, selected_branch,
-                    branch, current_remote, upstream, self.set_upstream)
+                current_remote = add_branch_to_menu(
+                    sub_menu, selected_branch, branch,
+                    current_remote, upstream, self.set_upstream)
 
     def set_upstream(self, branch, remote_branch):
         """Configure the upstream for a branch"""
-        remote, branch_name = gitcmds.parse_remote_branch(remote_branch)
-        if remote and branch_name:
-            cmds.do(cmds.SetUpstreamBranch, branch, remote, branch_name)
+        context = self.context
+        remote, r_branch = gitcmds.parse_remote_branch(remote_branch)
+        if remote and r_branch:
+            cmds.do(cmds.SetUpstreamBranch, context, branch, remote, r_branch)
 
     def save_tree_state(self):
         states = {}
@@ -321,15 +323,17 @@ class BranchesTreeWidget(standard.TreeWidget):
                 self.tree_helper.load_state(item, states[item.name])
 
     def update_select_branch(self):
-        item = self.tree_helper.find_child(
-            self.topLevelItem(0), self.current_branch)
+        context = self.context
+        current_branch = self.current_branch
+        top_item = self.topLevelItem(0)
+        item = self.tree_helper.find_child(top_item, current_branch)
+
         if item is not None:
             self.tree_helper.expand_from_item(item)
             item.setIcon(0, icons.star())
 
-            tracked_branch = gitcmds.tracked_branch(self.current_branch)
-
-            if self.current_branch is not None and tracked_branch is not None:
+            tracked_branch = gitcmds.tracked_branch(context, current_branch)
+            if current_branch and tracked_branch:
                 status = {'ahead': 0, 'behind': 0}
                 status_str = ''
 
@@ -342,10 +346,10 @@ class BranchesTreeWidget(standard.TreeWidget):
                 status['behind'] = len(log[1].splitlines())
 
                 if status['ahead'] > 0:
-                    status_str += '%s%s' % (unichr(0x2191), status['ahead'])
+                    status_str += '%s%s' % (uchr(0x2191), status['ahead'])
 
                 if status['behind'] > 0:
-                    status_str += '  %s%s' % (unichr(0x2193), status['behind'])
+                    status_str += '  %s%s' % (uchr(0x2193), status['behind'])
 
                 if status_str:
                     item.setText(0, '%s\t%s' % (item.text(0), status_str))
@@ -367,12 +371,13 @@ class BranchesTreeWidget(standard.TreeWidget):
         if task.refresh_tree:
             self.refresh()
         if task.update_remotes:
-            model = main.model()
+            model = self.main_model
             model.update_remotes()
 
     def push_action(self):
+        context = self.context
         branch = self.tree_helper.get_full_name(self.selected_item(), SLASH)
-        remote_branch = gitcmds.tracked_branch(branch)
+        remote_branch = gitcmds.tracked_branch(context, branch)
         if remote_branch:
             remote, branch_name = gitcmds.parse_remote_branch(remote_branch)
             if remote and branch_name:
@@ -390,8 +395,9 @@ class BranchesTreeWidget(standard.TreeWidget):
                                   refresh_tree=True)
 
     def pull_action(self):
+        context = self.context
         branch = self.tree_helper.get_full_name(self.selected_item(), SLASH)
-        remote_branch = gitcmds.tracked_branch(branch)
+        remote_branch = gitcmds.tracked_branch(context, branch)
         if remote_branch:
             remote, branch_name = gitcmds.parse_remote_branch(remote_branch)
             if remote and branch_name:
@@ -416,8 +422,9 @@ class BranchesTreeWidget(standard.TreeWidget):
             if remote:
                 remote, branch_name = gitcmds.parse_remote_branch(branch)
                 if remote and branch_name:
-                    self.git_action_async('delete_remote',
-                        [remote, branch_name], update_remotes=True)
+                    self.git_action_async(
+                        'delete_remote', [remote, branch_name],
+                        update_remotes=True)
             else:
                 self.git_action_async('delete_local', [branch])
 
@@ -435,7 +442,7 @@ class BranchesTreeWidget(standard.TreeWidget):
     def checkout_new_branch_action(self):
         branch = self.tree_helper.get_full_name(self.selected_item(), SLASH)
         if branch != self.current_branch:
-            remote, new_branch = gitcmds.parse_remote_branch(branch)
+            _, new_branch = gitcmds.parse_remote_branch(branch)
             self.git_action_async('checkout', ['-b', new_branch, branch])
 
 
@@ -551,7 +558,7 @@ class BranchesTreeHelper(object):
 
     def load_state(self, item, state):
         """Load expanded items from a dict"""
-        if len(state.keys()) > 0:
+        if state.keys():
             item.setExpanded(True)
 
         for i in range(item.childCount()):
@@ -626,7 +633,7 @@ class BranchesFilterWidget(QtWidgets.QWidget):
         self.tree.updated.connect(self.apply_filter, type=Qt.QueuedConnection)
 
     def apply_filter(self):
-        text = self.text.value()
+        text = get(self.text)
         if text == self._filter:
             return
         self._apply_bold(self._filter, False)
@@ -635,7 +642,8 @@ class BranchesFilterWidget(QtWidgets.QWidget):
             self._apply_bold(text, True)
 
     def _apply_bold(self, text, value):
-        children = self.tree.findItems(text, Qt.MatchContains | Qt.MatchRecursive)
+        match = Qt.MatchContains | Qt.MatchRecursive
+        children = self.tree.findItems(text, match)
 
         for child in children:
             if child.childCount() == 0:

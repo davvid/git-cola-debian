@@ -1,5 +1,6 @@
 """The "Actions" widget"""
 from __future__ import division, absolute_import, unicode_literals
+from functools import partial
 
 from qtpy import QtCore
 from qtpy import QtWidgets
@@ -7,8 +8,6 @@ from qtpy import QtWidgets
 from .. import cmds
 from .. import qtutils
 from ..i18n import N_
-from ..models import main
-from ..models.selection import selection_model
 from ..widgets import defs
 from ..widgets import remote
 from ..widgets import stash
@@ -53,9 +52,11 @@ def tooltip_button(text, layout):
 
 
 class ActionButtons(QFlowLayoutWidget):
-    def __init__(self, parent=None):
+
+    def __init__(self, context, parent=None):
         QFlowLayoutWidget.__init__(self, parent)
         layout = self.layout()
+        self.context = context
         self.stage_button = tooltip_button(N_('Stage'), layout)
         self.unstage_button = tooltip_button(N_('Unstage'), layout)
         self.refresh_button = tooltip_button(N_('Refresh'), layout)
@@ -68,29 +69,20 @@ class ActionButtons(QFlowLayoutWidget):
         self.setMinimumHeight(30)
 
         # Add callbacks
-        connect_button(self.refresh_button, cmds.run(cmds.Refresh))
-        connect_button(self.fetch_button, remote.fetch)
-        connect_button(self.push_button, remote.push)
-        connect_button(self.pull_button, remote.pull)
-        connect_button(self.stash_button, stash.view)
-        connect_button(self.stage_button, self.stage)
+        connect_button(self.refresh_button, cmds.run(cmds.Refresh, context))
+        connect_button(self.fetch_button, partial(remote.fetch, context))
+        connect_button(self.push_button, partial(remote.push, context))
+        connect_button(self.pull_button, partial(remote.pull, context))
+        connect_button(self.stash_button, partial(stash.view, context))
+        connect_button(self.stage_button, cmds.run(cmds.StageSelected, context))
         connect_button(self.unstage_button, self.unstage)
-
-    def stage(self):
-        """Stage selected files, or all files if no selection exists."""
-        paths = selection_model().unstaged
-        if not paths:
-            model = main.model()
-            if model.cfg.get('cola.safemode', False):
-                return
-            cmds.do(cmds.StageModified)
-        else:
-            cmds.do(cmds.Stage, paths)
 
     def unstage(self):
         """Unstage selected files, or all files if no selection exists."""
-        paths = selection_model().staged
+        context = self.context
+        paths = context.selection.staged
+        context = self.context
         if not paths:
-            cmds.do(cmds.UnstageAll)
+            cmds.do(cmds.UnstageAll, context)
         else:
-            cmds.do(cmds.Unstage, paths)
+            cmds.do(cmds.Unstage, context, paths)

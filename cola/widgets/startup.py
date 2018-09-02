@@ -17,6 +17,7 @@ from .. import guicmds
 from .. import icons
 from .. import qtutils
 from .. import version
+from . import clone
 from . import defs
 from . import standard
 
@@ -24,8 +25,9 @@ from . import standard
 class StartupDialog(standard.Dialog):
     """Provides a GUI to Open or Clone a git repository."""
 
-    def __init__(self, parent=None, settings=None):
+    def __init__(self, context, parent=None, settings=None):
         standard.Dialog.__init__(self, parent)
+        self.context = context
         self.setWindowTitle(N_('git-cola'))
 
         # Top-most large icon
@@ -39,14 +41,17 @@ class StartupDialog(standard.Dialog):
         self.logo_text_label.setAlignment(Qt.AlignCenter)
 
         self.repodir = None
-        self.runtask = qtutils.RunTask(parent=self)
+        if context.runtask:
+            self.runtask = context.runtask
+        else:
+            self.runtask = context.runtask = qtutils.RunTask(parent=self)
 
         self.new_button = qtutils.create_button(
-                text=N_('New...'), icon=icons.new())
+            text=N_('New...'), icon=icons.new())
         self.open_button = qtutils.create_button(
-                text=N_('Open...'), icon=icons.folder())
+            text=N_('Open...'), icon=icons.folder())
         self.clone_button = qtutils.create_button(
-                text=N_('Clone...'), icon=icons.cola())
+            text=N_('Clone...'), icon=icons.cola())
         self.close_button = qtutils.close_button()
 
         if settings is None:
@@ -61,7 +66,6 @@ class StartupDialog(standard.Dialog):
         item = QtGui.QStandardItem(N_('Select manually...'))
         item.setEditable(False)
         self.bookmarks_model.appendRow(item)
-
 
         # Bookmarks/"Favorites" and Recent are lists of {name,path: str}
         bookmarks = [i['path'] for i in settings.bookmarks]
@@ -145,25 +149,28 @@ class StartupDialog(standard.Dialog):
             self.accept()
 
     def clone_repo(self):
+        context = self.context
+        settings = self.settings
         progress = standard.ProgressDialog('', '', self)
-        guicmds.clone_repo(self, self.runtask, progress,
-                           self.clone_repo_done, False)
+        clone.clone_repo(context, self, True, settings, progress,
+                         self.clone_repo_done, False)
 
     def clone_repo_done(self, task):
         if task.cmd and task.cmd.status == 0:
             self.repodir = task.destdir
             self.accept()
         else:
-            guicmds.report_clone_repo_errors(task)
+            clone.task_finished(task)
 
     def new_repo(self):
-        repodir = guicmds.new_repo()
+        context = self.context
+        repodir = guicmds.new_repo(context)
         if repodir:
             self.repodir = repodir
             self.accept()
 
     def open_bookmark(self, index):
-        if(index.row() == 0):
+        if index.row() == 0:
             self.open_repo()
         else:
             self.repodir = self.bookmarks_model.data(index)
@@ -172,6 +179,6 @@ class StartupDialog(standard.Dialog):
 
     def get_selected_bookmark(self):
         selected = self.bookmarks.selectedIndexes()
-        if(len(selected) > 0 and selected[0].row() != 0):
+        if selected and selected[0].row() != 0:
             return self.bookmarks_model.data(selected[0])
         return None

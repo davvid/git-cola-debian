@@ -15,16 +15,16 @@ from .standard import DraggableTreeWidget
 from . import defs
 
 
-def apply_patches():
+def apply_patches(context):
     parent = qtutils.active_window()
-    dlg = new_apply_patches(parent=parent)
+    dlg = new_apply_patches(context, parent=parent)
     dlg.show()
     dlg.raise_()
     return dlg
 
 
-def new_apply_patches(patches=None, parent=None):
-    dlg = ApplyPatches(parent=parent)
+def new_apply_patches(context, patches=None, parent=None):
+    dlg = ApplyPatches(context, parent=parent)
     if patches:
         dlg.add_paths(patches)
     return dlg
@@ -53,7 +53,7 @@ def get_patches_from_mimedata(mimedata):
 def get_patches_from_dir(path):
     """Find patches in a subdirectory"""
     patches = []
-    for root, subdirs, files in core.walk(path):
+    for root, _, files in core.walk(path):
         for name in [f for f in files if f.endswith('.patch')]:
             patches.append(core.decode(os.path.join(root, name)))
     return patches
@@ -61,8 +61,9 @@ def get_patches_from_dir(path):
 
 class ApplyPatches(Dialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         super(ApplyPatches, self).__init__(parent=parent)
+        self.context = context
         self.setWindowTitle(N_('Apply Patches'))
         self.setAcceptDrops(True)
         if parent is not None:
@@ -83,24 +84,24 @@ class ApplyPatches(Dialog):
         self.tree.setHeaderHidden(True)
 
         self.add_button = qtutils.create_toolbutton(
-                text=N_('Add'), icon=icons.add(),
-                tooltip=N_('Add patches (+)'))
+            text=N_('Add'), icon=icons.add(),
+            tooltip=N_('Add patches (+)'))
 
         self.remove_button = qtutils.create_toolbutton(
-                text=N_('Remove'), icon=icons.remove(),
-                tooltip=N_('Remove selected (Delete)'))
+            text=N_('Remove'), icon=icons.remove(),
+            tooltip=N_('Remove selected (Delete)'))
 
         self.apply_button = qtutils.create_button(
-                text=N_('Apply'), icon=icons.ok())
+            text=N_('Apply'), icon=icons.ok())
 
         self.close_button = qtutils.close_button()
 
         self.add_action = qtutils.add_action(
-                self, N_('Add'), self.add_files, hotkeys.ADD_ITEM)
+            self, N_('Add'), self.add_files, hotkeys.ADD_ITEM)
 
         self.remove_action = qtutils.add_action(
-                self, N_('Remove'), self.tree.remove_selected,
-                hotkeys.DELETE, hotkeys.BACKSPACE, hotkeys.REMOVE_ITEM)
+            self, N_('Remove'), self.tree.remove_selected,
+            hotkeys.DELETE, hotkeys.BACKSPACE, hotkeys.REMOVE_ITEM)
 
         self.top_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                        self.add_button, self.remove_button,
@@ -126,8 +127,9 @@ class ApplyPatches(Dialog):
         items = self.tree.items()
         if not items:
             return
+        context = self.context
         patches = [i.data(0, Qt.UserRole) for i in items]
-        cmds.do(cmds.ApplyPatches, patches)
+        cmds.do(cmds.ApplyPatches, context, patches)
         self.accept()
 
     def add_files(self):

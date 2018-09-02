@@ -1,6 +1,6 @@
 from __future__ import division, absolute_import, unicode_literals
-import functools
 import time
+from functools import partial
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -12,15 +12,14 @@ from qtpy.QtWidgets import QDockWidget
 from ..i18n import N_
 from ..interaction import Interaction
 from ..settings import Settings, mklist
+from ..models import prefs
 from .. import core
-from .. import gitcfg
 from .. import hotkeys
 from .. import icons
 from .. import qtcompat
 from .. import qtutils
 from .. import utils
 from . import defs
-
 
 
 class WidgetMixin(object):
@@ -62,94 +61,60 @@ class WidgetMixin(object):
         return self.__class__.__name__.lower()
 
     def save_state(self, settings=None):
-        cfg = gitcfg.current()
-        if cfg.get('cola.savewindowsettings', default=True):
+        save = True
+        context = getattr(self, 'context', None)
+        if context:
+            cfg = context.cfg
+            save = cfg.get('cola.savewindowsettings', default=True)
+        if save:
             if settings is None:
                 settings = Settings()
                 settings.load()
             settings.save_gui_state(self)
-
-    def resizeEvent(self, event):
-        super(WidgetMixin, self).resizeEvent(event)
-        # Use a timer to so that the window size and state is up to date.
-        # If we ask for the window state here it will never realize that
-        # we have been maximized because the window state change is processed
-        # after the resize event.  Using a timer event causes it to happen
-        # after all the events have been processsed.
-        # Timer with a delay of zero will trigger immediately after control
-        # returns to the main loop.
-        QtCore.QTimer.singleShot(
-                0, lambda: self._store_unmaximized_dimensions())
-
-    def moveEvent(self, event):
-        super(WidgetMixin, self).moveEvent(event)
-        # as per the QObject::resizeEvent() override
-        QtCore.QTimer.singleShot(
-                0, lambda: self._store_unmaximized_dimensions())
-
-    def _store_unmaximized_dimensions(self):
-        state = self.windowState()
-        maximized = bool(state & Qt.WindowMaximized)
-        if not maximized:
-            size = self.size()
-            width, height = size.width(), size.height()
-            if not width or not height:
-                return
-            x, y = self.x(), self.y()
-            self._unmaximized_rect = dict(x=x, y=y, width=width, height=height)
 
     def restore_state(self, settings=None):
         if settings is None:
             settings = Settings()
             settings.load()
         state = settings.get_gui_state(self)
-        return bool(state) and self.apply_state(state)
+        if state:
+            result = self.apply_state(state)
+        else:
+            result = False
+        return result
 
     def apply_state(self, state):
         """Imports data for view save/restore"""
-        result = True
 
         width = utils.asint(state.get('width'))
         height = utils.asint(state.get('height'))
         x = utils.asint(state.get('x'))
         y = utils.asint(state.get('y'))
 
-        if width and height:
+        geometry = state.get('geometry', '')
+        if geometry:
+            from_base64 = QtCore.QByteArray.fromBase64
+            result = self.restoreGeometry(from_base64(core.encode(geometry)))
+        elif width and height:
+            # Users migrating from older versions won't have 'geometry'.
+            # They'll be upgraded to the new format on shutdown.
             self.resize(width, height)
             self.move(x, y)
-            # calling resize/move won't invoke QWidget::{resize,move}Event
-            # so store the unmaximized size if we properly restored.
-            self._unmaximized_rect = dict(x=x, y=y, width=width, height=height)
+            result = True
         else:
             result = False
-
-        if state.get('maximized', False):
-            if utils.is_win32() or utils.is_darwin():
-                self.resize_to_desktop()
-            elif hasattr(self, 'showMaximized'):
-                self.showMaximized()
-
         return result
 
     def export_state(self):
         """Exports data for view save/restore"""
-        window_state = self.windowState()
-        maximized = bool(window_state & Qt.WindowMaximized)
-
-        state = {
-            'maximized': maximized,
-        }
-
-        # when maximized we don't want to overwrite saved x/y/width/height with
-        # desktop dimensions.
-        if maximized:
-            state.update(self._unmaximized_rect)
-        else:
-            state['width'] = self.width()
-            state['height'] = self.height()
-            state['x'] = self.x()
-            state['y'] = self.y()
-
+        state = {}
+        geometry = self.saveGeometry()
+        state['geometry'] = geometry.toBase64().data().decode('ascii')
+        # Until 2020: co-exist with older versions
+        state['width'] = self.width()
+        state['height'] = self.height()
+        state['x'] = self.x()
+        state['y'] = self.y()
         return state
 
     def save_settings(self, settings=None):
@@ -198,9 +163,10 @@ class MainWindowMixin(WidgetMixin):
 
     def save_settings(self, settings=None):
         if settings is None:
+            context = getattr(self, 'context', None)
             settings = Settings()
             settings.load()
-            settings.add_recent(core.getcwd())
+            settings.add_recent(core.getcwd(), prefs.maxrecent(context))
         return WidgetMixin.save_settings(self, settings=settings)
 
     def apply_state(self, state):
@@ -211,11 +177,13 @@ class MainWindowMixin(WidgetMixin):
         else:
             from_base64 = QtCore.QByteArray.fromBase64
             result = self.restoreState(
-                    from_base64(core.encode(windowstate)),
-                    self.widget_version) and result
+                from_base64(core.encode(windowstate)),
+                self.widget_version) and result
+
         self.lock_layout = state.get('lock_layout', self.lock_layout)
         self.update_dockwidget_lock_state()
         self.update_dockwidget_tooltips()
+
         return result
 
     def set_lock_layout(self, lock_layout):
@@ -522,6 +490,11 @@ class Dialog(WidgetMixin, QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
         WidgetMixin.__init__(self)
+        # Disable the Help button hint on Windows
+        if hasattr(Qt, 'WindowContextHelpButtonHint'):
+            help_hint = Qt.WindowContextHelpButtonHint
+            flags = self.windowFlags() & ~help_hint
+            self.setWindowFlags(flags)
 
     def accept(self):
         self.save_settings()
@@ -637,7 +610,7 @@ class ProgressDialog(QtWidgets.QProgressDialog):
     This dialog ignores the ESC key so that it is not
     prematurely closed.
 
-    An thread is spawned to animate the progress label text.
+    A thread is spawned to animate the progress label text.
 
     """
     def __init__(self, title, label, parent):
@@ -648,7 +621,7 @@ class ProgressDialog(QtWidgets.QProgressDialog):
         self.setRange(0, 0)
         self.setMinimumDuration(0)
         self.setCancelButton(None)
-        self.setFont(qtutils.diff_font())
+        self.setFont(qtutils.default_monospace_font())
         self.thread = ProgressAnimationThread(label, self)
         self.thread.updated.connect(self.refresh, type=Qt.QueuedConnection)
 
@@ -754,102 +727,156 @@ def apply_header_columns(widget, state):
         header.resizeSection(idx, size)
 
 
-class MessageBox(WidgetMixin, QtWidgets.QMessageBox):
+class MessageBox(Dialog):
+    """Improved QMessageBox replacement
 
-    Base = QtWidgets.QMessageBox
+    QMessageBox has a lot of usability issues.  It sometimes cannot be
+    resized, and it brings along a lots of annoying properties that we'd have
+    to workaround, so we use a simple custom dialog instead.
 
-    def __init__(self, parent=None,
-                 title='', text='', details='', info='',
-                 icon=None, buttons=None, default=None):
+    """
+    def __init__(self, parent=None, title='', text='',
+                 info='', details='', logo=None, default=False,
+                 ok_icon=None, ok_text='', cancel_text=None, cancel_icon=None):
 
-        QtWidgets.QMessageBox.__init__(self, parent)
-        WidgetMixin.__init__(self)
+        Dialog.__init__(self, parent=parent)
 
-        self.setMouseTracking(True)
-        self.setSizeGripEnabled(True)
-        self.setTextFormat(Qt.PlainText)
-        self.setWindowModality(Qt.WindowModal)
+        if parent:
+            self.setWindowModality(Qt.WindowModal)
         if title:
             self.setWindowTitle(title)
-        if text:
-            self.setText(text)
+
+        self.logo_label = QtWidgets.QLabel()
+        if logo:
+            # Render into a 1-inch wide pixmap
+            pixmap = logo.pixmap(defs.large_icon)
+            self.logo_label.setPixmap(pixmap)
+        else:
+            self.logo_label.hide()
+
+        self.text_label = QtWidgets.QLabel()
+        self.text_label.setText(text)
+
+        self.info_label = QtWidgets.QLabel()
         if info:
-            self.setInformativeText(info)
-        if details:
-            self.setDetailedText(details)
-        if icon:
-            self.setIcon(icon)
-        if buttons:
-            self.setStandardButtons(buttons)
+            self.info_label.setText(info)
+        else:
+            self.info_label.hide()
+
+        ok_icon = icons.mkicon(ok_icon, icons.ok)
+        self.button_ok = qtutils.create_button(text=ok_text, icon=ok_icon)
+
+        self.button_toggle_details = qtutils.create_button(
+            text=N_('Show Details...'))
+
+        self.button_close = qtutils.close_button(
+            text=cancel_text, icon=cancel_icon)
+
+        if ok_text:
+            self.button_ok.setText(ok_text)
+        else:
+            self.button_ok.hide()
+
         if default:
-            self.setDefaultButton(default)
+            self.button_ok.setDefault(True)
+            self.button_ok.setFocus(True)
+        else:
+            self.button_close.setDefault(True)
+            self.button_close.setFocus(True)
 
-        # Allow the messagebox to be moved like a dialog
-        flags = self.windowFlags()
-        flags = flags & ~Qt.MSWindowsFixedSizeDialogHint
-        flags = flags & ~Qt.Popup
-        flags = flags | Qt.Dialog
-        self.setWindowFlags(flags)
+        self.details_text = QtWidgets.QPlainTextEdit()
+        self.details_text.setReadOnly(True)
+        self.details_text.hide()
+        if details:
+            self.details_text.setFont(qtutils.default_monospace_font())
+            self.details_text.setPlainText(details)
+        else:
+            self.button_toggle_details.hide()
 
-        self.init_size()
+        self.info_layout = qtutils.vbox(
+            defs.large_margin, defs.button_spacing,
+            self.text_label, self.info_label, qtutils.STRETCH)
 
-    def event(self, event):
-        res = QtWidgets.QMessageBox.event(self, event)
-        event_type = event.type()
-        if (event_type == QtCore.QEvent.MouseMove or
-                event_type == QtCore.QEvent.MouseButtonPress):
-            maxi = QtCore.QSize(defs.max_size, defs.max_size)
-            self.setMaximumSize(maxi)
-            text = self.findChild(QtWidgets.QTextEdit)
-            if text is not None:
-                expand = QtWidgets.QSizePolicy.Expanding
-                text.setSizePolicy(QtWidgets.QSizePolicy(expand, expand))
-                text.setMaximumSize(maxi)
-        return res
+        self.top_layout = qtutils.hbox(
+            defs.large_margin, defs.button_spacing,
+            self.logo_label, self.info_layout, qtutils.STRETCH)
+
+        self.buttons_layout = qtutils.hbox(
+            defs.no_margin, defs.button_spacing, qtutils.STRETCH,
+            self.button_toggle_details, self.button_close, self.button_ok)
+
+        self.main_layout = qtutils.vbox(
+            defs.margin, defs.button_spacing,
+            self.top_layout,
+            self.buttons_layout,
+            self.details_text)
+        self.main_layout.setStretchFactor(self.details_text, 2)
+        self.setLayout(self.main_layout)
+
+        qtutils.connect_button(self.button_ok, self.accept)
+        qtutils.connect_button(self.button_close, self.reject)
+        qtutils.connect_button(self.button_toggle_details, self.toggle_details)
+        self.init_state(None, self.set_initial_size)
+
+    def set_initial_size(self):
+        width = defs.dialog_w
+        height = defs.msgbox_h
+        self.resize(width, height)
+
+    def toggle_details(self):
+        if self.details_text.isVisible():
+            text = N_('Show Details...')
+            self.details_text.hide()
+            QtCore.QTimer.singleShot(
+                0, lambda: self.resize(self.width(), defs.msgbox_h))
+        else:
+            text = N_('Hide Details..')
+            self.details_text.show()
+            new_height = defs.msgbox_h * 4
+            if self.height() < new_height:
+                QtCore.QTimer.singleShot(
+                    0, lambda: self.resize(self.width(), new_height))
+
+        self.button_toggle_details.setText(text)
+
+    def keyPressEvent(self, event):
+        """Handle Y/N hotkeys"""
+        key = event.key()
+        if key == Qt.Key_Y:
+            QtCore.QTimer.singleShot(0, self.accept)
+        elif key in (Qt.Key_N, Qt.Key_Q):
+            QtCore.QTimer.singleShot(0, self.reject)
+        return Dialog.keyPressEvent(self, event)
 
     def run(self):
-        result = self.exec_()
-        self.save_settings()
-        return result
+        self.show()
+        return self.exec_()
 
 
 def confirm(title, text, informative_text, ok_text,
             icon=None, default=True,
             cancel_text=None, cancel_icon=None):
     """Confirm that an action should take place"""
-    msgbox = MessageBox(
-        parent=qtutils.active_window(),
-        title=title, text=text, info=informative_text)
+    cancel_text = cancel_text or N_('Cancel')
+    logo = icons.from_style(QtWidgets.QStyle.SP_MessageBoxQuestion)
 
-    icon = icons.mkicon(icon, icons.ok)
-    ok = msgbox.addButton(ok_text, QtWidgets.QMessageBox.ActionRole)
-    ok.setIcon(icon)
+    mbox = MessageBox(
+        parent=qtutils.active_window(), title=title, text=text,
+        info=informative_text, ok_text=ok_text, ok_icon=icon,
+        cancel_text=cancel_text, cancel_icon=cancel_icon,
+        logo=logo, default=default)
 
-    cancel = msgbox.addButton(QtWidgets.QMessageBox.Cancel)
-    cancel_icon = icons.mkicon(cancel_icon, icons.close)
-    cancel.setIcon(cancel_icon)
-    if cancel_text:
-        cancel.setText(cancel_text)
-
-    if default:
-        msgbox.setDefaultButton(ok)
-    else:
-        msgbox.setDefaultButton(cancel)
-
-    msgbox.run()
-    return msgbox.clickedButton() == ok
+    return mbox.run() == mbox.Accepted
 
 
 def critical(title, message=None, details=None):
     """Show a warning with the provided title and message."""
     if message is None:
         message = title
+    logo = icons.from_style(QtWidgets.QStyle.SP_MessageBoxCritical)
     mbox = MessageBox(
-        parent=qtutils.active_window(),
-        title=title, text=message, details=details,
-        icon=QtWidgets.QMessageBox.Critical,
-        buttons=QtWidgets.QMessageBox.Close,
-        default=QtWidgets.QMessageBox.Close)
+        parent=qtutils.active_window(), title=title, text=message,
+        details=details, logo=logo)
     mbox.run()
 
 
@@ -865,32 +892,20 @@ def information(title, message=None, details=None, informative_text=None):
     if message is None:
         message = title
     mbox = MessageBox(
-        parent=qtutils.active_window(),
-        title=title, text=message,
-        details=details, info=informative_text,
-        buttons=QtWidgets.QMessageBox.Close,
-        default=QtWidgets.QMessageBox.Close)
-    # Render into a 1-inch wide pixmap
-    pixmap = icons.cola().pixmap(defs.large_icon)
-    mbox.setIconPixmap(pixmap)
+        parent=qtutils.active_window(), title=title, text=message,
+        info=informative_text, details=details, logo=icons.cola())
     mbox.run()
 
 
-def question(title, msg, default=True):
+def question(title, text, default=True):
     """Launches a QMessageBox question with the provided title and message.
     Passing "default=False" will make "No" the default choice."""
-    yes = QtWidgets.QMessageBox.Yes
-    no = QtWidgets.QMessageBox.No
-    buttons = yes | no
-    if default:
-        default = yes
-    else:
-        default = no
-
     parent = qtutils.active_window()
-    QMessageBox = QtWidgets.QMessageBox
-    result = QMessageBox.question(parent, title, msg, buttons, default)
-    return result == QtWidgets.QMessageBox.Yes
+    logo = icons.from_style(QtWidgets.QStyle.SP_MessageBoxQuestion)
+    msgbox = MessageBox(
+        parent=parent, title=title, text=text, default=default, logo=logo,
+        ok_text=N_('Yes'), cancel_text=N_('No'))
+    return msgbox.run() == msgbox.Accepted
 
 
 def save_as(filename, title):
@@ -898,11 +913,9 @@ def save_as(filename, title):
 
 
 def async_command(title, cmd, runtask):
-    cmd_partial = functools.partial(core.run_command, cmd)
-    task = qtutils.SimpleTask(qtutils.active_window(), cmd_partial)
-
-    result_partial = functools.partial(async_command_result, title, cmd)
-    task.connect(result_partial)
+    parent = qtutils.active_window()
+    task = qtutils.SimpleTask(parent, partial(core.run_command, cmd))
+    task.connect(partial(async_command_result, title, cmd))
     runtask.start(task)
 
 

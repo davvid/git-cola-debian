@@ -12,9 +12,8 @@ from .. import gitcmds
 from .. import icons
 from .. import qtutils
 from .. import utils
-from ..models import main
 from . import defs
-from . import text
+from .text import HintedLineEdit
 
 
 class ValidateRegex(object):
@@ -54,7 +53,7 @@ class BranchValidator(QtGui.QValidator):
         """Scrub and validate the user-supplied input"""
         state, string, idx = self._validate.validate(string, idx)
         if string:  # Allow empty strings
-            status, out, err = self._git.check_ref_format(string, branch=True)
+            status, _, _ = self._git.check_ref_format(string, branch=True)
             if status != 0:
                 # The intermediate string, when deleting characters, might
                 # end in a name that is invalid to Git, but we must allow it
@@ -66,8 +65,8 @@ class BranchValidator(QtGui.QValidator):
         return (state, string, idx)
 
 
-class CompletionLineEdit(text.HintedLineEdit):
-    """An lineedit with advanced completion abilities"""
+class CompletionLineEdit(HintedLineEdit):
+    """A lineedit with advanced completion abilities"""
 
     activated = Signal()
     changed = Signal()
@@ -81,21 +80,22 @@ class CompletionLineEdit(text.HintedLineEdit):
 
     # Navigation keys trigger signals that widgets can use for customization
     NAVIGATION_KEYS = {
-            Qt.Key_Return: 'enter',
-            Qt.Key_Enter: 'enter',
-            Qt.Key_Up: 'up',
-            Qt.Key_Down: 'down',
+        Qt.Key_Return: 'enter',
+        Qt.Key_Enter: 'enter',
+        Qt.Key_Up: 'up',
+        Qt.Key_Down: 'down',
     }
 
-    def __init__(self, model_factory, hint='', parent=None):
-        text.HintedLineEdit.__init__(self, hint, parent=parent)
+    def __init__(self, context, model_factory, hint='', parent=None):
+        HintedLineEdit.__init__(self, context, hint, parent=parent)
         # Tracks when the completion popup was active during key events
 
+        self.context = context
         # The most recently selected completion item
         self._selection = None
 
         # Create a completion model
-        completion_model = model_factory(self)
+        completion_model = model_factory(context, self)
         completer = Completer(completion_model, self)
         completer.setWidget(self)
         self._completer = completer
@@ -114,6 +114,7 @@ class CompletionLineEdit(text.HintedLineEdit):
     def __del__(self):
         self.dispose()
 
+    # pylint: disable=unused-argument
     def dispose(self, *args):
         self._completer.dispose()
 
@@ -179,7 +180,8 @@ class CompletionLineEdit(text.HintedLineEdit):
         return utils.shell_split(self.value())
 
     def _ends_with_whitespace(self):
-        return self.value() != self.value().rstrip()
+        value = self.value()
+        return value != value.rstrip()
 
     def _last_word(self):
         if self._ends_with_whitespace():
@@ -249,11 +251,11 @@ class CompletionLineEdit(text.HintedLineEdit):
         if event_type == QtCore.QEvent.Hide:
             self.close_popup()
 
-        return text.HintedLineEdit.event(self, event)
+        return super(CompletionLineEdit, self).event(event)
 
     def keyPressEvent(self, event):
         """Process completion and navigation events"""
-        text.HintedLineEdit.keyPressEvent(self, event)
+        super(CompletionLineEdit, self).keyPressEvent(event)
         visible = self.popup().isVisible()
 
         # Hide the popup when the field is empty
@@ -316,10 +318,9 @@ class HighlightDelegate(QtWidgets.QStyledItemDelegate):
         self.case_sensitive = False
 
         self.doc = QtGui.QTextDocument()
-        try:
+        # older PyQt4 does not have setDocumentMargin
+        if hasattr(self.doc, 'setDocumentMargin'):
             self.doc.setDocumentMargin(0)
-        except:  # older PyQt4
-            pass
 
     def set_highlight_text(self, text, case_sensitive):
         """Sets the text that will be made bold when displayed"""
@@ -329,8 +330,8 @@ class HighlightDelegate(QtWidgets.QStyledItemDelegate):
     def paint(self, painter, option, index):
         """Overloaded Qt method for custom painting of a model index"""
         if not self.highlight_text:
-            return QtWidgets.QStyledItemDelegate.paint(self, painter,
-                                                       option, index)
+            QtWidgets.QStyledItemDelegate.paint(self, painter, option, index)
+            return
         text = index.data()
         if self.case_sensitive:
             html = text.replace(self.highlight_text,
@@ -357,7 +358,7 @@ class HighlightDelegate(QtWidgets.QStyledItemDelegate):
         ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
 
         # Highlighting text if item is selected
-        if (params.state & QtWidgets.QStyle.State_Selected):
+        if params.state & QtWidgets.QStyle.State_Selected:
             color = params.palette.color(QtGui.QPalette.Active,
                                          QtGui.QPalette.HighlightedText)
             ctx.palette.setColor(QtGui.QPalette.Text, color)
@@ -388,8 +389,9 @@ class CompletionModel(QtGui.QStandardItemModel):
     items_gathered = Signal(object)
     model_updated = Signal()
 
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         QtGui.QStandardItemModel.__init__(self, parent)
+        self.context = context
         self.match_text = ''
         self.full_text = ''
         self.case_sensitive = False
@@ -413,6 +415,7 @@ class CompletionModel(QtGui.QStandardItemModel):
         if not self.update_thread.isRunning():
             self.update_thread.start()
 
+    # pylint: disable=unused-argument
     def gather_matches(self, case_sensitive):
         return ((), (), set())
 
@@ -512,9 +515,9 @@ class Completer(QtWidgets.QCompleter):
 
 class GitCompletionModel(CompletionModel):
 
-    def __init__(self, parent):
-        CompletionModel.__init__(self, parent)
-        self.main_model = model = main.model()
+    def __init__(self, context, parent):
+        CompletionModel.__init__(self, context, parent)
+        self.main_model = model = context.model
         msg = model.message_updated
         model.add_observer(msg, self.emit_model_updated)
 
@@ -540,8 +543,8 @@ class GitCompletionModel(CompletionModel):
 class GitRefCompletionModel(GitCompletionModel):
     """Completer for branches and tags"""
 
-    def __init__(self, parent):
-        GitCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitCompletionModel.__init__(self, context, parent)
 
     def matches(self):
         model = self.main_model
@@ -594,8 +597,8 @@ class GitCheckoutBranchCompletionModel(GitCompletionModel):
 class GitBranchCompletionModel(GitCompletionModel):
     """Completer for local branches"""
 
-    def __init__(self, parent):
-        GitCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitCompletionModel.__init__(self, context, parent)
 
     def matches(self):
         model = self.main_model
@@ -605,8 +608,8 @@ class GitBranchCompletionModel(GitCompletionModel):
 class GitRemoteBranchCompletionModel(GitCompletionModel):
     """Completer for remote branches"""
 
-    def __init__(self, parent):
-        GitCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitCompletionModel.__init__(self, context, parent)
 
     def matches(self):
         model = self.main_model
@@ -616,8 +619,8 @@ class GitRemoteBranchCompletionModel(GitCompletionModel):
 class GitPathCompletionModel(GitCompletionModel):
     """Base class for path completion"""
 
-    def __init__(self, parent):
-        GitCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitCompletionModel.__init__(self, context, parent)
 
     def candidate_paths(self):
         return []
@@ -632,8 +635,8 @@ class GitPathCompletionModel(GitCompletionModel):
 class GitStatusFilterCompletionModel(GitPathCompletionModel):
     """Completer for modified files and folders for status filtering"""
 
-    def __init__(self, parent):
-        GitPathCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitPathCompletionModel.__init__(self, context, parent)
 
     def candidate_paths(self):
         model = self.main_model
@@ -644,13 +647,14 @@ class GitStatusFilterCompletionModel(GitPathCompletionModel):
 class GitTrackedCompletionModel(GitPathCompletionModel):
     """Completer for tracked files and folders"""
 
-    def __init__(self, parent):
-        GitPathCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitPathCompletionModel.__init__(self, context, parent)
         self.model_updated.connect(self.gather_paths, type=Qt.QueuedConnection)
         self._paths = []
 
     def gather_paths(self):
-        self._paths = gitcmds.tracked_files()
+        context = self.context
+        self._paths = gitcmds.tracked_files(context)
 
     def gather_matches(self, case_sensitive):
         if not self._paths:
@@ -665,13 +669,14 @@ class GitTrackedCompletionModel(GitPathCompletionModel):
 class GitLogCompletionModel(GitRefCompletionModel):
     """Completer for arguments suitable for git-log like commands"""
 
-    def __init__(self, parent):
-        GitRefCompletionModel.__init__(self, parent)
+    def __init__(self, context, parent):
+        GitRefCompletionModel.__init__(self, context, parent)
         self.model_updated.connect(self.gather_paths, type=Qt.QueuedConnection)
         self._paths = []
 
     def gather_paths(self):
-        self._paths = gitcmds.tracked_files()
+        context = self.context
+        self._paths = gitcmds.tracked_files(context)
 
     def gather_matches(self, case_sensitive):
         if not self._paths:
@@ -696,9 +701,10 @@ def bind_lineedit(model, hint=''):
 
     class BoundLineEdit(CompletionLineEdit):
 
-        def __init__(self, hint=hint, parent=None):
-            CompletionLineEdit.__init__(self, model,
+        def __init__(self, context, hint=hint, parent=None):
+            CompletionLineEdit.__init__(self, context, model,
                                         hint=hint, parent=parent)
+            self.context = context
 
     return BoundLineEdit
 
@@ -720,15 +726,16 @@ GitTrackedLineEdit = bind_lineedit(GitTrackedCompletionModel, hint='<path>')
 
 class GitDialog(QtWidgets.QDialog):
 
-    def __init__(self, lineedit, title, text, parent, icon=None):
+    def __init__(self, lineedit, context, title, text, parent, icon=None):
         QtWidgets.QDialog.__init__(self, parent)
+        self.context = context
         self.setWindowTitle(title)
         self.setWindowModality(Qt.WindowModal)
         self.setMinimumWidth(333)
 
         self.label = QtWidgets.QLabel()
         self.label.setText(title)
-        self.lineedit = lineedit()
+        self.lineedit = lineedit(context)
         self.ok_button = qtutils.ok_button(text, icon=icon, enabled=False)
         self.close_button = qtutils.close_button()
 
@@ -752,20 +759,19 @@ class GitDialog(QtWidgets.QDialog):
     def text(self):
         return self.lineedit.text()
 
-    def text_changed(self, txt):
+    def text_changed(self, _txt):
         self.ok_button.setEnabled(bool(self.text()))
 
     def set_text(self, ref):
         self.lineedit.setText(ref)
 
     @classmethod
-    def get(cls, title, text, parent, default=None, icon=None):
-        dlg = cls(title, text, parent, icon=icon)
+    def get(cls, context, title, text, parent, default=None, icon=None):
+        dlg = cls(context, title, text, parent, icon=icon)
         if default:
             dlg.set_text(default)
 
         dlg.show()
-        dlg.raise_()
 
         def show_popup():
             x = dlg.lineedit.x()
@@ -781,33 +787,32 @@ class GitDialog(QtWidgets.QDialog):
 
         if dlg.exec_() == cls.Accepted:
             return dlg.text()
-        else:
-            return None
+        return None
 
 
 class GitRefDialog(GitDialog):
 
-    def __init__(self, title, text, parent, icon=None):
-        GitDialog.__init__(self, GitRefLineEdit,
-                           title, text, parent, icon=icon)
+    def __init__(self, context, title, text, parent, icon=None):
+        GitDialog.__init__(
+            self, GitRefLineEdit, context, title, text, parent, icon=icon)
 
 
 class GitCheckoutBranchDialog(GitDialog):
 
-    def __init__(self, title, text, parent, icon=None):
+    def __init__(self, context, title, text, parent, icon=None):
         GitDialog.__init__(self, GitCheckoutBranchLineEdit,
-                           title, text, parent, icon=icon)
+                           context, title, text, parent, icon=icon)
 
 
 class GitBranchDialog(GitDialog):
 
-    def __init__(self, title, text, parent, icon=None):
-        GitDialog.__init__(self, GitBranchLineEdit,
-                           title, text, parent, icon=icon)
+    def __init__(self, context, title, text, parent, icon=None):
+        GitDialog.__init__(
+            self, GitBranchLineEdit, context, title, text, parent, icon=icon)
 
 
 class GitRemoteBranchDialog(GitDialog):
 
-    def __init__(self, title, text, parent, icon=None):
+    def __init__(self, context, title, text, parent, icon=None):
         GitDialog.__init__(self, GitRemoteBranchLineEdit,
-                           title, text, parent, icon=icon)
+                           context, title, text, parent, icon=icon)
