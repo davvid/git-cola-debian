@@ -32,6 +32,7 @@ class MainModel(Observable):
     message_images_changed = 'images_changed'
     message_mode_about_to_change = 'mode_about_to_change'
     message_mode_changed = 'mode_changed'
+    message_submodules_changed = 'message_submodules_changed'
     message_updated = 'updated'
 
     # States
@@ -93,6 +94,7 @@ class MainModel(Observable):
         self.staged_deleted = set()
         self.unstaged_deleted = set()
         self.submodules = set()
+        self.submodules_list = []
 
         self.local_branches = []
         self.remote_branches = []
@@ -225,6 +227,7 @@ class MainModel(Observable):
         self._update_branch_heads()
         self._update_commitmsg()
         self.update_config()
+        self.update_submodules_list()
         self.emit_updated()
 
     def update_config(self, emit=False, reset=False):
@@ -315,6 +318,10 @@ class MainModel(Observable):
             self._auto_commitmsg = ''
             self.set_commitmsg(self._prev_commitmsg)
 
+    def update_submodules_list(self):
+        self.submodules_list = gitcmds.list_submodule(self.context)
+        self.notify_observers(self.message_submodules_changed)
+
     def update_remotes(self):
         self._update_remotes()
         self._update_branches_and_tags()
@@ -369,12 +376,6 @@ class MainModel(Observable):
             outs.append(out)
             errs.append(err)
         return (status, '\n'.join(outs), '\n'.join(errs))
-
-    def pad(self, pstr, num=22):
-        topad = num-len(pstr)
-        if topad > 0:
-            return pstr + ' '*topad
-        return pstr
 
     def is_commit_published(self):
         """Return True if the latest commit exists in any remote branch"""

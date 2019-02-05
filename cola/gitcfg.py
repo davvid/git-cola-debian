@@ -9,6 +9,7 @@ import struct
 
 from . import core
 from . import observable
+from . import utils
 from .compat import int_types
 from .git import STDOUT
 from .compat import ustr
@@ -341,18 +342,11 @@ class GitConfig(observable.Observable):
     def get_user_or_system(self, key, default=None):
         return self._get(self._user_or_system, key, default)
 
-    def python_to_git(self, value):
-        if isinstance(value, bool):
-            return 'true' if value else 'false'
-        if isinstance(value, int_types):
-            return ustr(value)
-        return value
-
     def set_user(self, key, value):
         if value in (None, ''):
             self.git.config('--global', key, unset=True)
         else:
-            self.git.config('--global', key, self.python_to_git(value))
+            self.git.config('--global', key, python_to_git(value))
         self.update()
         msg = self.message_user_config_changed
         self.notify_observers(msg, key, value)
@@ -361,7 +355,7 @@ class GitConfig(observable.Observable):
         if value in (None, ''):
             self.git.config(key, unset=True)
         else:
-            self.git.config(key, self.python_to_git(value))
+            self.git.config(key, python_to_git(value))
         self.update()
         msg = self.message_repo_config_changed
         self.notify_observers(msg, key, value)
@@ -407,9 +401,7 @@ class GitConfig(observable.Observable):
         header = '%s: encoding: ' % path
         if out.startswith(header):
             encoding = out[len(header):].strip()
-            if (encoding != 'unspecified' and
-                    encoding != 'unset' and
-                    encoding != 'set'):
+            if encoding not in ('unspecified', 'unset', 'set'):
                 return encoding
         return None
 
@@ -443,14 +435,28 @@ class GitConfig(observable.Observable):
         if not term:
             # find a suitable default terminal
             term = 'xterm -e'  # for mac osx
-            candidates = ('xfce4-terminal', 'konsole', 'gnome-terminal')
-            for basename in candidates:
-                if core.exists('/usr/bin/%s' % basename):
-                    if basename == 'gnome-terminal':
-                        term = '%s --' % basename
-                    else:
-                        term = '%s -e' % basename
-                    break
+            if utils.is_win32():
+                # Try to find Git's sh.exe directory in
+                # one of the typical locations
+                pf = os.environ.get('ProgramFiles', 'C:\\Program Files')
+                pf32 = os.environ.get('ProgramFiles(x86)',
+                                      'C:\\Program Files (x86)')
+                pf64 = os.environ.get('ProgramW6432', 'C:\\Program Files')
+
+                for p in [pf64, pf32, pf, 'C:\\']:
+                    candidate = os.path.join(p, 'Git\\bin\\sh.exe')
+                    if os.path.isfile(candidate):
+                        return candidate
+                return None
+            else:
+                candidates = ('xfce4-terminal', 'konsole', 'gnome-terminal')
+                for basename in candidates:
+                    if core.exists('/usr/bin/%s' % basename):
+                        if basename == 'gnome-terminal':
+                            term = '%s --' % basename
+                        else:
+                            term = '%s -e' % basename
+                        break
         return term
 
     def color(self, key, default):
@@ -461,3 +467,11 @@ class GitConfig(observable.Observable):
         except (struct.error, TypeError):
             r, g, b = struct.unpack(struct_layout, unhex(default))
         return (r, g, b)
+
+
+def python_to_git(value):
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, int_types):
+        return ustr(value)
+    return value

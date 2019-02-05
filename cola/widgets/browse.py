@@ -196,8 +196,8 @@ class RepoTreeView(standard.TreeView):
             self.action_parent_dir = common.parent_dir_action(
                 context, self, self.selected_paths)
 
-            self.action_terminal = common.terminal_action(
-                context, self, self.selected_paths)
+        self.action_terminal = common.terminal_action(
+            context, self, self.selected_paths)
 
         self.x_width = QtGui.QFontMetrics(self.font()).width('x')
         self.size_columns()
@@ -347,6 +347,8 @@ class RepoTreeView(standard.TreeView):
         if not utils.is_win32():
             self.action_default_app.setEnabled(selected)
             self.action_parent_dir.setEnabled(selected)
+
+        if self.action_terminal is not None:
             self.action_terminal.setEnabled(selected)
 
         self.action_stage.setEnabled(staged or unstaged)
@@ -376,6 +378,8 @@ class RepoTreeView(standard.TreeView):
             menu.addSeparator()
             menu.addAction(self.action_default_app)
             menu.addAction(self.action_parent_dir)
+
+        if self.action_terminal is not None:
             menu.addAction(self.action_terminal)
         menu.exec_(self.mapToGlobal(event.pos()))
 
@@ -709,13 +713,13 @@ class GitFileTreeModel(QtGui.QStandardItemModel):
         except KeyError:
             parent = dir_entries[dirname] = self.create_dir_entry(dirname)
 
-        row_items = self.create_row(path, False)
+        row_items = create_row(path, False)
         parent.appendRow(row_items)
 
     def add_directory(self, parent, path):
         """Add a directory entry to the model."""
         # Create model items
-        row_items = self.create_row(path, True)
+        row_items = create_row(path, True)
 
         try:
             parent_path = parent.path
@@ -733,10 +737,6 @@ class GitFileTreeModel(QtGui.QStandardItemModel):
         self.dir_entries[path] = row_items[0]
 
         return row_items[0]
-
-    def create_row(self, path, is_dir):
-        """Return a list of items representing a row."""
-        return [GitTreeItem(path, is_dir)]
 
     def create_dir_entry(self, dirname):
         """
@@ -761,6 +761,11 @@ class GitFileTreeModel(QtGui.QStandardItemModel):
                 parent = self_add_directory(grandparent, path)
                 dir_entries[path] = parent
         return parent
+
+
+def create_row(path, is_dir):
+    """Return a list of items representing a row."""
+    return [GitTreeItem(path, is_dir)]
 
 
 class GitTreeModel(GitFileTreeModel):

@@ -127,6 +127,20 @@ def setup_environment():
     # have a chance to explain our merges.
     compat.setenv('GIT_MERGE_AUTOEDIT', 'no')
 
+    # Gnome3 on Debian has XDG_SESSION_TYPE=wayland and
+    # XDG_CURRENT_DESKTOP=GNOME, which Qt warns about at startup:
+    #
+    #   Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome.
+    #   Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+    #
+    # This annoying, so we silence the warning.
+    # We'll need to keep this hack here until a future version of Qt provides
+    # Qt Wayland widgets that are usable in gnome-shell.
+    # Cf. https://bugreports.qt.io/browse/QTBUG-68619
+    if (core.getenv('XDG_CURRENT_DESKTOP', '') == 'GNOME'
+            and core.getenv('XDG_SESSION_TYPE', '') == 'wayland'):
+        compat.unsetenv('XDG_SESSION_TYPE')
+
 
 def get_icon_themes(context):
     """Return the default icon theme names"""
@@ -488,7 +502,7 @@ def async_update(context):
 def startup_message():
     """Print debug startup messages"""
     trace = git.GIT_COLA_TRACE
-    if trace == '2' or trace == 'trace':
+    if trace in ('2', 'trace'):
         msg1 = 'info: debug level 2: trace mode enabled'
         msg2 = 'info: set GIT_COLA_TRACE=1 for less-verbose output'
         Interaction.log(msg1)
@@ -575,7 +589,8 @@ def find_git():
     # Try to find Git's bin/ directory in one of the typical locations
     pf = os.environ.get('ProgramFiles', 'C:\\Program Files')
     pf32 = os.environ.get('ProgramFiles(x86)', 'C:\\Program Files (x86)')
-    for p in [pf32, pf, 'C:\\']:
+    pf64 = os.environ.get('ProgramW6432', 'C:\\Program Files')
+    for p in [pf64, pf32, pf, 'C:\\']:
         candidate = os.path.join(p, 'Git\\bin')
         if os.path.isdir(candidate):
             return candidate

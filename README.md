@@ -37,16 +37,16 @@ New releases are available on the
 
 [git-cola on github](https://github.com/git-cola/git-cola)
 
-[git-cola google group](http://groups.google.com/group/git-cola/)
+[git-cola google group](https://groups.google.com/group/git-cola/)
 
 
 # NUTRITIONAL FACTS
 
 ## ACTIVE INGREDIENTS
 
-* [git](http://git-scm.com/) 1.6.3 or newer.
+* [git](https://git-scm.com/) 1.6.3 or newer.
 
-* [Python](http://python.org/) 2.6 or newer (Python 2+3 compatible).
+* [Python](https://python.org/) 2.6 or newer (Python 2+3 compatible).
 
 * [QtPy](https://github.com/spyder-ide/qtpy) 1.1.0 or newer.
 
@@ -161,7 +161,7 @@ If not, please file a bug against your distribution ;-)
 
 ### arch
 
-    yaourt -S git-cola
+Available in the [AUR](https://aur.archlinux.org/packages/git-cola/).
 
 ### debian, ubuntu
 
@@ -175,14 +175,15 @@ If not, please file a bug against your distribution ;-)
 
     emerge git-cola
 
-### opensuse
+## Ubuntu
 
-Use the [one-click install link](http://software.opensuse.org/package/git-cola).
-
+The default version on 18.04 is older and is missing features and enhancements.
+Use this [PPA](https://launchpad.net/~pavreh/+archive/ubuntu/git-cola)
+maintained by @pavreh to get a newer version.
 
 ## MAC OS X
 
-[Homebrew](http://brew.sh/) is the easiest way to install
+[Homebrew](https://brew.sh/) is the easiest way to install
 git-cola's *Qt4* and *PyQt4* dependencies.  We will use Homebrew to install
 the git-cola recipe, but build our own .app bundle from source.
 
@@ -255,20 +256,19 @@ See "WINDOWS (continued)" below for more details.
 
 # GOODIES
 
-*git-cola* ships with an interactive rebase editor called *git-xbase*.
-*git-xbase* can be used to reorder and choose commits and is typically
-launched through the *git-cola*'s "Rebase" menu.
+*git cola* ships with an interactive rebase editor called *git-xbase*.
+*git-xbase* is used to reorder and choose commits when rebasing.
+Start an interactive rebase through the "Rebase" menu, or through the
+*git cola rebase* sub-command to start the *git-xbase* editor:
 
-*git-xbase* can also be launched independently of the main *git-cola* interface
-by telling `git rebase` to use it as its editor:
+    git cola rebase origin/master
+
+*git-xbase* can be launched independently of *git cola* by telling
+`git rebase` to use it as its editor through the `GIT_SEQUENCE_EDITOR`
+enviironment variable:
 
     env GIT_SEQUENCE_EDITOR="$PWD/share/git-cola/bin/git-xbase" \
     git rebase -i origin/master
-
-The quickest way to launch *git-xbase* is via the *git cola rebase*
-sub-command (as well as various other sub-commands):
-
-    git cola rebase origin/master
 
 # COMMAND-LINE TOOLS
 
@@ -320,10 +320,10 @@ The following commands should be run during development:
     # Run the unit tests
     $ make test
 
-    # Check for pylint and flake8 warnings
-    $ make precommit
+    # Run tests and longer-running pylint and flake8 checks
+    $ make check
 
-    # Run tests against multiple python interpretors using tox
+    # Run tests against multiple python interpreters using tox
     $ make tox
 
 The test suite can be found in the [test](test) directory.
@@ -336,7 +336,8 @@ Auto-format `po/*.po` files before committing when updating translations:
 
     $ make po
 
-When submitting patches, consult the [contributing guidelines](CONTRIBUTING.md).
+When submitting patches, consult the
+[contributing guidelines](CONTRIBUTING.md).
 
 # WINDOWS (continued)
 
@@ -365,7 +366,7 @@ find python.  For example:
 
 Windows installers are built using
 
-* [Pynsist](http://pynsist.readthedocs.io/en/latest/).
+* [Pynsist](https://pynsist.readthedocs.io/en/latest/).
 
 * [NSIS](http://nsis.sourceforge.net/Main_Page) is also needed.
 

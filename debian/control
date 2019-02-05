@@ -4,11 +4,10 @@ Priority: optional
 Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
 Build-Depends: debhelper (>= 11), dh-python, python3-nose
 Build-Depends-Indep: python3, python3-qtpy, python3-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 4.2.1
-Homepage: http://git-cola.github.com/
+Standards-Version: 4.3.0
+Homepage: https://git-cola.github.com/
 #Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/git-cola.git
-X-Python3-Version: >= 3.4
 
 Package: git-cola
 Architecture: all

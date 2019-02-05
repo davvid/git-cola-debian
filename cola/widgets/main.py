@@ -33,6 +33,7 @@ from . import action
 from . import archive
 from . import bookmarks
 from . import branch
+from . import submodules
 from . import browse
 from . import cfgactions
 from . import clone
@@ -120,6 +121,12 @@ class MainView(standard.MainWindow):
         titlebar = self.branchdock.titleBarWidget()
         titlebar.add_corner_widget(self.branchwidget.filter_button)
 
+        # "Submodule" widgets
+        self.submodulesdock = create_dock(
+            N_('Submodules'), self,
+            fn=partial(submodules.SubmodulesWidget, context))
+        self.submoduleswidget = self.submodulesdock.widget()
+
         # "Commit Message Editor" widget
         self.position_label = QtWidgets.QLabel()
         self.position_label.setAlignment(Qt.AlignCenter)
@@ -174,7 +181,7 @@ class MainView(standard.MainWindow):
         self.unstage_selected_action.setIcon(icons.remove())
 
         self.show_diffstat_action = add_action(
-            self, N_('Diffstat'), cmds.run(cmds.Diffstat, context),
+            self, N_('Diffstat'), self.statuswidget.select_header,
             hotkeys.DIFFSTAT)
 
         self.stage_modified_action = add_action(
@@ -257,6 +264,10 @@ class MainView(standard.MainWindow):
 
         self.merge_abort_action = add_action(
             self, N_('Abort Merge...'), cmds.run(cmds.AbortMerge, context))
+
+        self.update_submodules_action = add_action(
+            self, N_('Update All Submodules...'),
+            cmds.run(cmds.SubmodulesUpdate, context))
 
         self.fetch_action = add_action(
             self, N_('Fetch...'), partial(remote.fetch, context),
@@ -485,6 +496,8 @@ class MainView(standard.MainWindow):
         self.actions_menu.addAction(self.merge_local_action)
         self.actions_menu.addAction(self.merge_abort_action)
         self.actions_menu.addSeparator()
+        self.actions_menu.addAction(self.update_submodules_action)
+        self.actions_menu.addSeparator()
         self.actions_reset_menu = self.actions_menu.addMenu(N_('Reset'))
         self.actions_reset_menu.addAction(self.reset_branch_head_action)
         self.actions_reset_menu.addAction(self.reset_worktree_action)
@@ -546,6 +559,10 @@ class MainView(standard.MainWindow):
         self.view_menu.aboutToShow.connect(
             lambda: self.build_view_menu(self.view_menu))
         self.setup_dockwidget_view_menu()
+        if utils.is_darwin():
+            # TODO or self.menubar.setNativeMenuBar(False)
+            # Since native OSX menu doesn't show empty entries
+            self.build_view_menu(self.view_menu)
 
         # Help Menu
         self.help_menu = add_menu(N_('Help'), self.menubar)
@@ -562,9 +579,17 @@ class MainView(standard.MainWindow):
         if self.browser_dockable:
             self.addDockWidget(top, self.browserdock)
             self.tabifyDockWidget(self.browserdock, self.commitdock)
-        self.addDockWidget(top, self.bookmarksdock)
+
         self.addDockWidget(top, self.branchdock)
+        self.addDockWidget(top, self.submodulesdock)
+        self.addDockWidget(top, self.bookmarksdock)
         self.addDockWidget(top, self.recentdock)
+
+        self.tabifyDockWidget(self.branchdock, self.submodulesdock)
+        self.tabifyDockWidget(self.submodulesdock, self.bookmarksdock)
+        self.tabifyDockWidget(self.bookmarksdock, self.recentdock)
+        self.branchdock.raise_()
+
         self.addDockWidget(bottom, self.diffdock)
         self.addDockWidget(bottom, self.actionsdock)
         self.addDockWidget(bottom, self.logdock)
@@ -674,7 +699,8 @@ class MainView(standard.MainWindow):
             self.actionsdock,
             self.bookmarksdock,
             self.recentdock,
-            self.branchdock
+            self.branchdock,
+            self.submodulesdock
         ]
         if self.browser_dockable:
             dockwidgets.append(self.browserdock)
@@ -720,7 +746,11 @@ class MainView(standard.MainWindow):
             self.commiteditor.setFont(font)
 
         elif config == prefs.TABWIDTH:
-            # variable-tab-width setting
+            # This can be set locally or globally, so we have to use the
+            # effective value otherwise we'll update when we shouldn't.
+            # For example, if this value is overridden locally, and the
+            # global value is tweaked, we should not update.
+            value = prefs.tabwidth(self.context)
             self.diffeditor.set_tabwidth(value)
             self.commiteditor.set_tabwidth(value)
 
@@ -735,7 +765,8 @@ class MainView(standard.MainWindow):
             self.bookmarksdock.widget().reload_bookmarks()
 
         elif config == prefs.TEXTWIDTH:
-            # text width used for line wrapping
+            # Use the effective value for the same reason as tabwidth.
+            value = prefs.textwidth(self.context)
             self.commiteditor.set_textwidth(value)
 
         elif config == prefs.SHOW_PATH:
@@ -885,7 +916,8 @@ class MainView(standard.MainWindow):
             (optkey + '+4', self.actionsdock),
             (optkey + '+5', self.bookmarksdock),
             (optkey + '+6', self.recentdock),
-            (optkey + '+7', self.branchdock)
+            (optkey + '+7', self.branchdock),
+            (optkey + '+8', self.submodulesdock)
         )
         for shortcut, dockwidget in dockwidgets:
             # Associate the action with the shortcut

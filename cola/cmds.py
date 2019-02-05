@@ -16,7 +16,10 @@ from . import core
 from . import gitcmds
 from . import icons
 from . import resources
+from . import textwrap
 from . import utils
+from . import version
+from .cmd import ContextCommand
 from .diffparse import DiffParser
 from .git import STDOUT
 from .git import EMPTY_TREE_OID
@@ -33,41 +36,6 @@ class UsageError(Exception):
         Exception.__init__(self, message)
         self.title = title
         self.msg = message
-
-
-class Command(object):
-    """Mixin interface for commands"""
-    UNDOABLE = False
-
-    @staticmethod
-    def name():
-        """Return the command's name"""
-        return '(undefined)'
-
-    @classmethod
-    def is_undoable(cls):
-        """Can this be undone?"""
-        return cls.UNDOABLE
-
-    def do(self):
-        """Execute the command"""
-        pass
-
-    def undo(self):
-        """Undo the command"""
-        pass
-
-
-class ContextCommand(Command):
-    """Base class for commands that operate on a context"""
-
-    def __init__(self, context):
-        self.context = context
-        self.model = context.model
-        self.cfg = context.cfg
-        self.git = context.git
-        self.selection = context.selection
-        self.fsmonitor = context.fsmonitor
 
 
 class EditModel(ContextCommand):
@@ -106,26 +74,32 @@ class EditModel(ContextCommand):
 class ConfirmAction(ContextCommand):
     """Confirm an action before running it"""
 
+    # pylint: disable=no-self-use
     def ok_to_run(self):
         """Return True when the command is ok to run"""
         return True
 
+    # pylint: disable=no-self-use
     def confirm(self):
         """Prompt for confirmation"""
         return True
 
+    # pylint: disable=no-self-use
     def action(self):
         """Run the command and return (status, out, err)"""
         return (-1, '', '')
 
+    # pylint: disable=no-self-use
     def success(self):
         """Callback run on success"""
-        pass
+        return
 
+    # pylint: disable=no-self-use
     def command(self):
         """Command name, for error messages"""
         return 'git'
 
+    # pylint: disable=no-self-use
     def error_message(self):
         """Command error message"""
         return ''
@@ -336,30 +310,18 @@ class ApplyPatches(ContextCommand):
         self.patches = patches
 
     def do(self):
-        git = self.git
-        diff_text = ''
-        num_patches = len(self.patches)
-        orig_head = git.rev_parse('HEAD')[STDOUT]
-
-        for idx, patch in enumerate(self.patches):
-            status, out, err = git.am(patch)
-            # Log the git-am command
-            Interaction.log_status(status, out, err)
-
-            if num_patches > 1:
-                diff = git.diff('HEAD^!', stat=True)[STDOUT]
-                diff_text += (N_('PATCH %(current)d/%(count)d') %
-                              dict(current=idx+1, count=num_patches))
-                diff_text += ' - %s:\n%s\n\n' % (os.path.basename(patch), diff)
-
-        diff_text += N_('Summary:') + '\n'
-        diff_text += git.diff(orig_head, stat=True)[STDOUT]
+        status, out, err = self.git.am('-3', *self.patches)
+        Interaction.log_status(status, out, err)
 
         # Display a diffstat
-        self.model.set_diff_text(diff_text)
         self.model.update_file_status()
 
-        basenames = '\n'.join([os.path.basename(p) for p in self.patches])
+        patch_basenames = [os.path.basename(p) for p in self.patches]
+        if len(patch_basenames) > 25:
+            patch_basenames = patch_basenames[:25]
+            patch_basenames.append('...')
+
+        basenames = '\n'.join(patch_basenames)
         Interaction.information(
             N_('Patch(es) Applied'),
             (N_('%d patch(es) applied.') + '\n\n%s')
@@ -648,7 +610,8 @@ def file_summary(files):
     txt = core.list2cmdline(files)
     if len(txt) > 768:
         txt = txt[:768].rstrip() + '...'
-    return txt
+    wrap = textwrap.TextWrapper()
+    return '\n'.join(wrap.wrap(txt))
 
 
 class RemoteCommand(ConfirmAction):
@@ -828,7 +791,8 @@ class RemoveFiles(ContextCommand):
 
         if bad_filenames:
             Interaction.information(
-                N_('Error'), N_('Deleting "%s" failed') % file_summary(files))
+                N_('Error'),
+                N_('Deleting "%s" failed') % file_summary(bad_filenames))
 
         if rescan:
             self.model.update_file_status()
@@ -1230,10 +1194,11 @@ class Edit(ContextCommand):
         else:
             # Single-file w/ line-numbers (likely from grep)
             editor_opts = {
-                '*vim*': [filename, '+'+self.line_number],
-                '*emacs*': ['+'+self.line_number, filename],
+                '*vim*': [filename, '+%s' % self.line_number],
+                '*emacs*': ['+%s' % self.line_number, filename],
                 '*textpad*': ['%s(%s,0)' % (filename, self.line_number)],
-                '*notepad++*': ['-n'+self.line_number, filename],
+                '*notepad++*': ['-n%s' % self.line_number, filename],
+                '*subl*': ['%s:%s' % (filename, self.line_number)],
             }
 
             opts = self.filenames
@@ -1301,15 +1266,26 @@ class LaunchTerminal(ContextCommand):
     def name():
         return N_('Launch Terminal')
 
+    @staticmethod
+    def is_available(context):
+        return context.cfg.terminal() is not None
+
     def __init__(self, context, path):
         super(LaunchTerminal, self).__init__(context)
         self.path = path
 
     def do(self):
-        cmd = self.cfg.terminal()
-        argv = utils.shell_split(cmd)
-        argv.append(os.getenv('SHELL', '/bin/sh'))
-        core.fork(argv, cwd=self.path)
+        cmd = self.context.cfg.terminal()
+        if cmd is None:
+            return
+        if utils.is_win32():
+            argv = ['start', '', cmd, '--login']
+            shell = True
+        else:
+            argv = utils.shell_split(cmd)
+            argv.append(os.getenv('SHELL', '/bin/sh'))
+            shell = False
+        core.fork(argv, cwd=self.path, shell=shell)
 
 
 class LaunchEditor(Edit):
@@ -1323,6 +1299,14 @@ class LaunchEditor(Edit):
         filenames = s.staged + s.unmerged + s.modified + s.untracked
         super(LaunchEditor, self).__init__(
             context, filenames, background_editor=True)
+
+
+class LaunchEditorAtLine(LaunchEditor):
+    """Launch an editor at the specified line"""
+
+    def __init__(self, context):
+        super(LaunchEditorAtLine, self).__init__(context)
+        self.line_number = context.selection.line_number
 
 
 class LoadCommitMessageFromFile(ContextCommand):
@@ -1533,6 +1517,20 @@ class OpenRepo(EditModel):
             super(OpenRepo, self).do()
         else:
             self.model.set_worktree(old_repo)
+
+
+class OpenParentRepo(OpenRepo):
+
+    def __init__(self, context):
+        path = ''
+        if version.check_git(context, 'show-superproject-working-tree'):
+            status, out, _ = context.git.rev_parse(
+                show_superproject_working_tree=True)
+            if status == 0:
+                path = out
+        if not path:
+            path = os.path.dirname(core.getcwd())
+        super(OpenParentRepo, self).__init__(context, path)
 
 
 class Clone(ContextCommand):
@@ -1797,6 +1795,7 @@ class RevertEditsCommand(ConfirmAction):
     def ok_to_run(self):
         return self.model.undoable()
 
+    # pylint: disable=no-self-use
     def checkout_from_head(self):
         return False
 
@@ -2168,9 +2167,10 @@ class StageCarefully(Stage):
         super(StageCarefully, self).__init__(context, None)
         self.init_paths()
 
+    # pylint: disable=no-self-use
     def init_paths(self):
         """Initialize path data"""
-        pass
+        return
 
     def ok_to_run(self):
         """Prevent catch-all "git add -u" from adding unmerged files"""
@@ -2462,6 +2462,63 @@ class VisualizeRevision(ContextCommand):
             argv.append('--')
             argv.extend(self.paths)
         launch_history_browser(argv)
+
+
+class SubmoduleUpdate(ConfirmAction):
+    """Update specified submodule"""
+
+    def __init__(self, context, path):
+        super(SubmoduleUpdate, self).__init__(context)
+        self.path = path
+
+    def confirm(self):
+        title = N_('Update Submodule...')
+        question = N_('Update this submodule?')
+        info = N_('The submodule will be updated using\n'
+                  '"%s"' % self.command())
+        ok_txt = N_('Update Submodule')
+        return Interaction.confirm(title, question, info, ok_txt,
+                                   default=False, icon=icons.pull())
+
+    def action(self):
+        context = self.context
+        return context.git.submodule('update', '--', self.path)
+
+    def success(self):
+        self.model.update_file_status()
+
+    def error_message(self):
+        return N_('Error updating submodule %s' % self.path)
+
+    def command(self):
+        command = 'git submodule update -- %s'
+        return command % self.path
+
+
+class SubmodulesUpdate(ConfirmAction):
+    """Update all submodules"""
+
+    def confirm(self):
+        title = N_('Update submodules...')
+        question = N_('Update all submodules?')
+        info = N_('All submodules will be updated using\n'
+                  '"%s"' % self.command())
+        ok_txt = N_('Update Submodules')
+        return Interaction.confirm(title, question, info, ok_txt,
+                                   default=False, icon=icons.pull())
+
+    def action(self):
+        context = self.context
+        return context.git.submodule('update')
+
+    def success(self):
+        self.model.update_file_status()
+
+    def error_message(self):
+        return N_('Error updating submodules')
+
+    def command(self):
+        return 'git submodule update'
 
 
 def launch_history_browser(argv):

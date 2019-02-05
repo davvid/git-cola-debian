@@ -1,4 +1,4 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Git Cola
 Upstream-Contact: David Aguilar <davvid@gmail.com>
 Upstream-Source: https://github.com/git-cola/git-cola
@@ -8,7 +8,7 @@ Copyright: Copyright (C) 2007-2014 David Aguilar and contributors
 License: GPL-2
 
 Files: debian/*
-Copyright: Copyright (C) 2012- Laszlo Boszormenyi (GCS) <gcs@debian.org>,
+Copyright: Copyright (C) 2012-     Laszlo Boszormenyi (GCS) <gcs@debian.org>,
  Copyright (C) 2008-2012 Iulian Udrea <iulian@linux.com>
 License: GPL-2
 

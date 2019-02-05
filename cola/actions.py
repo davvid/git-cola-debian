@@ -9,7 +9,7 @@ from .i18n import N_
 
 
 def cmd_action(widget, cmd, context, icon, *shortcuts):
-    """Wrap an generic ContextCommand in a QAction"""
+    """Wrap a generic ContextCommand in a QAction"""
     action = qtutils.add_action(widget, cmd.name(), cmds.run(cmd, context),
                                 *shortcuts)
     action.setIcon(icon)
@@ -21,6 +21,13 @@ def launch_editor(context, widget, *shortcuts):
     icon = icons.edit()
     return cmd_action(widget, cmds.LaunchEditor, context, icon, hotkeys.EDIT,
                       *shortcuts)
+
+
+def launch_editor_at_line(context, widget, *shortcuts):
+    """Create a QAction to launch an editor"""
+    icon = icons.edit()
+    return cmd_action(widget, cmds.LaunchEditorAtLine, context, icon,
+                      hotkeys.EDIT, *shortcuts)
 
 
 def launch_difftool(context, widget):
