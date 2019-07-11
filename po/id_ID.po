@@ -399,6 +399,12 @@ msgstr "Usia"
 msgid "All Repositories"
 msgstr "Semua Repositori"
 
+#, python-format
+msgid ""
+"All submodules will be updated using\n"
+"\"%s\""
+msgstr ""
+
 msgid "Allow non-fast-forward updates.  Using \"force\" can cause the remote repository to lose commits; use it with care"
 msgstr ""
 
@@ -434,6 +440,9 @@ msgstr ""
 "Tak bertanda, tag ringan akan dibuat.\n"
 "Buat tag tak bertanda?"
 
+msgid "Appearance"
+msgstr ""
+
 msgid "Apply"
 msgstr "Terapkan"
 
@@ -463,6 +472,9 @@ msgstr "Penulis"
 msgid "Authors"
 msgstr "Penulis"
 
+msgid "Auto"
+msgstr ""
+
 msgid "Auto-Wrap Lines"
 msgstr "Auto-Wrap Baris"
 
@@ -474,10 +486,14 @@ msgid "Blame Viewer"
 msgstr "Penampil Diff Cabang"
 
 #, fuzzy
+msgid "Blame selected paths"
+msgstr "Sunting lokasi terpilih"
+
+#, fuzzy
 msgid "Blame..."
 msgstr "Tutup..."
 
-msgid "Bold on dark headers instead of italic (restart required)"
+msgid "Bold on dark headers instead of italic"
 msgstr ""
 
 msgid "Branch"
@@ -785,8 +801,14 @@ msgstr ""
 msgid "DAG..."
 msgstr "DAG..."
 
+msgid "Dark Theme"
+msgstr ""
+
 msgid "Date, Time"
 msgstr "Tanggal, Waktu"
+
+msgid "Default"
+msgstr ""
 
 msgid "Delete"
 msgstr "Hapus"
@@ -1003,6 +1025,14 @@ msgstr "Menandai \"%(revision)s\" sebagai \"%(name)s\""
 msgid "Error running prepare-commitmsg hook"
 msgstr ""
 
+#, fuzzy, python-format
+msgid "Error updating submodule %s"
+msgstr "Error membuat hulu \"%s\""
+
+#, fuzzy
+msgid "Error updating submodules"
+msgstr "Error Menyunting Berkas"
+
 msgid "Error: Cannot find commit template"
 msgstr "Error: Tidak dapat melakukan commit templat"
 
@@ -1129,6 +1159,30 @@ msgstr ""
 msgid "Fixup Previous Commit"
 msgstr "Perbaiki Commit Sebelumnya"
 
+msgid "Flat dark blue"
+msgstr ""
+
+msgid "Flat dark green"
+msgstr ""
+
+msgid "Flat dark grey"
+msgstr ""
+
+msgid "Flat dark red"
+msgstr ""
+
+msgid "Flat light blue"
+msgstr ""
+
+msgid "Flat light green"
+msgstr ""
+
+msgid "Flat light grey"
+msgstr ""
+
+msgid "Flat light red"
+msgstr ""
+
 msgid "Font Size"
 msgstr "Ukuran Font"
 
@@ -1164,6 +1218,9 @@ msgid "French translation"
 msgstr ""
 
 msgid "GPG-sign the merge commit"
+msgstr ""
+
+msgid "GUI theme"
 msgstr ""
 
 #, python-format
@@ -1209,10 +1266,16 @@ msgstr ""
 msgid "Hide Details.."
 msgstr ""
 
+msgid "High DPI"
+msgstr ""
+
 msgid "History Browser"
 msgstr "Penjelajah Histori"
 
 msgid "Hungarian translation"
+msgstr ""
+
+msgid "Icon theme"
 msgstr ""
 
 msgid "Ignore all whitespace"
@@ -1236,6 +1299,9 @@ msgstr ""
 
 msgid "Include tags "
 msgstr "Sertakan tag "
+
+msgid "Indent Status paths"
+msgstr ""
 
 msgid "Indonesian translation"
 msgstr ""
@@ -1295,6 +1361,9 @@ msgstr "Jalankan git-difftool pada versi sebelumnya."
 #, fuzzy
 msgid "Launch git-difftool on the current path"
 msgstr "Jalankan git-difftool pada lokasi saat ini."
+
+msgid "Light Theme"
+msgstr ""
 
 msgid "Load Commit Message"
 msgstr "Muat Pesan Commit"
@@ -1463,6 +1532,10 @@ msgstr "Buka"
 msgid "Open Git Repository..."
 msgstr "Bukan Repositori Git..."
 
+#, fuzzy
+msgid "Open Parent"
+msgstr "Buka yang Terkini"
+
 msgid "Open Parent Directory"
 msgstr "Bukan Direktori di Atasnya"
 
@@ -1494,10 +1567,6 @@ msgstr "Timpa \"%s\""
 
 msgid "Overwrite File?"
 msgstr "Timpa Berkas?"
-
-#, python-format
-msgid "PATCH %(current)d/%(count)d"
-msgstr "PATCH %(current)d/%(count)d"
 
 msgid ""
 "Parse arguments using a shell.\n"
@@ -1782,6 +1851,9 @@ msgstr ""
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Mengatur ulang \"%(branch)s\" ke \"%(revision)s\" akan menghilangkan commit."
 
+msgid "Restart the application after changing appearance settings."
+msgstr ""
+
 msgid "Revert"
 msgstr ""
 
@@ -2012,6 +2084,11 @@ msgstr "Pilih Repository..."
 msgid "Set Upstream Branch"
 msgstr "Pilih Upstream Baru"
 
+msgid ""
+"Set the sort order for branches and tags.\n"
+"Toggle between date-based and version-name-based sorting."
+msgstr ""
+
 #, fuzzy
 msgid "Set upstream"
 msgstr "Pilih Upstream Baru"
@@ -2047,6 +2124,9 @@ msgstr "Bantuan"
 
 msgid "Show History"
 msgstr "Tunjukan sejarah"
+
+msgid "Show file counts in Status titles"
+msgstr ""
 
 msgid ""
 "Show help\n"
@@ -2196,14 +2276,14 @@ msgstr "Status"
 msgid "Stop tracking paths"
 msgstr "Hentikan melacak lokasi"
 
+msgid "Submodules"
+msgstr ""
+
 msgid "Summarize Merge Commits"
 msgstr "Ringkasan Merge Commit"
 
 msgid "Summary"
 msgstr "Ringkasan"
-
-msgid "Summary:"
-msgstr "Ringkasan:"
 
 msgid "Tab Width"
 msgstr "Lebar Tab"
@@ -2258,6 +2338,12 @@ msgstr "Berkas berikut akan dihapus:"
 
 msgid "The revision expression cannot be empty."
 msgstr "Ekspresi revisi tidak boleh kosong."
+
+#, python-format
+msgid ""
+"The submodule will be updated using\n"
+"\"%s\""
+msgstr ""
 
 #, python-format
 msgid "The worktree will be reset using \"git reset --keep %s\""
@@ -2393,8 +2479,32 @@ msgstr "Tak Terlacak"
 msgid "Untracking: %s"
 msgstr "Untracking: %s"
 
+msgid "Update All Submodules..."
+msgstr ""
+
 msgid "Update Existing Branch:"
 msgstr "Perbarui Cabang yang Ada:"
+
+msgid "Update Submodule"
+msgstr ""
+
+msgid "Update Submodule..."
+msgstr ""
+
+msgid "Update Submodules"
+msgstr ""
+
+msgid "Update all submodules?"
+msgstr ""
+
+msgid "Update submodules..."
+msgstr ""
+
+msgid "Update this submodule"
+msgstr ""
+
+msgid "Update this submodule?"
+msgstr ""
 
 msgid "Updating"
 msgstr "Sedang memperbarui"
@@ -2499,6 +2609,15 @@ msgstr "tidak diketahui"
 msgid "vX.Y.Z"
 msgstr "vX.Y.Z"
 
+msgid "x 1"
+msgstr ""
+
+msgid "x 1.5"
+msgstr ""
+
+msgid "x 2"
+msgstr ""
+
 msgid "yyyy-MM-dd"
 msgstr "dd-MM-yyyy"
 
@@ -2573,6 +2692,9 @@ msgstr "dd-MM-yyyy"
 #~ msgid "Output: %s"
 #~ msgstr "Keluaran: %s"
 
+#~ msgid "PATCH %(current)d/%(count)d"
+#~ msgstr "PATCH %(current)d/%(count)d"
+
 #~ msgid "Path to git repository"
 #~ msgstr "Lokasi repositori git"
 
@@ -2603,6 +2725,9 @@ msgstr "dd-MM-yyyy"
 
 #~ msgid "Staging Area"
 #~ msgstr "Area Stagnan"
+
+#~ msgid "Summary:"
+#~ msgstr "Ringkasan:"
 
 #~ msgid ""
 #~ "This PyQt4 does not include QtWebKit.\n"

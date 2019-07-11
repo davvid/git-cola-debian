@@ -379,8 +379,14 @@ class Checkout(EditModel):
 class BlamePaths(ContextCommand):
     """Blame view for paths."""
 
-    def __init__(self, context, paths):
+    @staticmethod
+    def name():
+        return N_('Blame...')
+
+    def __init__(self, context, paths=None):
         super(BlamePaths, self).__init__(context)
+        if not paths:
+            paths = context.selection.union()
         viewer = utils.shell_split(prefs.blame_viewer(context))
         self.argv = viewer + list(paths)
 
@@ -584,6 +590,12 @@ class Commit(ResetMode):
             msg += '\n'
 
         return msg
+
+
+class CycleReferenceSort(ContextCommand):
+    """Choose the next reference sort type"""
+    def do(self):
+        self.model.cycle_ref_sort()
 
 
 class Ignore(ContextCommand):
@@ -1248,13 +1260,21 @@ class LaunchDifftool(ContextCommand):
                 cfg = self.cfg
                 cmd = cfg.terminal()
                 argv = utils.shell_split(cmd)
+
+                terminal = os.path.basename(argv[0])
+                shellquote_terms = set(['xfce4-terminal'])
+                shellquote_default = terminal in shellquote_terms
+
                 mergetool = ['git', 'mergetool', '--no-prompt', '--']
                 mergetool.extend(paths)
-                needs_shellquote = set(['gnome-terminal', 'xfce4-terminal'])
-                if os.path.basename(argv[0]) in needs_shellquote:
+                needs_shellquote = cfg.get(
+                    'cola.terminalshellquote', shellquote_default)
+
+                if needs_shellquote:
                     argv.append(core.list2cmdline(mergetool))
                 else:
                     argv.extend(mergetool)
+
                 core.fork(argv)
         else:
             difftool_run(self.context)
@@ -1829,10 +1849,9 @@ class RevertUnstagedEdits(RevertEditsCommand):
         return N_('Revert Unstaged Edits...')
 
     def checkout_from_head(self):
-        # If we are amending and a modified file is selected
-        # then we should include "HEAD^" on the command-line.
-        selected = self.selection.selection()
-        return not selected.staged and self.model.amending()
+        # Being in amend mode should not affect the behavior of this command.
+        # The only sensible thing to do is to checkout from the index.
+        return False
 
     def confirm(self):
         title = N_('Revert Unstaged Changes?')

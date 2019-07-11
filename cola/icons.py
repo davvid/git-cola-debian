@@ -11,6 +11,7 @@ from . import qtcompat
 from . import resources
 from .compat import ustr
 from .decorators import memoize
+from .i18n import N_
 
 
 KNOWN_FILE_MIME_TYPES = [
@@ -43,10 +44,18 @@ KNOWN_FILE_EXTENSIONS = {
 }
 
 
-def install(icon_themes):
-    for theme in icon_themes:
+def install(themes):
+    for theme in themes:
         icon_dir = resources.icon_dir(theme)
         qtcompat.add_search_path('icons', icon_dir)
+
+
+def icon_themes():
+    return (
+        (N_('Default'), 'default'),
+        (N_('Dark Theme'), 'dark'),
+        (N_('Light Theme'), 'light'),
+    )
 
 
 def name_from_basename(basename):
@@ -134,6 +143,10 @@ def status(filename, deleted, is_staged, untracked):
 
 def add():
     return from_theme('list-add', fallback='plus.svg')
+
+
+def alphabetical():
+    return icon('a-z-order.svg')
 
 
 def branch():
@@ -274,6 +287,10 @@ def remove():
 
 def repo():
     return icon('repo.svg')
+
+
+def reverse_chronological():
+    return icon('last-first-order.svg')
 
 
 def save():

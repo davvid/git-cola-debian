@@ -450,6 +450,12 @@ msgstr "Stáří"
 msgid "All Repositories"
 msgstr "Všechny repozitáře"
 
+#, python-format
+msgid ""
+"All submodules will be updated using\n"
+"\"%s\""
+msgstr ""
+
 msgid "Allow non-fast-forward updates.  Using \"force\" can cause the remote repository to lose commits; use it with care"
 msgstr "Povolit aktualizace Ne rychle vpřed. Použití „vynutit“ může způsobit, že vzdálený repositář ztratí zápisy; používejte obezřetně"
 
@@ -485,6 +491,9 @@ msgstr ""
 "Místo toho bude vytvořena nepodepsaná prostá značka.\n"
 "Vytvořit nepodepsanou značku?"
 
+msgid "Appearance"
+msgstr ""
+
 msgid "Apply"
 msgstr "Aplikovat"
 
@@ -512,6 +521,9 @@ msgstr "Autor"
 msgid "Authors"
 msgstr "Autoři"
 
+msgid "Auto"
+msgstr ""
+
 msgid "Auto-Wrap Lines"
 msgstr "Automaticky zalamovat řádky"
 
@@ -521,11 +533,14 @@ msgstr "Základní regul. výraz"
 msgid "Blame Viewer"
 msgstr ""
 
+msgid "Blame selected paths"
+msgstr ""
+
 msgid "Blame..."
 msgstr "Blame…"
 
-msgid "Bold on dark headers instead of italic (restart required)"
-msgstr "Hlavičky tučným písmem na tmavém pozadí místo kurzívy (vyžaduje restart)"
+msgid "Bold on dark headers instead of italic"
+msgstr "Hlavičky tučným písmem na tmavém pozadí místo kurzívy"
 
 msgid "Branch"
 msgstr "Větev"
@@ -813,8 +828,14 @@ msgstr "Český překlad"
 msgid "DAG..."
 msgstr "DAG…"
 
+msgid "Dark Theme"
+msgstr ""
+
 msgid "Date, Time"
 msgstr "Datum, čas"
+
+msgid "Default"
+msgstr ""
 
 msgid "Delete"
 msgstr "Odstranit"
@@ -1021,6 +1042,13 @@ msgstr "Chyba při přejmenovávání „%(name)s“ na „%(new_name)s“"
 msgid "Error running prepare-commitmsg hook"
 msgstr "Chyba spouštění háčku prepare-commitmsg"
 
+#, python-format
+msgid "Error updating submodule %s"
+msgstr ""
+
+msgid "Error updating submodules"
+msgstr ""
+
 msgid "Error: Cannot find commit template"
 msgstr "Chyba: nedaří se nalézt šablonu nahrání"
 
@@ -1139,6 +1167,30 @@ msgstr "Opravit"
 msgid "Fixup Previous Commit"
 msgstr "Opravit předchozí zápis"
 
+msgid "Flat dark blue"
+msgstr ""
+
+msgid "Flat dark green"
+msgstr ""
+
+msgid "Flat dark grey"
+msgstr ""
+
+msgid "Flat dark red"
+msgstr ""
+
+msgid "Flat light blue"
+msgstr ""
+
+msgid "Flat light green"
+msgstr ""
+
+msgid "Flat light grey"
+msgstr ""
+
+msgid "Flat light red"
+msgstr ""
+
 msgid "Font Size"
 msgstr "Velikost písma"
 
@@ -1173,6 +1225,9 @@ msgstr "Francouzský překlad"
 
 msgid "GPG-sign the merge commit"
 msgstr "GPG podepsaný zápis sloučení"
+
+msgid "GUI theme"
+msgstr ""
 
 #, python-format
 msgid "Gathering info for \"%s\"..."
@@ -1217,11 +1272,17 @@ msgstr "Nápověda – git-xbase"
 msgid "Hide Details.."
 msgstr "Skrýt podrobnosti…"
 
+msgid "High DPI"
+msgstr ""
+
 msgid "History Browser"
 msgstr "Prohlížeč historie"
 
 msgid "Hungarian translation"
 msgstr "Maďarský překlad"
+
+msgid "Icon theme"
+msgstr ""
 
 msgid "Ignore all whitespace"
 msgstr "Ignorovat všechny mezery"
@@ -1243,6 +1304,9 @@ msgstr "Ignorovat název souboru nebo šablonu"
 
 msgid "Include tags "
 msgstr "Zahrnout značky "
+
+msgid "Indent Status paths"
+msgstr ""
 
 msgid "Indonesian translation"
 msgstr "Indonéský překlad"
@@ -1301,6 +1365,9 @@ msgstr "Spustit git-difftool proti předchozím verzím"
 
 msgid "Launch git-difftool on the current path"
 msgstr "Spustit git-difftool na stávajícím umístění"
+
+msgid "Light Theme"
+msgstr ""
 
 msgid "Load Commit Message"
 msgstr "Nahrát zprávu zápisu"
@@ -1464,6 +1531,9 @@ msgstr "Otevřít"
 msgid "Open Git Repository..."
 msgstr "Otevřít Git repozitář…"
 
+msgid "Open Parent"
+msgstr ""
+
 msgid "Open Parent Directory"
 msgstr "Otevřít nadřazenou složku"
 
@@ -1494,10 +1564,6 @@ msgstr "Přepsat „%s“?"
 
 msgid "Overwrite File?"
 msgstr "Přepsat soubor?"
-
-#, python-format
-msgid "PATCH %(current)d/%(count)d"
-msgstr "PATCH %(current)d/%(count)d"
 
 msgid ""
 "Parse arguments using a shell.\n"
@@ -1754,6 +1820,9 @@ msgstr "Resetovat pracovní strom?"
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Resetováním „%(branch)s“ do „%(revision)s“ se ztratí zápisy."
 
+msgid "Restart the application after changing appearance settings."
+msgstr ""
+
 msgid "Revert"
 msgstr "Vrátit"
 
@@ -1972,6 +2041,11 @@ msgstr "Nastavit výchozí repozitář"
 msgid "Set Upstream Branch"
 msgstr "Nastavit upstream větev"
 
+msgid ""
+"Set the sort order for branches and tags.\n"
+"Toggle between date-based and version-name-based sorting."
+msgstr ""
+
 msgid "Set upstream"
 msgstr "Nastavit upstream"
 
@@ -2004,6 +2078,9 @@ msgstr "Zobrazit nápovědu"
 
 msgid "Show History"
 msgstr "Zobrazit historii"
+
+msgid "Show file counts in Status titles"
+msgstr ""
 
 msgid ""
 "Show help\n"
@@ -2148,14 +2225,14 @@ msgstr "Stav"
 msgid "Stop tracking paths"
 msgstr "Zastavit sledující umístění"
 
+msgid "Submodules"
+msgstr ""
+
 msgid "Summarize Merge Commits"
 msgstr "Shrnout nahrání sloučení"
 
 msgid "Summary"
 msgstr "Shrnutí"
-
-msgid "Summary:"
-msgstr "Shrnutí:"
 
 msgid "Tab Width"
 msgstr "Šířka tabelátoru"
@@ -2209,6 +2286,12 @@ msgstr "Následující soubory budou smazány:"
 
 msgid "The revision expression cannot be empty."
 msgstr "Výraz revize nemůže zůstat nevyplněný."
+
+#, python-format
+msgid ""
+"The submodule will be updated using\n"
+"\"%s\""
+msgstr ""
 
 #, python-format
 msgid "The worktree will be reset using \"git reset --keep %s\""
@@ -2337,8 +2420,32 @@ msgstr "Nesledováno"
 msgid "Untracking: %s"
 msgstr "Přestává se sledovat: %s"
 
+msgid "Update All Submodules..."
+msgstr ""
+
 msgid "Update Existing Branch:"
 msgstr "Aktualizovat stávající větev:"
+
+msgid "Update Submodule"
+msgstr ""
+
+msgid "Update Submodule..."
+msgstr ""
+
+msgid "Update Submodules"
+msgstr ""
+
+msgid "Update all submodules?"
+msgstr ""
+
+msgid "Update submodules..."
+msgstr ""
+
+msgid "Update this submodule"
+msgstr ""
+
+msgid "Update this submodule?"
+msgstr ""
 
 msgid "Updating"
 msgstr "Aktualizuje se"
@@ -2440,11 +2547,26 @@ msgstr "neznámé"
 msgid "vX.Y.Z"
 msgstr "vX.Y.Z"
 
+msgid "x 1"
+msgstr ""
+
+msgid "x 1.5"
+msgstr ""
+
+msgid "x 2"
+msgstr ""
+
 msgid "yyyy-MM-dd"
 msgstr "rrrr-mm-dd"
+
+#~ msgid "PATCH %(current)d/%(count)d"
+#~ msgstr "PATCH %(current)d/%(count)d"
 
 #~ msgid "Rename remote?"
 #~ msgstr "Přejmenovat vzdálenou?"
 
 #~ msgid "Select File"
 #~ msgstr "Vybrat soubor"
+
+#~ msgid "Summary:"
+#~ msgstr "Shrnutí:"

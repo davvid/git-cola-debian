@@ -1,3 +1,9 @@
+git-cola (3.4-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Thu, 11 Jul 2019 19:22:54 +0000
+
 git-cola (3.3-1) unstable; urgency=medium
 
   * New upstream release.

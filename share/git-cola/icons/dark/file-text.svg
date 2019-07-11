@@ -1,53 +1,5 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg
-   xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://creativecommons.org/ns#"
-   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   height="1024"
-   width="768"
-   id="svg2"
-   version="1.1"
-   inkscape:version="0.91 r13725"
-   sodipodi:docname="file-text.svg">
-  <metadata
-     id="metadata10">
-    <rdf:RDF>
-      <cc:Work
-         rdf:about="">
-        <dc:format>image/svg+xml</dc:format>
-        <dc:type
-           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-      </cc:Work>
-    </rdf:RDF>
-  </metadata>
-  <defs
-     id="defs8" />
-  <sodipodi:namedview
-     pagecolor="#ffffff"
-     bordercolor="#666666"
-     borderopacity="1"
-     objecttolerance="10"
-     gridtolerance="10"
-     guidetolerance="10"
-     inkscape:pageopacity="0"
-     inkscape:pageshadow="2"
-     inkscape:window-width="716"
-     inkscape:window-height="480"
-     id="namedview6"
-     showgrid="false"
-     inkscape:zoom="0.23046875"
-     inkscape:cx="384"
-     inkscape:cy="512"
-     inkscape:window-x="0"
-     inkscape:window-y="27"
-     inkscape:window-maximized="0"
-     inkscape:current-layer="svg2" />
+<svg width="22" height="22" version="1.1" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
   <path
-     d="M384 320H128v-64h256v64zM128 512h448v-64H128v64z m0 128h448v-64H128v64z m0 128h448v-64H128v64z m640-480v608c0 35-29 64-64 64H64c-35 0-64-29-64-64V128c0-35 29-64 64-64h480l224 224z m-64 32L512 128H64v768h640V320z"
-     id="path4"
-     style="fill:#ffffff;fill-opacity:1" />
+     d="M 11,6.7143 H 4.3333 V 5.2857 H 11 Z M 4.3333,11 H 16 V 9.5714 H 4.3333 Z m 0,2.8571 H 16 V 12.4286 H 4.3333 Z m 0,2.8572 H 16 V 15.2857 H 4.3333 Z M 21,6 V 19.5714 C 21,20.3524 20.245,21 19.3333,21 H 2.6667 C 1.7552,21 1,20.3527 1,19.5714 V 2.4286 C 1,1.6473 1.7552,1 2.6667,1 h 12.5 z m -1.6667,0.714 -5,-4.2857 H 2.6667 v 17.1428 h 16.6666 z"
+     fill="#ffffff"/>
 </svg>

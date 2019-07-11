@@ -14,8 +14,9 @@ Thanks
 * anderben
 * Andreas Schnederle-Wagner
 * Andreas Sommer
-* Andrew Chen
 * Andrej Kvasnica
+* Andrew Chen
+* Andrew Hemming
 * Arthur Coelho
 * Audrius Karabanovas
 * balping
@@ -41,6 +42,7 @@ Thanks
 * Daniel King
 * Dave Thomas
 * David Aguilar
+* David Fernandez
 * David LeGare
 * David Martínez Martí
 * Dawid Drozd
@@ -87,6 +89,7 @@ Thanks
 * jfessard
 * JiCiT
 * Jimmy M. Coleman
+* Joachim Lusiardi
 * Johannes Löhnert
 * Johann Schmitz
 * Jordan Bedwell
@@ -130,10 +133,13 @@ Thanks
 * Mickael Albertus
 * Mike Hanson
 * MikHulk
+* Mikołaj Milej
 * Minarto Margoliono
 * Mosaab Alzoubi
+* Muhammad Bashir Al-Noimi
 * Myz
 * Naraesk
+* Niel Buys
 * Nick Todd
 * Nicolas Dietrich
 * Nikos Roussos
@@ -160,9 +166,11 @@ Thanks
 * Radek Novacek
 * Radek Postołowicz
 * Rafael Nascimento
+* Rafael Reuber
 * Raghavendra Karunanidhi
 * Rainer Müller
 * Robbert Korving
+* Robert Pollak
 * Rolando Espinoza La fuente
 * Rustam Safin
 * Samsul Ma'arif

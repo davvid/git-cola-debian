@@ -503,6 +503,12 @@ msgstr "Edad"
 msgid "All Repositories"
 msgstr "Todos los repositorios"
 
+#, python-format
+msgid ""
+"All submodules will be updated using\n"
+"\"%s\""
+msgstr ""
+
 msgid "Allow non-fast-forward updates.  Using \"force\" can cause the remote repository to lose commits; use it with care"
 msgstr "Permitir actualizaciones \"non-fast-forward\". Utilizar \"force\" puede causar que el repositorio remoto pierda los commits, utilizar con cuidado"
 
@@ -538,6 +544,9 @@ msgstr ""
 "Una etiqueta sin firmar, de poca entidad será creada.\n"
 "¿Crear una etiqueta sin firmar?"
 
+msgid "Appearance"
+msgstr ""
+
 msgid "Apply"
 msgstr "Aplicar"
 
@@ -565,6 +574,9 @@ msgstr "Autor"
 msgid "Authors"
 msgstr "Autores"
 
+msgid "Auto"
+msgstr ""
+
 msgid "Auto-Wrap Lines"
 msgstr "Salto de línea automático"
 
@@ -574,12 +586,14 @@ msgstr "Regexp básico"
 msgid "Blame Viewer"
 msgstr ""
 
-#, fuzzy
-msgid "Blame..."
-msgstr "Cerrar..."
+msgid "Blame selected paths"
+msgstr ""
 
-msgid "Bold on dark headers instead of italic (restart required)"
-msgstr "Fuente en negrita con fondo negro en vez de cabeceras en cursiva (se necesita reiniciar)"
+msgid "Blame..."
+msgstr ""
+
+msgid "Bold on dark headers instead of italic"
+msgstr "Fuente en negrita con fondo negro en vez de cabeceras en cursiva"
 
 msgid "Branch"
 msgstr "Rama"
@@ -656,9 +670,9 @@ msgstr ""
 msgid "Cannot Amend"
 msgstr "No se puede corregir"
 
-#, fuzzy, python-format
+#, python-format
 msgid "Cannot exec \"%s\": please configure a blame viewer"
-msgstr "No se pudo ejecutar \"%s\": por favor, configure su editor"
+msgstr ""
 
 #, python-format
 msgid "Cannot exec \"%s\": please configure a history browser"
@@ -867,8 +881,14 @@ msgstr "Traducción al Checo"
 msgid "DAG..."
 msgstr "DAG..."
 
+msgid "Dark Theme"
+msgstr ""
+
 msgid "Date, Time"
 msgstr "Fecha, hora"
+
+msgid "Default"
+msgstr ""
 
 msgid "Delete"
 msgstr "Eliminar"
@@ -991,7 +1011,6 @@ msgstr "¿Abandonar el Stash \"%s\"?"
 msgid "Drop the selected stash"
 msgstr "Abandonar el Stash seleccionado"
 
-#, fuzzy
 msgid "Edit"
 msgstr "Editar"
 
@@ -1074,6 +1093,13 @@ msgid "Error renaming \"%(name)s\" to \"%(new_name)s\""
 msgstr "Error al renombrar \"%(name)s\" a \"%(new_name)s\""
 
 msgid "Error running prepare-commitmsg hook"
+msgstr ""
+
+#, python-format
+msgid "Error updating submodule %s"
+msgstr "Error al crear el archivo %s"
+
+msgid "Error updating submodules"
 msgstr ""
 
 msgid "Error: Cannot find commit template"
@@ -1197,6 +1223,30 @@ msgstr "Arreglar"
 msgid "Fixup Previous Commit"
 msgstr "Arreglar un Commit previo"
 
+msgid "Flat dark blue"
+msgstr ""
+
+msgid "Flat dark green"
+msgstr ""
+
+msgid "Flat dark grey"
+msgstr ""
+
+msgid "Flat dark red"
+msgstr ""
+
+msgid "Flat light blue"
+msgstr ""
+
+msgid "Flat light green"
+msgstr ""
+
+msgid "Flat light grey"
+msgstr ""
+
+msgid "Flat light red"
+msgstr ""
+
 msgid "Font Size"
 msgstr "Tamaño de fuente"
 
@@ -1231,6 +1281,9 @@ msgstr "Traducción al Francés"
 
 msgid "GPG-sign the merge commit"
 msgstr "Firmar mediante GPG el Merge Commit"
+
+msgid "GUI theme"
+msgstr ""
 
 #, python-format
 msgid "Gathering info for \"%s\"..."
@@ -1275,11 +1328,17 @@ msgstr "Ayuda - git-xbase"
 msgid "Hide Details.."
 msgstr "Ocultar detalles..."
 
+msgid "High DPI"
+msgstr ""
+
 msgid "History Browser"
 msgstr "Navegador de historial"
 
 msgid "Hungarian translation"
 msgstr "Traducción al Húngaro"
+
+msgid "Icon theme"
+msgstr ""
 
 msgid "Ignore all whitespace"
 msgstr "Ignorar todos los espacios en blanco"
@@ -1301,6 +1360,9 @@ msgstr "Ignorar nombre de archivo o patrón"
 
 msgid "Include tags "
 msgstr "Incluir etiquetas "
+
+msgid "Indent Status paths"
+msgstr ""
 
 msgid "Indonesian translation"
 msgstr "Traducción al Indonesio"
@@ -1359,6 +1421,9 @@ msgstr "Ejecutar git-difftool en versiones previas"
 
 msgid "Launch git-difftool on the current path"
 msgstr "Ejecutar git-difftool en la ruta actual"
+
+msgid "Light Theme"
+msgstr ""
 
 msgid "Load Commit Message"
 msgstr "Cargar el mensaje del Commit"
@@ -1522,6 +1587,9 @@ msgstr "Abrir"
 msgid "Open Git Repository..."
 msgstr "Abrir Repositorio Git..."
 
+msgid "Open Parent"
+msgstr ""
+
 msgid "Open Parent Directory"
 msgstr "Abrir carpeta padre"
 
@@ -1552,10 +1620,6 @@ msgstr "¿Desea sobrescribir \"%s\"?"
 
 msgid "Overwrite File?"
 msgstr "¿Desea sobrescribir el archivo?"
-
-#, python-format
-msgid "PATCH %(current)d/%(count)d"
-msgstr "PATCH %(current)d/%(count)d"
 
 msgid ""
 "Parse arguments using a shell.\n"
@@ -1819,6 +1883,9 @@ msgstr "¿Reiniciar el árbol de trabajo de trabajo?"
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Reiniciar \"%(branch)s\" a \"%(revision)s\" hara que se pierdan los \"commits\"."
 
+msgid "Restart the application after changing appearance settings."
+msgstr ""
+
 msgid "Revert"
 msgstr "Revertir"
 
@@ -2037,6 +2104,11 @@ msgstr "Establecer el repositorio como predeterminado"
 msgid "Set Upstream Branch"
 msgstr "Establecer rama aguas arriba (upstream)"
 
+msgid ""
+"Set the sort order for branches and tags.\n"
+"Toggle between date-based and version-name-based sorting."
+msgstr ""
+
 msgid "Set upstream"
 msgstr "Establecer aguas arriba (upstream)"
 
@@ -2069,6 +2141,9 @@ msgstr "Mostrar ayuda"
 
 msgid "Show History"
 msgstr "Mostrar historial"
+
+msgid "Show file counts in Status titles"
+msgstr ""
 
 msgid ""
 "Show help\n"
@@ -2213,14 +2288,14 @@ msgstr "Estado"
 msgid "Stop tracking paths"
 msgstr "Dejar de seguir las rutas"
 
+msgid "Submodules"
+msgstr ""
+
 msgid "Summarize Merge Commits"
 msgstr "Sumario de Merge Commits"
 
 msgid "Summary"
 msgstr "Resumen"
-
-msgid "Summary:"
-msgstr "Resumen:"
 
 msgid "Tab Width"
 msgstr "Ancho de tabulación"
@@ -2274,6 +2349,12 @@ msgstr "Los siguientes archivos serán eliminados:"
 
 msgid "The revision expression cannot be empty."
 msgstr "La expresión de revisión no puede estar vacía."
+
+#, python-format
+msgid ""
+"The submodule will be updated using\n"
+"\"%s\""
+msgstr ""
 
 #, python-format
 msgid "The worktree will be reset using \"git reset --keep %s\""
@@ -2407,8 +2488,32 @@ msgstr ""
 msgid "Untracking: %s"
 msgstr ""
 
+msgid "Update All Submodules..."
+msgstr ""
+
 msgid "Update Existing Branch:"
 msgstr "Actualizar rama existente:"
+
+msgid "Update Submodule"
+msgstr ""
+
+msgid "Update Submodule..."
+msgstr ""
+
+msgid "Update Submodules"
+msgstr ""
+
+msgid "Update all submodules?"
+msgstr ""
+
+msgid "Update submodules..."
+msgstr ""
+
+msgid "Update this submodule"
+msgstr ""
+
+msgid "Update this submodule?"
+msgstr ""
 
 msgid "Updating"
 msgstr "Actualizando"
@@ -2510,79 +2615,14 @@ msgstr "desconocido"
 msgid "vX.Y.Z"
 msgstr "vX.Y.Z"
 
+msgid "x 1"
+msgstr ""
+
+msgid "x 1.5"
+msgstr ""
+
+msgid "x 2"
+msgstr ""
+
 msgid "yyyy-MM-dd"
 msgstr "aaaa-MM-dd"
-
-#~ msgid "Bookmarks"
-#~ msgstr "Favoritos"
-
-#~ msgid "Bookmarks..."
-#~ msgstr "Favoritos..."
-
-#, fuzzy
-#~ msgid "Error %s"
-#~ msgstr "Errores: %s"
-
-#~ msgid "Errors: %s"
-#~ msgstr "Errores: %s"
-
-#, fuzzy
-#~ msgid "Local Branches"
-#~ msgstr "Rama Local"
-
-#, fuzzy
-#~ msgid "On Debian-based systems try: sudo apt-get install python-pyinotify"
-#~ msgstr "En sistemas Debian intente: sudo apt-get install python-pyinotify"
-
-#~ msgid "Options"
-#~ msgstr "Opciones"
-
-#~ msgid ""
-#~ "Output:\n"
-#~ "%s"
-#~ msgstr ""
-#~ "Resultado:\n"
-#~ "%s"
-
-#~ msgid "Output: %s"
-#~ msgstr "Resultado: %s"
-
-#, fuzzy
-#~ msgid "Remote Branches"
-#~ msgstr "Rama Remota"
-
-#~ msgid "Rename remote?"
-#~ msgstr "Desea renombrar el repositorio remoto?"
-
-#~ msgid "Select File"
-#~ msgstr "Seleccionar Archivo"
-
-#~ msgid "Select file from \"%s\""
-#~ msgstr "Seleccionar archivo de \"%s\""
-
-#~ msgid ""
-#~ "This PyQt4 does not include QtWebKit.\n"
-#~ "The keyboard shortcuts feature is unavailable."
-#~ msgstr ""
-#~ "Este PyQt4 no incluye QtWebKit.\n"
-#~ "Los atajos de teclado no están disponibles."
-
-#~ msgid "Updating..."
-#~ msgstr "Actualizando..."
-
-#~ msgid ""
-#~ "file notification: disabled\n"
-#~ "Note: install pywin32 to enable.\n"
-#~ msgstr ""
-#~ "Notificación de archivo: desactivada\n"
-#~ "Nota: instale pywin32 para activarla.\n"
-
-#~ msgid "inotify enabled."
-#~ msgstr "inotify activado."
-
-#~ msgid ""
-#~ "inotify: disabled\n"
-#~ "Note: install python-pyinotify to enable inotify.\n"
-#~ msgstr ""
-#~ "inotify: desactivado\n"
-#~ "Nota: instale python-pyinotify para activarlo.\n"

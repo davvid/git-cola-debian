@@ -7,7 +7,11 @@ from qtpy import QtWidgets
 from . import defs
 from . import standard
 from .. import cmds
+from .. import hidpi
+from .. import icons
 from .. import qtutils
+from .. import themes
+from ..compat import ustr
 from ..i18n import N_
 from ..models import prefs
 from ..models.prefs import Defaults
@@ -58,6 +62,10 @@ class FormWidget(QtWidgets.QWidget):
             widget.returnPressed.connect(
                 self._text_config_changed(config, widget))
 
+        elif isinstance(widget, qtutils.ComboBox):
+            widget.currentIndexChanged.connect(
+                self._item_config_changed(config, widget))
+
     def _int_config_changed(self, config):
         def runner(value):
             cmds.do(prefs.SetConfig, self.model, self.source, config, value)
@@ -71,6 +79,12 @@ class FormWidget(QtWidgets.QWidget):
     def _text_config_changed(self, config, widget):
         def runner():
             value = widget.text()
+            cmds.do(prefs.SetConfig, self.model, self.source, config, value)
+        return runner
+
+    def _item_config_changed(self, config, widget):
+        def runner():
+            value = widget.current_data()
             cmds.do(prefs.SetConfig, self.model, self.source, config, value)
         return runner
 
@@ -95,6 +109,8 @@ def set_widget_value(widget, value):
         widget.setText(value)
     elif isinstance(widget, QtWidgets.QCheckBox):
         widget.setChecked(value)
+    elif isinstance(widget, qtutils.ComboBox):
+        widget.set_value(value)
     widget.blockSignals(False)
 
 
@@ -175,7 +191,6 @@ class SettingsFormWidget(FormWidget):
         self.linebreak = qtutils.checkbox()
         self.keep_merge_backups = qtutils.checkbox()
         self.sort_bookmarks = qtutils.checkbox()
-        self.bold_headers = qtutils.checkbox()
         self.save_window_settings = qtutils.checkbox()
         self.check_spelling = qtutils.checkbox()
         self.expandtab = qtutils.checkbox()
@@ -192,8 +207,6 @@ class SettingsFormWidget(FormWidget):
         self.add_row(N_('Insert spaces instead of tabs'), self.expandtab)
         self.add_row(N_('Sort bookmarks alphabetically'), self.sort_bookmarks)
         self.add_row(N_('Keep *.orig Merge Backups'), self.keep_merge_backups)
-        self.add_row(N_('Bold on dark headers instead of italic '
-                        '(restart required)'), self.bold_headers)
         self.add_row(N_('Save GUI Settings'), self.save_window_settings)
         self.add_row(N_('Check spelling'), self.check_spelling)
 
@@ -207,7 +220,6 @@ class SettingsFormWidget(FormWidget):
             prefs.MAXRECENT: (self.maxrecent, Defaults.maxrecent),
             prefs.SORT_BOOKMARKS:
                 (self.sort_bookmarks, Defaults.sort_bookmarks),
-            prefs.BOLD_HEADERS: (self.bold_headers, Defaults.bold_headers),
             prefs.DIFFTOOL: (self.difftool, Defaults.difftool),
             prefs.EDITOR:
                 (self.editor, os.getenv('VISUAL', Defaults.editor)),
@@ -247,6 +259,61 @@ class SettingsFormWidget(FormWidget):
                 'user', prefs.FONTDIFF, font.toString())
 
 
+class AppearanceFormWidget(FormWidget):
+
+    def __init__(self, context, model, parent):
+        FormWidget.__init__(self, context, model, parent)
+        # Theme selectors
+        self.theme = qtutils.combo_mapped(themes.options())
+        self.icon_theme = qtutils.combo_mapped(icons.icon_themes())
+
+        # The transform to ustr is needed because the config reader will convert
+        # "0", "1", and "2" into integers.  The "1.5" value, though, is
+        # parsed as a string, so the transform is effectively a no-op.
+        self.high_dpi = qtutils.combo_mapped(hidpi.options(), transform=ustr)
+        self.high_dpi.setEnabled(hidpi.is_supported())
+        self.bold_headers = qtutils.checkbox()
+        self.status_show_totals = qtutils.checkbox()
+        self.status_indent = qtutils.checkbox()
+
+        self.add_row(N_('GUI theme'), self.theme)
+        self.add_row(N_('Icon theme'), self.icon_theme)
+        self.add_row(N_('High DPI'), self.high_dpi)
+        self.add_row(N_('Bold on dark headers instead of italic'),
+                     self.bold_headers)
+        self.add_row(N_('Show file counts in Status titles'),
+                     self.status_show_totals)
+        self.add_row(N_('Indent Status paths'), self.status_indent)
+
+        self.set_config({
+            prefs.BOLD_HEADERS: (self.bold_headers, Defaults.bold_headers),
+            prefs.HIDPI: (self.high_dpi, Defaults.hidpi),
+            prefs.STATUS_SHOW_TOTALS:
+                (self.status_show_totals, Defaults.status_show_totals),
+            prefs.STATUS_INDENT: (self.status_indent, Defaults.status_indent),
+            prefs.THEME: (self.theme, Defaults.theme),
+            prefs.ICON_THEME: (self.icon_theme, Defaults.icon_theme),
+        })
+
+
+class AppearanceWidget(QtWidgets.QWidget):
+
+    def __init__(self, form, parent):
+        QtWidgets.QWidget.__init__(self, parent)
+        self.form = form
+        self.label = QtWidgets.QLabel(
+            '<center><b>'
+            + N_('Restart the application after changing appearance settings.')
+            + '</b></center>')
+        layout = qtutils.vbox(defs.margin, defs.spacing,
+                              self.form, defs.spacing * 4, self.label,
+                              qtutils.STRETCH)
+        self.setLayout(layout)
+
+    def update_from_config(self):
+        self.form.update_from_config()
+
+
 class PreferencesView(standard.Dialog):
 
     def __init__(self, context, model, parent=None):
@@ -263,15 +330,19 @@ class PreferencesView(standard.Dialog):
         self.tab_bar.addTab(N_('All Repositories'))
         self.tab_bar.addTab(N_('Current Repository'))
         self.tab_bar.addTab(N_('Settings'))
+        self.tab_bar.addTab(N_('Appearance'))
 
         self.user_form = RepoFormWidget(context, model, self, source='user')
         self.repo_form = RepoFormWidget(context, model, self, source='repo')
         self.options_form = SettingsFormWidget(context, model, self)
+        self.appearance_form = AppearanceFormWidget(context, model, self)
+        self.appearance = AppearanceWidget(self.appearance_form, self)
 
         self.stack_widget = QtWidgets.QStackedWidget()
         self.stack_widget.addWidget(self.user_form)
         self.stack_widget.addWidget(self.repo_form)
         self.stack_widget.addWidget(self.options_form)
+        self.stack_widget.addWidget(self.appearance)
 
         self.close_button = qtutils.close_button()
 

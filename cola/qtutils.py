@@ -214,20 +214,47 @@ def label(text=None, align=None, fmt=None, selectable=True):
 class ComboBox(QtWidgets.QComboBox):
     """Custom read-only combobox with a convenient API"""
 
-    def __init__(self, items=None, editable=False, parent=None):
+    def __init__(self, items=None, editable=False, parent=None, transform=None):
         super(ComboBox, self).__init__(parent)
         self.setEditable(editable)
+        self.transform = transform
+        self.item_data = []
         if items:
             self.addItems(items)
+            self.item_data.extend(items)
 
     def set_index(self, idx):
         idx = utils.clamp(idx, 0, self.count()-1)
         self.setCurrentIndex(idx)
 
+    def add_item(self, text, data):
+        self.addItem(text)
+        self.item_data.append(data)
+
+    def current_data(self):
+        return self.item_data[self.currentIndex()]
+
+    def set_value(self, value):
+        if self.transform:
+            value = self.transform(value)
+        try:
+            index = self.item_data.index(value)
+        except ValueError:
+            index = 0
+        self.setCurrentIndex(index)
+
 
 def combo(items, editable=False, parent=None):
     """Create a readonly (by default) combobox from a list of items"""
     return ComboBox(editable=editable, items=items, parent=parent)
+
+
+def combo_mapped(data, editable=False, transform=None, parent=None):
+    """Create a readonly (by default) combobox from a list of items"""
+    widget = ComboBox(editable=editable, transform=transform, parent=parent)
+    for (k, v) in data:
+        widget.add_item(k, v)
+    return widget
 
 
 def textbrowser(text=None):
@@ -625,11 +652,29 @@ def create_button(text='', layout=None, tooltip=None, icon=None,
     return button
 
 
-def create_action_button(tooltip=None, icon=None):
-    button = QtWidgets.QPushButton()
+def tool_button():
+    """Create a flat border-less button"""
+    button = QtWidgets.QToolButton()
+    button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
     button.setCursor(Qt.PointingHandCursor)
     button.setFocusPolicy(Qt.NoFocus)
-    button.setFlat(True)
+    button.setStyleSheet("""
+        /* No borders */
+        QToolButton {
+            border: 0;
+            border-style: none;
+        }
+        /* Hide the menu indicator */
+        QToolButton::menu-indicator {
+            image: none;
+        }
+    """)
+    return button
+
+
+def create_action_button(tooltip=None, icon=None):
+    """Create a small toolbutton for use in dock title widgets"""
+    button = tool_button()
     if tooltip is not None:
         button.setToolTip(tooltip)
     if icon is not None:
@@ -660,24 +705,6 @@ def refresh_button(enabled=True, default=False):
                          enabled=enabled, default=default)
 
 
-def hide_button_menu_indicator(button):
-    """Hide the menu indicator icon on buttons"""
-
-    name = button.__class__.__name__
-    stylesheet = """
-        %(name)s::menu-indicator {
-            image: none;
-        }
-    """
-    if name == 'QPushButton':
-        stylesheet += """
-            %(name)s {
-                border-style: none;
-            }
-        """
-    button.setStyleSheet(stylesheet % dict(name=name))
-
-
 def checkbox(text='', tooltip='', checked=None):
     """Create a checkbox"""
     return _checkbox(QtWidgets.QCheckBox, text, tooltip, checked)
@@ -700,10 +727,10 @@ def _checkbox(cls, text, tooltip, checked):
     return widget
 
 
-class DockTitleBarWidget(QtWidgets.QWidget):
+class DockTitleBarWidget(QtWidgets.QFrame):
 
     def __init__(self, parent, title, stretch=True):
-        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QFrame.__init__(self, parent)
         self.setAutoFillBackground(True)
         self.label = qlabel = QtWidgets.QLabel(title, self)
         qfont = qlabel.font()
@@ -765,6 +792,8 @@ def create_dock(title, parent, stretch=True, widget=None, fn=None):
         parent.dockwidgets.append(dock)
     if fn:
         widget = fn(dock)
+        assert isinstance(widget, QtWidgets.QFrame),\
+            "Docked widget has to be a QFrame"
     if widget:
         dock.setWidget(widget)
     return dock
@@ -810,11 +839,7 @@ def add_menu(title, parent):
 
 
 def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
-    button = QtWidgets.QToolButton()
-    button.setAutoRaise(True)
-    button.setAutoFillBackground(True)
-    button.setCursor(Qt.PointingHandCursor)
-    button.setFocusPolicy(Qt.NoFocus)
+    button = tool_button()
     if icon is not None:
         button.setIcon(icon)
         button.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
@@ -994,6 +1019,18 @@ def rgb_css(color):
 def rgb_hex(color):
     """Convert a QColor into a hex aabbcc string"""
     return '%02x%02x%02x' % (color.red(), color.green(), color.blue())
+
+
+def hsl(h, s, l):
+    return QtGui.QColor.fromHslF(
+        utils.clamp(h, 0.0, 1.0),
+        utils.clamp(s, 0.0, 1.0),
+        utils.clamp(l, 0.0, 1.0)
+    )
+
+
+def hsl_css(h, s, l):
+    return rgb_css(hsl(h, s, l))
 
 
 def make_format(fg=None, bg=None, bold=False):
