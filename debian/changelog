@@ -1,3 +1,10 @@
+git-cola (3.5-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update Standards-Version to 4.4.0 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sun, 29 Sep 2019 18:04:14 +0000
+
 git-cola (3.4-1) unstable; urgency=medium
 
   * New upstream release.

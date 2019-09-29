@@ -1,16 +1,15 @@
 """The only file where icon filenames are mentioned"""
 
 from __future__ import absolute_import, division, unicode_literals
-import mimetypes
 import os
 
 from qtpy import QtGui
 from qtpy import QtWidgets
 
+from . import core
 from . import qtcompat
 from . import resources
 from .compat import ustr
-from .decorators import memoize
 from .i18n import N_
 
 
@@ -67,7 +66,6 @@ def name_from_basename(basename):
     return 'icons:' + basename
 
 
-@memoize
 def from_name(name):
     """Return a QIcon from an absolute filename or "icons:basename.svg" name"""
     return QtGui.QIcon(name)
@@ -78,7 +76,6 @@ def icon(basename):
     return from_name(name_from_basename(basename))
 
 
-@memoize
 def from_theme(name, fallback=None):
     """Grab an icon from the current theme with a fallback
 
@@ -98,7 +95,7 @@ def from_theme(name, fallback=None):
 
 def basename_from_filename(filename):
     """Returns an icon name based on the filename"""
-    mimetype = mimetypes.guess_type(filename)[0]
+    mimetype = core.guess_mimetype(filename)
     if mimetype is not None:
         mimetype = mimetype.lower()
         for filetype, icon_name in KNOWN_FILE_MIME_TYPES:

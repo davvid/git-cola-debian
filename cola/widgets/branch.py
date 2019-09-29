@@ -63,6 +63,8 @@ class AsyncGitActionTask(qtutils.Task):
 
 
 class BranchesWidget(QtWidgets.QFrame):
+    updated = Signal()
+
     def __init__(self, context, parent):
         QtWidgets.QFrame.__init__(self, parent)
         self.model = model = context.model
@@ -101,7 +103,9 @@ class BranchesWidget(QtWidgets.QFrame):
         qtutils.connect_button(self.filter_button, self.toggle_filter)
         qtutils.connect_button(
             self.sort_order_button, cmds.run(cmds.CycleReferenceSort, context))
-        model.add_observer(model.message_ref_sort_changed, self.refresh)
+
+        self.updated.connect(self.refresh, Qt.QueuedConnection)
+        model.add_observer(model.message_refs_updated, self.updated.emit)
 
     def toggle_filter(self):
         shown = not self.filter_widget.isVisible()
@@ -136,7 +140,7 @@ class BranchesTreeWidget(standard.TreeWidget):
         self.setExpandsOnDoubleClick(False)
 
         self.tree_helper = BranchesTreeHelper()
-        self.git_helper = GitHelper(model.git)
+        self.git_helper = GitHelper(context)
         self.current_branch = None
 
         self.runtask = qtutils.RunTask(parent=self)
@@ -389,7 +393,7 @@ class BranchesTreeWidget(standard.TreeWidget):
             kwarg = {}
         task = AsyncGitActionTask(self, self.git_helper, action, args, kwarg,
                                   refresh_tree, update_remotes)
-        progress = standard.ProgressDialog(
+        progress = standard.progress(
             N_('Executing action %s') % action, N_('Updating'), self)
         self.runtask.start(task, progress=progress,
                            finish=self.git_action_completed)
@@ -434,28 +438,21 @@ class BranchesTreeWidget(standard.TreeWidget):
                     'pull', [remote, branch_name], refresh_tree=True)
 
     def delete_action(self):
-        title = N_('Delete Branch')
-        question = N_('Delete selected branch?')
-        info = N_('The branch will be no longer available.')
-        ok_btn = N_('Delete Branch')
-
         branch = self.tree_helper.get_full_name(self.selected_item(), SLASH)
+        if branch == self.current_branch:
+            return
 
-        if (branch != self.current_branch and
-                Interaction.confirm(title, question, info, ok_btn)):
-            remote = False
-            root = self.tree_helper.get_root(self.selected_item())
-            if NAME_REMOTE_BRANCH == root.name:
-                remote = True
+        remote = False
+        root = self.tree_helper.get_root(self.selected_item())
+        if NAME_REMOTE_BRANCH == root.name:
+            remote = True
 
-            if remote:
-                remote, branch_name = gitcmds.parse_remote_branch(branch)
-                if remote and branch_name:
-                    self.git_action_async(
-                        'delete_remote', [remote, branch_name],
-                        update_remotes=True)
-            else:
-                self.git_action_async('delete_local', [branch])
+        if remote:
+            remote, branch = gitcmds.parse_remote_branch(branch)
+            if remote and branch:
+                cmds.do(cmds.DeleteRemoteBranch, self.context, remote, branch)
+        else:
+            cmds.do(cmds.DeleteBranch, self.context, branch)
 
     def merge_action(self):
         branch = self.tree_helper.get_full_name(self.selected_item(), SLASH)
@@ -609,8 +606,9 @@ class BranchesTreeHelper(object):
 
 class GitHelper(object):
 
-    def __init__(self, git):
-        self.git = git
+    def __init__(self, context):
+        self.context = context
+        self.git = context.git
 
     def log(self, origin):
         return self.git.log(origin, oneline=True)
@@ -620,12 +618,6 @@ class GitHelper(object):
 
     def pull(self, remote, branch):
         return self.git.pull(remote, branch, no_ff=True, verbose=True)
-
-    def delete_remote(self, remote, branch):
-        return self.git.push(remote, branch, delete=True)
-
-    def delete_local(self, branch):
-        return self.git.branch(branch, D=True)
 
     def merge(self, branch):
         return self.git.merge(branch, no_commit=True)
