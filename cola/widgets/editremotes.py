@@ -129,6 +129,7 @@ class RemoteEditor(standard.Dialog):
         thread = self.info_thread
         thread.result.connect(self.set_info, type=Qt.QueuedConnection)
 
+        # pylint: disable=no-member
         self.editor.remote_name.returnPressed.connect(self.save)
         self.editor.remote_url.returnPressed.connect(self.save)
         self.editor.valid.connect(self.editor_valid)
@@ -256,7 +257,9 @@ class RemoteEditor(standard.Dialog):
 
     def add(self):
         if add_remote(self.context, self):
-            self.refresh()
+            self.refresh(select=False)
+            # Newly added remote will be last; select it
+            self.select_remote(len(self.remote_list) - 1)
 
     def delete(self):
         remote = qtutils.selected_item(self.remotes, self.remote_list)
@@ -350,13 +353,8 @@ class RemoteInfoThread(QtCore.QThread):
         if remote is None:
             return
         git = self.context.git
-        _, out, err = git.remote('show', remote)
-        # This call takes a long time and we may have selected a
-        # different remote...
-        if remote == self.remote:
-            self.result.emit(out + err)
-        else:
-            self.run()
+        _, out, err = git.remote('show', '-n', remote)
+        self.result.emit(out + err)
 
 
 class AddRemoteDialog(QtWidgets.QDialog):
@@ -440,6 +438,7 @@ class RemoteWidget(QtWidgets.QWidget):
         self._layout = qtutils.vbox(defs.margin, defs.spacing, self._form)
         self.setLayout(self._layout)
 
+        # pylint: disable=no-member
         self.remote_name.textChanged.connect(self.validate)
         self.remote_url.textChanged.connect(self.validate)
         qtutils.connect_button(self.open_button, self.open_repo)

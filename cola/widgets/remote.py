@@ -8,7 +8,6 @@ from qtpy.QtCore import Qt
 
 from ..i18n import N_
 from ..interaction import Interaction
-from ..models import main
 from ..qtutils import connect_button
 from ..qtutils import get
 from .. import gitcmds
@@ -42,15 +41,8 @@ def pull(context):
 def run(context, RemoteDialog):
     """Launches fetch/push/pull dialogs."""
     # Copy global stuff over to speedup startup
-    model = main.MainModel(context)
-    global_model = context.model
-    model.currentbranch = global_model.currentbranch
-    model.local_branches = global_model.local_branches
-    model.remote_branches = global_model.remote_branches
-    model.tags = global_model.tags
-    model.remotes = global_model.remotes
     parent = qtutils.active_window()
-    view = RemoteDialog(context, model, parent=parent)
+    view = RemoteDialog(context, parent=parent)
     view.show()
     return view
 
@@ -113,19 +105,18 @@ class ActionTask(qtutils.Task):
 class RemoteActionDialog(standard.Dialog):
     """Interface for performing remote operations"""
 
-    def __init__(self, context, model, action, title, parent=None, icon=None):
+    def __init__(self, context, action, title, parent=None, icon=None):
         """Customize the dialog based on the remote action"""
         standard.Dialog.__init__(self, parent=parent)
-
-        self.context = context
-        self.model = model
-        self.action = action
-        self.filtered_remote_branches = []
-        self.selected_remotes = []
-
         self.setWindowTitle(title)
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
+
+        self.context = context
+        self.model = model = context.model
+        self.action = action
+        self.filtered_remote_branches = []
+        self.selected_remotes = []
 
         self.runtask = qtutils.RunTask(parent=self)
         self.progress = standard.progress(title, N_('Updating'), self)
@@ -134,16 +125,17 @@ class RemoteActionDialog(standard.Dialog):
         self.local_label.setText(N_('Local Branch'))
 
         self.local_branch = QtWidgets.QLineEdit()
-        qtutils.add_completer(self.local_branch, self.model.local_branches)
+        qtutils.add_completer(self.local_branch, model.local_branches)
 
         self.local_branches = QtWidgets.QListWidget()
-        self.local_branches.addItems(self.model.local_branches)
+        self.local_branches.addItems(model.local_branches)
 
         self.remote_label = QtWidgets.QLabel()
         self.remote_label.setText(N_('Remote'))
 
         self.remote_name = QtWidgets.QLineEdit()
-        qtutils.add_completer(self.remote_name, self.model.remotes)
+        qtutils.add_completer(self.remote_name, model.remotes)
+        # pylint: disable=no-member
         self.remote_name.editingFinished.connect(self.remote_name_edited)
         self.remote_name.textEdited.connect(lambda x: self.remote_name_edited())
 
@@ -151,17 +143,17 @@ class RemoteActionDialog(standard.Dialog):
         if action == PUSH:
             mode = QtWidgets.QAbstractItemView.ExtendedSelection
             self.remotes.setSelectionMode(mode)
-        self.remotes.addItems(self.model.remotes)
+        self.remotes.addItems(model.remotes)
 
         self.remote_branch_label = QtWidgets.QLabel()
         self.remote_branch_label.setText(N_('Remote Branch'))
 
         self.remote_branch = QtWidgets.QLineEdit()
-        remote_branches = strip_remotes(self.model.remote_branches)
+        remote_branches = strip_remotes(model.remote_branches)
         qtutils.add_completer(self.remote_branch, remote_branches)
 
         self.remote_branches = QtWidgets.QListWidget()
-        self.remote_branches.addItems(self.model.remote_branches)
+        self.remote_branches.addItems(model.remote_branches)
 
         text = N_('Prompt on creation')
         tooltip = N_('Prompt when pushing creates new remote branches')
@@ -269,7 +261,7 @@ class RemoteActionDialog(standard.Dialog):
 
         default_remote = gitcmds.upstream_remote(context) or 'origin'
 
-        remotes = self.model.remotes
+        remotes = model.remotes
         if default_remote in remotes:
             idx = remotes.index(default_remote)
             if self.select_remote(idx):
@@ -283,6 +275,7 @@ class RemoteActionDialog(standard.Dialog):
         self.set_field_defaults()
 
         # Setup signals and slots
+        # pylint: disable=no-member
         self.remotes.itemSelectionChanged.connect(self.update_remotes)
 
         local = self.local_branches
@@ -636,10 +629,9 @@ class RemoteActionDialog(standard.Dialog):
 class Fetch(RemoteActionDialog):
     """Fetch from remote repositories"""
 
-    def __init__(self, context, model, parent=None):
+    def __init__(self, context, parent=None):
         super(Fetch, self).__init__(
-            context, model, FETCH, N_('Fetch'),
-            parent=parent, icon=icons.repo())
+            context, FETCH, N_('Fetch'), parent=parent, icon=icons.repo())
 
     def export_state(self):
         """Export persistent settings"""
@@ -661,9 +653,9 @@ class Fetch(RemoteActionDialog):
 class Push(RemoteActionDialog):
     """Push to remote repositories"""
 
-    def __init__(self, context, model, parent=None):
+    def __init__(self, context, parent=None):
         super(Push, self).__init__(
-            context, model, PUSH, N_('Push'), parent=parent, icon=icons.push())
+            context, PUSH, N_('Push'), parent=parent, icon=icons.push())
 
     def export_state(self):
         """Export persistent settings"""
@@ -690,9 +682,9 @@ class Push(RemoteActionDialog):
 class Pull(RemoteActionDialog):
     """Pull from remote repositories"""
 
-    def __init__(self, context, model, parent=None):
+    def __init__(self, context, parent=None):
         super(Pull, self).__init__(
-            context, model, PULL, N_('Pull'), parent=parent, icon=icons.pull())
+            context, PULL, N_('Pull'), parent=parent, icon=icons.pull())
 
     def apply_state(self, state):
         """Apply persistent settings"""

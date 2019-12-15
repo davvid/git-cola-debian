@@ -1,5 +1,4 @@
 """The only file where icon filenames are mentioned"""
-
 from __future__ import absolute_import, division, unicode_literals
 import os
 
@@ -171,7 +170,7 @@ def compare():
 
 
 def configure():
-    return from_theme('configure', fallback='gear.svg')
+    return icon('gear.svg')
 
 
 def copy():

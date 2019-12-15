@@ -2,9 +2,9 @@ Source: git-cola
 Section: vcs
 Priority: optional
 Maintainer: Laszlo Boszormenyi (GCS) <gcs@debian.org>
-Build-Depends: debhelper (>= 11), dh-python, python3-nose
+Build-Depends: debhelper-compat (= 11), dh-python, python3-nose
 Build-Depends-Indep: python3, python3-qtpy, python3-sphinx, rsync, git-core, gettext, asciidoc (>= 8.2), xmlto
-Standards-Version: 4.4.0
+Standards-Version: 4.4.1
 Homepage: https://git-cola.github.com/
 #Vcs-Git: git://git.debian.org/git/collab-maint/git-cola.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/git-cola.git
@@ -12,7 +12,7 @@ Homepage: https://git-cola.github.com/
 Package: git-cola
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}, python3-distutils, python3-qtpy, python3-sip, git-core, libjs-jquery, libjs-underscore, libjs-modernizr
-Recommends: gitk, xxdiff
+Recommends: gitk, xxdiff, tclsh
 Suggests: python3-pyinotify, python3-simplejson
 Description: highly caffeinated git GUI
  Git-cola is a git GUI optimized for working with the git index. 

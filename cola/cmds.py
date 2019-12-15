@@ -27,6 +27,7 @@ from .git import MISSING_BLOB_OID
 from .i18n import N_
 from .interaction import Interaction
 from .models import prefs
+from .settings import Settings
 
 
 class UsageError(Exception):
@@ -573,7 +574,11 @@ class Commit(ResetMode):
             core.unlink(tmp_file)
         if status == 0:
             super(Commit, self).do()
-            self.model.set_commitmsg(self.new_commitmsg)
+            if context.cfg.get(prefs.AUTOTEMPLATE):
+                template_loader = LoadCommitMessageFromTemplate(context)
+                template_loader.do()
+            else:
+                self.model.set_commitmsg(self.new_commitmsg)
 
         title = N_('Commit failed')
         Interaction.command(title, 'git commit', status, out, err)
@@ -599,22 +604,28 @@ class CycleReferenceSort(ContextCommand):
 
 
 class Ignore(ContextCommand):
-    """Add files to .gitignore"""
+    """Add files to an exclusion file"""
 
-    def __init__(self, context, filenames):
+    def __init__(self, context, filenames, local=False):
         super(Ignore, self).__init__(context)
         self.filenames = list(filenames)
+        self.local = local
 
     def do(self):
         if not self.filenames:
             return
         new_additions = '\n'.join(self.filenames) + '\n'
         for_status = new_additions
-        if core.exists('.gitignore'):
-            current_list = core.read('.gitignore')
+        if self.local:
+            filename = os.path.join('.git', 'info', 'exclude')
+        else:
+            filename = '.gitignore'
+        if core.exists(filename):
+            current_list = core.read(filename)
             new_additions = current_list.rstrip() + '\n' + new_additions
-        core.write('.gitignore', new_additions)
-        Interaction.log_status(0, 'Added to .gitignore:\n%s' % for_status, '')
+        core.write(filename, new_additions)
+        Interaction.log_status(0, 'Added to %s:\n%s' % (filename, for_status),
+                               '')
         self.model.update_file_status()
 
 
@@ -1551,7 +1562,16 @@ class OpenRepo(EditModel):
             self.fsmonitor.stop()
             self.fsmonitor.start()
             self.model.update_status()
-            self.model.set_commitmsg(self.new_commitmsg)
+            # Check if template should be loaded
+            if self.context.cfg.get(prefs.AUTOTEMPLATE):
+                template_loader = LoadCommitMessageFromTemplate(self.context)
+                template_loader.do()
+            else:
+                self.model.set_commitmsg(self.new_commitmsg)
+            settings = Settings()
+            settings.load()
+            settings.add_recent(self.repo_path, prefs.maxrecent(self.context))
+            settings.save()
             super(OpenRepo, self).do()
         else:
             self.model.set_worktree(old_repo)

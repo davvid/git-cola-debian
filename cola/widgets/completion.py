@@ -110,6 +110,7 @@ class CompletionLineEdit(HintedLineEdit):
         self._delegate = HighlightDelegate(self)
         completer.popup().setItemDelegate(self._delegate)
 
+        # pylint: disable=no-member
         self.textChanged.connect(self._text_changed)
         self._completer.activated.connect(self.choose_completion)
         self._completion_model.updated.connect(self._completions_updated,
@@ -519,9 +520,11 @@ class GitCompletionModel(CompletionModel):
 
     def __init__(self, context, parent):
         CompletionModel.__init__(self, context, parent)
-        self.main_model = model = context.model
-        msg = model.message_updated
-        model.add_observer(msg, self.emit_model_updated)
+        self.context = context
+        model = context.model
+        model.add_observer(model.message_updated, self.emit_model_updated)
+        # pylint: disable=no-member
+        self.destroyed.connect(self.dispose)
 
     def gather_matches(self, case_sensitive):
         refs = filter_matches(self.match_text, self.matches(), case_sensitive,
@@ -540,7 +543,7 @@ class GitCompletionModel(CompletionModel):
 
     def dispose(self):
         super(GitCompletionModel, self).dispose()
-        self.main_model.remove_observer(self.emit_model_updated)
+        self.context.model.remove_observer(self.emit_model_updated)
 
 
 class GitRefCompletionModel(GitCompletionModel):
@@ -548,9 +551,11 @@ class GitRefCompletionModel(GitCompletionModel):
 
     def __init__(self, context, parent):
         GitCompletionModel.__init__(self, context, parent)
+        model = context.model
+        model.add_observer(model.message_refs_updated, self.emit_model_updated)
 
     def matches(self):
-        model = self.main_model
+        model = self.context.model
         return model.local_branches + model.remote_branches + model.tags
 
 
@@ -578,7 +583,7 @@ class GitCreateBranchCompletionModel(GitCompletionModel):
     """Completer for naming new branches"""
 
     def matches(self):
-        model = self.main_model
+        model = self.context.model
         potential_branches = find_potential_branches(model)
         return (model.local_branches +
                 potential_branches +
@@ -589,7 +594,7 @@ class GitCheckoutBranchCompletionModel(GitCompletionModel):
     """Completer for git checkout <branch>"""
 
     def matches(self):
-        model = self.main_model
+        model = self.context.model
         potential_branches = find_potential_branches(model)
         return (model.local_branches +
                 potential_branches +
@@ -604,7 +609,7 @@ class GitBranchCompletionModel(GitCompletionModel):
         GitCompletionModel.__init__(self, context, parent)
 
     def matches(self):
-        model = self.main_model
+        model = self.context.model
         return model.local_branches
 
 
@@ -615,7 +620,7 @@ class GitRemoteBranchCompletionModel(GitCompletionModel):
         GitCompletionModel.__init__(self, context, parent)
 
     def matches(self):
-        model = self.main_model
+        model = self.context.model
         return model.remote_branches
 
 
@@ -643,7 +648,7 @@ class GitStatusFilterCompletionModel(GitPathCompletionModel):
         GitPathCompletionModel.__init__(self, context, parent)
 
     def candidate_paths(self):
-        model = self.main_model
+        model = self.context.model
         return (model.staged + model.unmerged +
                 model.modified + model.untracked)
 

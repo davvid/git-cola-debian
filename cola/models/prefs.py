@@ -1,5 +1,4 @@
 from __future__ import division, absolute_import, unicode_literals
-
 import sys
 
 from .. import core
@@ -9,6 +8,7 @@ from .. import utils
 from ..cmd import Command
 
 
+AUTOTEMPLATE = 'cola.autoloadcommittemplate'
 BACKGROUND_EDITOR = 'cola.backgroundeditor'
 BLAME_VIEWER = 'cola.blameviewer'
 BOLD_HEADERS = 'cola.boldheaders'
@@ -48,6 +48,7 @@ HIDPI = 'cola.hidpi'
 class Defaults(object):
     """Read-only class for holding defaults that get overridden"""
     # These should match Git's defaults for git-defined values.
+    autotemplate = False
     blame_viewer = 'git gui blame'
     bold_headers = False
     check_conflicts = True

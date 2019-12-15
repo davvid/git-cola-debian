@@ -48,22 +48,24 @@ class SubmodulesWidget(QtWidgets.QFrame):
                                cmds.run(cmds.OpenParentRepo, context))
 
 
+# pylint: disable=too-many-ancestors
 class SubmodulesTreeWidget(standard.TreeWidget):
     updated = Signal()
 
     def __init__(self, context, parent=None):
         standard.TreeWidget.__init__(self, parent=parent)
 
+        model = context.model
         self.context = context
-        self.main_model = model = context.model
 
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.setHeaderHidden(True)
         # UI
         self._active = False
         self.list_helper = BuildItem()
-        self.itemDoubleClicked.connect(self.tree_double_clicked)
         # Connections
+        # pylint: disable=no-member
+        self.itemDoubleClicked.connect(self.tree_double_clicked)
         self.updated.connect(self.refresh, type=Qt.QueuedConnection)
         model.add_observer(model.message_submodules_changed,
                            self.updated.emit)
@@ -72,10 +74,11 @@ class SubmodulesTreeWidget(standard.TreeWidget):
         if not self._active:
             return
 
-        items = [self.list_helper.get(entry) for entry in
-                 self.main_model.submodules_list]
+        submodules = self.context.model.submodules_list
+        items = [self.list_helper.get(entry) for entry in submodules]
         self.clear()
-        self.addTopLevelItems(items)
+        if items:
+            self.addTopLevelItems(items)
 
     def showEvent(self, event):
         """Defer updating widgets until the widget is visible"""

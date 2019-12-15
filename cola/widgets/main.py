@@ -419,6 +419,9 @@ class MainView(standard.MainWindow):
         self.lock_layout_action = add_action_bool(
             self, N_('Lock Layout'), self.set_lock_layout, False)
 
+        self.reset_layout_action = add_action(
+            self, N_('Reset Layout'), self.reset_layout)
+
         # Create the application menu
         self.menubar = QtWidgets.QMenuBar(self)
         self.setMenuBar(self.menubar)
@@ -557,6 +560,7 @@ class MainView(standard.MainWindow):
 
         # View Menu
         self.view_menu = add_menu(N_('View'), self.menubar)
+        # pylint: disable=no-member
         self.view_menu.aboutToShow.connect(
             lambda: self.build_view_menu(self.view_menu))
         self.setup_dockwidget_view_menu()
@@ -713,6 +717,7 @@ class MainView(standard.MainWindow):
 
         menu.addSeparator()
         menu.addAction(self.lock_layout_action)
+        menu.addAction(self.reset_layout_action)
 
         return menu
 
@@ -727,9 +732,13 @@ class MainView(standard.MainWindow):
         context = self.context
         menu = self.open_recent_menu
         menu.clear()
+        worktree = self.git.worktree()
         for entry in settings.recent:
-            name = entry['name']
             directory = entry['path']
+            if directory == worktree:
+                # Omit the current worktree from the "Open Recent" menu.
+                continue
+            name = entry['name']
             text = '%s %s %s' % (name, uchr(0x2192), directory)
             menu.addAction(text, cmds.run(cmd, context, directory))
 

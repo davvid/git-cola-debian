@@ -152,6 +152,13 @@ class MainWindowMixin(WidgetMixin):
         self.lock_layout = False
         self.widget_version = 0
         qtcompat.set_common_dock_options(self)
+        self.default_state = None
+
+    def init_state(self, settings, callback, *args, **kwargs):
+        """Save the initial state before calling the parent initializer"""
+        self.default_state = self.saveState(self.widget_version)
+        super(MainWindowMixin, self).init_state(settings, callback, *args,
+                                                **kwargs)
 
     def export_state(self):
         """Exports data for save/restore"""
@@ -186,6 +193,9 @@ class MainWindowMixin(WidgetMixin):
 
         return result
 
+    def reset_layout(self):
+        self.restoreState(self.default_state, self.widget_version)
+
     def set_lock_layout(self, lock_layout):
         self.lock_layout = lock_layout
         self.update_dockwidget_lock_state()
@@ -207,6 +217,7 @@ class MainWindowMixin(WidgetMixin):
             widget.titleBarWidget().update_tooltips()
 
 
+# pylint: disable=too-many-ancestors
 class ListWidget(QtWidgets.QListWidget):
     """QListWidget with vim j/k navigation hotkeys"""
 
@@ -498,18 +509,27 @@ class Dialog(WidgetMixin, QtWidgets.QDialog):
 
     def accept(self):
         self.save_settings()
+        self.dispose()
         return self.Base.accept(self)
 
     def reject(self):
         self.save_settings()
+        self.dispose()
         return self.Base.reject(self)
+
+    # pylint: disable=no-self-use
+    def dispose(self):
+        """Extension method for model deregistration in sub-classes"""
+        return
 
     def close(self):
         """save_settings() is handled by accept() and reject()"""
+        self.dispose()
         self.Base.close(self)
 
     def closeEvent(self, event):
         """save_settings() is handled by accept() and reject()"""
+        self.dispose()
         self.Base.closeEvent(self, event)
 
 
@@ -521,6 +541,7 @@ class MainWindow(MainWindowMixin, QtWidgets.QMainWindow):
         MainWindowMixin.__init__(self)
 
 
+# pylint: disable=too-many-ancestors
 class TreeView(QtWidgets.QTreeView):
     Mixin = TreeMixin
 
@@ -554,6 +575,7 @@ class TreeView(QtWidgets.QTreeView):
         return self._mixin.set_column_widths(widths)
 
 
+# pylint: disable=too-many-ancestors
 class TreeWidget(QtWidgets.QTreeWidget):
     Mixin = TreeMixin
 
@@ -587,6 +609,7 @@ class TreeWidget(QtWidgets.QTreeWidget):
         return self._mixin.set_column_widths(widths)
 
 
+# pylint: disable=too-many-ancestors
 class DraggableTreeWidget(TreeWidget):
     Mixin = DraggableTreeMixin
     items_moved = Signal(object)
