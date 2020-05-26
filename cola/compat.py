@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, unicode_literals
 import os
 import sys
+
 try:
     import urllib2 as parse  # noqa
 except ImportError:
@@ -17,8 +18,10 @@ ENCODING = 'utf-8'
 
 
 if PY3:
+
     def bstr(x, encoding=ENCODING):
         return bytes(x, encoding=encoding)
+
 
 elif PY26_PLUS:
     bstr = bytes
@@ -27,6 +30,7 @@ else:
     bstr = str
 
 if PY3:
+
     def bchr(i):
         return bytes([i])
 
@@ -62,3 +66,23 @@ def unsetenv(key):
     os.environ.pop(key, None)
     if hasattr(os, 'unsetenv'):
         os.unsetenv(key)
+
+
+def no_op(value):
+    """Return the value as-is"""
+    return value
+
+
+def byte_offset_to_int_converter():
+    """Return a function to convert byte string offsets into ints
+
+    Indexing into python3 bytes returns ints, Python2 returns str.
+    Thus, on Python2 we need to use `ord()` to convert the byte into
+    an integration.  It's already an int on Python3, so we use no_op there.
+
+    """
+    if PY2:
+        result = ord
+    else:
+        result = no_op
+    return result

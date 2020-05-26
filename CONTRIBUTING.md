@@ -9,12 +9,20 @@ to this software.
 
 * `make check`
 
+## Write tests
+
+When adding new features or fixing defects, extend the unit tests to
+cover the new behavior.  See the `tests/` directory for examples.
+Find an appropriate test suite and extend it whenever possible.
+
 ## Be picky about whitespace
 
 This project is very picky about code style.
 The style here is the standard Python PEP-8 style:
 
 http://www.python.org/dev/peps/pep-0008/
+
+* Use the `make format` command to format the source code using `black`.
 
 * Follow the same style as the existing code.
 
@@ -163,7 +171,7 @@ To regenerate `git-cola.pot` and update `.po` files with new strings run:
 This will update `.po` files with untranslated strings which translators can
 use to translate `git-cola`.
 
-Untranslatted strings are denoted by an empty "" string.
+Untranslated strings are denoted by an empty "" string.
 
 The `.mo` files have to be regenerated after each change by running:
 

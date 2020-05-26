@@ -10,7 +10,7 @@ all::
 # make flake8                   # python style checks
 # make pylint [color=1]         # run pylint; color=1 colorizes output
 # make pylint3k [color=1]       # run python2+3 compatibility checks
-# make format file=<filename>   # run the yapf python formatter on <filename>
+# make format                   # run the black python formatter
 # make check [color=1]          # run test, doc, flake8, pylint3k, and pylint
 # make check file=<filename>    # run checks on <filename>
 #
@@ -31,10 +31,12 @@ all::
 # when invoking make.
 #
 # The external commands used by this Makefile are...
+BLACK = black
 CTAGS = ctags
 CP = cp
 FIND = find
 FLAKE8 = flake8
+GREP = grep
 GIT = git
 GZIP = gzip
 LN = ln
@@ -44,13 +46,13 @@ MKDIR_P = mkdir -p
 PIP = pip
 PYLINT = pylint
 PYTHON = python
-PYTEST ?= $(PYTHON) -m pytest
+PYTEST = $(PYTHON) -m pytest
 RM = rm -f
 RM_R = rm -fr
 RMDIR = rmdir
 TAR = tar
-TOX ?= tox
-YAPF = yapf
+TOX = tox
+XARGS = xargs
 
 # Flags
 # -----
@@ -67,9 +69,6 @@ else
 endif
 
 FLAKE8_FLAGS = $(VERBOSE)
-FLAKE8_FLAGS += --max-line-length=80
-FLAKE8_FLAGS += --format=pylint
-FLAKE8_FLAGS += --doctests
 
 PYTEST_FLAGS = $(QUIET) $(TEST_VERBOSE)
 PYTEST_FLAGS += --doctest-modules
@@ -79,6 +78,7 @@ ifneq ($(uname_S),Linux)
 endif
 
 TOX_FLAGS = $(VERBOSE_SHORT) --develop --skip-missing-interpreters
+TOX_ENVS ?= py{27,34,35,36,37},pylint{2,36,37}
 
 PYLINT_FLAGS = --rcfile=.pylintrc
 PYLINT_FLAGS += --score=no
@@ -139,17 +139,18 @@ PYTHON_SOURCES += setup.py
 # User customizations
 -include config.mak
 
-all:: build
 .PHONY: all
+all:: build
 
+.PHONY: build_version
 build_version:
 	@GIT=$(GIT) ./extras/generate-build-version.sh 2>/dev/null || true
-.PHONY: build_version
 
+.PHONY: build
 build: build_version
 	$(SETUP) $(QUIET) $(VERBOSE) $(build_args)
-.PHONY: build
 
+.PHONY: install
 install: all
 	$(SETUP) $(QUIET) $(VERBOSE) $(install_args)
 	$(MKDIR_P) "$(DESTDIR)$(hicolordir)"
@@ -158,38 +159,38 @@ install: all
 	$(LN_S) git-cola "$(DESTDIR)$(bindir)/cola"
 	$(RM_R) "$(DESTDIR)$(coladir)/git_cola"*
 	$(RM_R) git_cola.egg-info
-.PHONY: install
 
 # Maintainer's dist target
+.PHONY: dist
 dist:
 	$(GIT) archive --format=tar --prefix=$(cola_dist)/ HEAD^{tree} | \
 		$(GZIP) -f -9 - >$(cola_dist).tar.gz
-.PHONY: dist
 
+.PHONY: doc
 doc:
 	$(MAKE) -C share/doc/git-cola all
-.PHONY: doc
 
+.PHONY: html
 html:
 	$(MAKE) -C share/doc/git-cola html
-.PHONY: html
 
+.PHONY: man
 man:
 	$(MAKE) -C share/doc/git-cola man
-.PHONY: man
 
+.PHONY: install-doc
 install-doc:
 	$(MAKE) -C share/doc/git-cola install
-.PHONY: install-doc
 
+.PHONY: install-html
 install-html:
 	$(MAKE) -C share/doc/git-cola install-html
-.PHONY: install-html
 
+.PHONY: install-man
 install-man:
 	$(MAKE) -C share/doc/git-cola install-man
-.PHONY: install-man
 
+.PHONY: uninstall
 uninstall:
 	$(RM) "$(DESTDIR)$(prefix)"/bin/git-cola
 	$(RM) "$(DESTDIR)$(prefix)"/bin/git-dag
@@ -216,46 +217,46 @@ uninstall:
 	-$(RMDIR) "$(DESTDIR)$(prefix)"/share 2>/dev/null
 	-$(RMDIR) "$(DESTDIR)$(prefix)"/bin 2>/dev/null
 	-$(RMDIR) "$(DESTDIR)$(prefix)" 2>/dev/null
-.PHONY: uninstall
 
+.PHONY: test
 test: all
 	$(PYTEST) $(PYTEST_FLAGS) $(flags) $(PYTHON_DIRS)
-.PHONY: test
 
+.PHONY: coverage
 coverage:
 	$(PYTEST) $(PYTEST_FLAGS) --cov=cola $(flags) $(PYTHON_DIRS)
-.PHONY: coverage
 
+.PHONY: clean
 clean:
-	$(FIND) $(ALL_PYTHON_DIRS) -name '*.py[cod]' -print0 | xargs -0 rm -f
-	$(FIND) $(ALL_PYTHON_DIRS) -name __pycache__ -print0 | xargs -0 rm -rf
+	$(FIND) $(ALL_PYTHON_DIRS) -name '*.py[cod]' -print0 | $(XARGS) -0 $(RM)
+	$(FIND) $(ALL_PYTHON_DIRS) -name __pycache__ -print0 | $(XARGS) -0 $(RM_R)
 	$(RM_R) build dist tags git-cola.app
 	$(RM_R) share/locale
 	$(MAKE) -C share/doc/git-cola clean
-.PHONY: clean
 
-tags:
-	$(FIND) $(ALL_PYTHON_DIRS) -name '*.py' -print0 | xargs -0 $(CTAGS) -f tags
 .PHONY: tags
+tags:
+	$(FIND) $(ALL_PYTHON_DIRS) -name '*.py' -print0 | $($XARGS) -0 $(CTAGS) -f tags
 
 # Update i18n files
+.PHONY: i18n
 i18n:: pot
 i18n:: po
 i18n:: mo
-.PHONY: i18n
 
+.PHONY: pot
 pot:
 	$(SETUP) build_pot --build-dir=po --no-lang
-.PHONY: pot
 
+.PHONY: po
 po:
 	$(SETUP) build_pot --build-dir=po
-.PHONY: po
 
+.PHONY: mo
 mo:
 	$(SETUP) build_mo --force
-.PHONY: mo
 
+.PHONY: git-cola.app
 git-cola.app:
 	$(MKDIR_P) $(cola_app)/Contents/MacOS
 	$(MKDIR_P) $(cola_app)/Contents/Resources
@@ -264,37 +265,35 @@ git-cola.app:
 	$(CP) contrib/darwin/git-cola $(cola_app)/Contents/MacOS
 	$(CP) contrib/darwin/git-cola.icns $(cola_app)/Contents/Resources
 	$(MAKE) prefix=$(cola_app)/Contents/Resources install install-doc
-.PHONY: git-cola.app
 
+.PHONY: app-tarball
 app-tarball: git-cola.app
 	$(TAR) czf $(cola_dist).app.tar.gz $(cola_app_base)
-.PHONY: app-tarball
 
 # Preview the markdown using "make README.html"
 %.html: %.md
 	$(MARKDOWN) $< >$@
 
+.PHONY: flake8
 flake8:
 	$(FLAKE8) --version
 	$(FLAKE8) $(FLAKE8_FLAGS) $(flags) \
 	$(PYTHON_SOURCES) $(ALL_PYTHON_DIRS) contrib
-.PHONY: flake8
 
-pylint-version:
+.PHONY: pylint3k
+pylint3k:
 	$(PYLINT) --version
-.PHONY: pylint-version
-
-pylint3k: pylint-version
 	$(PYLINT) $(PYLINT_FLAGS) --py3k $(flags) \
 	$(PYTHON_SOURCES) $(ALL_PYTHON_DIRS)
-.PHONY: pylint3k
 
-pylint: pylint-version
+.PHONY: pylint
+pylint:
+	$(PYLINT) --version
 	$(PYLINT) $(PYLINT_FLAGS) $(flags) \
 	$(PYTHON_SOURCES) $(ALL_PYTHON_DIRS)
-.PHONY: pylint
 
 # Pre-commit checks
+.PHONY: check
 ifdef file
 check:
 	$(FLAKE8) $(FLAKE8_FLAGS) $(flags) $(file)
@@ -308,20 +307,26 @@ check:: flake8
 check:: pylint3k
 check:: pylint
 endif
-.PHONY: check
 
-format:
-	$(YAPF) --in-place $(flags) $(file)
 .PHONY: format
+format:
+	$(GIT) ls-files -- '*.py' | \
+	$(GREP) -v ^qtpy | \
+	$(XARGS) $(BLACK) --skip-string-normalization
+	$(BLACK) --skip-string-normalization $(PYTHON_SOURCES)
 
+.PHONY: requirements
 requirements:
 	$(PIP) install --requirement requirements/requirements.txt
-.PHONY: requirements
 
+.PHONY: requirements-dev
 requirements-dev:
 	$(PIP) install --requirement requirements/requirements-dev.txt
-.PHONY: requirements-dev
 
+.PHONY: tox
 tox:
 	$(TOX) $(TOX_FLAGS) $(flags)
-.PHONY: tox
+
+.PHONY: tox-check
+tox-check:
+	$(TOX) $(TOX_FLAGS) -e "$(TOX_ENVS)" $(flags)

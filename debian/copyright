@@ -12,18 +12,6 @@ Copyright: Copyright (C) 2012-     Laszlo Boszormenyi (GCS) <gcs@debian.org>,
  Copyright (C) 2008-2012 Iulian Udrea <iulian@linux.com>
 License: GPL-2
 
-Files: bin/git-difftool
-Copyright: Copyright 2006 Theodore Y. Ts'o
-License: GPL-2+
- This program is free software; you can redistribute it and/or modify it
- under the terms of the GNU General Public License version 2 or (at your
- option) any later version as published by the Free Software Foundation.
- .
- This program is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
- more details.
-
 Files: share/git-cola/icons/{binary.png,c.png,dir.png,generic.png,git.png,image.png,removed.png,script.png,untracked.png}
 Copyright: Copyright 2008 The Apache Software Foundation
 License: Apache-2.0

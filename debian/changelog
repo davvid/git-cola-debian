@@ -1,3 +1,10 @@
+git-cola (3.7-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update Standards-Version to 4.5.0 .
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Tue, 26 May 2020 20:15:59 +0200
+
 git-cola (3.6-1) unstable; urgency=medium
 
   * New upstream release.
