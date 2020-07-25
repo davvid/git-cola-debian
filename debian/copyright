@@ -32,11 +32,6 @@ License: public-domain
  No license required for any purpose; the work is not subject to copyright in
  any jurisdiction.
 
-Files: share/cola/icons/staged.png
-Copyright: Copyright 2003 Sean Parsons
-License: GPL-any
- Unspecified GPL license.
-
 Files: cola/git.py
 Copyright: Copyright 2008, 2009 Michael Trier <mtrier@gmail.com> and
  contributors

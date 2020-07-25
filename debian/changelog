@@ -1,3 +1,9 @@
+git-cola (3.7-2) unstable; urgency=medium
+
+  * Remove python3-sip dependency (closes: #966031).
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sat, 25 Jul 2020 11:15:00 +0200
+
 git-cola (3.7-1) unstable; urgency=medium
 
   * New upstream release.

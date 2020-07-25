@@ -11,7 +11,7 @@ Homepage: https://git-cola.github.com/
 
 Package: git-cola
 Architecture: all
-Depends: ${python3:Depends}, ${misc:Depends}, python3-distutils, python3-qtpy, python3-sip, git-core, libjs-jquery, libjs-underscore, libjs-modernizr
+Depends: ${python3:Depends}, ${misc:Depends}, python3-distutils, python3-qtpy, git-core, libjs-jquery, libjs-underscore, libjs-modernizr
 Recommends: gitk, xxdiff, tclsh
 Suggests: python3-pyinotify, python3-simplejson
 Description: highly caffeinated git GUI
