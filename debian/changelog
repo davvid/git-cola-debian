@@ -1,3 +1,12 @@
+git-cola (3.8-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Link HTML5 Shiv JavaScript files to their respective ones in
+    node-html5shiv.
+  * Update packaging bits.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sat, 26 Sep 2020 16:55:40 +0200
+
 git-cola (3.7-2) unstable; urgency=medium
 
   * Remove python3-sip dependency (closes: #966031).

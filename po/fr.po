@@ -14,10 +14,10 @@ msgstr ""
 "PO-Revision-Date: 2017-02-28 20:59+0100\n"
 "Last-Translator: Mickael Albertus <mickael.albertus@gmail.com>\n"
 "Language-Team: français <>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
 "X-Generator: Gtranslator 2.91.7\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
@@ -385,6 +385,12 @@ msgstr "Ajouter un élément distant"
 msgid "Add Separator"
 msgstr ""
 
+msgid "Add Submodule"
+msgstr ""
+
+msgid "Add Submodule..."
+msgstr ""
+
 msgid "Add Toolbar"
 msgstr ""
 
@@ -410,6 +416,9 @@ msgstr "Ajouter les patchs (+)"
 msgid "Add remote"
 msgstr "Ajouter un élément distant"
 
+msgid "Add this submodule?"
+msgstr ""
+
 msgid "Add to .gitignore"
 msgstr "Ajouter à .gitignore"
 
@@ -418,6 +427,12 @@ msgstr "Ajouter à Git Annex"
 
 msgid "Add to Git LFS"
 msgstr "Ajouter à Git LFS"
+
+msgid "Add to exclusions"
+msgstr ""
+
+msgid "Add to local .git/info/exclude"
+msgstr ""
 
 msgid "Additions"
 msgstr "Ajouts"
@@ -508,6 +523,12 @@ msgstr ""
 msgid "Auto-Wrap Lines"
 msgstr "Retour à la ligne automatique"
 
+msgid "Autocomplete Paths"
+msgstr ""
+
+msgid "Automatically Load Commit Message Template"
+msgstr ""
+
 msgid "Basic Regexp"
 msgstr "Regexp basic"
 
@@ -546,6 +567,9 @@ msgstr "La branche existe"
 
 msgid "Branch Name"
 msgstr "Nom de branche"
+
+msgid "Branch name"
+msgstr ""
 
 #, python-format
 msgid "Branch: %s"
@@ -611,8 +635,17 @@ msgstr "Impossible d'exécuter « %s » : veuillez configurer votre éditeur
 msgid "Changed Upstream"
 msgstr "Source modifiée"
 
+msgid "Check Published Commits when Amending"
+msgstr ""
+
 msgid "Check Spelling"
 msgstr "Vérifier l'orthographe"
+
+msgid "Check spelling"
+msgstr ""
+
+msgid "Check whether a commit has been published when amending"
+msgstr ""
 
 msgid "Checkout"
 msgstr "Emprunter"
@@ -779,6 +812,9 @@ msgstr "Créer un commit fusionné même quand la fusion se résout rapidement"
 msgid "Create a new remote branch?"
 msgstr "Créer nouvelle branche distante ?"
 
+msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
+msgstr ""
+
 msgid "Create..."
 msgstr "Créer..."
 
@@ -847,6 +883,10 @@ msgstr "Supprimer branche distante"
 msgid "Delete Remote Branch..."
 msgstr "Supprimer branche distante..."
 
+#, python-format
+msgid "Delete branch \"%s\"?"
+msgstr ""
+
 msgid "Delete remote"
 msgstr "Supprimer élément distant"
 
@@ -856,9 +896,6 @@ msgstr "Supprimer la branche distante « %s »"
 
 msgid "Delete remote?"
 msgstr "Supprimer la branche distante ?"
-
-msgid "Delete selected branch?"
-msgstr ""
 
 msgid "Delete toolbar"
 msgstr ""
@@ -872,6 +909,9 @@ msgstr "Suppression de « %s » a échoué"
 
 msgid "Deletions"
 msgstr "Suppressions"
+
+msgid "Depth"
+msgstr ""
 
 msgid "Detach"
 msgstr "Détacher"
@@ -911,6 +951,9 @@ msgstr ""
 
 msgid "Directory Exists"
 msgstr "Répertoire existant"
+
+msgid "Disable"
+msgstr ""
 
 msgid "Display Untracked Files"
 msgstr "Afficher les fichiers non suivis"
@@ -964,6 +1007,9 @@ msgstr "Adresse email"
 msgid "Email contributor"
 msgstr "Courriels des contributeurs"
 
+msgid "Enable path autocompletion in tools"
+msgstr ""
+
 msgid "Enabled"
 msgstr ""
 
@@ -1005,6 +1051,10 @@ msgid "Error creating remote \"%s\""
 msgstr "Erreur lors de la création de la branche distante « %s »"
 
 msgid "Error creating stash"
+msgstr ""
+
+#, python-format
+msgid "Error deleting branch \"%s\""
 msgstr ""
 
 #, python-format
@@ -1245,10 +1295,7 @@ msgstr ""
 msgid "Help - Find Files"
 msgstr "Aide - Trouver des fichiers"
 
-msgid "Help - git-xbase"
-msgstr ""
-
-msgid "Hide Details.."
+msgid "Help - git-cola-sequence-editor"
 msgstr ""
 
 msgid "High DPI"
@@ -1281,6 +1328,9 @@ msgstr ""
 msgid "Ignore filename or pattern"
 msgstr ""
 
+msgid "Ignore..."
+msgstr ""
+
 msgid "Include tags "
 msgstr "Inclure les marques"
 
@@ -1307,6 +1357,9 @@ msgstr "Rétablissement interactif"
 
 msgid "Invalid Revision"
 msgstr "Révision invalide"
+
+msgid "Japanese translation"
+msgstr ""
 
 msgid "Keep *.orig Merge Backups"
 msgstr "Conserver les sauvegardes de fusion *.orig"
@@ -1690,6 +1743,15 @@ msgstr "Refaire"
 msgid "Reduce commit history to minimum"
 msgstr ""
 
+msgid "Reference Repository"
+msgstr ""
+
+msgid "Reference URL"
+msgstr ""
+
+msgid "Reference repository to use when cloning (optional)"
+msgstr ""
+
 msgid "Refresh"
 msgstr "Rafraichir"
 
@@ -1777,6 +1839,9 @@ msgid "Reset Branch?"
 msgstr "Réinitialiser la branche ?"
 
 msgid "Reset Hard"
+msgstr ""
+
+msgid "Reset Layout"
 msgstr ""
 
 msgid "Reset Merge"
@@ -2048,9 +2113,6 @@ msgstr ""
 msgid "Shortcuts"
 msgstr "Raccourcis"
 
-msgid "Show Details..."
-msgstr ""
-
 msgid "Show Diffstat After Merge"
 msgstr "Montrer statistiques de diff après fusion"
 
@@ -2209,6 +2271,15 @@ msgstr "Statut"
 msgid "Stop tracking paths"
 msgstr "Stopper le suivi des chemins"
 
+msgid "Submodule URL (can be relative, ex: ../repo.git)"
+msgstr ""
+
+msgid "Submodule branch to track (optional)"
+msgstr ""
+
+msgid "Submodule path within the current repository (optional)"
+msgstr ""
+
 msgid "Submodules"
 msgstr ""
 
@@ -2273,6 +2344,12 @@ msgstr "L'expression de révision est vide."
 
 #, python-format
 msgid ""
+"The submodule will be added using\n"
+"\"%s\""
+msgstr ""
+
+#, python-format
+msgid ""
 "The submodule will be updated using\n"
 "\"%s\""
 msgstr ""
@@ -2333,6 +2410,9 @@ msgstr ""
 msgid "Toggle Enabled"
 msgstr ""
 
+msgid "Toggle image diff"
+msgstr ""
+
 msgid "Toggle the branches filter"
 msgstr ""
 
@@ -2347,6 +2427,9 @@ msgstr "Suivi de branche"
 
 msgid "Traditional Chinese (Taiwan) translation"
 msgstr "Traduction chinois traditionnel (Taïwan)"
+
+msgid "Translation"
+msgstr ""
 
 msgid "Translators"
 msgstr "Traducteurs"
@@ -2524,11 +2607,20 @@ msgstr "git-cola"
 msgid "git-cola diff"
 msgstr "git-cola diff"
 
+msgid "git://git.example.com/repo.git"
+msgstr ""
+
 msgid "grep result..."
 msgstr "Résultat de grep..."
 
 msgid "hotkeys.html"
 msgstr "hotkeys.html"
+
+msgid "path/to/submodule"
+msgstr ""
+
+msgid "title"
+msgstr ""
 
 msgid "unknown"
 msgstr "inconnu"

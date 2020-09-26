@@ -1,0 +1,18 @@
+Description: set prefix directory correctly
+ Static files like documentation is under /usr .
+Author: Laszlo Boszormenyi (GCS) <gcs@debian.org>
+Forwarded: no
+Last-Update: 2020-09-26
+
+---
+
+--- git-cola-3.8.orig/cola/resources.py
++++ git-cola-3.8/cola/resources.py
+@@ -28,6 +28,7 @@ else:
+     # this is the source tree
+     # __file__ = '$prefix/cola/__file__.py'
+     _prefix = dirname(dirname(_modpath))
++    _prefix = '/usr'
+ 
+ 
+ def prefix(*args):

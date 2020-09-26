@@ -9,10 +9,10 @@ msgstr ""
 "PO-Revision-Date: 2018-06-25 12:37-0300\n"
 "Last-Translator: Rafael Nascimento <rafaeln.dev@gmail.com>\n"
 "Language-Team: Brazillian <LL@li.org>\n"
-"Language: pt_BR\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: pt_BR\n"
 "X-Generator: Poedit 2.0.8\n"
 
 msgid ""
@@ -450,6 +450,12 @@ msgstr "Adicionar Remoto"
 msgid "Add Separator"
 msgstr "Adicionar Separador"
 
+msgid "Add Submodule"
+msgstr ""
+
+msgid "Add Submodule..."
+msgstr ""
+
 msgid "Add Toolbar"
 msgstr "Adicionar Barra de Ferramentas"
 
@@ -475,6 +481,9 @@ msgstr "Adicionar patches (+)"
 msgid "Add remote"
 msgstr "Adicionar remoto"
 
+msgid "Add this submodule?"
+msgstr ""
+
 msgid "Add to .gitignore"
 msgstr "Adicionar ao .gitignore"
 
@@ -483,6 +492,12 @@ msgstr "Adicionar ao Git Annex"
 
 msgid "Add to Git LFS"
 msgstr "Adicionar ao Git LFS"
+
+msgid "Add to exclusions"
+msgstr ""
+
+msgid "Add to local .git/info/exclude"
+msgstr ""
 
 msgid "Additions"
 msgstr "Adições"
@@ -573,6 +588,12 @@ msgstr ""
 msgid "Auto-Wrap Lines"
 msgstr "Auto-Quebra de Linhas"
 
+msgid "Autocomplete Paths"
+msgstr ""
+
+msgid "Automatically Load Commit Message Template"
+msgstr ""
+
 msgid "Basic Regexp"
 msgstr "Regexp Básico"
 
@@ -612,6 +633,9 @@ msgstr "Branch Existe"
 
 msgid "Branch Name"
 msgstr "Nome do Branch"
+
+msgid "Branch name"
+msgstr ""
 
 #, python-format
 msgid "Branch: %s"
@@ -679,11 +703,17 @@ msgstr "Não é possível executar \"%s\": por favor configure seu editor"
 msgid "Changed Upstream"
 msgstr "Upstream Modificado"
 
+msgid "Check Published Commits when Amending"
+msgstr ""
+
 msgid "Check Spelling"
 msgstr "Verificar Ortografia"
 
 msgid "Check spelling"
 msgstr "Verificar ortografia"
+
+msgid "Check whether a commit has been published when amending"
+msgstr ""
 
 msgid "Checkout"
 msgstr "Checkout"
@@ -851,6 +881,9 @@ msgstr "Criar um commit de merge mesmo se o merge resultar em fast-foward"
 msgid "Create a new remote branch?"
 msgstr "Criar um novo branch remoto?"
 
+msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
+msgstr ""
+
 msgid "Create..."
 msgstr "Criar..."
 
@@ -919,6 +952,10 @@ msgstr "Remover Branch Remoto"
 msgid "Delete Remote Branch..."
 msgstr "Remover Branch Remoto..."
 
+#, python-format
+msgid "Delete branch \"%s\"?"
+msgstr ""
+
 msgid "Delete remote"
 msgstr "Deletar Repositórios Remotos"
 
@@ -928,9 +965,6 @@ msgstr "Remover remoto \"%s\""
 
 msgid "Delete remote?"
 msgstr "Remover remoto?"
-
-msgid "Delete selected branch?"
-msgstr "Remover branch selecionada?"
 
 msgid "Delete toolbar"
 msgstr "Remover barra de ferramentas"
@@ -944,6 +978,9 @@ msgstr "A deleção de \"%s\" falhou"
 
 msgid "Deletions"
 msgstr "Deleções"
+
+msgid "Depth"
+msgstr ""
 
 msgid "Detach"
 msgstr "Desanexar"
@@ -984,6 +1021,9 @@ msgstr "Ferramenta de Comparação"
 
 msgid "Directory Exists"
 msgstr "Diretório Existe"
+
+msgid "Disable"
+msgstr ""
 
 msgid "Display Untracked Files"
 msgstr "Exibir Arquivos não Controlados"
@@ -1038,6 +1078,9 @@ msgstr "Endereço de Email"
 msgid "Email contributor"
 msgstr "Email do Contribuidor"
 
+msgid "Enable path autocompletion in tools"
+msgstr ""
+
 msgid "Enabled"
 msgstr "Habilitado"
 
@@ -1080,6 +1123,10 @@ msgstr "Erro criando o remoto \"%s\""
 
 msgid "Error creating stash"
 msgstr "Erro ao criar o stash"
+
+#, python-format
+msgid "Error deleting branch \"%s\""
+msgstr ""
 
 #, python-format
 msgid "Error deleting remote \"%s\""
@@ -1321,11 +1368,8 @@ msgstr "Ajuda - Ações de Copia Customizadas"
 msgid "Help - Find Files"
 msgstr "Ajuda - Procurar Arquivos"
 
-msgid "Help - git-xbase"
-msgstr "Ajuda - git-xbase"
-
-msgid "Hide Details.."
-msgstr "Esconder Detalhes..."
+msgid "Help - git-cola-sequence-editor"
+msgstr "Ajuda - git-cola-sequence-editor"
 
 msgid "High DPI"
 msgstr ""
@@ -1357,6 +1401,9 @@ msgstr "Ignorar nome exato do arquivo"
 msgid "Ignore filename or pattern"
 msgstr "Ignorar nome do arquivo ou padrão"
 
+msgid "Ignore..."
+msgstr ""
+
 msgid "Include tags "
 msgstr "Incluir tags"
 
@@ -1383,6 +1430,9 @@ msgstr "Rebase Interativo"
 
 msgid "Invalid Revision"
 msgstr "Revisão Inválida"
+
+msgid "Japanese translation"
+msgstr ""
 
 msgid "Keep *.orig Merge Backups"
 msgstr "Manter *.orig na Mesclagem de Backups"
@@ -1773,6 +1823,15 @@ msgstr "Refazer"
 msgid "Reduce commit history to minimum"
 msgstr "Reduzir histórico de commits para o minimo"
 
+msgid "Reference Repository"
+msgstr ""
+
+msgid "Reference URL"
+msgstr ""
+
+msgid "Reference repository to use when cloning (optional)"
+msgstr ""
+
 msgid "Refresh"
 msgstr "Recarregar"
 
@@ -1862,6 +1921,9 @@ msgstr "Resetar Branch?"
 
 msgid "Reset Hard"
 msgstr "Resetar Hard"
+
+msgid "Reset Layout"
+msgstr ""
 
 msgid "Reset Merge"
 msgstr "Resetar Merge"
@@ -2136,9 +2198,6 @@ msgstr "Shift Para Cima"
 msgid "Shortcuts"
 msgstr "Atalhos"
 
-msgid "Show Details..."
-msgstr "Mostrar Detalhes..."
-
 msgid "Show Diffstat After Merge"
 msgstr "Mostrar o Status de Comparação após Mesclagem"
 
@@ -2300,6 +2359,15 @@ msgstr ""
 msgid "Stop tracking paths"
 msgstr "Parar rastreamento de caminhos"
 
+msgid "Submodule URL (can be relative, ex: ../repo.git)"
+msgstr ""
+
+msgid "Submodule branch to track (optional)"
+msgstr ""
+
+msgid "Submodule path within the current repository (optional)"
+msgstr ""
+
 msgid "Submodules"
 msgstr "Submódulos"
 
@@ -2365,6 +2433,12 @@ msgstr "A revisão da expressão não pode ser vazia"
 
 #, python-format
 msgid ""
+"The submodule will be added using\n"
+"\"%s\""
+msgstr ""
+
+#, python-format
+msgid ""
 "The submodule will be updated using\n"
 "\"%s\""
 msgstr ""
@@ -2425,6 +2499,9 @@ msgstr ""
 msgid "Toggle Enabled"
 msgstr "Alternar Habilitado"
 
+msgid "Toggle image diff"
+msgstr ""
+
 msgid "Toggle the branches filter"
 msgstr "Alternar os filtros dos branches"
 
@@ -2438,6 +2515,9 @@ msgid "Tracking branch"
 msgstr "Rastreando branch"
 
 msgid "Traditional Chinese (Taiwan) translation"
+msgstr ""
+
+msgid "Translation"
 msgstr ""
 
 msgid "Translators"
@@ -2620,10 +2700,19 @@ msgstr ""
 msgid "git-cola diff"
 msgstr ""
 
+msgid "git://git.example.com/repo.git"
+msgstr ""
+
 msgid "grep result..."
 msgstr "resultados do grep..."
 
 msgid "hotkeys.html"
+msgstr ""
+
+msgid "path/to/submodule"
+msgstr ""
+
+msgid "title"
 msgstr ""
 
 msgid "unknown"
@@ -2659,6 +2748,9 @@ msgstr ""
 #~ msgid "Created commit: %s"
 #~ msgstr "Confirmação Criada: %s"
 
+#~ msgid "Delete selected branch?"
+#~ msgstr "Remover branch selecionada?"
+
 #~ msgid "Enter Git Repository"
 #~ msgstr "Entrar no Repositório Git"
 
@@ -2674,6 +2766,9 @@ msgstr ""
 
 #~ msgid "Fast Forward Only "
 #~ msgstr "Avançar Rapidamente"
+
+#~ msgid "Hide Details.."
+#~ msgstr "Esconder Detalhes..."
 
 #, fuzzy
 #~ msgid "Local Branches"
@@ -2713,6 +2808,9 @@ msgstr ""
 
 #~ msgid "Select file from \"%s\""
 #~ msgstr "Selecione um arquivo de \"%s\""
+
+#~ msgid "Show Details..."
+#~ msgstr "Mostrar Detalhes..."
 
 #~ msgid "Summary:"
 #~ msgstr "Sumário:"

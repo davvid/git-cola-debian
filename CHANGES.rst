@@ -1,3 +1,62 @@
+.. _v3.8:
+
+v3.8
+====
+
+Usability, bells and whistles
+-----------------------------
+* The submodules widget can now be used to add submodules.
+  Submodules are now updated recursively.
+  (`#534 <https://github.com/git-cola/git-cola/issues/534>`_)
+
+* The image diff viewer can now be toggled between text and image modes.
+  This is helpful when, for example, diffing .svg files where it can be useful
+  to see diffs in both an image and text representation.
+  (`#859 <https://github.com/git-cola/git-cola/issues/859>`_)
+  (`#1035 <https://github.com/git-cola/git-cola/pull/1035>`_)
+
+* The default `ssh-askpass` username + password dialog included with Git Cola
+  can now toggle between showing and masking the password input field.
+  (`#1069 <https://github.com/git-cola/git-cola/pull/1069>`_)
+
+Translations
+------------
+* Updated Polish translation.
+  (`#1076 <https://github.com/git-cola/git-cola/pull/1076>`_)
+
+* Updated Hungarian translation.
+  (`#1067 <https://github.com/git-cola/git-cola/pull/1067>`_)
+
+Packaging
+---------
+* The `share/appdata` AppStream data was renamed to `share/metainfo`
+  in accordance with `AppStream standard changes from 2016
+  <https://github.com/ximion/appstream/blob/master/NEWS#L1363>`_.
+  (`#1079 <https://github.com/git-cola/git-cola/pull/1079>`_)
+
+* The ``cola`` modules are now installed into the Python ``site-packages``
+  directory by default.  This allows distributions to package ``git-cola`` for
+  multiple versions of Python.  See the PACKAGING NOTES section in the README
+  for details about suppressing the installation of the private
+  ``share/git-cola/lib/cola`` modules when building cola.
+  (`#181 <https://github.com/git-cola/git-cola/issues/181>`_)
+
+* Git Cola's rebase / sequence editor, formerly known as ``git-xbase`` and
+  installed as ``share/git-cola/bin/git-xbase``, has been renamed to
+  ``git-cola-sequence-editor`` and is now installed into the default
+  ``bin/git-cola-sequence-editor`` executable location to enable external
+  reuse of this general-purpose tool.
+
+* A workaround used by the pynsist installer preamble script was obsoleted by
+  `takluyver/pynsist#149 <https://github.com/takluyver/pynsist/pull/149>`_
+  and has now been removed.
+  (`#1073 <https://github.com/git-cola/git-cola/pull/1073>`_)
+
+Fixes
+-----
+* `git dag` now uses integer widths when initializing its brushes.
+  (`#1080 <https://github.com/git-cola/git-cola/pull/1080>`_)
+
 .. _v3.7:
 
 v3.7

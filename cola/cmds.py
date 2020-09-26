@@ -26,8 +26,8 @@ from .git import EMPTY_TREE_OID
 from .git import MISSING_BLOB_OID
 from .i18n import N_
 from .interaction import Interaction
+from .models import main
 from .models import prefs
-from .settings import Settings
 
 
 class UsageError(Exception):
@@ -52,11 +52,13 @@ class EditModel(ContextCommand):
         self.old_filename = self.model.filename
         self.old_mode = self.model.mode
         self.old_diff_type = self.model.diff_type
+        self.old_file_type = self.model.file_type
 
         self.new_diff_text = self.old_diff_text
         self.new_filename = self.old_filename
         self.new_mode = self.old_mode
         self.new_diff_type = self.old_diff_type
+        self.new_file_type = self.old_file_type
 
     def do(self):
         """Perform the operation."""
@@ -64,6 +66,7 @@ class EditModel(ContextCommand):
         self.model.set_mode(self.new_mode)
         self.model.set_diff_text(self.new_diff_text)
         self.model.set_diff_type(self.new_diff_type)
+        self.model.set_file_type(self.new_file_type)
 
     def undo(self):
         """Undo the operation."""
@@ -71,6 +74,7 @@ class EditModel(ContextCommand):
         self.model.set_mode(self.old_mode)
         self.model.set_diff_text(self.old_diff_text)
         self.model.set_diff_type(self.old_diff_type)
+        self.model.set_file_type(self.old_file_type)
 
 
 class ConfirmAction(ContextCommand):
@@ -380,7 +384,8 @@ class Checkout(EditModel):
         self.argv = argv
         self.checkout_branch = checkout_branch
         self.new_diff_text = ''
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
 
     def do(self):
         super(Checkout, self).do()
@@ -457,7 +462,8 @@ class ResetMode(EditModel):
         super(ResetMode, self).__init__(context)
         self.new_mode = self.model.mode_none
         self.new_diff_text = ''
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
         self.new_filename = ''
 
     def do(self):
@@ -757,18 +763,20 @@ class RemoteEdit(ContextCommand):
 
 
 class RemoveFromSettings(ConfirmAction):
-    def __init__(self, context, settings, repo, entry, icon=None):
+
+    def __init__(self, context, repo, entry, icon=None):
         super(RemoveFromSettings, self).__init__(context)
-        self.settings = settings
+        self.context = context
         self.repo = repo
         self.entry = entry
         self.icon = icon
 
     def success(self):
-        self.settings.save()
+        self.context.settings.save()
 
 
 class RemoveBookmark(RemoveFromSettings):
+
     def confirm(self):
         entry = self.entry
         title = msg = N_('Delete Bookmark?')
@@ -777,7 +785,7 @@ class RemoveBookmark(RemoveFromSettings):
         return Interaction.confirm(title, msg, info, ok_text, icon=self.icon)
 
     def action(self):
-        self.settings.remove_bookmark(self.repo, self.entry)
+        self.context.settings.remove_bookmark(self.repo, self.entry)
         return (0, '', '')
 
 
@@ -790,7 +798,7 @@ class RemoveRecent(RemoveFromSettings):
         return Interaction.confirm(title, msg, info, ok_text, icon=self.icon)
 
     def action(self):
-        self.settings.remove_recent(self.repo)
+        self.context.settings.remove_recent(self.repo)
         return (0, '', '')
 
 
@@ -978,6 +986,40 @@ def get_mode(model, staged, modified, unmerged, untracked):
     return mode
 
 
+class DiffText(EditModel):
+    """Set the diff type to text"""
+
+    def __init__(self, context):
+        super(DiffText, self).__init__(context)
+        self.new_file_type = main.Types.TEXT
+        self.new_diff_type = main.Types.TEXT
+
+
+class ToggleDiffType(ContextCommand):
+    """Toggle the diff type between image and text"""
+
+    def __init__(self, context):
+        super(ToggleDiffType, self).__init__(context)
+        if self.model.diff_type == main.Types.IMAGE:
+            self.new_diff_type = main.Types.TEXT
+            self.new_value = False
+        else:
+            self.new_diff_type = main.Types.IMAGE
+            self.new_value = True
+
+    def do(self):
+        diff_type = self.new_diff_type
+        value = self.new_value
+
+        self.model.set_diff_type(diff_type)
+
+        filename = self.model.filename
+        _, ext = os.path.splitext(filename)
+        if ext.startswith('.'):
+            cfg = 'cola.imagediff' + ext
+            self.cfg.set_repo(cfg, value)
+
+
 class DiffImage(EditModel):
     def __init__(
         self, context, filename, deleted, staged, modified, unmerged, untracked
@@ -985,8 +1027,8 @@ class DiffImage(EditModel):
         super(DiffImage, self).__init__(context)
 
         self.new_filename = filename
-        self.new_diff_text = ''
-        self.new_diff_type = 'image'
+        self.new_diff_type = self.get_diff_type(filename)
+        self.new_file_type = main.Types.IMAGE
         self.new_mode = get_mode(self.model, staged, modified, unmerged, untracked)
         self.staged = staged
         self.modified = modified
@@ -994,6 +1036,20 @@ class DiffImage(EditModel):
         self.untracked = untracked
         self.deleted = deleted
         self.annex = self.cfg.is_annex()
+
+    def get_diff_type(self, filename):
+        """Query the diff type to use based on cola.imagediff.<extension>"""
+        _, ext = os.path.splitext(filename)
+        if ext.startswith('.'):
+            # Check eg. "cola.imagediff.svg" to see if we should imagediff.
+            cfg = 'cola.imagediff' + ext
+            if self.cfg.get(cfg, True):
+                result = main.Types.IMAGE
+            else:
+                result = main.Types.TEXT
+        else:
+            result = main.Types.IMAGE
+        return result
 
     def do(self):
         filename = self.new_filename
@@ -1163,7 +1219,6 @@ class Diff(EditModel):
         self.new_diff_text = gitcmds.diff_helper(
             self.context, filename=filename, cached=cached, deleted=deleted, **opts
         )
-        self.new_diff_type = 'text'
 
 
 class Diffstat(EditModel):
@@ -1182,7 +1237,8 @@ class Diffstat(EditModel):
             stat=True,
         )[STDOUT]
         self.new_diff_text = diff
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
         self.new_mode = self.model.mode_diffstat
 
 
@@ -1208,7 +1264,8 @@ class DiffStagedSummary(EditModel):
             M=True,
         )[STDOUT]
         self.new_diff_text = diff
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
         self.new_mode = self.model.mode_index
 
 
@@ -1578,7 +1635,8 @@ class OpenRepo(EditModel):
         self.repo_path = repo_path
         self.new_mode = self.model.mode_none
         self.new_diff_text = ''
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
         self.new_commitmsg = ''
         self.new_filename = ''
 
@@ -1594,7 +1652,7 @@ class OpenRepo(EditModel):
                 template_loader.do()
             else:
                 self.model.set_commitmsg(self.new_commitmsg)
-            settings = Settings()
+            settings = self.context.settings
             settings.load()
             settings.add_recent(self.repo_path, prefs.maxrecent(self.context))
             settings.save()
@@ -1685,18 +1743,20 @@ def unix_path(path, is_win32=utils.is_win32):
 
 
 def sequence_editor():
-    """Return a GIT_SEQUENCE_EDITOR environment value that enables git-xbase"""
-    xbase = unix_path(resources.share('bin', 'git-xbase'))
+    """Set GIT_SEQUENCE_EDITOR for running git-cola-sequence-editor"""
+    xbase = unix_path(resources.command('git-cola-sequence-editor'))
     editor = core.list2cmdline([unix_path(sys.executable), xbase])
     return editor
 
 
-class GitXBaseContext(object):
+class SequenceEditorEnvironment(object):
+    """Set environment variables to enable git-cola-sequence-editor"""
+
     def __init__(self, context, **kwargs):
         self.env = {
             'GIT_EDITOR': prefs.editor(context),
             'GIT_SEQUENCE_EDITOR': sequence_editor(),
-            'GIT_XBASE_CANCEL_ACTION': 'save',
+            'GIT_COLA_SEQ_EDITOR_CANCEL_ACTION': 'save',
         }
         self.env.update(kwargs)
 
@@ -1774,16 +1834,16 @@ class Rebase(ContextCommand):
 
         args, kwargs = self.prepare_arguments(upstream)
         upstream_title = upstream or '@{upstream}'
-        with GitXBaseContext(
+        with SequenceEditorEnvironment(
             self.context,
-            GIT_XBASE_TITLE=N_('Rebase onto %s') % upstream_title,
-            GIT_XBASE_ACTION=N_('Rebase'),
+            GIT_COLA_SEQ_EDITOR_TITLE=N_('Rebase onto %s') % upstream_title,
+            GIT_COLA_SEQ_EDITOR_ACTION=N_('Rebase'),
         ):
             # TODO this blocks the user interface window for the duration
-            # of git-xbase's invocation. We would need to implement
+            # of git-cola-sequence-editor. We would need to implement
             # signals for QProcess and continue running the main thread.
-            # alternatively we could hide the main window while rebasing.
-            # that doesn't require as much effort.
+            # Alternatively, we can hide the main window while rebasing.
+            # That doesn't require as much effort.
             status, out, err = self.git.rebase(
                 *args, _no_win32_startupinfo=True, **kwargs
             )
@@ -1797,8 +1857,10 @@ class Rebase(ContextCommand):
 class RebaseEditTodo(ContextCommand):
     def do(self):
         (status, out, err) = (1, '', '')
-        with GitXBaseContext(
-            self.context, GIT_XBASE_TITLE=N_('Edit Rebase'), GIT_XBASE_ACTION=N_('Save')
+        with SequenceEditorEnvironment(
+            self.context,
+            GIT_COLA_SEQ_EDITOR_TITLE=N_('Edit Rebase'),
+            GIT_COLA_SEQ_EDITOR_ACTION=N_('Save'),
         ):
             status, out, err = self.git.rebase(edit_todo=True)
         Interaction.log_status(status, out, err)
@@ -1809,8 +1871,10 @@ class RebaseEditTodo(ContextCommand):
 class RebaseContinue(ContextCommand):
     def do(self):
         (status, out, err) = (1, '', '')
-        with GitXBaseContext(
-            self.context, GIT_XBASE_TITLE=N_('Rebase'), GIT_XBASE_ACTION=N_('Rebase')
+        with SequenceEditorEnvironment(
+            self.context,
+            GIT_COLA_SEQ_EDITOR_TITLE=N_('Rebase'),
+            GIT_COLA_SEQ_EDITOR_ACTION=N_('Rebase'),
         ):
             status, out, err = self.git.rebase('--continue')
         Interaction.log_status(status, out, err)
@@ -1821,8 +1885,10 @@ class RebaseContinue(ContextCommand):
 class RebaseSkip(ContextCommand):
     def do(self):
         (status, out, err) = (1, '', '')
-        with GitXBaseContext(
-            self.context, GIT_XBASE_TITLE=N_('Rebase'), GIT_XBASE_ACTION=N_('Rebase')
+        with SequenceEditorEnvironment(
+            self.context,
+            GIT_COLA_SEQ_EDITOR_TITLE=N_('Rebase'),
+            GIT_COLA_SEQ_EDITOR_ACTION=N_('Rebase'),
         ):
             status, out, err = self.git.rebase(skip=True)
         Interaction.log_status(status, out, err)
@@ -1896,6 +1962,7 @@ class RevertEditsCommand(ConfirmAction):
         return self.git.checkout(*checkout_args)
 
     def success(self):
+        self.model.set_diff_type(main.Types.TEXT)
         self.model.update_file_status()
 
 
@@ -2046,7 +2113,8 @@ class SetDiffText(EditModel):
     def __init__(self, context, text):
         super(SetDiffText, self).__init__(context)
         self.new_diff_text = text
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
 
 
 class SetUpstreamBranch(ContextCommand):
@@ -2100,7 +2168,8 @@ class ShowUntracked(EditModel):
         self.new_filename = filename
         self.new_mode = self.model.mode_untracked
         self.new_diff_text = self.read(filename)
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
 
     def read(self, filename):
         """Read file contents"""
@@ -2532,7 +2601,8 @@ class UntrackedSummary(EditModel):
             for u in untracked:
                 io.write('/' + u + '\n')
         self.new_diff_text = io.getvalue()
-        self.new_diff_type = 'text'
+        self.new_diff_type = main.Types.TEXT
+        self.new_file_type = main.Types.TEXT
         self.new_mode = self.model.mode_untracked
 
 
@@ -2589,6 +2659,55 @@ class VisualizeRevision(ContextCommand):
         launch_history_browser(argv)
 
 
+class SubmoduleAdd(ConfirmAction):
+    """Add specified submodules"""
+
+    def __init__(self, context, url, path, branch, depth, reference):
+        super(SubmoduleAdd, self).__init__(context)
+        self.url = url
+        self.path = path
+        self.branch = branch
+        self.depth = depth
+        self.reference = reference
+
+    def confirm(self):
+        title = N_('Add Submodule...')
+        question = N_('Add this submodule?')
+        info = N_('The submodule will be added using\n' '"%s"' % self.command())
+        ok_txt = N_('Add Submodule')
+        return Interaction.confirm(title, question, info, ok_txt, icon=icons.ok())
+
+    def action(self):
+        context = self.context
+        args = self.get_args()
+        return context.git.submodule('add', *args)
+
+    def success(self):
+        self.model.update_file_status()
+        self.model.update_submodules_list()
+
+    def error_message(self):
+        return N_('Error updating submodule %s' % self.path)
+
+    def command(self):
+        cmd = ['git', 'submodule', 'add']
+        cmd.extend(self.get_args())
+        return core.list2cmdline(cmd)
+
+    def get_args(self):
+        args = []
+        if self.branch:
+            args.extend(['--branch', self.branch])
+        if self.reference:
+            args.extend(['--reference', self.reference])
+        if self.depth:
+            args.extend(['--depth', '%d' % self.depth])
+        args.extend(['--', self.url])
+        if self.path:
+            args.append(self.path)
+        return args
+
+
 class SubmoduleUpdate(ConfirmAction):
     """Update specified submodule"""
 
@@ -2607,7 +2726,8 @@ class SubmoduleUpdate(ConfirmAction):
 
     def action(self):
         context = self.context
-        return context.git.submodule('update', '--', self.path)
+        args = self.get_args()
+        return context.git.submodule(*args)
 
     def success(self):
         self.model.update_file_status()
@@ -2616,8 +2736,16 @@ class SubmoduleUpdate(ConfirmAction):
         return N_('Error updating submodule %s' % self.path)
 
     def command(self):
-        command = 'git submodule update -- %s'
-        return command % self.path
+        cmd = ['git', 'submodule']
+        cmd.extend(self.get_args())
+        return core.list2cmdline(cmd)
+
+    def get_args(self):
+        cmd = ['update']
+        if version.check_git(self.context, 'submodule-update-recursive'):
+            cmd.append('--recursive')
+        cmd.extend(['--', self.path])
+        return cmd
 
 
 class SubmodulesUpdate(ConfirmAction):
@@ -2634,7 +2762,8 @@ class SubmodulesUpdate(ConfirmAction):
 
     def action(self):
         context = self.context
-        return context.git.submodule('update')
+        args = self.get_args()
+        return context.git.submodule(*args)
 
     def success(self):
         self.model.update_file_status()
@@ -2643,7 +2772,15 @@ class SubmodulesUpdate(ConfirmAction):
         return N_('Error updating submodules')
 
     def command(self):
-        return 'git submodule update'
+        cmd = ['git', 'submodule']
+        cmd.extend(self.get_args())
+        return core.list2cmdline(cmd)
+
+    def get_args(self):
+        cmd = ['update']
+        if version.check_git(self.context, 'submodule-update-recursive'):
+            cmd.append('--recursive')
+        return cmd
 
 
 def launch_history_browser(argv):

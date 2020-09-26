@@ -13,10 +13,10 @@ msgstr ""
 "PO-Revision-Date: 2015-10-24 12:00-0200\n"
 "Last-Translator: Vaiz <vaizerd@gmail.com>\n"
 "Language-Team: Russian\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
 
 msgid ""
 "\n"
@@ -372,6 +372,12 @@ msgstr "Добавить внешний репозиторий"
 msgid "Add Separator"
 msgstr ""
 
+msgid "Add Submodule"
+msgstr ""
+
+msgid "Add Submodule..."
+msgstr ""
+
 msgid "Add Toolbar"
 msgstr ""
 
@@ -397,6 +403,9 @@ msgstr "Добавить патчи (+)"
 msgid "Add remote"
 msgstr "Добавить внешний репозиторий"
 
+msgid "Add this submodule?"
+msgstr ""
+
 msgid "Add to .gitignore"
 msgstr "Добавить в .gitignore"
 
@@ -405,6 +414,12 @@ msgid "Add to Git Annex"
 msgstr "Добавить в .gitignore"
 
 msgid "Add to Git LFS"
+msgstr ""
+
+msgid "Add to exclusions"
+msgstr ""
+
+msgid "Add to local .git/info/exclude"
 msgstr ""
 
 msgid "Additions"
@@ -498,6 +513,12 @@ msgstr ""
 msgid "Auto-Wrap Lines"
 msgstr "Авто перенос строчек"
 
+msgid "Autocomplete Paths"
+msgstr ""
+
+msgid "Automatically Load Commit Message Template"
+msgstr ""
+
 msgid "Basic Regexp"
 msgstr "Базовый синтаксис"
 
@@ -539,6 +560,9 @@ msgstr "Ветвь существует"
 
 msgid "Branch Name"
 msgstr "Название ветви"
+
+msgid "Branch name"
+msgstr ""
 
 #, python-format
 msgid "Branch: %s"
@@ -608,12 +632,18 @@ msgstr "Не удалось запустить \"%s\": пожалуйста, н�
 msgid "Changed Upstream"
 msgstr ""
 
+msgid "Check Published Commits when Amending"
+msgstr ""
+
 msgid "Check Spelling"
 msgstr "Проверить правописание"
 
 #, fuzzy
 msgid "Check spelling"
 msgstr "Проверить правописание"
+
+msgid "Check whether a commit has been published when amending"
+msgstr ""
 
 msgid "Checkout"
 msgstr "Перейти"
@@ -791,6 +821,9 @@ msgstr "Если эта опция активна, то даже при слия
 msgid "Create a new remote branch?"
 msgstr "Создать новую внешнюю ветвь?"
 
+msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
+msgstr ""
+
 msgid "Create..."
 msgstr "Создать..."
 
@@ -861,6 +894,10 @@ msgstr "Удалить внешнюю ветвь"
 msgid "Delete Remote Branch..."
 msgstr "Удалить внешнюю ветвь..."
 
+#, python-format
+msgid "Delete branch \"%s\"?"
+msgstr ""
+
 msgid "Delete remote"
 msgstr "Удалить внешний репозиторий"
 
@@ -870,10 +907,6 @@ msgstr "Удалить внешнюю ветвь \"%s\""
 
 msgid "Delete remote?"
 msgstr "Удалить внешнюю ветвь?"
-
-#, fuzzy
-msgid "Delete selected branch?"
-msgstr "Удалить внешнюю ветвь"
 
 #, fuzzy
 msgid "Delete toolbar"
@@ -888,6 +921,9 @@ msgstr "Не удалось удалить \"%s\""
 
 msgid "Deletions"
 msgstr "Удалено строк"
+
+msgid "Depth"
+msgstr ""
 
 msgid "Detach"
 msgstr "Открепить"
@@ -928,6 +964,9 @@ msgstr "Программа сравнения"
 
 msgid "Directory Exists"
 msgstr "Каталог существует"
+
+msgid "Disable"
+msgstr ""
 
 msgid "Display Untracked Files"
 msgstr "Показывать не добавленные в контроль версий файлы"
@@ -982,6 +1021,9 @@ msgstr "Адрес электронной почты"
 msgid "Email contributor"
 msgstr ""
 
+msgid "Enable path autocompletion in tools"
+msgstr ""
+
 msgid "Enabled"
 msgstr ""
 
@@ -1028,6 +1070,10 @@ msgstr "Не удалось создать внешную ветвь \"%s\""
 #, fuzzy
 msgid "Error creating stash"
 msgstr "При создании ветви возникла ошибка"
+
+#, python-format
+msgid "Error deleting branch \"%s\""
+msgstr ""
 
 #, python-format
 msgid "Error deleting remote \"%s\""
@@ -1271,10 +1317,7 @@ msgstr ""
 msgid "Help - Find Files"
 msgstr "Помощь - Поиск файлов"
 
-msgid "Help - git-xbase"
-msgstr ""
-
-msgid "Hide Details.."
+msgid "Help - git-cola-sequence-editor"
 msgstr ""
 
 msgid "High DPI"
@@ -1308,6 +1351,9 @@ msgstr "Игнорировать все пробелы"
 msgid "Ignore filename or pattern"
 msgstr ""
 
+msgid "Ignore..."
+msgstr ""
+
 msgid "Include tags "
 msgstr "Включая теги"
 
@@ -1336,6 +1382,9 @@ msgstr "Интерактивное перемещение (rebase)"
 
 msgid "Invalid Revision"
 msgstr "Неверная версия"
+
+msgid "Japanese translation"
+msgstr ""
 
 msgid "Keep *.orig Merge Backups"
 msgstr ""
@@ -1731,6 +1780,15 @@ msgstr "Повторить"
 msgid "Reduce commit history to minimum"
 msgstr ""
 
+msgid "Reference Repository"
+msgstr ""
+
+msgid "Reference URL"
+msgstr ""
+
+msgid "Reference repository to use when cloning (optional)"
+msgstr ""
+
 msgid "Refresh"
 msgstr "Обновить"
 
@@ -1826,6 +1884,9 @@ msgstr "Сбросить (reset) ветвь?"
 #, fuzzy
 msgid "Reset Hard"
 msgstr "Сбросить (reset) ветвь"
+
+msgid "Reset Layout"
+msgstr ""
 
 #, fuzzy
 msgid "Reset Merge"
@@ -2114,10 +2175,6 @@ msgstr ""
 msgid "Shortcuts"
 msgstr "Горячие клавиши"
 
-#, fuzzy
-msgid "Show Details..."
-msgstr "Удалить файл(ы)..."
-
 msgid "Show Diffstat After Merge"
 msgstr "Показать отчет об изменениях после объединения"
 
@@ -2281,6 +2338,15 @@ msgstr "Статус"
 msgid "Stop tracking paths"
 msgstr ""
 
+msgid "Submodule URL (can be relative, ex: ../repo.git)"
+msgstr ""
+
+msgid "Submodule branch to track (optional)"
+msgstr ""
+
+msgid "Submodule path within the current repository (optional)"
+msgstr ""
+
 msgid "Submodules"
 msgstr ""
 
@@ -2345,6 +2411,12 @@ msgstr "Поле версии не может быть пустым."
 
 #, python-format
 msgid ""
+"The submodule will be added using\n"
+"\"%s\""
+msgstr ""
+
+#, python-format
+msgid ""
 "The submodule will be updated using\n"
 "\"%s\""
 msgstr ""
@@ -2406,6 +2478,9 @@ msgstr ""
 msgid "Toggle Enabled"
 msgstr ""
 
+msgid "Toggle image diff"
+msgstr ""
+
 #, fuzzy
 msgid "Toggle the branches filter"
 msgstr "Включить фильтр путей"
@@ -2420,6 +2495,9 @@ msgid "Tracking branch"
 msgstr "Отслеживаемая ветвь"
 
 msgid "Traditional Chinese (Taiwan) translation"
+msgstr ""
+
+msgid "Translation"
 msgstr ""
 
 msgid "Translators"
@@ -2600,10 +2678,19 @@ msgstr ""
 msgid "git-cola diff"
 msgstr ""
 
+msgid "git://git.example.com/repo.git"
+msgstr ""
+
 msgid "grep result..."
 msgstr "результаты поиска..."
 
 msgid "hotkeys.html"
+msgstr ""
+
+msgid "path/to/submodule"
+msgstr ""
+
+msgid "title"
 msgstr ""
 
 msgid "unknown"
@@ -2868,6 +2955,10 @@ msgstr ""
 
 #~ msgid "Delete Only If Merged Into"
 #~ msgstr "Удалить только в случае, если было объединение с"
+
+#, fuzzy
+#~ msgid "Delete selected branch?"
+#~ msgstr "Удалить внешнюю ветвь"
 
 #~ msgid "Destination Repository"
 #~ msgstr "Репозиторий назначения"
@@ -3341,6 +3432,10 @@ msgstr ""
 #~ msgid "Shared only available for local repository."
 #~ msgstr "Общий клон возможен только для локального репозитория."
 
+#, fuzzy
+#~ msgid "Show Details..."
+#~ msgstr "Удалить файл(ы)..."
+
 #~ msgid "Show Less Context"
 #~ msgstr "Меньше контекста"
 
@@ -3401,8 +3496,8 @@ msgstr ""
 #~ msgid "Summary:"
 #~ msgstr "Описание:"
 
-#~ msgid "The 'master' branch has not been initialized."
-#~ msgstr "Не инициализирована ветвь 'master'."
+#~ msgid "The 'main' branch has not been initialized."
+#~ msgstr "Не инициализирована ветвь 'main'."
 
 #~ msgid "The following branches are not completely merged into %s:"
 #~ msgstr "Следующие ветви объединены с %s не полностью:"
