@@ -1,13 +1,13 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 #
-# Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>, 2016, 2020.
+# Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>, 2016, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2017-10-17 01:06-0700\n"
-"PO-Revision-Date: 2020-07-11 09:04+0200\n"
+"PO-Revision-Date: 2021-01-02 20:57+0100\n"
 "Last-Translator: Łukasz Wojniłowicz <lukasz.wojnilowicz@gmail.com>\n"
 "Language-Team: Polish <kde-i18n-doc@kde.org>\n"
 "MIME-Version: 1.0\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: pl_PL\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
-"X-Generator: Lokalize 20.07.70\n"
+"X-Generator: Lokalize 20.08.1\n"
 
 msgid ""
 "\n"
@@ -322,6 +322,10 @@ msgstr ""
 "Czy dobrać go mimo tego?"
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr "Nie można otworzyć %s. Czy usunąć z zakładek?"
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr "%s nie jest repozytorium Git."
 
@@ -453,10 +457,10 @@ msgid "Add Separator"
 msgstr "Dodaj oddzielacz"
 
 msgid "Add Submodule"
-msgstr ""
+msgstr "Dodaj podmoduł"
 
 msgid "Add Submodule..."
-msgstr ""
+msgstr "Dodaj podmoduł..."
 
 msgid "Add Toolbar"
 msgstr "Dodaj pasek narzędzi"
@@ -484,7 +488,7 @@ msgid "Add remote"
 msgstr "Dodaj zdalne repozytorium"
 
 msgid "Add this submodule?"
-msgstr ""
+msgstr "Czy dodać ten podmoduł?"
 
 msgid "Add to .gitignore"
 msgstr "Dodaj do .gitignore"
@@ -638,7 +642,7 @@ msgid "Branch Name"
 msgstr "Nazwa gałęzi"
 
 msgid "Branch name"
-msgstr ""
+msgstr "Nazwa gałęzi"
 
 #, python-format
 msgid "Branch: %s"
@@ -707,7 +711,7 @@ msgid "Changed Upstream"
 msgstr "Zmienione w źródle odgórnym"
 
 msgid "Check Published Commits when Amending"
-msgstr "Sprawdź publikację wdrożenia przed jego uzupełniania"
+msgstr "Uzupełniając wdrożenie, sprawdź jego opublikowanie"
 
 msgid "Check Spelling"
 msgstr "Sprawdź pisownię"
@@ -853,8 +857,15 @@ msgid "Copy..."
 msgstr "Skopiuj..."
 
 #, python-format
+msgid "Could not open %s."
+msgstr "Nie można otworzyć %s."
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "Nie można przetworzyć adresu URL Gita: \"%s\""
+
+msgid "Create"
+msgstr "Utwórz"
 
 msgid "Create Branch"
 msgstr "Utwórz gałąź"
@@ -883,8 +894,11 @@ msgstr "Utwórz wdrożenie scalania, nawet gdy scalanie będzie polegać na prze
 msgid "Create a new remote branch?"
 msgstr "Czy utworzyć nową zdalną gałąź?"
 
+msgid "Create a new repository at that location?"
+msgstr "Czy utworzyć nowe repozytorium w tym miejscu?"
+
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
-msgstr ""
+msgstr "Pobierz płytko z historią przyciętą do danej liczby wydań. 0 wykonuje pobiera z całą historią."
 
 msgid "Create..."
 msgstr "Utwórz..."
@@ -982,7 +996,7 @@ msgid "Deletions"
 msgstr "Usunięto"
 
 msgid "Depth"
-msgstr ""
+msgstr "Głębokość"
 
 msgid "Detach"
 msgstr "Odłącz"
@@ -1116,6 +1130,9 @@ msgstr "Błąd uruchamiania przeglądarki autorów"
 
 msgid "Error Launching History Browser"
 msgstr "Błąd uruchamiania przeglądarki historii"
+
+msgid "Error Opening Repository"
+msgstr "Błąd otwierania repozytorium"
 
 #, python-format
 msgid "Error creating remote \"%s\""
@@ -1291,6 +1308,9 @@ msgstr "Płaski, jasny, szary"
 msgid "Flat light red"
 msgstr "Płaski, jasny, czerwony"
 
+msgid "Folder"
+msgstr "Katalog"
+
 msgid "Font Size"
 msgstr "Rozmiar czcionki"
 
@@ -1436,7 +1456,7 @@ msgid "Keep *.orig Merge Backups"
 msgstr "Zachowaj kopie zapasowe *.orig po scalaniu"
 
 msgid "Keep Index"
-msgstr "Zachowaj indeks"
+msgstr "Pozostaw indeks"
 
 msgid "Keyboard Shortcuts"
 msgstr "Skróty klawiszowe"
@@ -1471,6 +1491,9 @@ msgstr "Uruchom git-difftool dla bieżącej ścieżki"
 
 msgid "Light Theme"
 msgstr "Jasne"
+
+msgid "List"
+msgstr "Lista"
 
 msgid "Load Commit Message"
 msgstr "Wczytaj opis wdrożenia"
@@ -1756,6 +1779,9 @@ msgstr "Zapytaj, gdy wypchnięcie miałoby utworzyć nową zdalną gałąź"
 msgid "Prune "
 msgstr "Przytnij "
 
+msgid "Prune Missing Entries"
+msgstr "Przytnij brakujące wpisy"
+
 msgid "Pull"
 msgstr "Zaciągnij"
 
@@ -1815,13 +1841,13 @@ msgid "Reduce commit history to minimum"
 msgstr "Pomiń historię wdrożeń"
 
 msgid "Reference Repository"
-msgstr ""
+msgstr "Repozytorium odniesienia"
 
 msgid "Reference URL"
-msgstr ""
+msgstr "Adres URL odniesienia"
 
 msgid "Reference repository to use when cloning (optional)"
-msgstr ""
+msgstr "Repozytorium odniesienia, używane podczas pobierania (niewymagane)"
 
 msgid "Refresh"
 msgstr "Odśwież"
@@ -1857,6 +1883,9 @@ msgstr "Usuń gałęzie zdalne, które już nie istnieją w repozytorium zdalnym
 msgid "Remove selected (Delete)"
 msgstr "Usuń wybrane (Usuń)"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr "Usuń zawisłe wpisy dla repozytoriów, które już nie istnieją"
+
 msgid "Rename"
 msgstr "Przemianuj "
 
@@ -1889,6 +1918,9 @@ msgstr "Przemianuj zdalne repozytorium z \"%(current)s\" na \"%(new)s\"?"
 msgid "Rename selected paths"
 msgstr "Przemianuj wybrane ścieżki"
 
+msgid "Repository Not Found"
+msgstr "Nie znaleziono repozytorium"
+
 #, python-format
 msgid "Repository: %s"
 msgstr "Repozytorium: %s"
@@ -1900,41 +1932,32 @@ msgstr "Wyzeruj"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "Wyzerować \"%(branch)s\" do \"%(revision)s\"?"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "Wyzeruj gałąź"
 
-msgid "Reset Branch Head"
-msgstr "Wyzeruj HEAD gałęzi"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "Wyzerować gałąź?"
 
-msgid "Reset Hard"
-msgstr "Wyzeruj twardo"
-
 msgid "Reset Layout"
 msgstr "Wyzeruj układ"
 
-msgid "Reset Merge"
-msgstr "Wyzeruj ze scaleniem"
+msgid "Reset Worktree and Reset All?"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "Wyzeruj miękko"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Worktree"
-msgstr "Wyzeruj drzewo pracy"
-
-msgid "Reset hard?"
-msgstr "Wyzerować twardo?"
-
-msgid "Reset merge?"
-msgstr "Wyzerować ze scaleniem?"
-
-msgid "Reset soft?"
-msgstr "Wyzerować miękko?"
-
-msgid "Reset worktree?"
-msgstr "Wyzerować drzewo pracy?"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
@@ -1942,6 +1965,31 @@ msgstr "Wyzerowanie \"%(branch)s\" do \"%(revision)s\" spowoduje utratę wdroże
 
 msgid "Restart the application after changing appearance settings."
 msgstr "Uruchom aplikację ponownie po zmianie ustawień wyglądu."
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
+msgstr ""
 
 msgid "Revert"
 msgstr "Wycofaj"
@@ -2044,7 +2092,7 @@ msgid "Safe Mode"
 msgstr "Tryb bezpieczny"
 
 msgid "Save"
-msgstr "Zachowaj"
+msgstr "Przechowaj"
 
 msgid "Save Archive"
 msgstr "Zapisz archiwum"
@@ -2134,14 +2182,8 @@ msgstr "Wybierz przodka"
 msgid "Select Previous Version"
 msgstr "Wybierz poprzednią wersję"
 
-msgid "Select Repository..."
-msgstr "Wybierz repozytorium..."
-
 msgid "Select a parent directory for the new clone"
 msgstr "Wybierz katalog nadrzędny do pobrania"
-
-msgid "Select manually..."
-msgstr "Wybierz ręcznie..."
 
 msgid "Select output dir"
 msgstr "Wybierz katalog do wyników"
@@ -2345,13 +2387,13 @@ msgid "Stop tracking paths"
 msgstr "Zaprzestań zarządzanie ścieżką/ścieżkami"
 
 msgid "Submodule URL (can be relative, ex: ../repo.git)"
-msgstr ""
+msgstr "Adres URL podmodułu (może być względny, np.: ../repo.git)"
 
 msgid "Submodule branch to track (optional)"
-msgstr ""
+msgstr "Gałąź podmodułu do śledzenia (niewymagane)"
 
 msgid "Submodule path within the current repository (optional)"
-msgstr ""
+msgstr "Ścieżka podmodułu z bieżącym repozytorium (niewymagane)"
 
 msgid "Submodules"
 msgstr "Podmoduły"
@@ -2387,14 +2429,6 @@ msgid "The branch will be no longer available."
 msgstr "Po tym gałąź stanie się niedostępna."
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --hard %s\""
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --merge %s\""
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --mixed %s\""
 
@@ -2412,6 +2446,18 @@ msgstr "Plik %s już istnieje i zostanie zastąpiony."
 msgid "The following files will be deleted:"
 msgstr "Zostaną usunięte następujące pliki:"
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr "Wyrażenie wydania nie może być puste."
 
@@ -2420,6 +2466,8 @@ msgid ""
 "The submodule will be added using\n"
 "\"%s\""
 msgstr ""
+"Zostanie dodany podmoduł przy użyciu\n"
+"\"%s\""
 
 #, python-format
 msgid ""
@@ -2430,8 +2478,8 @@ msgstr ""
 "\"%s\""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "Drzewo z pracą zostanie wyzerowane przy użyciu \"git reset --keep %s\""
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "Nie będzie można tego wycofać. Czy wyczyścić opis wdrożenia?"
@@ -2486,7 +2534,7 @@ msgid "Toggle Enabled"
 msgstr "Uwzględnij/nie uwzględniaj"
 
 msgid "Toggle image diff"
-msgstr ""
+msgstr "Przełącz różnicę obrazu"
 
 msgid "Toggle the branches filter"
 msgstr "Przełącz filtr gałęzi"
@@ -2504,7 +2552,7 @@ msgid "Traditional Chinese (Taiwan) translation"
 msgstr "Tłumaczenia na tradycyjny chiński (Tajwan)"
 
 msgid "Translation"
-msgstr ""
+msgstr "Tłumaczenie"
 
 msgid "Translators"
 msgstr "Tłumacze"
@@ -2531,6 +2579,15 @@ msgstr "Nie można ustawić URL dla \"%(name)s\" na \"%(url)s\""
 
 msgid "Undo"
 msgstr "Cofnij"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr "Niescalone"
@@ -2683,7 +2740,7 @@ msgid "git-cola diff"
 msgstr "Różnica git-cola"
 
 msgid "git://git.example.com/repo.git"
-msgstr ""
+msgstr "git://git.example.com/repo.git"
 
 msgid "grep result..."
 msgstr "wyszukaj w wynikach..."
@@ -2692,7 +2749,7 @@ msgid "hotkeys.html"
 msgstr "hotkeys.html"
 
 msgid "path/to/submodule"
-msgstr ""
+msgstr "ściezka/do/podmodułu"
 
 msgid "title"
 msgstr "tytuł"
@@ -2783,11 +2840,44 @@ msgstr "yyyy-MM-dd"
 #~ msgid "Rename remote?"
 #~ msgstr "Zmienić nazwę zdalnego repozytorium?"
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "Wyzeruj HEAD gałęzi"
+
+#~ msgid "Reset Hard"
+#~ msgstr "Wyzeruj twardo"
+
+#~ msgid "Reset Merge"
+#~ msgstr "Wyzeruj ze scaleniem"
+
+#~ msgid "Reset Soft"
+#~ msgstr "Wyzeruj miękko"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "Wyzeruj drzewo pracy"
+
+#~ msgid "Reset hard?"
+#~ msgstr "Wyzerować twardo?"
+
+#~ msgid "Reset merge?"
+#~ msgstr "Wyzerować ze scaleniem?"
+
+#~ msgid "Reset soft?"
+#~ msgstr "Wyzerować miękko?"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "Wyzerować drzewo pracy?"
+
 #~ msgid "Select File"
 #~ msgstr "Wybierz plik"
 
+#~ msgid "Select Repository..."
+#~ msgstr "Wybierz repozytorium..."
+
 #~ msgid "Select file from \"%s\""
 #~ msgstr "Wybierz plik z \"%s\""
+
+#~ msgid "Select manually..."
+#~ msgstr "Wybierz ręcznie..."
 
 #~ msgid "Show Details..."
 #~ msgstr "Pokaż szczegóły..."
@@ -2797,6 +2887,15 @@ msgstr "yyyy-MM-dd"
 
 #~ msgid "Summary:"
 #~ msgstr "Nazwa:"
+
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --hard %s\""
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --merge %s\""
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "Drzewo z pracą zostanie wyzerowane przy użyciu \"git reset --keep %s\""
 
 #~ msgid ""
 #~ "This PyQt4 does not include QtWebKit.\n"

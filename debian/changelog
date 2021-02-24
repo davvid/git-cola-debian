@@ -1,3 +1,11 @@
+git-cola (3.9-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add upstream metadata.
+  * Update watch file.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Wed, 24 Feb 2021 06:58:21 +0100
+
 git-cola (3.8-1) unstable; urgency=medium
 
   * New upstream release.
@@ -271,7 +279,7 @@ git-cola (1.4.3-1) experimental; urgency=low
     number of context lines.
   * Use JQuery from the Debian package:
     - Add libjs-jquery as a dependency.
-    - Add symlink from /usr/share/javascript/jquery/jquery.js to 
+    - Add symlink from /usr/share/javascript/jquery/jquery.js to
     /usr/share/doc/git-cola/html/_static/jquery.js.
   * Don't compress objects.inv.  Thanks Michael Fladischer <michael@fladi.at>
     (Closes: #608752).
@@ -307,7 +315,7 @@ git-cola (1.4.2.4-1) experimental; urgency=low
  -- Iulian Udrea <iulian@linux.com>  Sun, 05 Sep 2010 13:31:34 +0100
 
 git-cola (1.4.2.3-1) unstable; urgency=low
- 
+
   * New upstream version.
   * debian/control: single line synopsis: gui -> GUI.  Closes: #585947.
   * Bump Standards-Version to 3.9.1 (no changes required).
@@ -316,7 +324,7 @@ git-cola (1.4.2.3-1) unstable; urgency=low
 
 git-cola (1.4.2.1-1) unstable; urgency=low
 
-  * New upstream version. 
+  * New upstream version.
 
  -- Iulian Udrea <iulian@ubuntu.com>  Tue, 25 May 2010 21:10:29 +0100
 
@@ -344,7 +352,7 @@ git-cola (1.4.1.2-4) unstable; urgency=low
     (The dependency on git-core (>= 1.5) is intended to exclude git from
     etch, for example, but unfortunately git from etch has a version number
     including an epoch.  Since Debian does not support etch-to-squeeze
-    upgrades anyway, it is simpler and more obvious to drop the version 
+    upgrades anyway, it is simpler and more obvious to drop the version
     from the dependency.)
     + Thanks Jonathan Nieder <jrnieder@gmail.com> for the patch.
 
@@ -411,7 +419,7 @@ git-cola (1.4.0-1) unstable; urgency=low
       + The main GUI is flexible and user-configurable
       + Individual widgets can be detached and rearranged arbitrarily
       + Add an interface for creating tags
-      + Provide a fallback SSH_ASKPASS implementation to prompt for SSH 
+      + Provide a fallback SSH_ASKPASS implementation to prompt for SSH
         passwords on fetch/push/pull
       + Inherit the window manager's font settings
       + The commit message editor displays the current row/column and warns
@@ -426,7 +434,7 @@ git-cola (1.4.0-1) unstable; urgency=low
 git-cola (1.3.9.14-1) unstable; urgency=low
 
   * New upstream version.
-  * debian/control: 
+  * debian/control:
     - Bump Standards-Version to 3.8.3; no changes required.
 
  -- Iulian Udrea <iulian@ubuntu.com>  Sat, 15 Aug 2009 23:37:40 +0100
@@ -458,7 +466,7 @@ git-cola (1.3.7.45-1) unstable; urgency=low
   * New upstream version.
     + inotify: fix a bug when exiting cola
     + docs: remove git-difftool.txt and update git-cola.txt
-    + models: do not flag deleted files as modified 
+    + models: do not flag deleted files as modified
     + setup.py: add the private cola.models module
     + observable: use the current model's notify value when cloning
     + models: fix a bug in clone()
@@ -488,7 +496,7 @@ git-cola (1.3.5.44-1) unstable; urgency=low
 
   * New upstream version.
     + cola.jsonpickle wasn't exception-safe and was breaking
-      help('modules') 
+      help('modules')
       (Closes: #519971)
   * Remove debian/dirs.
 
@@ -548,7 +556,7 @@ git-cola (1.3.0.3-1) unstable; urgency=low
 
   * New upstream version.
   * debian/patches: drop 01_cola-desktop.dpatch (included upstream)
-  * debian/control: 
+  * debian/control:
     - add Vcs-* fields
     - add Recommends: gitk
     - remove dpatch from Build-Depends (not needed anymore)
@@ -566,4 +574,3 @@ git-cola (1.2.0-1) unstable; urgency=low
   * Initial release (Closes: #498656)
 
  -- Iulian Udrea <iulian@ubuntu.com>  Thu, 11 Sep 2008 22:21:30 +0100
-

@@ -277,6 +277,10 @@ msgstr ""
 "Odložit ho i tak?"
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr "%s není Git repozitář."
 
@@ -803,8 +807,15 @@ msgid "Copy..."
 msgstr "Kopírovat…"
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "Nedaří se zpracovat Git URL: „%s“"
+
+msgid "Create"
+msgstr ""
 
 msgid "Create Branch"
 msgstr "Vytvořit větev"
@@ -832,6 +843,9 @@ msgstr "Vytvořit zápis sloučení i v případě, že je sloučení vyřešeno
 
 msgid "Create a new remote branch?"
 msgstr "Vytvořit novou vzdálenou větev?"
+
+msgid "Create a new repository at that location?"
+msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
 msgstr ""
@@ -1067,6 +1081,9 @@ msgstr "Chyba při spouštění blame prohlížeče"
 msgid "Error Launching History Browser"
 msgstr "Chyba při spouštění prohlížeče historie"
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "Chyba při vytváření vzdálené \"%s\""
@@ -1236,6 +1253,9 @@ msgid "Flat light grey"
 msgstr ""
 
 msgid "Flat light red"
+msgstr ""
+
+msgid "Folder"
 msgstr ""
 
 msgid "Font Size"
@@ -1417,6 +1437,9 @@ msgid "Launch git-difftool on the current path"
 msgstr "Spustit git-difftool na stávajícím umístění"
 
 msgid "Light Theme"
+msgstr ""
+
+msgid "List"
 msgstr ""
 
 msgid "Load Commit Message"
@@ -1698,6 +1721,9 @@ msgstr "Dotázat se když nahrání vytváří nové vzdálené větve"
 msgid "Prune "
 msgstr "Prune"
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 msgid "Pull"
 msgstr "Stáhnout si"
 
@@ -1799,6 +1825,9 @@ msgstr "Odstranit odkazy na vzdálené větve, které již neexistují ve vzdál
 msgid "Remove selected (Delete)"
 msgstr "Odstranit vybrané (Smazat)"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "Přejmenovat"
 
@@ -1831,6 +1860,9 @@ msgstr "Přejmenovat vzdálenou „%(current)s“ na „%(new)s“?"
 msgid "Rename selected paths"
 msgstr "Přejmenovat vybraná umístění"
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, python-format
 msgid "Repository: %s"
 msgstr "Repozitář: %s"
@@ -1842,47 +1874,63 @@ msgstr "Resetovat"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "Resetovat \"%(branch)s\" do \"%(revision)s\"?"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "Resetovat větev"
 
-msgid "Reset Branch Head"
-msgstr "Resetovat hlavu větve"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "Resetovat větev?"
 
-msgid "Reset Hard"
-msgstr "Tvrdý reset"
-
 msgid "Reset Layout"
 msgstr ""
 
-msgid "Reset Merge"
-msgstr "Resetovat sloučení"
+msgid "Reset Worktree and Reset All?"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "Měkký reset"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Worktree"
-msgstr "Resetovat pracovní strom"
-
-msgid "Reset hard?"
-msgstr "Tvrdý reset?"
-
-msgid "Reset merge?"
-msgstr "Resetovat sloučení?"
-
-msgid "Reset soft?"
-msgstr "Měkký reset?"
-
-msgid "Reset worktree?"
-msgstr "Resetovat pracovní strom?"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Resetováním „%(branch)s“ do „%(revision)s“ se ztratí zápisy."
 
 msgid "Restart the application after changing appearance settings."
+msgstr ""
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
 msgstr ""
 
 msgid "Revert"
@@ -2076,14 +2124,8 @@ msgstr "Vybrat nadřazený"
 msgid "Select Previous Version"
 msgstr "Vybrat předchozí verzi"
 
-msgid "Select Repository..."
-msgstr "Vybrat repozitář…"
-
 msgid "Select a parent directory for the new clone"
 msgstr "Vybrat nadřazenou složku pro nový klon"
-
-msgid "Select manually..."
-msgstr "Vybrat ručně…"
 
 msgid "Select output dir"
 msgstr "Vybrat výstupní složku"
@@ -2327,14 +2369,6 @@ msgid "The branch will be no longer available."
 msgstr "Větev nebude již k dispozici."
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "Větev bude resetována za použití \"git reset --hard %s\""
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "Větev bude resetována za použití \"git reset --merge %s\""
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "Větev bude resetována za použití \"git reset --mixed %s\""
 
@@ -2352,6 +2386,18 @@ msgstr "Soubor \"%s\" existuje a bude přepsán."
 msgid "The following files will be deleted:"
 msgstr "Následující soubory budou smazány:"
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr "Výraz revize nemůže zůstat nevyplněný."
 
@@ -2368,8 +2414,8 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "Větev bude resetována za použití \"git reset --keep %s\""
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "Tuto akci nelze vzít zpět. Vyčistit zprávu k nahrání?"
@@ -2464,6 +2510,15 @@ msgstr "Nedaří se nastavit URL pro „%(name)s“ na „%(url)s“"
 
 msgid "Undo"
 msgstr "Zpět"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr "Nesloučeno"
@@ -2660,11 +2715,53 @@ msgstr "rrrr-mm-dd"
 #~ msgid "Rename remote?"
 #~ msgstr "Přejmenovat vzdálenou?"
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "Resetovat hlavu větve"
+
+#~ msgid "Reset Hard"
+#~ msgstr "Tvrdý reset"
+
+#~ msgid "Reset Merge"
+#~ msgstr "Resetovat sloučení"
+
+#~ msgid "Reset Soft"
+#~ msgstr "Měkký reset"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "Resetovat pracovní strom"
+
+#~ msgid "Reset hard?"
+#~ msgstr "Tvrdý reset?"
+
+#~ msgid "Reset merge?"
+#~ msgstr "Resetovat sloučení?"
+
+#~ msgid "Reset soft?"
+#~ msgstr "Měkký reset?"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "Resetovat pracovní strom?"
+
 #~ msgid "Select File"
 #~ msgstr "Vybrat soubor"
+
+#~ msgid "Select Repository..."
+#~ msgstr "Vybrat repozitář…"
+
+#~ msgid "Select manually..."
+#~ msgstr "Vybrat ručně…"
 
 #~ msgid "Show Details..."
 #~ msgstr "Zobrazit podrobnosti…"
 
 #~ msgid "Summary:"
 #~ msgstr "Shrnutí:"
+
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "Větev bude resetována za použití \"git reset --hard %s\""
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "Větev bude resetována za použití \"git reset --merge %s\""
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "Větev bude resetována za použití \"git reset --keep %s\""

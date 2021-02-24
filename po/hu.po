@@ -323,6 +323,10 @@ msgstr ""
 "Biztosan kiszemelésre kerüljön?"
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr "A(z) %s nem git tároló."
 
@@ -854,8 +858,15 @@ msgid "Copy..."
 msgstr "Másolás…"
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "Nem lehet feldolgozni a git URL-t: „%s”"
+
+msgid "Create"
+msgstr ""
 
 msgid "Create Branch"
 msgstr "Ág létrehozása"
@@ -883,6 +894,9 @@ msgstr "Beolvasztásos véglegesítést hoz létre akkor is, ha a beolvasztás e
 
 msgid "Create a new remote branch?"
 msgstr "Létrehozza az új távoli ágat?"
+
+msgid "Create a new repository at that location?"
+msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
 msgstr ""
@@ -1118,6 +1132,9 @@ msgstr "Hiba a gyanúsító megjelenítő indítása közben"
 msgid "Error Launching History Browser"
 msgstr "Hiba a történetböngésző indításakor"
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "Hiba a(z) „%s” távoli létrehozásakor"
@@ -1291,6 +1308,9 @@ msgstr "Lapos világosszürke"
 
 msgid "Flat light red"
 msgstr "Lapos világos vörös"
+
+msgid "Folder"
+msgstr ""
 
 msgid "Font Size"
 msgstr "Betűméret"
@@ -1472,6 +1492,9 @@ msgstr "git-difftool indítása a jelenlegi útvonalon"
 
 msgid "Light Theme"
 msgstr "Világos téma"
+
+msgid "List"
+msgstr ""
 
 msgid "Load Commit Message"
 msgstr "Véglegesítő üzenet betöltése"
@@ -1759,6 +1782,9 @@ msgstr "Kérdés, ha a felküldés új távoli ágat hozna létre"
 msgid "Prune "
 msgstr "Tisztogatás"
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 msgid "Pull"
 msgstr "Lekérés"
 
@@ -1860,6 +1886,9 @@ msgstr "Távoli követett ágak eltávolítása, melyek már nem léteznek a tá
 msgid "Remove selected (Delete)"
 msgstr "Kijelöltek eltávolítása (Törlés)"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "Átnevezés"
 
@@ -1892,6 +1921,9 @@ msgstr "Átnevezi a(z) „%(current)s” távolit erre: „%(new)s”?"
 msgid "Rename selected paths"
 msgstr "Kijelölt útvonalak átnevezése"
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, python-format
 msgid "Repository: %s"
 msgstr "Tároló: %s"
@@ -1903,41 +1935,32 @@ msgstr "Visszaállítás"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "Visszaállítja a(z) „%(branch)s” ágat erre: „%(revision)s”?"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "Ág visszaállítása"
 
-msgid "Reset Branch Head"
-msgstr "Ág fejének visszaállítása"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "Visszaállítja az ágat?"
 
-msgid "Reset Hard"
-msgstr "Teljes visszaállítás"
-
 msgid "Reset Layout"
 msgstr "Elrendezés visszaállítása"
 
-msgid "Reset Merge"
-msgstr "Beolvasztás visszaállítása"
+msgid "Reset Worktree and Reset All?"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "Nyugodt visszaállítás"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Worktree"
-msgstr "Munkafa visszaállítása"
-
-msgid "Reset hard?"
-msgstr "Elindítja a teljes visszaállítást?"
-
-msgid "Reset merge?"
-msgstr "Elindítja a beolvasztás visszaállítását?"
-
-msgid "Reset soft?"
-msgstr "Elindítja a nyugodt visszaállítást?"
-
-msgid "Reset worktree?"
-msgstr "Elindítja a munkafa visszaállítását?"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
@@ -1945,6 +1968,31 @@ msgstr "A(z) „%(branch)s” visszaállítása a(z) „%(revision)s” revízi�
 
 msgid "Restart the application after changing appearance settings."
 msgstr "A megjelenési beállítások módosítása után indítsa újra az alkalmazást."
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
+msgstr ""
 
 msgid "Revert"
 msgstr "Visszavonás"
@@ -2137,14 +2185,8 @@ msgstr "Szülő kijelölése"
 msgid "Select Previous Version"
 msgstr "Előző verzió kijelölése"
 
-msgid "Select Repository..."
-msgstr "Tároló kijelölése…"
-
 msgid "Select a parent directory for the new clone"
 msgstr "Válasszon szülő mappát az új klón számára"
-
-msgid "Select manually..."
-msgstr "Kézi kijelölés…"
 
 msgid "Select output dir"
 msgstr "Kimeneti könyvtár kijelölése"
@@ -2390,14 +2432,6 @@ msgid "The branch will be no longer available."
 msgstr "Az ág nem lesz többé elérhető."
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "Az ág visszaállítása ezzel a paranccsal: „git reset --hard %s”"
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "Az ág visszaállítása ezzel a paranccsal: „git reset --merge %s”"
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "Az ág visszaállítása ezzel a paranccsal: „git reset --mixed %s”"
 
@@ -2414,6 +2448,18 @@ msgstr "A(z) „%s” fájl létezik és felül lesz írva."
 
 msgid "The following files will be deleted:"
 msgstr "A következő fájlok törölve lesznek:"
+
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
 
 msgid "The revision expression cannot be empty."
 msgstr "A revíziókifejezés nem lehet üres."
@@ -2433,8 +2479,8 @@ msgstr ""
 "„%s”"
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "A munkafa visszaáll ezzel a paranccsal: „git reset --keep %s”"
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "Ez nem vonható vissza. Megtisztítja a véglegesítési üzenetet?"
@@ -2534,6 +2580,15 @@ msgstr "Nem állítható be URL a(z) „%(name)s” számára: „%(url)s”"
 
 msgid "Undo"
 msgstr "Visszavonás"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr "Nem beolvasztottak"
@@ -2724,5 +2779,47 @@ msgstr "yyyy-MM-dd"
 #~ msgid "Hide Details.."
 #~ msgstr "Részletek elrejtése…"
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "Ág fejének visszaállítása"
+
+#~ msgid "Reset Hard"
+#~ msgstr "Teljes visszaállítás"
+
+#~ msgid "Reset Merge"
+#~ msgstr "Beolvasztás visszaállítása"
+
+#~ msgid "Reset Soft"
+#~ msgstr "Nyugodt visszaállítás"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "Munkafa visszaállítása"
+
+#~ msgid "Reset hard?"
+#~ msgstr "Elindítja a teljes visszaállítást?"
+
+#~ msgid "Reset merge?"
+#~ msgstr "Elindítja a beolvasztás visszaállítását?"
+
+#~ msgid "Reset soft?"
+#~ msgstr "Elindítja a nyugodt visszaállítást?"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "Elindítja a munkafa visszaállítását?"
+
+#~ msgid "Select Repository..."
+#~ msgstr "Tároló kijelölése…"
+
+#~ msgid "Select manually..."
+#~ msgstr "Kézi kijelölés…"
+
 #~ msgid "Show Details..."
 #~ msgstr "Részletek megjelenítése…"
+
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "Az ág visszaállítása ezzel a paranccsal: „git reset --hard %s”"
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "Az ág visszaállítása ezzel a paranccsal: „git reset --merge %s”"
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "A munkafa visszaáll ezzel a paranccsal: „git reset --keep %s”"

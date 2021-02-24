@@ -219,6 +219,10 @@ msgid ""
 msgstr ""
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr ""
 
@@ -729,7 +733,14 @@ msgid "Copy..."
 msgstr "Kopyala..."
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
+msgstr ""
+
+msgid "Create"
 msgstr ""
 
 msgid "Create Branch"
@@ -757,6 +768,9 @@ msgid "Create a merge commit even when the merge resolves as a fast-forward"
 msgstr ""
 
 msgid "Create a new remote branch?"
+msgstr ""
+
+msgid "Create a new repository at that location?"
 msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
@@ -993,6 +1007,9 @@ msgstr ""
 msgid "Error Launching History Browser"
 msgstr ""
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "Uzak \"%s\" oluşturulurken hata"
@@ -1163,6 +1180,9 @@ msgstr "Düz açık gri"
 
 msgid "Flat light red"
 msgstr "Düz açık kırmızı"
+
+msgid "Folder"
+msgstr ""
 
 msgid "Font Size"
 msgstr "Yazı Tipi Boyutu"
@@ -1342,6 +1362,9 @@ msgstr ""
 
 msgid "Light Theme"
 msgstr "Açık Tema"
+
+msgid "List"
+msgstr ""
 
 msgid "Load Commit Message"
 msgstr "İşleme Mesajını Yükle"
@@ -1615,6 +1638,9 @@ msgstr ""
 msgid "Prune "
 msgstr ""
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 msgid "Pull"
 msgstr ""
 
@@ -1716,6 +1742,9 @@ msgstr ""
 msgid "Remove selected (Delete)"
 msgstr ""
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "Yeniden Adlandır"
 
@@ -1748,6 +1777,9 @@ msgstr ""
 msgid "Rename selected paths"
 msgstr ""
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, python-format
 msgid "Repository: %s"
 msgstr "Depo: %s"
@@ -1759,40 +1791,31 @@ msgstr "Sıfırla"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr ""
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "Dalı Sıfırla"
 
-msgid "Reset Branch Head"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
 msgstr ""
 
 msgid "Reset Branch?"
 msgstr "Dalı Sıfırla?"
 
-msgid "Reset Hard"
-msgstr ""
-
 msgid "Reset Layout"
 msgstr ""
 
-msgid "Reset Merge"
+msgid "Reset Worktree and Reset All?"
 msgstr ""
 
-msgid "Reset Soft"
+msgid "Reset and Restore"
 msgstr ""
 
-msgid "Reset Worktree"
-msgstr ""
-
-msgid "Reset hard?"
-msgstr ""
-
-msgid "Reset merge?"
-msgstr ""
-
-msgid "Reset soft?"
-msgstr ""
-
-msgid "Reset worktree?"
+msgid "Reset branch?"
 msgstr ""
 
 #, python-format
@@ -1800,6 +1823,31 @@ msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr ""
 
 msgid "Restart the application after changing appearance settings."
+msgstr ""
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
 msgstr ""
 
 msgid "Revert"
@@ -1993,13 +2041,7 @@ msgstr ""
 msgid "Select Previous Version"
 msgstr ""
 
-msgid "Select Repository..."
-msgstr "Depoyu Seç..."
-
 msgid "Select a parent directory for the new clone"
-msgstr ""
-
-msgid "Select manually..."
 msgstr ""
 
 msgid "Select output dir"
@@ -2244,14 +2286,6 @@ msgid "The branch will be no longer available."
 msgstr ""
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr ""
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr ""
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr ""
 
@@ -2269,6 +2303,18 @@ msgstr ""
 msgid "The following files will be deleted:"
 msgstr "Aşağıdaki satırlar silinecek:"
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr ""
 
@@ -2285,7 +2331,7 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
 msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2371,6 +2417,15 @@ msgid "Unable to set URL for \"%(name)s\" to \"%(url)s\""
 msgstr ""
 
 msgid "Undo"
+msgstr ""
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
 msgstr ""
 
 msgid "Unmerged"
@@ -2623,6 +2678,9 @@ msgstr "yyyy-AA-gg"
 
 #~ msgid "Select File"
 #~ msgstr "Select File"
+
+#~ msgid "Select Repository..."
+#~ msgstr "Depoyu Seç..."
 
 #~ msgid "Select file from \"%s\""
 #~ msgstr "Select file from \"%s\""

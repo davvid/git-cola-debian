@@ -319,6 +319,10 @@ msgstr ""
 "Você provavelmente deveria pular este arquivo.\n"
 "Selecionar o arquivo de qualquer forma?"
 
+#, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
 #, fuzzy, python-format
 msgid "%s is not a Git repository."
 msgstr "Entrar no Repositório Git"
@@ -482,7 +486,7 @@ msgid "Add remote"
 msgstr "Adicionar remoto"
 
 msgid "Add this submodule?"
-msgstr ""
+msgstr "Adicionar este submódulo?"
 
 msgid "Add to .gitignore"
 msgstr "Adicionar ao .gitignore"
@@ -583,16 +587,16 @@ msgid "Authors"
 msgstr "Autores"
 
 msgid "Auto"
-msgstr ""
+msgstr "Automático"
 
 msgid "Auto-Wrap Lines"
 msgstr "Auto-Quebra de Linhas"
 
 msgid "Autocomplete Paths"
-msgstr ""
+msgstr "Autocompletar Caminhos"
 
 msgid "Automatically Load Commit Message Template"
-msgstr ""
+msgstr "Carregar template de mensagens de commit automaticamente"
 
 msgid "Basic Regexp"
 msgstr "Regexp Básico"
@@ -635,7 +639,7 @@ msgid "Branch Name"
 msgstr "Nome do Branch"
 
 msgid "Branch name"
-msgstr ""
+msgstr "Nome do Branch"
 
 #, python-format
 msgid "Branch: %s"
@@ -704,7 +708,7 @@ msgid "Changed Upstream"
 msgstr "Upstream Modificado"
 
 msgid "Check Published Commits when Amending"
-msgstr ""
+msgstr "Verificar commits publicados em Amending"
 
 msgid "Check Spelling"
 msgstr "Verificar Ortografia"
@@ -734,13 +738,13 @@ msgid "Checkout..."
 msgstr "Checkout..."
 
 msgid "Cherry Pick"
-msgstr ""
+msgstr "Cherry Pick"
 
 msgid "Cherry-Pick Commit"
-msgstr ""
+msgstr "Cherry-Pick Commit"
 
 msgid "Cherry-Pick..."
-msgstr ""
+msgstr "Cherry-Pick..."
 
 msgid "Choose Paths"
 msgstr "Escolha os caminhos"
@@ -809,7 +813,7 @@ msgid "Commit the merge if there are no conflicts.  Uncheck to leave the merge u
 msgstr "Commit o merge se não houver conflitos. Desmarque para deixar o merge sem commit."
 
 msgid "Commit@@verb"
-msgstr ""
+msgstr "Commit@@verbo"
 
 msgid "Compare"
 msgstr "Comparar"
@@ -824,7 +828,7 @@ msgid "Configure toolbar"
 msgstr "Configurar Barra de Ferramentas"
 
 msgid "Console"
-msgstr ""
+msgstr "Console"
 
 msgid "Continue"
 msgstr "Continuar"
@@ -851,8 +855,15 @@ msgid "Copy..."
 msgstr "Copiar..."
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "Não foi possível analisar o URL do Git \"%s\""
+
+msgid "Create"
+msgstr ""
 
 msgid "Create Branch"
 msgstr "Criar Branch"
@@ -880,6 +891,9 @@ msgstr "Criar um commit de merge mesmo se o merge resultar em fast-foward"
 
 msgid "Create a new remote branch?"
 msgstr "Criar um novo branch remoto?"
+
+msgid "Create a new repository at that location?"
+msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
 msgstr ""
@@ -910,7 +924,7 @@ msgid "DAG..."
 msgstr "Visualizar o histórico..."
 
 msgid "Dark Theme"
-msgstr ""
+msgstr "Tema Escuro"
 
 msgid "Date, Time"
 msgstr "Data, Tempo"
@@ -954,7 +968,7 @@ msgstr "Remover Branch Remoto..."
 
 #, python-format
 msgid "Delete branch \"%s\"?"
-msgstr ""
+msgstr "Remover branch \"%s\"?"
 
 msgid "Delete remote"
 msgstr "Deletar Repositórios Remotos"
@@ -1070,7 +1084,7 @@ msgid "Edit..."
 msgstr "Editar..."
 
 msgid "Editor"
-msgstr ""
+msgstr "Editor"
 
 msgid "Email Address"
 msgstr "Endereço de Email"
@@ -1079,7 +1093,7 @@ msgid "Email contributor"
 msgstr "Email do Contribuidor"
 
 msgid "Enable path autocompletion in tools"
-msgstr ""
+msgstr "Habilitar autocomplete de caminhos em ferramentas"
 
 msgid "Enabled"
 msgstr "Habilitado"
@@ -1117,6 +1131,9 @@ msgstr "Erro Lançando o Visualizador de Blame"
 msgid "Error Launching History Browser"
 msgstr "Erro Lançando o Visualizador de Histórico"
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "Erro criando o remoto \"%s\""
@@ -1126,7 +1143,7 @@ msgstr "Erro ao criar o stash"
 
 #, python-format
 msgid "Error deleting branch \"%s\""
-msgstr ""
+msgstr "Erro ao remover branch \"%s\""
 
 #, python-format
 msgid "Error deleting remote \"%s\""
@@ -1205,7 +1222,7 @@ msgid "Fetch Tracking Branch"
 msgstr ""
 
 msgid "Fetch..."
-msgstr ""
+msgstr "Fetch..."
 
 msgid "File Browser..."
 msgstr "Navegador de Arquivos..."
@@ -1270,27 +1287,30 @@ msgid "Fixup Previous Commit"
 msgstr "Fixup Commit Anterior"
 
 msgid "Flat dark blue"
-msgstr ""
+msgstr "Flat dark blue"
 
 msgid "Flat dark green"
-msgstr ""
+msgstr "Flat dark green"
 
 msgid "Flat dark grey"
-msgstr ""
+msgstr "Flat dark grey"
 
 msgid "Flat dark red"
-msgstr ""
+msgstr "Flat dark red"
 
 msgid "Flat light blue"
-msgstr ""
+msgstr "Flat light blue"
 
 msgid "Flat light green"
-msgstr ""
+msgstr "Flat light green"
 
 msgid "Flat light grey"
-msgstr ""
+msgstr "Flat light grey"
 
 msgid "Flat light red"
+msgstr "Flat light red"
+
+msgid "Folder"
 msgstr ""
 
 msgid "Font Size"
@@ -1323,7 +1343,7 @@ msgid "Format String"
 msgstr "Formatar String"
 
 msgid "French translation"
-msgstr ""
+msgstr "Tradução francesa"
 
 msgid "GPG-sign the merge commit"
 msgstr "Assinar com GPG o Commit de Merge"
@@ -1336,7 +1356,7 @@ msgid "Gathering info for \"%s\"..."
 msgstr "Reunindo Informação de \"%s\"..."
 
 msgid "German translation"
-msgstr ""
+msgstr "Tradução alemã"
 
 msgid "Get Commit Message Template"
 msgstr "Obter Template da Mensagem do Commit"
@@ -1354,7 +1374,7 @@ msgid "Graph"
 msgstr "Gráfico"
 
 msgid "Grep"
-msgstr ""
+msgstr "Grep"
 
 msgid "Have you rebased/pulled lately?"
 msgstr "Você tem usado rebase/pull recentemente?"
@@ -1372,7 +1392,7 @@ msgid "Help - git-cola-sequence-editor"
 msgstr "Ajuda - git-cola-sequence-editor"
 
 msgid "High DPI"
-msgstr ""
+msgstr "DPI Alto"
 
 msgid "History Browser"
 msgstr "Navegador de Histórico"
@@ -1402,7 +1422,7 @@ msgid "Ignore filename or pattern"
 msgstr "Ignorar nome do arquivo ou padrão"
 
 msgid "Ignore..."
-msgstr ""
+msgstr "Ignorar..."
 
 msgid "Include tags "
 msgstr "Incluir tags"
@@ -1472,6 +1492,9 @@ msgid "Launch git-difftool on the current path"
 msgstr "Iniciar git-difftool no caminho atual"
 
 msgid "Light Theme"
+msgstr ""
+
+msgid "List"
 msgstr ""
 
 msgid "Load Commit Message"
@@ -1764,6 +1787,9 @@ msgstr "Perguntar quando push criar novo branch"
 msgid "Prune "
 msgstr ""
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 #, fuzzy
 msgid "Pull"
 msgstr "Puxar..."
@@ -1781,7 +1807,7 @@ msgid "Quit"
 msgstr "Sair"
 
 msgid "Rebase"
-msgstr ""
+msgstr "Rebase"
 
 #, python-format
 msgid "Rebase onto %s"
@@ -1794,7 +1820,7 @@ msgid "Rebase the current branch instead of merging"
 msgstr "Rebase o branch atual em vez de merge"
 
 msgid "Rebasing"
-msgstr ""
+msgstr "Rebasing"
 
 msgid "Recent"
 msgstr "Recente"
@@ -1866,6 +1892,9 @@ msgstr "Remover rastreamento remoto de branchs que não existem mais no remoto "
 msgid "Remove selected (Delete)"
 msgstr "Remover selecionado"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "Renomear"
 
@@ -1899,6 +1928,9 @@ msgstr "Renomear remoto de \"%(current)s\" para \"%(new)s\"?"
 msgid "Rename selected paths"
 msgstr "Renomear caminhos selecionados"
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, python-format
 msgid "Repository: %s"
 msgstr "Repositório: %s"
@@ -1910,41 +1942,32 @@ msgstr "Resetar"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "Resetar \"%(branch)s\" to \"%(revision)s\"?"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "Resetar Branch"
 
-msgid "Reset Branch Head"
-msgstr "Resetar Head do Branch"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "Resetar Branch?"
 
-msgid "Reset Hard"
-msgstr "Resetar Hard"
-
 msgid "Reset Layout"
 msgstr ""
 
-msgid "Reset Merge"
-msgstr "Resetar Merge"
+msgid "Reset Worktree and Reset All?"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "Resetar Soft"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Worktree"
-msgstr "Resetar Worktree"
-
-msgid "Reset hard?"
-msgstr "Resetar hard?"
-
-msgid "Reset merge?"
-msgstr "Resetar merge?"
-
-msgid "Reset soft?"
-msgstr "Resetar soft?"
-
-msgid "Reset worktree?"
-msgstr "Resetar Worktree?"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
@@ -1952,6 +1975,31 @@ msgstr "Resetar \"%(branch)s\" para \"%(revision)s\" irá perder commits."
 
 msgid "Restart the application after changing appearance settings."
 msgstr "A alteração de aparência necessita reiniciar a aplicação."
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
+msgstr ""
 
 msgid "Revert"
 msgstr "Reverter"
@@ -2046,7 +2094,7 @@ msgid "Running command: %s"
 msgstr "Executando o comando: %s"
 
 msgid "Russian translation"
-msgstr ""
+msgstr "Tradução russa"
 
 msgid "SHA-1"
 msgstr "SHA-1"
@@ -2146,14 +2194,8 @@ msgstr "Selecionar Pai"
 msgid "Select Previous Version"
 msgstr "Selecionar Versão Anterior"
 
-msgid "Select Repository..."
-msgstr "Selecionar Repositório"
-
 msgid "Select a parent directory for the new clone"
 msgstr "Selecionar um diretório pai para o novo clone"
-
-msgid "Select manually..."
-msgstr "Selecione manualmente"
 
 msgid "Select output dir"
 msgstr "Selecionar pasta de saída"
@@ -2213,7 +2255,7 @@ msgid "Show History"
 msgstr "Ver Histórico..."
 
 msgid "Show file counts in Status titles"
-msgstr ""
+msgstr "Exibe número de arquivos no título de status"
 
 msgid ""
 "Show help\n"
@@ -2259,7 +2301,7 @@ msgid "Sort bookmarks alphabetically"
 msgstr "Ordenar favoritos alfabeticamente"
 
 msgid "Spanish translation"
-msgstr ""
+msgstr "Trandução espanhola"
 
 msgid "Specifies the SHA-1 to tag"
 msgstr "Especificar o SHA-1 para a Tag"
@@ -2274,13 +2316,13 @@ msgid "Spelling Suggestions"
 msgstr "Sugestões de Ortografia"
 
 msgid "Squash"
-msgstr ""
+msgstr "Squash"
 
 msgid "Squash the merged commits into a single commit"
 msgstr "Unir os commits mesclados em um commit único"
 
 msgid "Stage"
-msgstr ""
+msgstr "Estágio"
 
 msgid "Stage / Unstage"
 msgstr "Estágio / Sem estágio "
@@ -2339,7 +2381,7 @@ msgid "Starting Revision"
 msgstr "Iniciar Revisão"
 
 msgid "Stash"
-msgstr ""
+msgstr "Stash"
 
 msgid "Stash Index"
 msgstr "Stash Índice"
@@ -2402,14 +2444,6 @@ msgid "The branch will be no longer available."
 msgstr "O branch não ficará mais disponível"
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "O branch será resetado usando \"git reset --hard %s\""
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "O branch será resetado usando \"git reset --merge %s\""
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "O branch será resetado usando \"git reset --mixed %s\""
 
@@ -2428,6 +2462,18 @@ msgstr "O arquivo \"%s\" existe e será sobrescrito."
 msgid "The following files will be deleted:"
 msgstr "Os arquivos a seguir serão apagados:"
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr "A revisão da expressão não pode ser vazia"
 
@@ -2444,8 +2490,8 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "O worktree será resetado usando \"git reset --keep %s\""
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "Isso não pode ser feito. Limpar mensagem do commit ?"
@@ -2545,6 +2591,15 @@ msgstr "Incapaz de modificar a URL de \"%(name)s\" para \"%(url)s\""
 
 msgid "Undo"
 msgstr "Desfazer"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr ""
@@ -2803,17 +2858,59 @@ msgstr ""
 #~ msgid "Rename remote?"
 #~ msgstr "Renomear Remoto?"
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "Resetar Head do Branch"
+
+#~ msgid "Reset Hard"
+#~ msgstr "Resetar Hard"
+
+#~ msgid "Reset Merge"
+#~ msgstr "Resetar Merge"
+
+#~ msgid "Reset Soft"
+#~ msgstr "Resetar Soft"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "Resetar Worktree"
+
+#~ msgid "Reset hard?"
+#~ msgstr "Resetar hard?"
+
+#~ msgid "Reset merge?"
+#~ msgstr "Resetar merge?"
+
+#~ msgid "Reset soft?"
+#~ msgstr "Resetar soft?"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "Resetar Worktree?"
+
 #~ msgid "Select File"
 #~ msgstr "Selecionar Arquivo"
 
+#~ msgid "Select Repository..."
+#~ msgstr "Selecionar Repositório"
+
 #~ msgid "Select file from \"%s\""
 #~ msgstr "Selecione um arquivo de \"%s\""
+
+#~ msgid "Select manually..."
+#~ msgstr "Selecione manualmente"
 
 #~ msgid "Show Details..."
 #~ msgstr "Mostrar Detalhes..."
 
 #~ msgid "Summary:"
 #~ msgstr "Sumário:"
+
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "O branch será resetado usando \"git reset --hard %s\""
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "O branch será resetado usando \"git reset --merge %s\""
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "O worktree será resetado usando \"git reset --keep %s\""
 
 #~ msgid "Updating..."
 #~ msgstr "Atualização..."
