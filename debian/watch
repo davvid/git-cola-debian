@@ -1,3 +1,5 @@
 version=4
-https://github.com/git-cola/git-cola/tags .*/v?(\d\S*)@ARCHIVE_EXT@
-# Bart Martens <bartm@debian.org>  Thu, 22 Nov 2012 14:17:58 +0000
+opts=uversionmangle=s/(\d)[_\.\-\+]?((RC|rc|pre|dev|beta|alpha|b|a)[\-\.]?\d*)$/$1~$2/,\
+dversionmangle=s/\+(debian|dfsg|ds|deb)(\.?\d+)?$// \
+https://github.com/git-cola/git-cola/tags \
+.*/v?(\d\S*)@ARCHIVE_EXT@
