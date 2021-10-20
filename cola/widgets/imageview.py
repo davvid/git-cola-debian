@@ -26,9 +26,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
-from __future__ import absolute_import, division, unicode_literals
-
+from __future__ import absolute_import, division, print_function, unicode_literals
 import argparse
 import os
 import sys
@@ -190,6 +188,8 @@ class ImageView(QtWidgets.QGraphicsView):
 
     def zoomROICentered(self, p, zoom_level_delta):
         roi = self.current_scene_ROI
+        if not roi:
+            return
         roi_dims = QtCore.QPointF(roi.width(), roi.height())
         roi_scalef = 1
 
@@ -213,6 +213,8 @@ class ImageView(QtWidgets.QGraphicsView):
 
     def zoomROITo(self, p, zoom_level_delta):
         roi = self.current_scene_ROI
+        if not roi:
+            return
         roi_dims = QtCore.QPointF(roi.width(), roi.height())
         roi_topleft = roi.topLeft()
         roi_scalef = 1.0

@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import collections
 import itertools
 import math
@@ -628,15 +628,15 @@ class GitDAG(standard.MainWindow):
         self.controls_widget = QtWidgets.QWidget()
         self.controls_widget.setLayout(self.controls_layout)
 
-        self.log_dock = qtutils.create_dock(N_('Log'), self, stretch=False)
+        self.log_dock = qtutils.create_dock('Log', N_('Log'), self, stretch=False)
         self.log_dock.setWidget(self.treewidget)
         log_dock_titlebar = self.log_dock.titleBarWidget()
         log_dock_titlebar.add_corner_widget(self.controls_widget)
 
-        self.file_dock = qtutils.create_dock(N_('Files'), self)
+        self.file_dock = qtutils.create_dock('Files', N_('Files'), self)
         self.file_dock.setWidget(self.filewidget)
 
-        self.diff_dock = qtutils.create_dock(N_('Diff'), self)
+        self.diff_dock = qtutils.create_dock('Diff', N_('Diff'), self)
         self.diff_dock.setWidget(self.diffwidget)
 
         self.graph_controls_layout = qtutils.hbox(
@@ -651,7 +651,7 @@ class GitDAG(standard.MainWindow):
         self.graph_controls_widget = QtWidgets.QWidget()
         self.graph_controls_widget.setLayout(self.graph_controls_layout)
 
-        self.graphview_dock = qtutils.create_dock(N_('Graph'), self)
+        self.graphview_dock = qtutils.create_dock('Graph', N_('Graph'), self)
         self.graphview_dock.setWidget(self.graphview)
         graph_titlebar = self.graphview_dock.titleBarWidget()
         graph_titlebar.add_corner_widget(self.graph_controls_widget)
@@ -1209,6 +1209,7 @@ class Commit(QtWidgets.QGraphicsItem):
         self.edges = {}
 
     def blockSignals(self, blocked):
+        """Disable notifications during sections that cause notification loops"""
         self.notifier.notification_enabled = not blocked
 
     def itemChange(self, change, value):
@@ -1231,7 +1232,7 @@ class Commit(QtWidgets.QGraphicsItem):
                     self.brush = self.commit_color
                 color = self.outline_color
             commit_pen = QtGui.QPen()
-            commit_pen.setWidth(1.0)
+            commit_pen.setWidth(1)
             commit_pen.setColor(color)
             self.commit_pen = commit_pen
 
@@ -1504,9 +1505,8 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
                 item = self.items[oid]
             except KeyError:
                 continue
-            item.blockSignals(True)
-            item.setSelected(True)
-            item.blockSignals(False)
+            with qtutils.BlockSignals(item):
+                item.setSelected(True)
             item_rect = item.sceneTransform().mapRect(item.boundingRect())
             self.ensureVisible(item_rect)
 

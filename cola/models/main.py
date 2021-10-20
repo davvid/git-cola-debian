@@ -1,8 +1,5 @@
-# Copyright (C) 2007-2018 David Aguilar
-"""This module provides the central cola model.
-"""
-from __future__ import division, absolute_import, unicode_literals
-
+"""The central cola model"""
+from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 
 from .. import core
@@ -27,6 +24,7 @@ class MainModel(Observable):
 
     # Observable messages
     message_about_to_update = 'about_to_update'
+    message_previous_contents = 'previous_contents'
     message_commit_message_changed = 'commit_message_changed'
     message_diff_text_changed = 'diff_text_changed'
     message_diff_text_updated = 'diff_text_updated'
@@ -48,6 +46,7 @@ class MainModel(Observable):
     mode_worktree = 'worktree'  # Comparing index to worktree
     mode_diffstat = 'diffstat'  # Showing a diffstat
     mode_untracked = 'untracked'  # Dealing with an untracked file
+    mode_untracked_diff = 'untracked-diff'  # Diffing an untracked file
     mode_index = 'index'  # Comparing index to last commit
     mode_amend = 'amend'  # Amending a commit
 
@@ -55,7 +54,7 @@ class MainModel(Observable):
     modes_undoable = set((mode_amend, mode_index, mode_worktree))
 
     # Modes where we can partially stage files
-    modes_stageable = set((mode_amend, mode_worktree, mode_untracked))
+    modes_stageable = set((mode_amend, mode_worktree, mode_untracked_diff))
 
     # Modes where we can partially unstage files
     modes_unstageable = set((mode_amend, mode_index))
@@ -230,6 +229,13 @@ class MainModel(Observable):
         self.update_file_status()
 
     def emit_about_to_update(self):
+        self.notify_observers(
+            self.message_previous_contents,
+            self.staged,
+            self.unmerged,
+            self.modified,
+            self.untracked
+        )
         self.notify_observers(self.message_about_to_update)
 
     def emit_updated(self):

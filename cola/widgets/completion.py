@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import re
 
 from qtpy import QtCore
@@ -297,7 +297,12 @@ class GatherCompletionsThread(QtCore.QThread):
 
     def dispose(self):
         self.running = False
-        self.wait()
+        try:
+            self.wait()
+        except RuntimeError:
+            # The C++ object may have already been deleted by python while
+            # the application is tearing down. This is fine.
+            pass
 
     def run(self):
         text = None

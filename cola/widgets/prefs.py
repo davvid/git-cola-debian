@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 
 from qtpy import QtCore
@@ -104,16 +104,16 @@ class FormWidget(QtWidgets.QWidget):
 
 
 def set_widget_value(widget, value):
-    widget.blockSignals(True)
-    if isinstance(widget, QtWidgets.QSpinBox):
-        widget.setValue(value)
-    elif isinstance(widget, QtWidgets.QLineEdit):
-        widget.setText(value)
-    elif isinstance(widget, QtWidgets.QCheckBox):
-        widget.setChecked(value)
-    elif isinstance(widget, qtutils.ComboBox):
-        widget.set_value(value)
-    widget.blockSignals(False)
+    """Set a value on a widget without emitting notifications"""
+    with qtutils.BlockSignals(widget):
+        if isinstance(widget, QtWidgets.QSpinBox):
+            widget.setValue(value)
+        elif isinstance(widget, QtWidgets.QLineEdit):
+            widget.setText(value)
+        elif isinstance(widget, QtWidgets.QCheckBox):
+            widget.setChecked(value)
+        elif isinstance(widget, qtutils.ComboBox):
+            widget.set_value(value)
 
 
 class RepoFormWidget(FormWidget):
@@ -217,6 +217,7 @@ class SettingsFormWidget(FormWidget):
         self.save_window_settings = qtutils.checkbox()
         self.check_spelling = qtutils.checkbox()
         self.expandtab = qtutils.checkbox()
+        self.resize_browser_columns = qtutils.checkbox(checked=False)
 
         self.add_row(N_('Fixed-Width Font'), self.fixed_font)
         self.add_row(N_('Font Size'), self.font_size)
@@ -231,6 +232,7 @@ class SettingsFormWidget(FormWidget):
         self.add_row(N_('Sort bookmarks alphabetically'), self.sort_bookmarks)
         self.add_row(N_('Keep *.orig Merge Backups'), self.keep_merge_backups)
         self.add_row(N_('Save GUI Settings'), self.save_window_settings)
+        self.add_row(N_('Resize File Browser columns'), self.resize_browser_columns)
         self.add_row(N_('Check spelling'), self.check_spelling)
 
         self.set_config(
@@ -257,6 +259,10 @@ class SettingsFormWidget(FormWidget):
                     Defaults.merge_keep_backup,
                 ),
                 prefs.MERGETOOL: (self.mergetool, Defaults.mergetool),
+                prefs.RESIZE_BROWSER_COLUMNS: (
+                    self.resize_browser_columns,
+                    Defaults.resize_browser_columns,
+                ),
                 prefs.SPELL_CHECK: (self.check_spelling, Defaults.spellcheck),
             }
         )
@@ -266,17 +272,17 @@ class SettingsFormWidget(FormWidget):
         self.font_size.valueChanged.connect(self.font_size_changed)
 
     def update_from_config(self):
+        """Update widgets to the current config values"""
         FormWidget.update_from_config(self)
         context = self.context
-        block = self.fixed_font.blockSignals(True)
-        font = qtutils.diff_font(context)
-        self.fixed_font.setCurrentFont(font)
-        self.fixed_font.blockSignals(block)
 
-        block = self.font_size.blockSignals(True)
-        font_size = font.pointSize()
-        self.font_size.setValue(font_size)
-        self.font_size.blockSignals(block)
+        with qtutils.BlockSignals(self.fixed_font):
+            font = qtutils.diff_font(context)
+            self.fixed_font.setCurrentFont(font)
+
+        with qtutils.BlockSignals(self.font_size):
+            font_size = font.pointSize()
+            self.font_size.setValue(font_size)
 
     def font_size_changed(self, size):
         font = self.fixed_font.currentFont()

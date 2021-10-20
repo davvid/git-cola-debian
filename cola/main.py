@@ -1,10 +1,11 @@
 """Launcher and command line interface to git-cola"""
-from __future__ import absolute_import, division, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import argparse
 import sys
 
 from . import app
 from . import cmds
+from . import compat
 from . import core
 
 
@@ -33,10 +34,11 @@ def winmain():
 
 def parse_args(argv):
     parser = argparse.ArgumentParser()
-    # Newer versions of argpares (Python 3.8+) emit an error message for
+    # Newer versions of argparse (Python 3.6+) emit an error message for
     # "--help-commands" unless we register the flag on the main parser.
-    add_help_options(parser)
-    parser.set_defaults(func=lambda _: parser.print_help())
+    if compat.PY_VERSION >= (3, 6):
+        add_help_options(parser)
+        parser.set_defaults(func=lambda _: parser.print_help())
 
     subparser = parser.add_subparsers(title='valid commands')
     add_cola_command(subparser)

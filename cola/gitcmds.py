@@ -1,5 +1,5 @@
 """Git commands and queries for Git"""
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import json
 import os
 import re
@@ -393,6 +393,7 @@ def diff_info(context, oid, filename=None):
     return decoded + oid_diff(context, oid, filename=filename)
 
 
+# pylint: disable=too-many-arguments
 def diff_helper(
     context,
     commit=None,
@@ -406,6 +407,7 @@ def diff_helper(
     with_diff_header=False,
     suppress_header=True,
     reverse=False,
+    untracked=False,
 ):
     "Invokes git diff on a filepath."
     git = context.git
@@ -416,13 +418,16 @@ def diff_helper(
     if ref and endref:
         argv.append('%s..%s' % (ref, endref))
     elif ref:
-        for r in utils.shell_split(ref.strip()):
-            argv.append(r)
+        argv.extend(utils.shell_split(ref.strip()))
     elif head and amending and cached:
         argv.append(head)
 
     encoding = None
-    if filename:
+    if untracked:
+        argv.append('--no-index')
+        argv.append(os.devnull)
+        argv.append(filename)
+    elif filename:
         argv.append('--')
         if isinstance(filename, (list, tuple)):
             argv.extend(filename)
@@ -438,7 +443,20 @@ def diff_helper(
         *argv,
         **common_diff_opts(context)
     )
-    if status != 0:
+
+    success = status == 0
+
+    # Diff will return 1 when comparing untracked file and it has change,
+    # therefore we will check for diff header from output to differentiate
+    # from actual error such as file not found.
+    if untracked and status == 1:
+        try:
+            _, second, _ = out.split('\n', 2)
+        except ValueError:
+            second = ''
+        success = second.startswith('new file mode ')
+
+    if not success:
         # git init
         if with_diff_header:
             return ('', '')
@@ -968,3 +986,23 @@ def annex_path(context, head, filename):
             path = out
 
     return path
+
+
+def is_binary(context, filename):
+    cfg_is_binary = context.cfg.is_binary(filename)
+    if cfg_is_binary is not None:
+        return cfg_is_binary
+    # This is the same heuristic as xdiff-interface.c:buffer_is_binary().
+    size = 8000
+    try:
+        result = core.read(filename, size=size, encoding='bytes')
+    except (IOError, OSError):
+        result = b''
+
+    return b'\0' in result
+
+
+def is_valid_ref(context, ref):
+    """Is the provided Git ref a valid refname?"""
+    status, _, _ = context.git.rev_parse(ref, quiet=True, verify=True)
+    return status == 0

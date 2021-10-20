@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 from binascii import unhexlify
 import copy
 import fnmatch
@@ -70,14 +70,13 @@ def _cache_key(git):
 
 def _config_to_python(v):
     """Convert a Git config string into a Python value"""
-
     if v in ('true', 'yes'):
         v = True
     elif v in ('false', 'no'):
         v = False
     else:
         try:
-            v = int(v)
+            v = int(v)  # pylint: disable=redefined-variable-type
         except ValueError:
             pass
     return v
@@ -125,6 +124,7 @@ class GitConfig(observable.Observable):
         self._configs = []
         self._config_files = {}
         self._attr_cache = {}
+        self._binary_cache = {}
         self._find_config_files()
 
     def reset(self):
@@ -132,6 +132,7 @@ class GitConfig(observable.Observable):
         self._configs = []
         self._config_files.clear()
         self._attr_cache = {}
+        self._binary_cache = {}
         self._find_config_files()
         self.reset_values()
 
@@ -385,6 +386,22 @@ class GitConfig(observable.Observable):
             'cola.fileattributes', fn=lambda: os.path.exists('.gitattributes')
         )
 
+    def is_binary(self, path):
+        """Return True if the file has the binary attribute set"""
+        if not self.is_per_file_attrs_enabled():
+            return None
+        cache = self._binary_cache
+        try:
+            value = cache[path]
+        except KeyError:
+            value = cache[path] = self._is_binary(path)
+        return value
+
+    def _is_binary(self, path):
+        """Return the file encoding for a path"""
+        value = self.check_attr('binary', path)
+        return value == 'set'
+
     def file_encoding(self, path):
         if not self.is_per_file_attrs_enabled():
             return self.gui_encoding()
@@ -397,15 +414,22 @@ class GitConfig(observable.Observable):
 
     def _file_encoding(self, path):
         """Return the file encoding for a path"""
-        status, out, _ = self.git.check_attr('encoding', '--', path)
-        if status != 0:
-            return None
-        header = '%s: encoding: ' % path
-        if out.startswith(header):
-            encoding = out[len(header) :].strip()
-            if encoding not in ('unspecified', 'unset', 'set'):
-                return encoding
-        return None
+        encoding = self.check_attr('encoding', path)
+        if encoding in ('unspecified', 'unset', 'set'):
+            result = None
+        else:
+            result = encoding
+        return result
+
+    def check_attr(self, attr, path):
+        """Check file attributes for a path"""
+        value = None
+        status, out, _ = self.git.check_attr(attr, '--', path)
+        if status == 0:
+            header = '%s: %s: ' % (path, attr)
+            if out.startswith(header):
+                value = out[len(header) :].strip()
+        return value
 
     def get_guitool_opts(self, name):
         """Return the guitool.<name> namespace as a dict
@@ -461,8 +485,10 @@ class GitConfig(observable.Observable):
         value = self.get('cola.color.%s' % key, default=default)
         struct_layout = core.encode('BBB')
         try:
+            # pylint: disable=no-member
             r, g, b = struct.unpack(struct_layout, unhex(value))
         except (struct.error, TypeError):
+            # pylint: disable=no-member
             r, g, b = struct.unpack(struct_layout, unhex(default))
         return (r, g, b)
 
