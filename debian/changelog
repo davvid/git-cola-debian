@@ -1,3 +1,9 @@
+git-cola (3.12.0-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Laszlo Boszormenyi (GCS) <gcs@debian.org>  Sun, 13 Feb 2022 10:00:48 +0100
+
 git-cola (3.11.0-1) unstable; urgency=medium
 
   * New upstream release.
