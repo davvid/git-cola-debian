@@ -12,8 +12,6 @@ package=git-cola
 PKGDIR=$(CURDIR)/debian/$(package)
 HTMLDIR=$(PKGDIR)/usr/share/doc/git-cola/html
 
-override_dh_auto_test:
-
 build: build-arch build-indep
 build-arch: build-stamp
 build-indep: build-stamp
@@ -78,4 +76,4 @@ binary-arch: build install
 
 binary: binary-indep binary-arch
 
-.PHONY: build clean binary-indep binary-arch binary install override_dh_auto_test
+.PHONY: build clean binary-indep binary-arch binary install
