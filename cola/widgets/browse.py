@@ -48,7 +48,7 @@ class Browser(standard.Widget):
         self.tree = RepoTreeView(self)
         self.mainlayout = QtGui.QHBoxLayout()
         self.setLayout(self.mainlayout)
-        self.mainlayout.setMargin(0)
+        self.mainlayout.setMargin(defs.no_margin)
         self.mainlayout.setSpacing(defs.spacing)
         self.mainlayout.addWidget(self.tree)
         self.resize(720, 420)
@@ -87,6 +87,7 @@ class RepoTreeView(standard.TreeView):
     def __init__(self, parent):
         standard.TreeView.__init__(self, parent)
 
+        self.setDragEnabled(True)
         self.setRootIsDecorated(True)
         self.setSortingEnabled(False)
         self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
@@ -205,10 +206,10 @@ class RepoTreeView(standard.TreeView):
 
         paths = self.selected_paths()
         model = main.model()
-        model_staged = utils.add_parents(set(model.staged))
-        model_modified = utils.add_parents(set(model.modified))
-        model_unmerged = utils.add_parents(set(model.unmerged))
-        model_untracked = utils.add_parents(set(model.untracked))
+        model_staged = utils.add_parents(model.staged)
+        model_modified = utils.add_parents(model.modified)
+        model_unmerged = utils.add_parents(model.unmerged)
+        model_untracked = utils.add_parents(model.untracked)
 
         for path in paths:
             if path in model_unmerged:
@@ -246,17 +247,19 @@ class RepoTreeView(standard.TreeView):
         index = model_index.sibling(model_index.row(), 0)
         return self.model().itemFromIndex(index)
 
+    def paths_from_indexes(self, indexes):
+        return qtutils.paths_from_indexes(self.model(), indexes,
+                                          item_type=GitRepoNameItem.TYPE)
+
     def selected_paths(self):
         """Return the selected paths."""
-        items = map(self.model().itemFromIndex, self.selectedIndexes())
-        return [i.path for i in items
-                    if i.type() == GitRepoNameItem.TYPE]
+        return self.paths_from_indexes(self.selectedIndexes())
 
     def selected_staged_paths(self, selection=None):
         """Return selected staged paths."""
         if not selection:
             selection = self.selected_paths()
-        staged = utils.add_parents(set(main.model().staged))
+        staged = utils.add_parents(main.model().staged)
         return [p for p in selection if p in staged]
 
     def selected_modified_paths(self, selection=None):
@@ -264,7 +267,7 @@ class RepoTreeView(standard.TreeView):
         if not selection:
             selection = self.selected_paths()
         model = main.model()
-        modified = utils.add_parents(set(model.modified))
+        modified = utils.add_parents(model.modified)
         return [p for p in selection if p in modified]
 
     def selected_unstaged_paths(self, selection=None):
@@ -272,8 +275,8 @@ class RepoTreeView(standard.TreeView):
         if not selection:
             selection = self.selected_paths()
         model = main.model()
-        modified = utils.add_parents(set(model.modified))
-        untracked = utils.add_parents(set(model.untracked))
+        modified = utils.add_parents(model.modified)
+        untracked = utils.add_parents(model.untracked)
         unstaged = modified.union(untracked)
         return [p for p in selection if p in unstaged]
 
@@ -284,7 +287,7 @@ class RepoTreeView(standard.TreeView):
         model = main.model()
         staged = set(self.selected_staged_paths())
         modified = set(self.selected_modified_paths())
-        untracked = utils.add_parents(set(model.untracked))
+        untracked = utils.add_parents(model.untracked)
         tracked = staged.union(modified)
         return [p for p in selection
                 if p not in untracked or p in tracked]

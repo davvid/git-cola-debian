@@ -62,16 +62,40 @@ def create_listwidget_item(text, filename):
 
 class TreeWidgetItem(QtGui.QTreeWidgetItem):
 
-    def __init__(self, text, filename, exists):
+    TYPE = QtGui.QStandardItem.UserType + 101
+
+    def __init__(self, path, icon, exists):
         QtGui.QTreeWidgetItem.__init__(self)
+        self.path = path
         self.exists = exists
-        self.setIcon(0, cached_icon_from_path(filename))
-        self.setText(0, text)
+        self.setIcon(0, cached_icon_from_path(icon))
+        self.setText(0, path)
+
+    def type(self):
+        return self.TYPE
 
 
 def create_treewidget_item(text, filename, exists=True):
     """Creates a QTreeWidgetItem with text and the icon at filename."""
     return TreeWidgetItem(text, filename, exists)
+
+
+def paths_from_indexes(model, indexes,
+                       item_type=TreeWidgetItem.TYPE,
+                       item_filter=None):
+    """Return paths from a list of QStandardItemModel indexes"""
+    items = [model.itemFromIndex(i) for i in indexes]
+    return paths_from_items(items, item_type=item_type, item_filter=item_filter)
+
+
+def paths_from_items(items,
+                     item_type=TreeWidgetItem.TYPE,
+                     item_filter=None):
+    """Return a list of paths from a list of items"""
+    if item_filter is None:
+        item_filter = lambda x: True
+    return [i.path for i in items
+            if i.type() == item_type and item_filter(i)]
 
 
 @memoize
@@ -279,8 +303,8 @@ def opendir_dialog(title, path):
     flags = (QtGui.QFileDialog.ShowDirsOnly |
              QtGui.QFileDialog.DontResolveSymlinks)
     return ustr(QtGui.QFileDialog
-                        .getExistingDirectory(active_window(),
-                                              title, path, flags))
+                     .getExistingDirectory(active_window(),
+                                           title, path, flags))
 
 
 def save_as(filename, title='Save As...'):
@@ -457,6 +481,11 @@ def options_icon():
     return icon('options.svg')
 
 
+def filter_icon():
+    """Return a filter icon"""
+    return icon('view-filter.png')
+
+
 def dir_close_icon():
     """Return a standard closed directory icon"""
     return cached_icon(QtGui.QStyle.SP_DirClosedIcon)
@@ -554,7 +583,7 @@ def create_button(text='', layout=None, tooltip=None, icon=None):
     button.setCursor(Qt.PointingHandCursor)
     if text:
         button.setText(text)
-    if icon:
+    if icon is not None:
         button.setIcon(icon)
     if tooltip is not None:
         button.setToolTip(tooltip)
@@ -688,6 +717,13 @@ def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
         layout.addWidget(button)
     return button
 
+
+def mimedata_from_paths(paths):
+    """Return mimedata with a list of absolute path URLs"""
+    urls = [QtCore.QUrl(core.abspath(path)) for path in paths]
+    mimedata = QtCore.QMimeData()
+    mimedata.setUrls(urls)
+    return mimedata
 
 # Syntax highlighting
 

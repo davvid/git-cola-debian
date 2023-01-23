@@ -79,6 +79,7 @@ class MainModel(Observable):
         self.directory = ''
         self.project = ''
         self.remotes = []
+        self.filter_paths = None
 
         self.commitmsg = ''
         self.modified = []
@@ -167,6 +168,10 @@ class MainModel(Observable):
         return self.git.log('-1', no_color=True, pretty='format:%s%n%n%b',
                             *args)[STDOUT]
 
+    def update_path_filter(self, filter_paths):
+        self.filter_paths = filter_paths
+        self.update_file_status()
+
     def update_file_status(self, update_index=False):
         self.notify_observers(self.message_about_to_update)
         self._update_files(update_index=update_index)
@@ -177,7 +182,7 @@ class MainModel(Observable):
         self.notify_observers(self.message_about_to_update)
         self._update_merge_rebase_status()
         self._update_files(update_index=update_index)
-        self._update_refs()
+        self._update_remotes()
         self._update_branches_and_tags()
         self._update_branch_heads()
         self.notify_observers(self.message_updated)
@@ -186,7 +191,8 @@ class MainModel(Observable):
         display_untracked = prefs.display_untracked()
         state = gitcmds.worktree_state_dict(head=self.head,
                                             update_index=update_index,
-                                            display_untracked=display_untracked)
+                                            display_untracked=display_untracked,
+                                            paths=self.filter_paths)
         self.staged = state.get('staged', [])
         self.modified = state.get('modified', [])
         self.unmerged = state.get('unmerged', [])
@@ -206,7 +212,7 @@ class MainModel(Observable):
         return not(bool(self.staged or self.modified or
                         self.unmerged or self.untracked))
 
-    def _update_refs(self):
+    def _update_remotes(self):
         self.remotes = self.git.remote()[STDOUT].splitlines()
 
     def _update_branch_heads(self):
@@ -224,6 +230,10 @@ class MainModel(Observable):
         self.is_rebasing = core.exists(self.git.git_path('rebase-merge'))
         if self.is_merging and self.mode == self.mode_amend:
             self.set_mode(self.mode_none)
+
+    def update_remotes(self):
+        self._update_remotes()
+        self._update_branches_and_tags()
 
     def delete_branch(self, branch):
         return self.git.branch(branch, D=True)
@@ -356,18 +366,17 @@ class MainModel(Observable):
                     ffwd=True,
                     tags=False,
                     rebase=False,
+                    pull=False,
                     push=False):
-        # Swap the branches in push mode (reverse of fetch)
         if push:
-            tmp = local_branch
-            local_branch = remote_branch
-            remote_branch = tmp
+            # Swap the branches in push mode (reverse of fetch)
+            local_branch, remote_branch = remote_branch, local_branch
         if ffwd:
             branch_arg = '%s:%s' % (remote_branch, local_branch)
         else:
             branch_arg = '+%s:%s' % (remote_branch, local_branch)
         args = [remote]
-        if local_branch and remote_branch:
+        if local_branch and remote_branch and not pull:
             args.append(branch_arg)
         elif local_branch:
             args.append(local_branch)
@@ -391,7 +400,7 @@ class MainModel(Observable):
         return self.run_remote_action(self.git.push, remote, push=True, **opts)
 
     def pull(self, remote, **opts):
-        return self.run_remote_action(self.git.pull, remote, push=True, **opts)
+        return self.run_remote_action(self.git.pull, remote, pull=True, **opts)
 
     def create_branch(self, name, base, track=False, force=False):
         """Create a branch named 'name' from revision 'base'

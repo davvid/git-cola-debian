@@ -21,6 +21,7 @@ from cola import version
 from cola.compat import unichr
 from cola.git import git
 from cola.git import STDOUT
+from cola.guicmds import TaskRunner
 from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.models import prefs
@@ -32,6 +33,7 @@ from cola.qtutils import create_dock
 from cola.qtutils import create_menu
 from cola.settings import Settings
 from cola.widgets import action
+from cola.widgets import bookmarks
 from cola.widgets import cfgactions
 from cola.widgets import editremotes
 from cola.widgets import merge
@@ -39,8 +41,6 @@ from cola.widgets import remote
 from cola.widgets.about import launch_about_dialog
 from cola.widgets.about import show_shortcuts
 from cola.widgets.archive import GitArchiveDialog
-from cola.widgets.bookmarks import manage_bookmarks
-from cola.widgets.bookmarks import BookmarksWidget
 from cola.widgets.browse import worktree_browser
 from cola.widgets.browse import worktree_browser_widget
 from cola.widgets.commitmsg import CommitMessageEditor
@@ -48,12 +48,13 @@ from cola.widgets.compare import compare_branches
 from cola.widgets.createtag import create_tag
 from cola.widgets.createbranch import create_new_branch
 from cola.widgets.dag import git_dag
-from cola.widgets.diff import DiffEditor
+from cola.widgets.diff import DiffEditorWidget
 from cola.widgets.grep import grep
 from cola.widgets.log import LogWidget
 from cola.widgets.patch import apply_patches
 from cola.widgets.prefs import preferences
 from cola.widgets.recent import browse_recent_files
+from cola.widgets.standard import ProgressDialog
 from cola.widgets.status import StatusWidget
 from cola.widgets.search import search
 from cola.widgets.standard import MainWindow
@@ -78,6 +79,10 @@ class MainView(MainWindow):
         # Keeps track of merge messages we've seen
         self.merge_message_hash = ''
 
+        # Runs asynchronous tasks
+        self.task_runner = TaskRunner(self)
+        self.progress = ProgressDialog('', '', self)
+
         cfg = gitcfg.instance()
         self.browser_dockable = (cfg.get('cola.browserdockable') or
                                  cfg.get('cola.classicdockable'))
@@ -94,14 +99,22 @@ class MainView(MainWindow):
         self.actionsdockwidget.hide()
 
         # "Repository Status" widget
-        self.statuswidget = StatusWidget(self)
         self.statusdockwidget = create_dock(N_('Status'), self)
+        self.statuswidget = StatusWidget(self.statusdockwidget.titleBarWidget(),
+                                         parent=self.statusdockwidget)
         self.statusdockwidget.setWidget(self.statuswidget)
 
-        # "Switch Repository" widget
+        # "Switch Repository" widgets
         self.bookmarksdockwidget = create_dock(N_('Bookmarks'), self)
-        self.bookmarkswidget = BookmarksWidget(parent=self.bookmarksdockwidget)
+        self.bookmarkswidget = bookmarks.BookmarksWidget(
+                bookmarks.BOOKMARKS, parent=self.bookmarksdockwidget)
         self.bookmarksdockwidget.setWidget(self.bookmarkswidget)
+
+        self.recentdockwidget = create_dock(N_('Recent'), self)
+        self.recentwidget = bookmarks.BookmarksWidget(
+                bookmarks.RECENT_REPOS, parent=self.recentdockwidget)
+        self.recentdockwidget.setWidget(self.recentwidget)
+        self.recentdockwidget.hide()
 
         # "Commit Message Editor" widget
         self.position_label = QtGui.QLabel()
@@ -131,8 +144,9 @@ class MainView(MainWindow):
 
         # "Diff Viewer" widget
         self.diffdockwidget = create_dock(N_('Diff'), self)
-        self.diffeditor = DiffEditor(self.diffdockwidget)
-        self.diffdockwidget.setWidget(self.diffeditor)
+        self.diffeditorwidget = DiffEditorWidget(self.diffdockwidget)
+        self.diffeditor = self.diffeditorwidget.editor
+        self.diffdockwidget.setWidget(self.diffeditorwidget)
 
         # All Actions
         self.unstage_all_action = add_action(self,
@@ -194,8 +208,6 @@ class MainView(MainWindow):
 
         self.quit_action = add_action(self,
                 N_('Quit'), self.close, 'Ctrl+Q')
-        self.manage_bookmarks_action = add_action(self,
-                N_('Bookmarks...'), self.manage_bookmarks)
         self.grep_action = add_action(self,
                 N_('Grep'), grep, 'Ctrl+G')
         self.merge_local_action = add_action(self,
@@ -223,7 +235,7 @@ class MainView(MainWindow):
                 N_('Stash...'), stash, 'Alt+Shift+S')
 
         self.clone_repo_action = add_action(self,
-                N_('Clone...'), guicmds.clone_repo)
+                N_('Clone...'), self.clone_repo)
         self.clone_repo_action.setIcon(qtutils.git_icon())
 
         self.help_docs_action = add_action(self,
@@ -328,7 +340,6 @@ class MainView(MainWindow):
         self.file_menu.addAction(self.rescan_action)
         self.file_menu.addAction(self.edit_remotes_action)
         self.file_menu.addAction(self.browse_recently_modified_action)
-        self.file_menu.addAction(self.manage_bookmarks_action)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.load_commitmsg_action)
         self.file_menu.addAction(self.load_commitmsg_template_action)
@@ -437,6 +448,7 @@ class MainView(MainWindow):
         self.addDockWidget(left, self.diffdockwidget)
         self.addDockWidget(right, self.statusdockwidget)
         self.addDockWidget(right, self.bookmarksdockwidget)
+        self.addDockWidget(right, self.recentdockwidget)
         self.addDockWidget(bottom, self.actionsdockwidget)
         self.addDockWidget(bottom, self.logdockwidget)
         self.tabifyDockWidget(self.actionsdockwidget, self.logdockwidget)
@@ -485,6 +497,9 @@ class MainView(MainWindow):
     def set_initial_size(self):
         self.statuswidget.set_initial_size()
         self.commitmsgeditor.set_initial_size()
+
+    def set_filter(self, txt):
+        self.statuswidget.set_filter(txt)
 
     # Qt overrides
     def closeEvent(self, event):
@@ -623,10 +638,19 @@ class MainView(MainWindow):
         self.rebase_skip_action.setEnabled(is_rebasing)
         self.rebase_abort_action.setEnabled(is_rebasing)
 
+    def export_state(self):
+        state = MainWindow.export_state(self)
+        show_status_filter = self.statuswidget.filter_widget.isVisible()
+        state['show_status_filter'] = show_status_filter
+        return state
+
     def apply_state(self, state):
         """Imports data for save/restore"""
         result = MainWindow.apply_state(self, state)
         self.lock_layout_action.setChecked(state.get('lock_layout', False))
+
+        show_status_filter = state.get('show_status_filter', False)
+        self.statuswidget.filter_widget.setVisible(show_status_filter)
         return result
 
     def setup_dockwidget_view_menu(self):
@@ -642,6 +666,7 @@ class MainView(MainWindow):
             (optkey + '+3', self.diffdockwidget),
             (optkey + '+4', self.actionsdockwidget),
             (optkey + '+5', self.bookmarksdockwidget),
+            (optkey + '+6', self.recentdockwidget),
         )
         for shortcut, dockwidget in dockwidgets:
             # Associate the action with the shortcut
@@ -700,11 +725,12 @@ class MainView(MainWindow):
 
         self.position_label.setText(display)
 
-    def manage_bookmarks(self):
-        manage_bookmarks()
-        self.bookmarkswidget.refresh()
-
     def rebase_start(self):
+        if self.model.staged or self.model.unmerged or self.model.modified:
+            Interaction.information(
+                    N_('Unable to rebase'),
+                    N_('You cannot rebase with uncommitted changes.'))
+            return
         branch = guicmds.choose_ref(N_('Select New Upstream'),
                                     N_('Interactive Rebase'))
         if not branch:
@@ -724,3 +750,7 @@ class MainView(MainWindow):
 
     def rebase_abort(self):
         cmds.do(cmds.RebaseAbort)
+
+    def clone_repo(self):
+        guicmds.clone_repo(self.task_runner, self.progress,
+                           guicmds.report_clone_repo_errors, True)
