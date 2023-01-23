@@ -19,14 +19,17 @@ def abort_merge(model, parent):
         model.abort_merge()
 
 def local_merge(model, parent):
+    # TODO: subclass model
     model = model.clone()
-    model.create(revision='', revision_list=[])
+    model.revision = ''
+    model.revision_list = []
     view = MergeView(parent)
     ctl = MergeController(model, view)
     view.show()
 
 class MergeController(QObserver):
-    def init(self, model, view):
+    def __init__(self, model, view):
+        QObserver.__init__(self, model, view)
         # Set the current branch label
         branch = self.model.get_currentbranch()
         title = unicode(self.tr('Merge Into %s')) %  branch
