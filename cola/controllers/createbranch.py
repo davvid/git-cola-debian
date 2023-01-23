@@ -2,17 +2,19 @@
 
 
 import os
-from PyQt4.QtGui import QDialog
+from PyQt4 import QtGui
 
+import cola
 from cola import utils
 from cola import qtutils
-from cola.views import CreateBranchView
+from cola.views import createbranch
 from cola.qobserver import QObserver
 
-def create_new_branch(model,parent,revision=''):
+def create_new_branch(revision=''):
     """Launches a dialog for creating a new branch"""
-    model = model.clone()
-    view = CreateBranchView(parent)
+    model = cola.model().clone()
+    parent = QtGui.QApplication.instance().activeWindow()
+    view = createbranch.CreateBranchView(parent)
     ctl = CreateBranchController(model, view)
     model.set_revision(revision)
     view.show()
@@ -35,15 +37,14 @@ class CreateBranchController(QObserver):
     def create_branch(self):
         """Creates a branch; called by the "Create Branch" button"""
 
-        revision = self.model.get_revision()
-        branch = self.model.get_local_branch()
-        existing_branches = self.model.get_local_branches()
+        revision = self.model.revision
+        branch = self.model.local_branch
+        existing_branches = self.model.local_branches
 
         if not branch or not revision:
-            qtutils.information(
-                self.tr('Missing Data'),
-                self.tr('Please provide both a branch'
-                       +' name and revision expression.'))
+            qtutils.information('Missing Data',
+                                'Please provide both a branch '
+                                'name and revision expression.')
             return
 
         check_branch = False
@@ -51,7 +52,7 @@ class CreateBranchController(QObserver):
             if self.view.no_update_radio.isChecked():
                 msg = self.tr("Branch '%s' already exists.")
                 msg = unicode(msg) % branch
-                qtutils.information( self.tr('warning'), msg )
+                qtutils.information('warning', msg)
                 return
             # Whether we should prompt the user for lost commits
             commits = self.model.rev_list_range(revision, branch)
@@ -78,8 +79,7 @@ class CreateBranchController(QObserver):
                 unicode(self.tr("Reset '%s'?")) % branch
                 ])
 
-            result = qtutils.question(self.view, self.tr('warning'),
-                                      '\n'.join(lines))
+            result = qtutils.question(self.view, 'warning', '\n'.join(lines))
             if not result:
                 return
 
@@ -105,11 +105,11 @@ class CreateBranchController(QObserver):
         # When the branch selection changes then we should update
         # the "Revision Expression" accordingly.
         qlist = self.view.branch_list
-        (row, selected) = qtutils.get_selected_row(qlist)
+        (row, selected) = qtutils.selected_row(qlist)
         if not selected:
             return
 
-        sources = self._get_branch_sources()
+        sources = self._branch_sources()
         rev = sources[row]
 
         # Update the model with the selection
@@ -130,15 +130,15 @@ class CreateBranchController(QObserver):
     def display_model(self):
         """Sets the branch list to the available branches
         """
-        branches = self._get_branch_sources()
+        branches = self._branch_sources()
         qtutils.set_items(self.view.branch_list, branches)
 
-    def _get_branch_sources(self):
+    def _branch_sources(self):
         """Get the list of items for populating the branch root list.
         """
         if self.view.local_radio.isChecked():
-            return self.model.get_local_branches()
+            return self.model.local_branches
         elif self.view.remote_radio.isChecked():
-            return self.model.get_remote_branches()
+            return self.model.remote_branches
         elif self.view.tag_radio.isChecked():
-            return self.model.get_tags()
+            return self.model.tags

@@ -1,5 +1,5 @@
 # Copyright (c) 2008 David Aguilar
-"""This module provides the cola model class.
+"""This module provides the central cola model.
 """
 
 import os
@@ -9,7 +9,7 @@ import time
 import subprocess
 from cStringIO import StringIO
 
-from cola import git
+from cola import gitcola
 from cola import core
 from cola import utils
 from cola import errors
@@ -19,84 +19,16 @@ from cola.models.observable import ObservableModel
 #+ A regex for matching the output of git(log|rev-list) --pretty=oneline
 REV_LIST_REGEX = re.compile('([0-9a-f]+)\W(.*)')
 
-class GitInitError(errors.ColaError):
-    pass
+# Provides access to a global MainModel instance
+_instance = None
+def model():
+    """Returns the main model singleton"""
+    global _instance
+    if _instance:
+        return _instance
+    _instance = MainModel()
+    return _instance
 
-class GitCola(git.Git):
-    """GitPython throws exceptions by default.
-    We suppress exceptions in favor of return values.
-    """
-    def __init__(self):
-        git.Git.__init__(self)
-        self.load_worktree(os.getcwd())
-
-    def load_worktree(self, path):
-        self._git_dir = path
-        self._work_tree = None
-        self.get_work_tree()
-
-    def get_work_tree(self):
-        if self._work_tree:
-            return self._work_tree
-        self.get_git_dir()
-        if self._git_dir:
-            curdir = self._git_dir
-        else:
-            curdir = os.getcwd()
-
-        if self._is_git_dir(os.path.join(curdir, '.git')):
-            return curdir
-
-        # Handle bare repositories
-        if (len(os.path.basename(curdir)) > 4
-                and curdir.endswith('.git')):
-            return curdir
-        if 'GIT_WORK_TREE' in os.environ:
-            self._work_tree = os.getenv('GIT_WORK_TREE')
-        if not self._work_tree or not os.path.isdir(self._work_tree):
-            if self._git_dir:
-                gitparent = os.path.join(os.path.abspath(self._git_dir), '..')
-                self._work_tree = os.path.abspath(gitparent)
-                self.set_cwd(self._work_tree)
-        return self._work_tree
-
-    def is_valid(self):
-        return self._git_dir and self._is_git_dir(self._git_dir)
-
-    def get_git_dir(self):
-        if self.is_valid():
-            return self._git_dir
-        if 'GIT_DIR' in os.environ:
-            self._git_dir = os.getenv('GIT_DIR')
-        if self._git_dir:
-            curpath = os.path.abspath(self._git_dir)
-        else:
-            curpath = os.path.abspath(os.getcwd())
-        # Search for a .git directory
-        while curpath:
-            if self._is_git_dir(curpath):
-                self._git_dir = curpath
-                break
-            gitpath = os.path.join(curpath, '.git')
-            if self._is_git_dir(gitpath):
-                self._git_dir = gitpath
-                break
-            curpath, dummy = os.path.split(curpath)
-            if not dummy:
-                break
-        return self._git_dir
-
-    def _is_git_dir(self, d):
-        """ This is taken from the git setup.c:is_git_directory
-            function."""
-        if (os.path.isdir(d)
-                and os.path.isdir(os.path.join(d, 'objects'))
-                and os.path.isdir(os.path.join(d, 'refs'))):
-            headref = os.path.join(d, 'HEAD')
-            return (os.path.isfile(headref)
-                    or (os.path.islink(headref)
-                    and os.readlink(headref).startswith('refs')))
-        return False
 
 def eval_path(path):
     """handles quoted paths."""
@@ -105,60 +37,83 @@ def eval_path(path):
     else:
         return path
 
+
 class MainModel(ObservableModel):
     """Provides a friendly wrapper for doing common git operations."""
 
-    def __init__(self):
+    # Observable messages
+    message_updated = 'updated'
+    message_about_to_update = 'about_to_update'
+
+    # States
+    mode_none = 'none' # Default: nothing's happened, do nothing
+    mode_worktree = 'worktree' # Comparing index to worktree
+    mode_index = 'index' # Comparing index to last commit
+    mode_amend = 'amend' # Amending a commit
+    mode_grep = 'grep' # We ran Search -> Grep
+    mode_branch = 'branch' # Applying changes from a branch
+    mode_diff = 'diff' # Diffing against an arbitrary branch
+    mode_diff_expr = 'diff_expr' # Diffing using arbitrary expression
+    mode_review = 'review' # Reviewing a branch
+
+    # Modes where we don't do anything like staging, etc.
+    modes_read_only = (mode_branch, mode_grep,
+                       mode_diff, mode_diff_expr, mode_review)
+    # Modes where we can checkout files from the $head
+    modes_undoable = (mode_none, mode_index, mode_worktree)
+
+    def __init__(self, cwd=None):
         """Reads git repository settings and sets several methods
         so that they refer to the git module.  This object
         encapsulates cola's interaction with git."""
         ObservableModel.__init__(self)
 
         # Initialize the git command object
-        self.git = GitCola()
+        self.git = gitcola.GitCola()
 
         #####################################################
-        # Used in various places
+        self.head = 'HEAD'
+        self.mode = self.mode_none
+        self.diff_text = ''
+        self.filename = None
         self.currentbranch = ''
+        self.trackedbranch = ''
         self.directory = ''
+        self.git_version = self.git.version()
         self.remotes = []
         self.remotename = ''
         self.local_branch = ''
         self.remote_branch = ''
-        self.search_text = ''
 
         #####################################################
-        # Used primarily by the main UI
+        # Status info
         self.commitmsg = ''
         self.modified = []
         self.staged = []
         self.unstaged = []
         self.untracked = []
         self.unmerged = []
+        self.upstream_changed = []
 
         #####################################################
-        # Used by the create branch dialog
+        # Refs
         self.revision = ''
         self.local_branches = []
         self.remote_branches = []
         self.tags = []
-
-        #####################################################
-        # Used by the commit/repo browser
         self.revisions = []
         self.summaries = []
 
         # These are parallel lists
+        # ref^{tree}
         self.types = []
         self.sha1s = []
         self.names = []
 
-        # All items below here are re-calculated in
-        # init_browser_data()
         self.directories = []
         self.directory_entries = {}
 
-        # These are also parallel lists
+        # parallel lists
         self.subtree_types = []
         self.subtree_sha1s = []
         self.subtree_names = []
@@ -167,21 +122,41 @@ class MainModel(ObservableModel):
         self.push_helper = None
         self.pull_helper = None
         self.generate_remote_helpers()
+        if cwd:
+            self.use_worktree(cwd)
+
+    def read_only(self):
+        return self.mode in self.modes_read_only
+
+    def undoable(self):
+        """Whether we can checkout files from the $head."""
+        return self.mode in self.modes_undoable
+
+    def enable_staging(self):
+        """Whether staging should be allowed."""
+        return self.mode == self.mode_worktree
+
+    def all_files(self):
+        """Returns the names of all files in the repository"""
+        return [core.decode(f)
+                for f in self.git.ls_files(z=True)
+                                 .strip('\0').split('\0') if f]
 
     def generate_remote_helpers(self):
         """Generates helper methods for fetch, push and pull"""
+        self.push_helper = self.gen_remote_helper(self.git.push, push=True)
         self.fetch_helper = self.gen_remote_helper(self.git.fetch)
-        self.push_helper = self.gen_remote_helper(self.git.push)
         self.pull_helper = self.gen_remote_helper(self.git.pull)
 
     def use_worktree(self, worktree):
         self.git.load_worktree(worktree)
         is_valid = self.git.is_valid()
         if is_valid:
-            self.__init_config_data()
+            self._init_config_data()
+            self.set_project(os.path.basename(self.git.worktree()))
         return is_valid
 
-    def __init_config_data(self):
+    def _init_config_data(self):
         """Reads git config --list and creates parameters
         for each setting."""
         # These parameters are saved in .gitconfig,
@@ -189,7 +164,7 @@ class MainModel(ObservableModel):
 
         # config items that are controllable globally
         # and per-repository
-        self.__local_and_global_defaults = {
+        self._local_and_global_defaults = {
             'user_name': '',
             'user_email': '',
             'merge_summary': False,
@@ -199,10 +174,8 @@ class MainModel(ObservableModel):
             'gui_pruneduringfetch': False,
         }
         # config items that are purely git config --global settings
-        self.__global_defaults = {
+        self._global_defaults = {
             'cola_geometry': '',
-            'cola_fontui': '',
-            'cola_fontui_size': 12,
             'cola_fontdiff': '',
             'cola_fontdiff_size': 12,
             'cola_savewindowsettings': False,
@@ -227,10 +200,10 @@ class MainModel(ObservableModel):
                 self.set_param('local_'+k, v)
 
         # Bootstrap the internal font*size variables
-        for param in ('global_cola_fontui', 'global_cola_fontdiff'):
+        for param in ('global_cola_fontdiff'):
             setdefault = True
             if hasattr(self, param):
-                font = self.get_param(param)
+                font = getattr(self, param)
                 if font:
                     setdefault = False
                     size = int(font.split(',')[1])
@@ -240,60 +213,38 @@ class MainModel(ObservableModel):
                     global_dict[param+'_size'] = size
 
         # Load defaults for all undefined items
-        local_and_global_defaults = self.__local_and_global_defaults
+        local_and_global_defaults = self._local_and_global_defaults
         for k,v in local_and_global_defaults.iteritems():
             if k not in local_dict:
                 self.set_param('local_'+k, v)
             if k not in global_dict:
                 self.set_param('global_'+k, v)
 
-        global_defaults = self.__global_defaults
+        global_defaults = self._global_defaults
         for k,v in global_defaults.iteritems():
             if k not in global_dict:
                 self.set_param('global_'+k, v)
 
         # Load the diff context
-        self.diff_context = self.get_local_config('gui.diffcontext', 3)
+        self.diff_context = self.local_config('gui.diffcontext', 3)
 
-    def get_global_config(self, key, default=None):
-        return self.get_param('global_'+key.replace('.', '_'),
-                              default=default)
+    def global_config(self, key, default=None):
+        return self.param('global_'+key.replace('.', '_'),
+                          default=default)
 
-    def get_local_config(self, key, default=None):
-        return self.get_param('local_'+key.replace('.', '_'),
-                              default=default)
+    def local_config(self, key, default=None):
+        return self.param('local_'+key.replace('.', '_'),
+                          default=default)
 
-    def get_cola_config(self, key):
+    def cola_config(self, key):
         return getattr(self, 'global_cola_'+key)
 
-    def get_gui_config(self, key):
+    def gui_config(self, key):
         return getattr(self, 'global_gui_'+key)
-
-    def get_default_remote(self):
-        branch = self.get_currentbranch()
-        branchconfig = 'branch.%s.remote' % branch
-        return self.get_local_config(branchconfig, 'origin')
-
-    def get_corresponding_remote_ref(self):
-        remote = self.get_default_remote()
-        branch = self.get_currentbranch()
-        best_match = '%s/%s' % (remote, branch)
-        remote_branches = self.get_remote_branches()
-        if not remote_branches:
-            return remote
-        for rb in remote_branches:
-            if rb == best_match:
-                return rb
-        return remote_branches[0]
-
-    def get_diff_filenames(self, arg):
-        """Returns a list of filenames that have been modified"""
-        diff_zstr = self.git.diff(arg, name_only=True, z=True).rstrip('\0')
-        return [core.decode(f) for f in diff_zstr.split('\0') if f]
 
     def branch_list(self, remote=False):
         """Returns a list of local or remote branches
-        
+
         This explicitly removes HEAD from the list of remote branches.
         """
         branches = map(lambda x: x.lstrip('* '),
@@ -302,20 +253,20 @@ class MainModel(ObservableModel):
             return [b for b in branches if b.find('/HEAD') == -1]
         return branches
 
-    def get_config_params(self):
+    def config_params(self):
         params = []
         params.extend(map(lambda x: 'local_' + x,
-                          self.__local_and_global_defaults.keys()))
+                          self._local_and_global_defaults.keys()))
         params.extend(map(lambda x: 'global_' + x,
-                          self.__local_and_global_defaults.keys()))
+                          self._local_and_global_defaults.keys()))
         params.extend(map(lambda x: 'global_' + x,
-                          self.__global_defaults.keys()))
+                          self._global_defaults.keys()))
         return [ p for p in params if not p.endswith('_size') ]
 
     def save_config_param(self, param):
-        if param not in self.get_config_params():
+        if param not in self.config_params():
             return
-        value = self.get_param(param)
+        value = getattr(self, param)
         if param == 'local_gui_diffcontext':
             self.diff_context = value
         if param.startswith('local_'):
@@ -335,7 +286,7 @@ class MainModel(ObservableModel):
         directories, directory_entries, and subtree_*"""
 
         # Collect data for the model
-        if not self.get_currentbranch():
+        if not self.currentbranch:
             return
 
         self.subtree_types = []
@@ -345,11 +296,11 @@ class MainModel(ObservableModel):
         self.directory_entries = {}
 
         # Lookup the tree info
-        tree_info = self.parse_ls_tree(self.get_currentbranch())
+        tree_info = self.parse_ls_tree(self.currentbranch)
 
-        self.set_types(map( lambda(x): x[1], tree_info ))
-        self.set_sha1s(map( lambda(x): x[2], tree_info ))
-        self.set_names(map( lambda(x): x[3], tree_info ))
+        self.set_types(map(lambda(x): x[1], tree_info ))
+        self.set_sha1s(map(lambda(x): x[2], tree_info ))
+        self.set_names(map(lambda(x): x[3], tree_info ))
 
         if self.directory: self.directories.append('..')
 
@@ -432,43 +383,22 @@ class MainModel(ObservableModel):
         output + '\n\n' + out
         return (status, output)
 
-    def get_editor(self):
-        return self.get_gui_config('editor')
+    def editor(self):
+        return self.gui_config('editor')
 
-    def get_history_browser(self):
-        return self.get_gui_config('historybrowser')
+    def history_browser(self):
+        return self.gui_config('historybrowser')
 
     def remember_gui_settings(self):
-        return self.get_cola_config('savewindowsettings')
+        return self.cola_config('savewindowsettings')
 
-    def should_display_log(self, status):
-        """Returns whether we should display the log window
+    def subtree_node(self, idx):
+        return (self.subtree_types[idx],
+                self.subtree_sha1s[idx],
+                self.subtree_names[idx])
 
-        This implements the behavior of the cola.showoutput variable.
-            never = never open the log window
-            always = open it always
-            errors = only open it on error (handled implicitly)
-
-        """
-        conf = self.get_cola_config('showoutput')
-        if conf == 'never':
-            return False
-        if conf == 'always':
-            return True
-        return status != 0
-
-    def get_tree_node(self, idx):
-        return (self.get_types()[idx],
-                self.get_sha1s()[idx],
-                self.get_names()[idx] )
-
-    def get_subtree_node(self, idx):
-        return (self.get_subtree_types()[idx],
-                self.get_subtree_sha1s()[idx],
-                self.get_subtree_names()[idx] )
-
-    def get_all_branches(self):
-        return (self.get_local_branches() + self.get_remote_branches())
+    def all_branches(self):
+        return (self.local_branches + self.remote_branches)
 
     def set_remote(self, remote):
         if not remote:
@@ -478,15 +408,6 @@ class MainModel(ObservableModel):
                               self.branch_list(remote=True),
                               squash=False)
         self.set_remote_branches(branches)
-
-    def add_signoff(self,*rest):
-        """Adds a standard Signed-off by: tag to the end
-        of the current commit message."""
-        msg = self.get_commitmsg()
-        signoff =('\n\nSigned-off-by: %s <%s>\n'
-                  % (self.get_local_user_name(), self.get_local_user_email()))
-        if signoff not in msg:
-            self.set_commitmsg(msg + signoff)
 
     def apply_diff(self, filename):
         return self.git.apply(filename, index=True, cached=True)
@@ -500,41 +421,38 @@ class MainModel(ObservableModel):
         fh.close()
         self.set_commitmsg(contents)
 
-    def get_prev_commitmsg(self,*rest):
-        """Queries git for the latest commit message and sets it in
-        self.commitmsg."""
-        commit_msg = []
-        commit_lines = core.decode(self.git.show('HEAD')).split('\n')
-        for idx, msg in enumerate(commit_lines):
-            if idx < 4:
-                continue
-            msg = msg.lstrip()
-            if msg.startswith('diff --git'):
-                commit_msg.pop()
-                break
-            commit_msg.append(msg)
-        self.set_commitmsg('\n'.join(commit_msg).rstrip())
+    def prev_commitmsg(self):
+        """Queries git for the latest commit message."""
+        return core.decode(self.git.log('-1', pretty='format:%s%n%n%b'))
 
     def load_commitmsg_template(self):
-        template = self.get_global_config('commit.template')
+        template = self.global_config('commit.template')
         if template:
             self.load_commitmsg(template)
 
-    def update_status(self, head='HEAD', staged_only=False):
+    def update_status(self):
+        # Give observers a chance to respond
+        self.notify_message_observers(self.message_about_to_update)
         # This allows us to defer notification until the
         # we finish processing data
-        notify_enabled = self.get_notify()
-        self.set_notify(False)
+        staged_only = self.read_only()
+        head = self.head
+        notify_enabled = self.notification_enabled
+        self.notification_enabled = False
+
+        # Set these early since they are used to calculate 'upstream_changed'.
+        self.set_currentbranch(self.current_branch())
+        self.set_trackedbranch(self.tracked_branch())
 
         (self.staged,
          self.modified,
          self.unmerged,
-         self.untracked) = self.get_workdir_state(head=head,
-                                                  staged_only=staged_only)
+         self.untracked,
+         self.upstream_changed) = self.worktree_state(head=head,
+                                                      staged_only=staged_only)
         # NOTE: the model's unstaged list holds an aggregate of the
         # the modified, unmerged, and untracked file lists.
         self.set_unstaged(self.modified + self.unmerged + self.untracked)
-        self.set_currentbranch(self.current_branch())
         self.set_remotes(self.git.remote().splitlines())
         self.set_remote_branches(self.branch_list(remote=True))
         self.set_local_branches(self.branch_list(remote=False))
@@ -543,8 +461,26 @@ class MainModel(ObservableModel):
         self.set_local_branch('')
         self.set_remote_branch('')
         # Re-enable notifications and emit changes
-        self.set_notify(notify_enabled)
+        self.notification_enabled = notify_enabled
+
+        self.read_font_sizes()
         self.notify_observers('staged','unstaged')
+        self.notify_message_observers(self.message_updated)
+
+    def read_font_sizes(self):
+        """Read font sizes from the configuration."""
+        value = self.cola_config('fontdiff')
+        if not value:
+            return
+        items = value.split(',')
+        if len(items) < 2:
+            return
+        self.global_cola_fontdiff_size = int(float(items[1]))
+
+    def set_diff_font(self, fontstr):
+        """Set the diff font string."""
+        self.global_cola_fontdiff = fontstr
+        self.read_font_sizes()
 
     def delete_branch(self, branch):
         return self.git.branch(branch,
@@ -552,21 +488,21 @@ class MainModel(ObservableModel):
                                with_stderr=True,
                                with_status=True)
 
-    def get_revision_sha1(self, idx):
-        return self.get_revisions()[idx]
+    def revision_sha1(self, idx):
+        return self.revisions[idx]
 
-    def apply_font_size(self, param, default):
-        old_font = self.get_param(param)
+    def apply_diff_font_size(self, default):
+        old_font = self.cola_config('fontdiff')
         if not old_font:
             old_font = default
-        size = self.get_param(param+'_size')
+        size = self.cola_config('fontdiff_size')
         props = old_font.split(',')
         props[1] = str(size)
         new_font = ','.join(props)
+        self.global_cola_fontdiff = new_font
+        self.notify_observers('global_cola_fontdiff')
 
-        self.set_param(param, new_font)
-
-    def get_commit_diff(self, sha1):
+    def commit_diff(self, sha1):
         commit = self.git.show(sha1)
         first_newline = commit.index('\n')
         if commit[first_newline+1:].startswith('Merge:'):
@@ -577,37 +513,43 @@ class MainModel(ObservableModel):
         else:
             return core.decode(commit)
 
-    def get_filename(self, idx, staged=True):
+    def filename(self, idx, staged=True):
         try:
             if staged:
-                return self.get_staged()[idx]
+                return self.staged[idx]
             else:
-                return self.get_unstaged()[idx]
+                return self.unstaged[idx]
         except IndexError:
             return None
 
-    def get_diff_details(self, idx, ref, staged=True):
-        filename = self.get_filename(idx, staged=staged)
+    def diff_details(self, idx, ref, staged=True):
+        """
+        Return a "diff" for an entry by index relative to ref.
+
+        `staged` indicates whether we should consider this as a
+        staged or unstaged entry.
+
+        """
+        filename = self.filename(idx, staged=staged)
         if not filename:
             return (None, None)
         encfilename = core.encode(filename)
         if staged:
             diff = self.diff_helper(filename=filename,
                                     ref=ref,
-                                    cached=ref.startswith('HEAD'))
+                                    cached=True)
         else:
             if os.path.isdir(encfilename):
                 diff = '\n'.join(os.listdir(filename))
 
-            elif filename in self.get_unmerged():
+            elif filename in self.unmerged:
                 diff = ('@@@ Unmerged @@@\n'
                         '- %s is unmerged.\n+ ' % filename +
                         'Right-click the file to launch "git mergetool".\n'
                         '@@@ Unmerged @@@\n\n')
                 diff += self.diff_helper(filename=filename,
-                                        cached=False,
-                                        patch_with_raw=False)
-            elif filename in self.get_modified():
+                                        cached=False)
+            elif filename in self.modified:
                 diff = self.diff_helper(filename=filename,
                                         cached=False)
             else:
@@ -618,7 +560,7 @@ class MainModel(ObservableModel):
         status, output = self.git.add(v=True,
                                       with_stderr=True,
                                       with_status=True,
-                                      *self.get_modified())
+                                      *self.modified)
         self.update_status()
         return (status, output)
 
@@ -626,7 +568,7 @@ class MainModel(ObservableModel):
         status, output = self.git.add(v=True,
                                       with_stderr=True,
                                       with_status=True,
-                                      *self.get_untracked())
+                                      *self.untracked)
         self.update_status()
         return (status, output)
 
@@ -702,7 +644,7 @@ class MainModel(ObservableModel):
         # Sure, this is a potential "security risk," but if someone
         # is trying to intercept/re-write commit messages on your system,
         # then you probably have bigger problems to worry about.
-        tmpfile = self.get_tmp_filename()
+        tmpfile = self.tmp_filename()
 
         # Create the commit message file
         fh = open(tmpfile, 'w')
@@ -716,28 +658,22 @@ class MainModel(ObservableModel):
         os.unlink(tmpfile)
         return (status, out)
 
-    def diffindex(self):
-        return self.git.diff(unified=self.diff_context,
-                             no_color=True,
-                             stat=True,
-                             cached=True)
-
-    def get_tmp_dir(self):
+    def tmp_dir(self):
         # Allow TMPDIR/TMP with a fallback to /tmp
         return os.environ.get('TMP', os.environ.get('TMPDIR', '/tmp'))
 
-    def get_tmp_file_pattern(self):
-        return os.path.join(self.get_tmp_dir(), '*.git-cola.%s.*' % os.getpid())
+    def tmp_file_pattern(self):
+        return os.path.join(self.tmp_dir(), '*.git-cola.%s.*' % os.getpid())
 
-    def get_tmp_filename(self, prefix=''):
+    def tmp_filename(self, prefix=''):
         basename = ((prefix+'.git-cola.%s.%s'
                     % (os.getpid(), time.time())))
         basename = basename.replace('/', '-')
         basename = basename.replace('\\', '-')
-        tmpdir = self.get_tmp_dir()
+        tmpdir = self.tmp_dir()
         return os.path.join(tmpdir, basename)
 
-    def log_helper(self, all=False):
+    def log_helper(self, all=False, extra_args=None):
         """
         Returns a pair of parallel arrays listing the revision sha1's
         and commit summaries.
@@ -745,7 +681,10 @@ class MainModel(ObservableModel):
         revs = []
         summaries = []
         regex = REV_LIST_REGEX
-        output = self.git.log(pretty='oneline', all=all)
+        args = []
+        if extra_args:
+            args = extra_args
+        output = self.git.log(pretty='oneline', all=all, *args)
         for line in map(core.decode, output.splitlines()):
             match = regex.match(line)
             if match:
@@ -771,14 +710,13 @@ class MainModel(ObservableModel):
     def diff_helper(self,
                     commit=None,
                     branch=None,
-                    ref = None,
-                    endref = None,
+                    ref=None,
+                    endref=None,
                     filename=None,
                     cached=True,
                     with_diff_header=False,
                     suppress_header=True,
-                    reverse=False,
-                    patch_with_raw=True):
+                    reverse=False):
         "Invokes git diff on a filepath."
         if commit:
             ref, endref = commit+'^', commit
@@ -786,9 +724,8 @@ class MainModel(ObservableModel):
         if ref and endref:
             argv.append('%s..%s' % (ref, endref))
         elif ref:
-            argv.append(ref)
-            if not ref.startswith('HEAD'):
-                cached = False
+            for r in ref.strip().split():
+                argv.append(r)
         elif branch:
             argv.append(branch)
 
@@ -809,7 +746,6 @@ class MainModel(ObservableModel):
                                    M=True,
                                    no_color=True,
                                    cached=cached,
-                                   patch_with_raw=patch_with_raw,
                                    unified=self.diff_context,
                                    with_raw_output=True,
                                    with_stderr=True,
@@ -845,18 +781,18 @@ class MainModel(ObservableModel):
             return result
 
     def git_repo_path(self, *subpaths):
-        paths = [ self.git.get_git_dir() ]
+        paths = [self.git.git_dir()]
         paths.extend(subpaths)
         return os.path.realpath(os.path.join(*paths))
 
-    def get_merge_message_path(self):
-        for file in ('MERGE_MSG', 'SQUASH_MSG'):
-            path = self.git_repo_path(file)
+    def merge_message_path(self):
+        for basename in ('MERGE_MSG', 'SQUASH_MSG'):
+            path = self.git_repo_path(basename)
             if os.path.exists(path):
                 return path
         return None
 
-    def get_merge_message(self):
+    def merge_message(self):
         return self.git.fmt_merge_msg('--file',
                                       self.git_repo_path('FETCH_HEAD'))
 
@@ -868,10 +804,10 @@ class MainModel(ObservableModel):
         if os.path.exists(merge_head):
             os.unlink(merge_head)
         # remove MERGE_MESSAGE, etc.
-        merge_msg_path = self.get_merge_message_path()
+        merge_msg_path = self.merge_message_path()
         while merge_msg_path:
             os.unlink(merge_msg_path)
-            merge_msg_path = self.get_merge_message_path()
+            merge_msg_path = self.merge_message_path()
 
     def _is_modified(self, name):
         status, out = self.git.diff('--', name,
@@ -881,47 +817,47 @@ class MainModel(ObservableModel):
         return status != 0
 
 
-    def _get_branch_status(self, branch):
-        """Returns a tuple of staged, unstaged, untracked, and unmerged files
+    def _branch_status(self, branch):
+        """
+        Returns a tuple of staged, unstaged, untracked, and unmerged files
 
         This shows only the changes that were introduced in branch
+
         """
-        status, output = self.git.diff(branch,
-                                       name_only=True,
+        status, output = self.git.diff(name_only=True,
                                        M=True, z=True,
                                        with_stderr=True,
-                                       with_status=True)
+                                       with_status=True,
+                                       *branch.strip().split())
         if status != 0:
-            return ([], [], [], [])
-        staged = []
-        for name in output.strip('\0').split('\0'):
-            if not name:
-                continue
-            staged.append(core.decode(name))
+            return ([], [], [], [], [])
 
-        return (staged, [], [], [])
+        staged = map(core.decode, [n for n in output.split('\0') if n])
+        return (staged, [], [], [], staged)
 
+    def worktree_state(self, head='HEAD', staged_only=False):
+        """Return a tuple of files in various states of being
 
-    def get_workdir_state(self, head='HEAD', staged_only=False):
-        """Returns a tuple of staged, unstaged, untracked, and unmerged files
+        Can be staged, unstaged, untracked, unmerged, or changed
+        upstream.
+
         """
         self.git.update_index(refresh=True)
-
-        if not head.startswith('HEAD'):
-            return self._get_branch_status(head)
+        if staged_only:
+            return self._branch_status(head)
 
         staged_set = set()
         modified_set = set()
+        upstream_changed_set = set()
 
-        (staged, modified, unmerged, untracked) = ([], [], [], [])
+        (staged, modified, unmerged, untracked, upstream_changed) = (
+                [], [], [], [], [])
         try:
-
             output = self.git.diff_index(head,
-                                         M=True,
                                          cached=True,
                                          with_stderr=True)
             if output.startswith('fatal:'):
-                raise GitInitError('git init')
+                raise errors.GitInitError('git init')
             for line in output.splitlines():
                 rest, name = line.split('\t', 1)
                 status = rest[-1]
@@ -946,16 +882,14 @@ class MainModel(ObservableModel):
                     unmerged.append(name)
                     modified_set.add(name)
 
-        except GitInitError:
+        except errors.GitInitError:
             # handle git init
-            for name in self.git.ls_files(z=True).strip('\0').split('\0'):
-                if name:
-                    staged.append(core.decode(name))
+            staged.extend(self.all_files())
 
         try:
-            output = self.git.diff_index(head, M=True, with_stderr=True)
+            output = self.git.diff_index(head, with_stderr=True)
             if output.startswith('fatal:'):
-                raise GitInitError('git init')
+                raise errors.GitInitError('git init')
             for line in output.splitlines():
                 info, name = line.split('\t', 1)
                 status = info.split()[-1]
@@ -969,33 +903,43 @@ class MainModel(ObservableModel):
                     if (name not in modified_set and not staged_only and
                             self._is_modified(name)):
                         modified.append(name)
-                elif status[:1] == 'R':
-                    # Rename
-                    old, new = name.split('\t')
-                    name = eval_path(old)
-                    if name not in staged_set:
-                        staged.append(name)
-                        staged_set.add(name)
 
-        except GitInitError:
+        except errors.GitInitError:
             # handle git init
-            for name in (self.git.ls_files(modified=True, z=True)
-                                 .split('\0')):
-                if name:
-                    modified.append(core.decode(name))
+            ls_files = (self.git.ls_files(modified=True, z=True)[:-1]
+                                .split('\0'))
+            modified.extend(map(core.decode, [f for f in ls_files if f]))
 
-        for name in self.git.ls_files(others=True, exclude_standard=True,
-                                      z=True).split('\0'):
-            if name:
-                untracked.append(core.decode(name))
+        untracked.extend(self.untracked_files())
+
+        # Look for upstream modified files if this is a tracking branch
+        if self.trackedbranch:
+            try:
+                diff_expr = self.merge_base_to(self.trackedbranch)
+                output = self.git.diff(diff_expr,
+                                       name_only=True,
+                                       z=True)
+
+                if output.startswith('fatal:'):
+                    raise errors.GitInitError('git init')
+
+                for name in [n for n in output.split('\0') if n]:
+                    name = core.decode(name)
+                    upstream_changed.append(name)
+                    upstream_changed_set.add(name)
+
+            except errors.GitInitError:
+                # handle git init
+                pass
 
         # Keep stuff sorted
         staged.sort()
         modified.sort()
         unmerged.sort()
         untracked.sort()
+        upstream_changed.sort()
 
-        return (staged, modified, unmerged, untracked)
+        return (staged, modified, unmerged, untracked, upstream_changed)
 
     def reset_helper(self, args):
         """Removes files from the index
@@ -1011,7 +955,7 @@ class MainModel(ObservableModel):
         output = self.git.reset('--', with_stderr=True, *args)
         # handle git init: we have to use 'git rm --cached'
         # detect this condition by checking if the file is still staged
-        state = self.get_workdir_state()
+        state = self.worktree_state()
         staged = state[0]
         rmargs = [a for a in args if a in staged]
         if not rmargs:
@@ -1022,12 +966,18 @@ class MainModel(ObservableModel):
     def remote_url(self, name):
         return self.git.config('remote.%s.url' % name, get=True)
 
-    def get_remote_args(self, remote,
-                        local_branch='',
-                        remote_branch='',
-                        ffwd=True,
-                        tags=False,
-                        rebase=False):
+    def remote_args(self, remote,
+                    local_branch='',
+                    remote_branch='',
+                    ffwd=True,
+                    tags=False,
+                    rebase=False,
+                    push=False):
+        # Swap the branches in push mode (reverse of fetch)
+        if push:
+            tmp = local_branch
+            local_branch = remote_branch
+            remote_branch = tmp
         if ffwd:
             branch_arg = '%s:%s' % ( remote_branch, local_branch )
         else:
@@ -1048,11 +998,11 @@ class MainModel(ObservableModel):
         }
         return (args, kwargs)
 
-    def gen_remote_helper(self, gitaction):
+    def gen_remote_helper(self, gitaction, push=False):
         """Generates a closure that calls git fetch, push or pull
         """
         def remote_helper(remote, **kwargs):
-            args, kwargs = self.get_remote_args(remote, **kwargs)
+            args, kwargs = self.remote_args(remote, push=push, **kwargs)
             return gitaction(*args, **kwargs)
         return remote_helper
 
@@ -1126,9 +1076,22 @@ class MainModel(ObservableModel):
             return ''
         return headref
 
+    def tracked_branch(self):
+        """The name of the branch that current branch is tracking"""
+        remote = self.git.config('branch.'+self.currentbranch+'.remote',
+                                 get=True, with_stderr=True)
+        if not remote:
+            return ''
+        headref = self.git.config('branch.'+self.currentbranch+'.merge',
+                                  get=True, with_stderr=True)
+        if headref.startswith('refs/heads/'):
+            tracked_branch = headref[11:]
+            return remote + '/' + tracked_branch
+        return ''
+
     def create_branch(self, name, base, track=False):
         """Create a branch named 'name' from revision 'base'
-        
+
         Pass track=True to create a local tracking branch.
         """
         return self.git.branch(name, base, track=track,
@@ -1159,13 +1122,6 @@ class MainModel(ObservableModel):
         else:
             return [ s[s.index(':')+1:] for s in stashes ]
 
-    def diffstat(self):
-        return self.git.diff(
-                'HEAD^',
-                unified=self.diff_context,
-                no_color=True,
-                stat=True)
-
     def pad(self, pstr, num=22):
         topad = num-len(pstr)
         if topad > 0:
@@ -1179,7 +1135,7 @@ class MainModel(ObservableModel):
         return version + ' - ' + descr
 
     def update_revision_lists(self, filename=None, show_versions=False):
-        num_results = self.get_num_results()
+        num_results = self.num_results
         if filename:
             rev_list = self.git.log('--', filename,
                                     max_count=num_results,
@@ -1205,12 +1161,12 @@ class MainModel(ObservableModel):
 
         return commits
 
-    def get_changed_files(self, start, end):
+    def changed_files(self, start, end):
         zfiles_str = self.git.diff('%s..%s' % (start, end),
                                    name_only=True, z=True).strip('\0')
         return [core.decode(enc) for enc in zfiles_str.split('\0') if enc]
 
-    def get_renamed_files(self, start, end):
+    def renamed_files(self, start, end):
         difflines = self.git.diff('%s..%s' % (start, end),
                                   no_color=True,
                                   M=True).splitlines()
@@ -1220,3 +1176,58 @@ class MainModel(ObservableModel):
     def is_commit_published(self):
         head = self.git.rev_parse('HEAD')
         return bool(self.git.branch(r=True, contains=head))
+
+    def merge_base_to(self, ref):
+        """Given `ref`, return $(git merge-base ref HEAD)..ref."""
+        base = self.git.merge_base('HEAD', ref)
+        return '%s..%s' % (base, ref)
+
+    def everything(self):
+        """Returns a sorted list of all files, including untracked files."""
+        ls_files = self.git.ls_files(z=True,
+                                     cached=True,
+                                     others=True,
+                                     exclude_standard=True)
+        return sorted(map(core.decode, [f for f in ls_files.split('\0') if f]))
+
+    def untracked_files(self):
+        """Returns a sorted list of all files, including untracked files."""
+        # -1 for trailing NULL
+        ls_files = self.git.ls_files(z=True,
+                                     others=True,
+                                     exclude_standard=True)
+        return map(core.decode, [f for f in ls_files.split('\0') if f])
+
+    def stage_paths(self, paths):
+        """Stages add/removals to git."""
+        add = []
+        remove = []
+        for path in set(paths):
+            if os.path.exists(core.encode(path)):
+                add.append(path)
+            else:
+                remove.append(path)
+        # `git add -u` doesn't work on untracked files
+        if add:
+            self.git.add('--', *add)
+        # If a path doesn't exist then that means it should be removed
+        # from the index.   We use `git add -u` for that.
+        if remove:
+            self.git.add('--', u=True, *remove)
+        self.update_status()
+
+    def unstage_paths(self, paths):
+        """Unstages paths from the staging area and notifies observers."""
+        self.reset_helper(set(paths))
+        self.update_status()
+
+    def revert_paths(self, paths):
+        """Revert paths to the content from HEAD."""
+        self.git.checkout('HEAD', '--', *set(paths))
+        self.update_status()
+
+    def getcwd(self):
+        """If we've chosen a directory then use it, otherwise os.getcwd()."""
+        if self.directory:
+            return self.directory
+        return os.getcwd()

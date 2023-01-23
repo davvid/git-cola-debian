@@ -25,6 +25,30 @@ INSTALLATION
 See the 'INSTALL' file for more details.
 
 
+THE WEBSITE
+
+Visit the git-cola home page:
+    ~ http://cola.tuxfamily.org/
+
+
+THE MAILING LIST
+
+Visit us on google groups:
+    ~ http://groups.google.com/group/git-cola/
+
+Feel free to join, suggest features, and submit patches with
+git-send-mail.
+
+
+THE BUG TRACKER
+
+We use the github issue tracker.  It's simple and it works.
+    ~ http://github.com/davvid/git-cola/issues
+
+We do prefer to discuss things on the mailing list, though,
+so don't be shy.
+
+
 ACKNOWLEDGEMENTS
 
 git-cola includes a copy of the following modules:

@@ -7,7 +7,8 @@ from os.path import dirname
 from os.path import basename
 
 from cola import core
-from cola.model import Model
+from cola.models.base import BaseModel as Model
+from cola.models.observable import ObservableModel
 
 
 DEBUG_MODE = os.getenv('DEBUG','')
@@ -102,9 +103,9 @@ class InnerModel(Model):
         Model.__init__(self)
         self.foo = 'bar'
 
-class NestedModel(Model):
+class NestedModel(ObservableModel):
     def __init__(self):
-        Model.__init__(self)
+        ObservableModel.__init__(self)
         self.inner = InnerModel()
         self.innerlist = []
         self.innerlist.append(InnerModel())

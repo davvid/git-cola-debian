@@ -3,7 +3,11 @@ Views
 .. toctree::
 
     main
+    mainwindow
     standard
-    drawer
     about
+    status
+    repo
+    syntax
+    log
     misc

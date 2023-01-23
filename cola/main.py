@@ -3,12 +3,27 @@
 
 import optparse
 import signal
+import glob
 import sys
 import os
 
 from cola import resources
 from cola import utils
 from cola import core
+from cola import git
+from cola import inotify
+from cola import version
+
+# Spoof an X11 display for SSH
+os.environ.setdefault('DISPLAY', ':0')
+
+# Provide an SSH_ASKPASS fallback
+if sys.platform == 'darwin':
+    os.environ.setdefault('SSH_ASKPASS',
+                          resources.share('bin', 'ssh-askpass-darwin'))
+else:
+    os.environ.setdefault('SSH_ASKPASS',
+                          resources.share('bin', 'ssh-askpass'))
 
 
 def main():
@@ -20,6 +35,13 @@ def main():
     parser.add_option('-v', '--version',
                       help='Show cola version',
                       dest='version',
+                      default=False,
+                      action='store_true')
+
+    # Accept git cola --classic
+    parser.add_option('--classic',
+                      help='Launch cola classic',
+                      dest='classic',
                       default=False,
                       action='store_true')
 
@@ -48,10 +70,8 @@ def main():
 
     if opts.version or 'version' in args:
         # Accept 'git cola --version' or 'git cola version'
-        from cola import git
         git.Git.execute(['git', 'update-index', '--refresh'])
-        from cola import version
-        print "cola version", version.get_version()
+        print 'cola version', version.version()
         sys.exit(0)
 
     if opts.git:
@@ -80,11 +100,16 @@ def main():
         sys.exit(-1)
 
     # Import cola modules
-    from cola.models.main import MainModel
+    import cola
+    from cola.models.gitrepo import GitRepoModel
     from cola.views.main import MainView
+    from cola.views.repo import RepoTreeView
     from cola.controllers.main import MainController
+    from cola.controllers.classic import ClassicController
     from cola.app import ColaApplication
     from cola import qtutils
+    from cola import commands
+
 
     # Allow Ctrl-C to exit
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -118,15 +143,12 @@ def main():
         # Add the default style dir so that we find our icons
         _setup_resource_dir(resources.style_dir())
 
-    # Initialize the model/view/controller framework
-    model = MainModel()
-    view = MainView(app.activeWindow())
-
     # Ensure that we're working in a valid git repository.
     # If not, try to find one.  When found, chdir there.
+    model = cola.model()
     valid = model.use_worktree(repo)
     while not valid:
-        gitdir = qtutils.opendir_dialog(view,
+        gitdir = qtutils.opendir_dialog(app.activeWindow(),
                                         'Open Git Repository...',
                                         os.getcwd())
         if not gitdir:
@@ -134,12 +156,41 @@ def main():
         valid = model.use_worktree(gitdir)
 
     # Finally, go to the root of the git repo
-    os.chdir(model.git.get_work_tree())
+    os.chdir(model.git.worktree())
+
+    # Register model commands
+    commands.register()
 
     # Show the GUI and start the event loop
+    if opts.classic:
+        view = RepoTreeView()
+        view.setModel(GitRepoModel(view))
+        controller = ClassicController(view)
+    else:
+        view = MainView()
+        controller = MainController(model, view)
+
+    # Scan for the first time
+    model.update_status()
+
+    # Start the inotify thread
+    inotify.start()
+
+    # Make sure that we start out on top
+    view.raise_()
+
+    # Show the view and start the main event loop
     view.show()
-    ctl = MainController(model, view)
-    sys.exit(app.exec_())
+    result = app.exec_()
+
+    # All done, cleanup
+    inotify.stop()
+    QtCore.QThreadPool.globalInstance().waitForDone()
+
+    pattern = cola.model().tmp_file_pattern()
+    for filename in glob.glob(pattern):
+        os.unlink(filename)
+    sys.exit(result)
 
 
 def _setup_resource_dir(dirname):

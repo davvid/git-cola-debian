@@ -8,10 +8,9 @@ APP	?= git-cola.app
 APPZIP	?= $(shell darwin/name-tarball.py)
 
 all:
-	$(PYTHON) setup.py build && rm -rf build
+	$(PYTHON) setup.py build
 
 darwin: all
-	rm -rf dist
 	$(PYTHON) darwin/py2app-setup.py py2app
 
 $(APP): darwin
@@ -19,18 +18,16 @@ $(APP): darwin
 	mv dist/$(APP) $(CURDIR)
 	find $(APP) -name '*_debug*' | xargs rm -f
 	tar cjf $(APPZIP) $(APP)
-	rm -rf build dist
 
 install:
-	$(PYTHON) setup.py --quiet install \
-		--prefix=$(prefix) \
-		--root=$(DESTDIR) \
+	$(PYTHON) setup.py install \
+		--quiet \
+		--prefix=$(DESTDIR)$(prefix) \
 		--force && \
 	rm -f $(PYTHON_SITE)/git_cola* && \
 	(test -d $(PYTHON_SITE) && rmdir -p $(PYTHON_SITE) 2>/dev/null || true) && \
 	(cd $(DESTDIR)$(prefix)/bin && \
-	 ((! test -e cola && ln -s git-cola cola) || true)) && \
-	rm -rf build
+	 ((! test -e cola && ln -s git-cola cola) || true))
 
 doc:
 	$(MAKE) -C share/doc/git-cola all
@@ -38,7 +35,7 @@ doc:
 html:
 	$(MAKE) -C share/doc/git-cola html
 
-install-doc: install-html
+install-doc:
 	$(MAKE) -C share/doc/git-cola install
 
 install-html:
@@ -51,28 +48,26 @@ uninstall:
 		$(DESTDIR)$(prefix)/share/git-cola \
 		$(DESTDIR)$(prefix)/share/doc/git-cola
 
-test: all
-	@env PYTHONPATH=$(CURDIR):$(PYTHONPATH) \
-		nosetests --verbose --with-doctest --with-id
+test_flags	?=
+all_test_flags	?= --with-doctest $(test_flags)
+
+test:
+	@env PYTHONPATH="$(CURDIR)":"$(PYTHONPATH)" \
+	nosetests $(all_test_flags)
 
 coverage:
 	@env PYTHONPATH=$(CURDIR):$(PYTHONPATH) \
-		nosetests --verbose --with-doctest --with-id --with-coverage \
-		--cover-package=cola
+	nosetests $(all_test_flags) \
+		--with-coverage --cover-package=cola
 
 clean:
-	for dir in share/doc/git-cola test; do \
-		(cd $$dir && $(MAKE) clean); \
-	done
-	find cola -name '*.py[co]' -print0 | xargs -0 rm -f
-	find cola/gui -name '[^_]*.py' -print0 | xargs -0 rm -f
-	find jsonpickle -name '*.py[co]' -print0 | xargs -0 rm -f
+	$(MAKE) -C share/doc/git-cola clean
+	find . -name .noseids -print0 | xargs -0 rm -f
+	find . -name '*.py[co]' -print0 | xargs -0 rm -f
 	find share -name '*.qm' -print0 | xargs -0 rm -f
-	find simplejson -name '*.py[co]' -print0 | xargs -0 rm -f
-	rm -rf build tmp
-	rm -f tags
+	rm -rf cola/builtin_version.* build dist tmp tags
 
 tags:
-	ctags -R cola/*.py cola/views/*.py cola/controllers/*.py
+	ctags cola/*.py cola/*/*.py
 
 .PHONY: all install doc install-doc install-html test clean darwin git-cola.app

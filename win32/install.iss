@@ -1,5 +1,5 @@
-#define APP_NAME     'Cola'
-#define APP_LONGNAME 'Git Cola'
+#define APP_NAME     'git-cola'
+#define APP_LONGNAME 'git-cola: A highly caffeinated git GUI'
 #define APP_VERSION  '%APPVERSION%'
 #define APP_URL      'http://cola.tuxfamily.org/'
 
@@ -54,21 +54,21 @@ SetupWindowTitle={#emit APP_NAME} Setup
 [UninstallDelete]
 Type: files; Name: "{app}\bin\*"
 Type: files; Name: "{app}\etc\*"
+Type: files; Name: "{app}\share\git-cola\bin\*"
 Type: files; Name: "{app}\share\git-cola\lib\cola\*"
 Type: files; Name: "{app}\share\git-cola\lib\cola\models\*"
 Type: files; Name: "{app}\share\git-cola\lib\cola\controllers\*"
-Type: files; Name: "{app}\share\git-cola\lib\cola\gui\*"
 Type: files; Name: "{app}\share\git-cola\lib\cola\views\*"
 Type: files; Name: "{app}\share\git-cola\lib\jsonpickle\*"
 Type: files; Name: "{app}\share\git-cola\lib\simplejson\*"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\models"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\controllers"
-Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\gui"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\views"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\cola"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\simplejson"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\jsonpickle"
 Type: dirifempty; Name: "{app}\share\git-cola\lib"
+Type: dirifempty; Name: "{app}\share\git-cola\bin"
 Type: dirifempty; Name: "{app}\etc"
 Type: dirifempty; Name: "{app}\bin"
 
