@@ -63,7 +63,8 @@ class StatusWidget(QtGui.QWidget):
 
         # Handle these events here
         self.tree.contextMenuEvent = self.tree_context_menu_event
-        self.tree.mouseReleaseEvent = self.tree_click
+        self.tree_mouse_release_event = self.tree.mouseReleaseEvent
+        self.tree.mouseReleaseEvent = self.tree_click_event
 
         self.expanded_items = set()
         self.model = cola.model()
@@ -76,6 +77,10 @@ class StatusWidget(QtGui.QWidget):
         self.connect(self.tree,
                      SIGNAL('itemDoubleClicked(QTreeWidgetItem*, int)'),
                      self.tree_doubleclick)
+
+        self.connect(self.tree,
+                     SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
+                     self.tree_click)
 
     def add_item(self, txt, path):
         """Create a new top-level item in the status tree."""
@@ -436,6 +441,24 @@ class StatusWidget(QtGui.QWidget):
             self.tree.blockSignals(False)
         return result
 
+    def tree_click_event(self, event):
+        self.tree_mouse_release_event(event)
+        self.tree_click()
+
+    def tree_click(self, column=None):
+        """Called when an item is clicked in the repo status tree."""
+        if self.model.read_only():
+            return
+        staged, modified, unmerged, untracked = self.selection()
+        if staged:
+            qtutils.set_clipboard(staged[0])
+        elif modified:
+            qtutils.set_clipboard(modified[0])
+        elif unmerged:
+            qtutils.set_clipboard(unmerged[0])
+        elif untracked:
+            qtutils.set_clipboard(untracked[0])
+
     def tree_doubleclick(self, item, column):
         """Called when an item is double-clicked in the repo status tree."""
         if self.model.read_only():
@@ -445,10 +468,10 @@ class StatusWidget(QtGui.QWidget):
             cola.notifier().broadcast(signals.unstage, staged)
         elif modified:
             cola.notifier().broadcast(signals.stage, modified)
-        elif untracked:
-            cola.notifier().broadcast(signals.stage, untracked)
         elif unmerged:
             cola.notifier().broadcast(signals.stage, unmerged)
+        elif untracked:
+            cola.notifier().broadcast(signals.stage, untracked)
 
     def tree_selection(self):
         """Show a data for the selected item."""
