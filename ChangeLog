@@ -1,7 +1,327 @@
-git-cola: 1.3.7.45.g7862
-bottled-on: Wed May  6 19:10:35 PDT 2009
+git-cola: 1.3.8
+bottled-on: Sun Jun 14 03:03:28 PDT 2009
 
-commit 78624f86fa667eb7ac09526e1ae6c610a6c68e6b (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit 9751d6c8ee0811f40eb7727e8503c4a723a92810 (tag: refs/tags/v1.3.8, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Jun 14 02:53:10 2009 -0700
+
+    setup.py: launch `pyuic4` with 'sh -c' to work around old pyuic4 bugs
+    
+    Older versions of pyuic4 were implemented as a shell script instead
+    of as python script.  Interestingly, an older version existed
+    that didn't have a '#!/bin/sh' shebang line.
+    
+    Use 'sh -c' to accomodate both current and older, buggy pyuic4s.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c3830cf1bf0def7343a6aa8b0ec23733c60dd519
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jun 13 19:35:21 2009 -0700
+
+    Show the diff when moving the selection using the arrow keys
+    
+    We weren't reacting to the selectionChanged() callback and thus
+    were not displaying diffs when changing the selection using the
+    arrow keys.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 358d4c58016ece3dafb7b5ce4736fdabd6ff3ba1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jun 9 02:36:17 2009 -0700
+
+    userguide: describe the main elements of the cola interface
+    
+    This adds descriptions for the repository status view, the diff view,
+    and the diff hunk regions.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 841f81c09fa2bc689cc3b78b21470471128311c6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 31 18:35:59 2009 -0700
+
+    Move the sphinx docs under share/doc/git-cola
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cd36f8b0740d02fc7a86069e72ba2a208ae5eeb0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 31 18:24:34 2009 -0700
+
+    Change doc version to release
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b193772809ffd80b5b185dfb60a7b60aa8e716f3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 31 19:37:19 2009 -0700
+
+    controllers/main: adjust docstrings for readability
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fcf34a6223ed333642fcd7f002c00ba55ed85362
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 31 19:36:35 2009 -0700
+
+    darwin doc: mention the macports dev environment
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 52ef28a6b7d5b64e9ea43c6c7cb7e497b38a691e
+Merge: 34000c7 c7618a4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed May 27 10:37:44 2009 -0700
+
+    Merge branch 'documentation'
+
+commit c7618a4cefd9ee12e79e0a1123e6319385b4fa30
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed May 27 10:31:32 2009 -0700
+
+    doc: add documenation for the rest of the cola API
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0a2baa24ea2d8ad4564af716c829cf3ef06c35cf
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 26 02:11:20 2009 -0700
+
+    doc: add module documentation for base classes, models, controllers, and views
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d9b1d9b744d470cb673e1eb57af322c09a6754d6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 23:17:02 2009 -0700
+
+    doc: add a skeleton API reference guide using sphinx
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ba552c30af64d638225d51a1af3b2f14facddc91
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon May 25 22:37:59 2009 -0700
+
+    doc: add the source root to sys.path
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8d3293778c2ffac9b8c248350f1e85ad7428b8e1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 18 22:52:15 2009 -0700
+
+    doc: add .gitignore for the _build, _static, _templates
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a18a8c3713f090dcb654e82fcbcd47d24883f693
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 18 22:50:33 2009 -0700
+
+    doc: add sphinx documentation with sphinx-quickstart
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 34000c717167125e8fa6d4ce6ae18ea08ef04347
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed May 27 10:32:05 2009 -0700
+
+    utils: fix the docstring for sphinx
+    
+    "*" in rest means emphasis, so don't use it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 55d318a04b48549cb8a6f3a97f751f982aa06852
+Author: Uri Okrent <uokrent@gmail.com>
+Date:   Sun May 24 20:04:30 2009 -0700
+
+    Add 's', 'h' shortcut keys for stage/unstage selection/hunk
+    
+    Signed-off-by: Uri Okrent <uokrent@gmail.com>
+
+commit b341236095f6895ecddd57c4d9c0ec9e9f0a936d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 15 02:21:35 2009 -0700
+
+    diff: add the ability to diff using an arbitrary diff expression
+    
+    Diff -> Expression... allows you to enter a diff expression
+    such as master~3...master and see the results in the
+    Repository Status tree.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 861515ec96ec0ccd946b9b1f0a399be6bd193de3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 15 01:39:15 2009 -0700
+
+    Add a diff menu to contain diff-specific actions
+    
+    Diff against SHA-1, diff branches, and diff commits should
+    all be in the same menu.  The "diff expression" action
+    can then go in this menu.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 525f2def04d6d546336e5791f878d5366544f152
+Merge: 2a4a2bb cb1237c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon May 11 00:50:05 2009 -0700
+
+    Merge branch 'darwin'
+    
+    * darwin:
+      darwin: change setup-dev-env script to list the minimal dependencies
+
+commit 2a4a2bb195b3eb2aeab6531388bd160907d90636
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon May 11 00:47:35 2009 -0700
+
+    pep8: pepify and add more docstrings to the controllers package
+    
+    Add missing docstrings to the entire controllers package.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bec3eb4ade537b1500834b47c36ee0fd24083d60
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 19:08:21 2009 -0700
+
+    Makefile: remove references to git-difftool
+    
+    We no longer install git-difftool so we shouldn't try to
+    uninstall it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1eece4e275d8d062ece54c7e084f46395b96f54d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 17:44:51 2009 -0700
+
+    controllers/main: remove the 'staged' parameter from delete_files
+    
+    The 'staged' parameter was never used, so remove it.
+    This also means we can use the callback directly without
+    having to wrap it with a lambda.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cb1237ce10738685045ab29b25eb28331841da8c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 15:47:31 2009 -0700
+
+    darwin: change setup-dev-env script to list the minimal dependencies
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c577f70e69af7fab9872aa58982d3e10129d733e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 15:29:34 2009 -0700
+
+    controllers/createbranch: add docstrings and source comments
+    
+    This adds docstrings and inline comments to the createbranch module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8b6a3543bfa6cb563a0c400044e32b05dade5527
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 15:01:56 2009 -0700
+
+    controllers/compare: use lambda's instead of closures
+    
+    This eliminates the two gen_* methods by using lambdas
+    instead of closures.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0b4df13e90e72926df6edebf648d324ead6209a8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 14:59:39 2009 -0700
+
+    controllers/compare: add docstrings and source comments
+    
+    This adds docstrings and inline comments to the compare module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a31ffcae2f6ff020b72480de826c173b6122ec88
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun May 10 02:10:08 2009 -0700
+
+    views: raise_() all dialogs
+    
+    Some of the combo boxes were appearing below the main gui,
+    so raise_() them.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 220c58529ad97afd855da5d5f3695ffa473566b7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 8 01:19:14 2009 -0700
+
+    py2app-setup: fix the usage of the powerpc emulation option
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c8d3a23a4be7757c7e4f7287a9963ebce10d8d9e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 8 01:11:38 2009 -0700
+
+    darwin/__boot__: don't chdir to Resources
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9fbe61f952e9ea483d963a4057558084bd721cdc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 8 00:10:28 2009 -0700
+
+    py2app-setup: use prefer_ppc when building on ppc
+    
+    This should get our intel tiger mac users up and running.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f2663f82fd4bfd743e70fd77e13fa4b8cc422a4b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 8 00:03:17 2009 -0700
+
+    build: simplify Makefile further by letting python name the app tarball
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1ccfdb28584ed00778390c5eb62fdcd7f58bc4cf
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu May 7 23:37:33 2009 -0700
+
+    Makefile: make 'test' depend on 'all'
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a059ca47b647290c16797d17d6851f2bf50d5f54
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu May 7 23:35:21 2009 -0700
+
+    macports-setup: simplify the instructions and make it sudo-compatible
+    
+    The script now lists the minimum steps needed to bootstrap a cola dev
+    environment only.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0c67af6f36475c743190ddb51b76e8d53744a374
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu May 7 03:41:20 2009 -0700
+
+    darwin: include system info in the generated app.tar.bz2 files
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 78624f86fa667eb7ac09526e1ae6c610a6c68e6b
 Author: Uri Okrent <uokrent@gmail.com>
 Date:   Wed May 6 18:56:08 2009 -0700
 
