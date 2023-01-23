@@ -5,8 +5,20 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+# Override setuptools_scm's version detection.
+# setuptools_scm requires git tags to be present in the repository.
+# https://github.com/pypa/setuptools_scm/issues/549
+export SETUPTOOLS_SCM_PRETEND_VERSION=4.1.0
+
+# Disable inclusion of private libraries in non-standard locations.
 export GIT_COLA_NO_PRIVATE_LIBS=1
 export GIT_COLA_NO_VENDOR_LIBS=1
+
+# Workaorund  for "pip install --prefix=/usr" writing into /usr/local instead.
+# https://github.com/pypa/pip/issues/10978
+# https://github.com/deadsnakes/issues/issues/182
+# https://discuss.python.org/t/linux-distro-patches-to-sysconfig-are-changing-pip-install-prefix-outside-virtual-environments/18240
+export PYTHONUSERBASE=/usr
 
 package=git-cola
 PKGDIR=$(CURDIR)/debian/$(package)
@@ -33,10 +45,8 @@ install: build
 	dh_testroot
 	dh_install
 	dh_installdirs
-	PYTHON=python3 $(MAKE) DESTDIR=$(PKGDIR) prefix=/usr install install-man install-doc install-html
-#!/usr/bin/env python
-	sed -i 's|env python|env python3|' \
-		$(PKGDIR)/usr/lib/python3*/site-packages/cola/widgets/spellcheck.py
+	PYTHON=python3 $(MAKE) DESTDIR=$(PKGDIR) prefix=/usr install-man install-doc install-html
+	pip install --root=$(PKGDIR) --user .
 	find . -name "*.pyc" -delete
 
 # Build architecture-independent files here.
