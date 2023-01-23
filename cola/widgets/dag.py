@@ -26,6 +26,7 @@ from cola.widgets.standard import MainWindow
 from cola.widgets.standard import TreeWidget
 from cola.widgets.diff import COMMITS_SELECTED
 from cola.widgets.diff import DiffWidget
+from cola.widgets.filelist import FileWidget
 
 
 def git_dag(model, args=None):
@@ -36,7 +37,7 @@ def git_dag(model, args=None):
     dag = DAG(branch_doubledash, 1000)
     dag.set_arguments(args)
 
-    view = DAGView(model, dag, None)
+    view = DAGView(model, dag)
     if dag.ref:
         view.display()
     return view
@@ -102,7 +103,7 @@ class ViewerMixin(object):
         if sha1 is None:
             return
         short_sha1 = sha1[:7]
-        GitArchiveDialog.save(sha1, short_sha1, self)
+        GitArchiveDialog.save_hashed_objects(sha1, short_sha1, self)
 
     def save_blob_dialog(self):
         sha1 = self.selected_sha1()
@@ -318,7 +319,7 @@ class CommitTreeWidget(ViewerMixin, TreeWidget):
 class DAGView(MainWindow):
     """The git-dag widget."""
 
-    def __init__(self, model, dag, parent=None, args=None):
+    def __init__(self, model, dag, parent=None):
         MainWindow.__init__(self, parent)
 
         self.setAttribute(Qt.WA_MacMetalStyle)
@@ -345,13 +346,16 @@ class DAGView(MainWindow):
         self.maxresults.setSuffix('')
 
         self.zoom_out = qtutils.create_action_button(
-                N_('Zoom Out'), qtutils.theme_icon('zoom-out.png'))
+                tooltip=N_('Zoom Out'),
+                icon=qtutils.theme_icon('zoom-out.png'))
 
         self.zoom_in = qtutils.create_action_button(
-                N_('Zoom In'), qtutils.theme_icon('zoom-in.png'))
+                tooltip=N_('Zoom In'),
+                icon=qtutils.theme_icon('zoom-in.png'))
 
         self.zoom_to_fit = qtutils.create_action_button(
-                N_('Zoom to Fit'), qtutils.theme_icon('zoom-fit-best.png'))
+                tooltip=N_('Zoom to Fit'),
+                icon=qtutils.theme_icon('zoom-fit-best.png'))
 
         self.notifier = notifier = observable.Observable()
         self.notifier.refs_updated = refs_updated = 'refs_updated'
@@ -359,6 +363,7 @@ class DAGView(MainWindow):
 
         self.treewidget = CommitTreeWidget(notifier, self)
         self.diffwidget = DiffWidget(notifier, self)
+        self.filewidget = FileWidget(notifier, self)
         self.graphview = GraphView(notifier, self)
 
         self.controls_layout = QtGui.QHBoxLayout()
@@ -374,6 +379,9 @@ class DAGView(MainWindow):
         self.log_dock.setWidget(self.treewidget)
         log_dock_titlebar = self.log_dock.titleBarWidget()
         log_dock_titlebar.add_corner_widget(self.controls_widget)
+
+        self.file_dock = qtutils.create_dock(N_('Files'), self)
+        self.file_dock.setWidget(self.filewidget)
 
         self.diff_dock = qtutils.create_dock(N_('Diff'), self)
         self.diff_dock.setWidget(self.diffwidget)
@@ -404,6 +412,7 @@ class DAGView(MainWindow):
         self.view_menu.addAction(self.log_dock.toggleViewAction())
         self.view_menu.addAction(self.graphview_dock.toggleViewAction())
         self.view_menu.addAction(self.diff_dock.toggleViewAction())
+        self.view_menu.addAction(self.file_dock.toggleViewAction())
         self.view_menu.addSeparator()
         self.view_menu.addAction(self.lock_layout_action)
 
@@ -415,6 +424,7 @@ class DAGView(MainWindow):
         bottom = Qt.BottomDockWidgetArea
         self.addDockWidget(left, self.log_dock)
         self.addDockWidget(right, self.graphview_dock)
+        self.addDockWidget(right, self.file_dock)
         self.addDockWidget(bottom, self.diff_dock)
 
         # Update fields affected by model
@@ -423,7 +433,7 @@ class DAGView(MainWindow):
         self.update_window_title()
 
         # Also re-loads dag.* from the saved state
-        if not qtutils.apply_state(self):
+        if not self.restore_state():
             self.resize_to_desktop()
 
         qtutils.connect_button(self.zoom_out, self.graphview.zoom_out)
@@ -480,12 +490,12 @@ class DAGView(MainWindow):
             self.setWindowTitle(project + N_(' - DAG'))
 
     def export_state(self):
-        state = self.Mixin.export_state(self)
+        state = MainWindow.export_state(self)
         state['count'] = self.dag.count
         return state
 
     def apply_state(self, state):
-        result = self.Mixin.apply_state(self, state)
+        result = MainWindow.apply_state(self, state)
         try:
             count = state['count']
             if self.dag.overridden('count'):
@@ -529,7 +539,7 @@ class DAGView(MainWindow):
         self.thread.start()
 
     def show(self):
-        self.Mixin.show(self)
+        MainWindow.show(self)
         self.treewidget.adjust_columns()
 
     def clear(self):
@@ -575,10 +585,10 @@ class DAGView(MainWindow):
     def closeEvent(self, event):
         self.revtext.close_popup()
         self.thread.stop()
-        self.Mixin.closeEvent(self, event)
+        MainWindow.closeEvent(self, event)
 
     def resizeEvent(self, e):
-        self.Mixin.resizeEvent(self, e)
+        MainWindow.resizeEvent(self, e)
         self.treewidget.adjust_columns()
 
 

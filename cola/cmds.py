@@ -174,7 +174,6 @@ class ApplyPatches(Command):
 
     def __init__(self, patches):
         Command.__init__(self)
-        patches.sort()
         self.patches = patches
 
     def do(self):
@@ -287,6 +286,36 @@ class ResetMode(Command):
         self.model.update_file_status()
 
 
+class RevertUnstagedEdits(Command):
+
+    SHORTCUT = 'Ctrl+U'
+
+    def do(self):
+        if not self.model.undoable():
+            return
+        s = selection.selection()
+        if s.staged:
+            items_to_undo = s.staged
+        else:
+            items_to_undo = s.modified
+        if items_to_undo:
+            if not Interaction.confirm(N_('Revert Unstaged Changes?'),
+                                   N_('This operation drops unstaged changes.\n'
+                                      'These changes cannot be recovered.'),
+                                   N_('Revert the unstaged changes?'),
+                                   N_('Revert Unstaged Changes'),
+                                   default=True,
+                                   icon=resources.icon('undo.svg')):
+                return
+            args = []
+            if not s.staged and self.model.amending():
+                args.append(self.model.head)
+            do(Checkout, args + ['--'] + items_to_undo)
+        else:
+            msg = N_('No files selected for checkout from HEAD.')
+            Interaction.log(msg)
+
+
 class Commit(ResetMode):
     """Attempt to create a new commit."""
 
@@ -322,18 +351,16 @@ class Ignore(Command):
         self.filenames = filenames
 
     def do(self):
-        new_additions = ''
-        for fname in self.filenames:
-            new_additions = new_additions + fname + '\n'
+        if not self.filenames:
+            return
+        new_additions = '\n'.join(self.filenames) + '\n'
         for_status = new_additions
-        if new_additions:
-            if core.exists('.gitignore'):
-                current_list = core.read('.gitignore')
-                new_additions = new_additions + current_list
-            core.write('.gitignore', new_additions)
-            Interaction.log_status(
-                    0, 'Added to .gitignore:\n%s' % for_status, '')
-            self.model.update_file_status()
+        if core.exists('.gitignore'):
+            current_list = core.read('.gitignore')
+            new_additions = current_list.rstrip() + '\n' + new_additions
+        core.write('.gitignore', new_additions)
+        Interaction.log_status(0, 'Added to .gitignore:\n%s' % for_status, '')
+        self.model.update_file_status()
 
 
 class Delete(Command):
@@ -553,6 +580,24 @@ class LaunchDifftool(BaseCommand):
             difftool.run()
 
 
+class LaunchTerminal(BaseCommand):
+
+    SHORTCUT = 'Ctrl+t'
+
+    @staticmethod
+    def name():
+        return N_('Launch Terminal')
+
+    def __init__(self, path):
+        self.path = path
+
+    def do(self):
+        cmd = _config.get('cola.terminal', 'xterm -e $SHELL')
+        cmd = os.path.expandvars(cmd)
+        argv = utils.shell_split(cmd)
+        core.fork(argv, cwd=self.path)
+
+
 class LaunchEditor(Edit):
     SHORTCUT = 'Ctrl+E'
 
@@ -690,11 +735,11 @@ class OpenParentDir(OpenDefaultApp):
     def do(self):
         if not self.filenames:
             return
-        dirs = set(map(os.path.dirname, self.filenames))
+        dirs = list(set(map(os.path.dirname, self.filenames)))
         core.fork([self.launcher] + dirs)
 
 
-class OpenRepo(Command):
+class OpenNewRepo(Command):
     """Launches git-cola on a repo."""
 
     def __init__(self, repo_path):
@@ -704,6 +749,24 @@ class OpenRepo(Command):
     def do(self):
         self.model.set_directory(self.repo_path)
         core.fork([sys.executable, sys.argv[0], '--repo', self.repo_path])
+
+
+class OpenRepo(Command):
+    def __init__(self, repo_path):
+        Command.__init__(self)
+        self.repo_path = repo_path
+
+    def do(self):
+        git = self.model.git
+        old_worktree = git.worktree()
+        if not self.model.set_worktree(self.repo_path):
+            self.model.set_worktree(old_worktree)
+            return
+        new_worktree = git.worktree()
+        core.chdir(new_worktree)
+        self.model.set_directory(self.repo_path)
+        _config.reset()
+        self.model.update_status()
 
 
 class Clone(Command):
@@ -749,9 +812,10 @@ class GitXBaseContext(object):
 
 class Rebase(Command):
 
-    def __init__(self, branch):
+    def __init__(self, branch, capture_output=True):
         Command.__init__(self)
         self.branch = branch
+        self.capture_output = capture_output
 
     def do(self):
         branch = self.branch
@@ -760,13 +824,18 @@ class Rebase(Command):
         status = 1
         out = ''
         err = ''
+        extra = {}
+        if self.capture_output:
+            extra['_stderr'] = None
+            extra['_stdout'] = None
         with GitXBaseContext(
                 GIT_EDITOR=prefs.editor(),
                 GIT_XBASE_TITLE=N_('Rebase onto %s') % branch,
                 GIT_XBASE_ACTION=N_('Rebase')):
             status, out, err = self.model.git.rebase(branch,
                                                      interactive=True,
-                                                     autosquash=True)
+                                                     autosquash=True,
+                                                     **extra)
         Interaction.log_status(status, out, err)
         self.model.update_status()
         return status, out, err
@@ -1147,7 +1216,7 @@ class VisualizeAll(Command):
 
     def do(self):
         browser = utils.shell_split(prefs.history_browser())
-        core.fork(browser + ['--all'])
+        launch_history_browser(browser + ['--all'])
 
 
 class VisualizeCurrent(Command):
@@ -1155,7 +1224,7 @@ class VisualizeCurrent(Command):
 
     def do(self):
         browser = utils.shell_split(prefs.history_browser())
-        core.fork(browser + [self.model.currentbranch])
+        launch_history_browser(browser + [self.model.currentbranch])
 
 
 class VisualizePaths(Command):
@@ -1170,7 +1239,7 @@ class VisualizePaths(Command):
             self.argv = browser
 
     def do(self):
-        core.fork(self.argv)
+        launch_history_browser(self.argv)
 
 
 class VisualizeRevision(Command):
@@ -1188,15 +1257,18 @@ class VisualizeRevision(Command):
         if self.paths:
             argv.append('--')
             argv.extend(self.paths)
+        launch_history_browser(argv)
 
-        try:
-            core.fork(argv)
-        except Exception as e:
-            _, details = utils.format_exception(e)
-            title = N_('Error Launching History Browser')
-            msg = (N_('Cannot exec "%s": please configure a history browser') %
-                   ' '.join(argv))
-            Interaction.critical(title, message=msg, details=details)
+
+def launch_history_browser(argv):
+    try:
+        core.fork(argv)
+    except Exception as e:
+        _, details = utils.format_exception(e)
+        title = N_('Error Launching History Browser')
+        msg = (N_('Cannot exec "%s": please configure a history browser') %
+               ' '.join(argv))
+        Interaction.critical(title, message=msg, details=details)
 
 
 def run(cls, *args, **opts):

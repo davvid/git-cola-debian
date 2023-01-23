@@ -44,7 +44,7 @@ def run(RemoteDialog):
     model.tags = global_model.tags
     model.remotes = global_model.remotes
     parent = qtutils.active_window()
-    view = RemoteDialog(model, parent)
+    view = RemoteDialog(model, parent=parent)
     view.show()
     return view
 
@@ -117,7 +117,7 @@ class ProgressAnimationThread(QtCore.QThread):
 
 class RemoteActionDialog(standard.Dialog):
 
-    def __init__(self, model, action, parent):
+    def __init__(self, model, action, parent=None):
         """Customizes the dialog based on the remote action
         """
         standard.Dialog.__init__(self, parent=parent)
@@ -128,8 +128,9 @@ class RemoteActionDialog(standard.Dialog):
         self.selected_remotes = []
 
         self.setAttribute(Qt.WA_MacMetalStyle)
-        self.setWindowModality(Qt.WindowModal)
         self.setWindowTitle(N_(action))
+        if parent is not None:
+            self.setWindowModality(Qt.WindowModal)
 
         self.progress = QtGui.QProgressDialog(self)
         self.progress.setFont(qtutils.diff_font())
@@ -262,7 +263,7 @@ class RemoteActionDialog(standard.Dialog):
         else:
             self.rebase_checkbox.hide()
 
-        if not qtutils.apply_state(self):
+        if not self.restore_state():
             self.resize(666, 420)
 
         self.remote_name.setFocus()
@@ -545,27 +546,28 @@ class RemoteActionDialog(standard.Dialog):
 
 # Use distinct classes so that each saves its own set of preferences
 class Fetch(RemoteActionDialog):
-    def __init__(self, model, parent):
-        RemoteActionDialog.__init__(self, model, FETCH, parent)
+    def __init__(self, model, parent=None):
+        RemoteActionDialog.__init__(self, model, FETCH, parent=parent)
 
 
 class Push(RemoteActionDialog):
-    def __init__(self, model, parent):
-        RemoteActionDialog.__init__(self, model, PUSH, parent)
+    def __init__(self, model, parent=None):
+        RemoteActionDialog.__init__(self, model, PUSH, parent=parent)
 
 
 class Pull(RemoteActionDialog):
-    def __init__(self, model, parent):
-        RemoteActionDialog.__init__(self, model, PULL, parent)
+    def __init__(self, model, parent=None):
+        RemoteActionDialog.__init__(self, model, PULL, parent=parent)
 
     def apply_state(self, state):
-        RemoteActionDialog.apply_state(self, state)
+        result = RemoteActionDialog.apply_state(self, state)
         try:
             rebase = state['rebase']
         except KeyError:
-            pass
+            result = False
         else:
             self.rebase_checkbox.setChecked(rebase)
+        return result
 
     def export_state(self):
         state = RemoteActionDialog.export_state(self)
@@ -573,5 +575,5 @@ class Pull(RemoteActionDialog):
         return state
 
     def done(self, exit_code):
-        qtutils.save_state(self)
+        self.save_state()
         return RemoteActionDialog.done(self, exit_code)

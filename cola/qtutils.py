@@ -12,7 +12,6 @@ from PyQt4.QtCore import SIGNAL
 from cola import core
 from cola import gitcfg
 from cola import utils
-from cola import settings
 from cola import resources
 from cola.compat import set
 from cola.decorators import memoize
@@ -81,6 +80,7 @@ def confirm(title, text, informative_text, ok_text,
     elif icon and isinstance(icon, basestring):
         icon = QtGui.QIcon(icon)
     msgbox = QtGui.QMessageBox(active_window())
+    msgbox.setWindowModality(Qt.WindowModal)
     msgbox.setWindowTitle(title)
     msgbox.setText(text)
     msgbox.setInformativeText(informative_text)
@@ -95,13 +95,35 @@ def confirm(title, text, informative_text, ok_text,
     return msgbox.clickedButton() == ok
 
 
+class ResizeableMessageBox(QtGui.QMessageBox):
+
+    def __init__(self, parent):
+        QtGui.QMessageBox.__init__(self, parent)
+        self.setMouseTracking(True)
+        self.setSizeGripEnabled(True)
+
+    def event(self, event):
+        res = QtGui.QMessageBox.event(self, event)
+        event_type = event.type()
+        if (event_type == QtCore.QEvent.MouseMove or
+                event_type == QtCore.QEvent.MouseButtonPress):
+            maxi = QtCore.QSize(1024*4, 1024*4)
+            self.setMaximumSize(maxi)
+            text = self.findChild(QtGui.QTextEdit)
+            if text is not None:
+                expand = QtGui.QSizePolicy.Expanding
+                text.setSizePolicy(QtGui.QSizePolicy(expand, expand))
+                text.setMaximumSize(maxi)
+        return res
+
+
 def critical(title, message=None, details=None):
     """Show a warning with the provided title and message."""
     if message is None:
         message = title
-    mbox = QtGui.QMessageBox(active_window())
+    mbox = ResizeableMessageBox(active_window())
     mbox.setWindowTitle(title)
-    mbox.setTextFormat(QtCore.Qt.PlainText)
+    mbox.setTextFormat(Qt.PlainText)
     mbox.setText(message)
     mbox.setIcon(QtGui.QMessageBox.Critical)
     mbox.setStandardButtons(QtGui.QMessageBox.Close)
@@ -119,8 +141,8 @@ def information(title, message=None, details=None, informative_text=None):
     mbox.setStandardButtons(QtGui.QMessageBox.Close)
     mbox.setDefaultButton(QtGui.QMessageBox.Close)
     mbox.setWindowTitle(title)
-    mbox.setWindowModality(QtCore.Qt.WindowModal)
-    mbox.setTextFormat(QtCore.Qt.PlainText)
+    mbox.setWindowModality(Qt.WindowModal)
+    mbox.setTextFormat(Qt.PlainText)
     mbox.setText(message)
     if informative_text:
         mbox.setInformativeText(informative_text)
@@ -129,7 +151,7 @@ def information(title, message=None, details=None, informative_text=None):
     # Render git.svg into a 1-inch wide pixmap
     pixmap = QtGui.QPixmap(resources.icon('git.svg'))
     xres = pixmap.physicalDpiX()
-    pixmap = pixmap.scaledToHeight(xres, QtCore.Qt.SmoothTransformation)
+    pixmap = pixmap.scaledToHeight(xres, Qt.SmoothTransformation)
     mbox.setIconPixmap(pixmap)
     mbox.exec_()
 
@@ -155,7 +177,7 @@ def selected_treeitem(tree_widget):
     selected = False
     item = tree_widget.currentItem()
     if item:
-        id_number = item.data(0, QtCore.Qt.UserRole).toInt()[0]
+        id_number = item.data(0, Qt.UserRole).toInt()[0]
         selected = True
     return(id_number, selected)
 
@@ -220,10 +242,16 @@ def selected_items(list_widget, items):
     return selection
 
 
-def open_dialog(title, filename=None):
+def open_file(title, directory=None):
     """Creates an Open File dialog and returns a filename."""
     return unicode(QtGui.QFileDialog
-                        .getOpenFileName(active_window(), title, filename))
+                        .getOpenFileName(active_window(), title, directory))
+
+
+def open_files(title, directory=None, filter=None):
+    """Creates an Open File dialog and returns a list of filenames."""
+    return (QtGui.QFileDialog
+            .getOpenFileNames(active_window(), title, directory, filter))
 
 
 def opendir_dialog(title, path):
@@ -383,6 +411,14 @@ def help_icon():
     return cached_icon(QtGui.QStyle.SP_DialogHelpButton)
 
 
+def add_icon():
+    return icon('add.svg')
+
+
+def remove_icon():
+    return icon('remove.svg')
+
+
 def open_file_icon():
     return icon('open.svg')
 
@@ -439,35 +475,6 @@ def center_on_screen(widget):
     cy = rect.height()/2
     cx = rect.width()/2
     widget.move(cx - widget.width()/2, cy - widget.height()/2)
-
-
-def save_state(widget, handler=None):
-    if handler is None:
-        handler = settings.Settings()
-    if gitcfg.instance().get('cola.savewindowsettings', True):
-        handler.save_gui_state(widget)
-
-
-def export_window_state(widget, state, version):
-    # Save the window state
-    windowstate = widget.saveState(version)
-    state['windowstate'] = unicode(windowstate.toBase64().data())
-    return state
-
-
-def apply_window_state(widget, state, version):
-    # Restore the dockwidget, etc. window state
-    try:
-        windowstate = state['windowstate']
-        return widget.restoreState(QtCore.QByteArray.fromBase64(str(windowstate)),
-                                   version)
-    except KeyError:
-        return False
-
-
-def apply_state(widget):
-    state = settings.Settings().get_gui_state(widget)
-    return bool(state) and widget.apply_state(state)
 
 
 @memoize
@@ -527,14 +534,34 @@ def create_button(text='', layout=None, tooltip=None, icon=None):
     return button
 
 
-def create_action_button(tooltip, icon):
+def create_action_button(tooltip=None, icon=None):
     button = QtGui.QPushButton()
-    button.setCursor(QtCore.Qt.PointingHandCursor)
-    button.setFlat(True)
-    button.setIcon(icon)
     button.setFixedSize(QtCore.QSize(16, 16))
-    button.setToolTip(tooltip)
+    button.setCursor(Qt.PointingHandCursor)
+    button.setFlat(True)
+    if tooltip is not None:
+        button.setToolTip(tooltip)
+    if icon is not None:
+        pixmap = icon.pixmap(QtCore.QSize(16, 16))
+        button.setIcon(QtGui.QIcon(pixmap))
     return button
+
+
+def hide_button_menu_indicator(button):
+    cls = type(button)
+    name = cls.__name__
+    stylesheet = """
+        %(name)s::menu-indicator {
+            image: none;
+        }
+    """
+    if name == 'QPushButton':
+        stylesheet += """
+            %(name)s {
+                border-style: none;
+            }
+        """
+    button.setStyleSheet(stylesheet % {'name': name})
 
 
 class DockTitleBarWidget(QtGui.QWidget):
@@ -547,13 +574,13 @@ class DockTitleBarWidget(QtGui.QWidget):
         label.setFont(font)
         label.setText(title)
 
-        self.setCursor(QtCore.Qt.OpenHandCursor)
+        self.setCursor(Qt.OpenHandCursor)
 
         self.close_button = create_action_button(
-                N_('Close'), titlebar_close_icon())
+                tooltip=N_('Close'), icon=titlebar_close_icon())
 
         self.toggle_button = create_action_button(
-                N_('Detach'), titlebar_normal_icon())
+                tooltip=N_('Detach'), icon=titlebar_normal_icon())
 
         self.corner_layout = QtGui.QHBoxLayout()
         self.corner_layout.setMargin(defs.no_margin)
@@ -621,12 +648,12 @@ def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
     button.setAutoRaise(True)
     button.setAutoFillBackground(True)
     button.setCursor(Qt.PointingHandCursor)
-    if icon:
+    if icon is not None:
         button.setIcon(icon)
-    if text:
+    if text is not None:
         button.setText(text)
         button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-    if tooltip:
+    if tooltip is not None:
         button.setToolTip(tooltip)
     if layout is not None:
         layout.addWidget(button)

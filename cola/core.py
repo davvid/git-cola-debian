@@ -25,7 +25,7 @@ _encoding_tests = [
 def decode(enc, encoding=None):
     """decode(encoded_string) returns an unencoded unicode string
     """
-    if type(enc) is unicode:
+    if enc is None or type(enc) is unicode:
         return enc
 
     if encoding is None:
@@ -111,7 +111,7 @@ def communicate(proc):
     return proc.communicate()
 
 
-def run_command(cmd, *args, **kwargs):
+def run_command(cmd, encoding=None, *args, **kwargs):
     """Run the given command to completion, and return its results.
 
     This provides a simpler interface to the subprocess module.
@@ -121,39 +121,39 @@ def run_command(cmd, *args, **kwargs):
     """
     process = start_command(cmd, *args, **kwargs)
     (output, errors) = communicate(process)
-    output = decode(output)
-    errors = decode(errors)
+    output = decode(output, encoding=encoding)
+    errors = decode(errors, encoding=encoding)
     exit_code = process.returncode
     return (exit_code, output, errors)
 
 
 @interruptable
-def _fork_posix(args):
+def _fork_posix(args, cwd=None):
     """Launch a process in the background."""
     encoded_args = [encode(arg) for arg in args]
-    return subprocess.Popen(encoded_args).pid
+    return subprocess.Popen(encoded_args, cwd=cwd).pid
 
 
-def _fork_win32(args):
+def _fork_win32(args, cwd=None):
     """Launch a background process using crazy win32 voodoo."""
     # This is probably wrong, but it works.  Windows.. wow.
     if args[0] == 'git-dag':
         # win32 can't exec python scripts
         args = [sys.executable] + args
 
-    enc_args = [encode(arg) for arg in args]
-    abspath = _win32_abspath(enc_args[0])
+    argv = [encode(arg) for arg in args]
+    abspath = _win32_abspath(argv[0])
     if abspath:
         # e.g. fork(['git', 'difftool', '--no-prompt', '--', 'path'])
-        enc_args[0] = abspath
+        argv[0] = abspath
     else:
         # e.g. fork(['gitk', '--all'])
-        cmdstr = subprocess.list2cmdline(enc_args)
+        cmdstr = subprocess.list2cmdline(argv)
         sh_exe = _win32_abspath('sh')
-        enc_args = [sh_exe, '-c', cmdstr]
+        argv = [sh_exe, '-c', cmdstr]
 
     DETACHED_PROCESS = 0x00000008 # Amazing!
-    return subprocess.Popen(enc_args, creationflags=DETACHED_PROCESS).pid
+    return subprocess.Popen(argv, cwd=cwd, creationflags=DETACHED_PROCESS).pid
 
 
 def _win32_abspath(exe):
@@ -216,6 +216,7 @@ def node():
 
 
 abspath = wrap(encode, os.path.abspath, decorator=decode)
+chdir = wrap(encode, os.chdir)
 exists = wrap(encode, os.path.exists)
 expanduser = wrap(encode, os.path.expanduser, decorator=decode)
 getcwd = decorate(decode, os.getcwd)
@@ -230,3 +231,4 @@ except AttributeError:
 realpath = wrap(encode, os.path.realpath, decorator=decode)
 stat = wrap(encode, os.stat)
 unlink = wrap(encode, os.unlink)
+walk = wrap(encode, os.walk)

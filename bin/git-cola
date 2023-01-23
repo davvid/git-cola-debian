@@ -44,11 +44,15 @@ def setup_environment():
         sys.path.insert(1, install_lib)
 setup_environment()
 
-from cola import core
-from cola import cmds
 from cola.app import add_common_arguments
 from cola.app import application_init
 from cola.app import application_start
+
+# NOTE: these must be imported *after* cola.app.
+# PyQt4 may not be available until after cola.app has gotten a chance to
+# install the homebrew modules in sys.path.
+from cola import core
+from cola import cmds
 
 
 def main():
@@ -70,6 +74,7 @@ def parse_args():
     subparser = parser.add_subparsers(title='valid commands')
 
     add_cola_command(subparser)
+    add_am_command(subparser)
     add_archive_command(subparser)
     add_branch_command(subparser)
     add_browse_command(subparser)
@@ -102,6 +107,12 @@ def add_cola_command(subparser):
     parser = add_command(subparser, 'cola', 'start git-cola', cmd_cola)
     parser.add_argument('--amend', default=False, action='store_true',
                         help='start in amend mode')
+
+
+def add_am_command(parent):
+    parser = add_command(parent, 'am', 'apply patches using "git am"', cmd_am)
+    parser.add_argument('patches', metavar='<patches>', nargs='*',
+                        help='patches to apply')
 
 
 def add_archive_command(parent):
@@ -203,6 +214,13 @@ def cmd_cola(args):
     return application_start(context, view)
 
 
+def cmd_am(args):
+    context = application_init(args)
+    from cola.widgets.patch import new_apply_patches
+    view = new_apply_patches(patches=args.patches)
+    return application_start(context, view)
+
+
 def cmd_archive(args):
     context = application_init(args, update=True)
     if args.ref is None:
@@ -263,7 +281,7 @@ def cmd_grep(args):
     context = application_init(args)
     from cola.widgets import grep
     text = subprocess.list2cmdline(map(core.decode, args.args))
-    view = grep.run_grep(text=text, parent=None)
+    view = grep.new_grep(text=text, parent=None)
     return application_start(context, view)
 
 
@@ -297,7 +315,7 @@ def cmd_push(args):
 
 
 def cmd_rebase(args):
-    status, out, err = cmds.do(cmds.Rebase, args.branch)
+    status, out, err = cmds.do(cmds.Rebase, args.branch, capture_output=False)
     if out:
         core.stdout(out)
     if err:
@@ -308,7 +326,7 @@ def cmd_rebase(args):
 def cmd_remote(args):
     context = application_init(args)
     from cola.widgets import editremotes
-    view = editremotes.edit()
+    view = editremotes.new_remote_editor()
     return application_start(context, view)
 
 
@@ -328,8 +346,8 @@ def cmd_stash(args):
 
 def cmd_tag(args):
     context = application_init(args)
-    from cola.widgets.createtag import create_tag
-    view = create_tag(name=args.name, ref=args.ref, sign=args.sign)
+    from cola.widgets.createtag import new_create_tag
+    view = new_create_tag(name=args.name, ref=args.ref, sign=args.sign)
     return application_start(context, view)
 
 
