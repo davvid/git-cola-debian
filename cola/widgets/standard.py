@@ -1,3 +1,5 @@
+from __future__ import division, absolute_import, unicode_literals
+
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
@@ -22,9 +24,9 @@ class WidgetMixin(object):
         if not self._apply_state_applied and self.parent() is not None:
             left = self.parent().x()
             width = self.parent().width()
-            center_x = left + width/2
+            center_x = left + width//2
 
-            x = center_x - self.width()/2
+            x = center_x - self.width()//2
             y = self.parent().y()
 
             self.move(x, y)
@@ -98,7 +100,7 @@ class MainWindowMixin(WidgetMixin):
         state = WidgetMixin.export_state(self)
         windowstate = self.saveState(self.widget_version)
         state['lock_layout'] = self.lock_layout
-        state['windowstate'] = unicode(windowstate.toBase64().data())
+        state['windowstate'] = windowstate.toBase64().data().decode('ascii')
         return state
 
     def apply_state(self, state):

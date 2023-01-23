@@ -1,8 +1,9 @@
+from __future__ import division, absolute_import, unicode_literals
+
 import os
 import sys
 from fnmatch import fnmatch
-
-from cStringIO import StringIO
+from io import StringIO
 
 from cola import compat
 from cola import core
@@ -11,7 +12,6 @@ from cola import gitcmds
 from cola import utils
 from cola import difftool
 from cola import resources
-from cola.compat import set
 from cola.diffparse import DiffParser
 from cola.git import STDOUT
 from cola.i18n import N_
@@ -23,10 +23,10 @@ from cola.models import selection
 _config = gitcfg.instance()
 
 
-class UsageError(StandardError):
+class UsageError(Exception):
     """Exception class for usage errors."""
     def __init__(self, title, message):
-        StandardError.__init__(self, message)
+        Exception.__init__(self, message)
         self.title = title
         self.msg = message
 
@@ -44,7 +44,7 @@ class BaseCommand(object):
         return self.undoable
 
     @staticmethod
-    def name(cls):
+    def name():
         return 'Unknown'
 
     def do(self):
@@ -589,6 +589,7 @@ class LaunchTerminal(BaseCommand):
         return N_('Launch Terminal')
 
     def __init__(self, path):
+        BaseCommand.__init__(self)
         self.path = path
 
     def do(self):
@@ -1199,8 +1200,8 @@ class UntrackedSummary(Command):
         if untracked:
             io.write('# possible .gitignore rule%s:\n' % suffix)
             for u in untracked:
-                io.write('/'+core.encode(u)+'\n')
-        self.new_diff_text = core.decode(io.getvalue())
+                io.write('/'+u+'\n')
+        self.new_diff_text = io.getvalue()
         self.new_mode = self.model.mode_untracked
 
 
@@ -1312,7 +1313,7 @@ def do_cmd(cmd):
         return None
     try:
         return cmd.do()
-    except StandardError, e:
+    except Exception as e:
         msg, details = utils.format_exception(e)
         Interaction.critical(N_('Error'), message=msg, details=details)
         return None
