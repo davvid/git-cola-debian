@@ -10,15 +10,17 @@ from cola import qtutils
 from cola.views import CreateBranchView
 from cola.qobserver import QObserver
 
-def create_new_branch(model,parent):
+def create_new_branch(model,parent,revision=''):
     model = model.clone()
     view = CreateBranchView(parent)
     ctl = CreateBranchController(model, view)
+    model.set_revision(revision)
     view.show()
     return view.exec_() == QDialog.Accepted
 
 class CreateBranchController(QObserver):
     def init(self, model, view):
+        self._remoteclicked = False
         self.add_observables('revision', 'local_branch')
         self.add_callbacks(branch_list   = self.item_changed,
                            create_button = self.create_branch,
@@ -117,7 +119,10 @@ class CreateBranchController(QObserver):
         branch = utils.basename(rev)
         if branch == 'HEAD':
             return
+        # Signal that we've clicked on a remote branch
+        self._remoteclicked = True
         self.model.set_local_branch(branch)
+        self._remoteclicked = False
 
     ######################################################################
 

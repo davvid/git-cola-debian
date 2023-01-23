@@ -42,6 +42,7 @@ from bookmark import save_bookmark
 from bookmark import manage_bookmarks
 from stash import stash
 from compare import compare
+from compare import compare_file
 from compare import branch_compare
 
 
@@ -171,6 +172,8 @@ class Controller(QObserver):
                 lambda: stash(self.model, self.view),
             menu_commit_compare =
                 lambda: compare(self.model, self.view),
+            menu_commit_compare_file =
+                lambda: compare_file(self.model, self.view),
             menu_stage_modified =
                 lambda: self.log(self.model.stage_modified()),
             menu_stage_untracked =
@@ -282,12 +285,14 @@ class Controller(QObserver):
             diff = 'no diff'
             if idx == self.view.IDX_STAGED:
                 diff = (self.model.git.diff(cached=True, stat=True,
+                                            no_color=True,
                                             with_raw_output=True) + '\n\n' +
                         self.model.git.diff(cached=True))
             elif idx == self.view.IDX_MODIFIED:
                 diff = (self.model.git.diff(stat=True,
+                                            no_color=True,
                                             with_raw_output=True) + '\n\n' +
-                        self.model.git.diff())
+                        self.model.git.diff(no_color=True))
             elif idx == self.view.IDX_UNMERGED:
                 diff = '%s unmerged file(s)' % len(self.model.get_unmerged())
             elif idx == self.view.IDX_UNTRACKED:
@@ -489,13 +494,16 @@ class Controller(QObserver):
         else:
             self.mode = Controller.MODE_WORKTREE
 
-    def view_diff(self, staged=True):
+    def view_diff(self, staged=True, scrollvalue=None):
         idx, selected = self.view.get_selection()
         if not selected:
             self.reset_mode()
             self.view.reset_display()
             return
         self.view_diff_for_row(idx, staged)
+        if scrollvalue is not None:
+            scrollbar = self.view.display_text.verticalScrollBar()
+            scrollbar.setValue(scrollvalue)
 
     def view_diff_for_row(self, idx, staged):
         self.set_mode(staged)
@@ -572,24 +580,44 @@ class Controller(QObserver):
                                          'Open Git Repository...',
                                          os.getcwd())
         if dirname:
-            utils.fork(sys.argv[0], dirname)
+            utils.fork(sys.argv[0], '--repo', dirname)
 
     def clone_repo(self):
         """Clones a git repository"""
         url, ok = qtutils.input('Path or URL to clone (Env. $VARS okay)')
+        url = os.path.expandvars(url)
         if not ok or not url:
             return
-        url = os.path.expandvars(url)
-        msg = 'Enter a directory name for the new repository'
-        dirname = qtutils.new_dir_dialog(self.view, msg)
-        while dirname and os.path.exists(dirname):
-            qtutils.information('Directory Exists',
-                                'Please enter a non-existent path name.')
-            dirname = qtutils.new_dir_dialog(self.view, msg)
+        try:
+            newurl = url.replace('\\', '/')
+            default = newurl.rsplit('/', 1)[-1]
+            if default == '.git':
+                default = os.path.basename(os.path.dirname(newurl))
+            if default.endswith('.git'):
+                default = default[:-4]
+            if not default:
+                raise
+        except:
+            self.log('Oops, could not parse git url: "%s"' % url)
+            return
+
+        msg = 'Select a parent directory for the new clone'
+        dirname = qtutils.opendir_dialog(self.view, msg, os.getcwd())
         if not dirname:
             return
-        self.log(self.model.git.clone(url, dirname))
-        utils.fork(sys.argv[0], dirname)
+        count = 1
+        destdir = os.path.join(dirname, default)
+        olddestdir = destdir
+        if os.path.exists(destdir):
+            qtutils.information(destdir + ' already exists, cola will '
+                                'create a new directory')
+
+        while os.path.exists(destdir):
+            destdir = olddestdir + str(count)
+            count += 1
+
+        self.log(self.model.git.clone(url, destdir))
+        utils.fork(sys.argv[0], '--repo', destdir)
 
     def quit_app(self, *args):
         """Save config settings and cleanup any inotify threads."""
@@ -618,7 +646,7 @@ class Controller(QObserver):
     def rebase(self):
         branch = choose_from_combo('Rebase Branch',
                                    self.view,
-                                   self.model.get_local_branches())
+                                   self.model.get_all_branches())
         if not branch:
             return
         self.log(self.model.git.rebase(branch))
@@ -695,9 +723,8 @@ class Controller(QObserver):
                             item.setSelected(True)
                             self.view.status_tree.setCurrentItem(item)
                             self.view.status_tree.setItemSelected(item, True)
-                            scrollbar.setValue(scrollvalue)
                 if showdiff:
-                    self.view_diff(False)
+                    self.view_diff(staged=False, scrollvalue=scrollvalue)
                 else:
                     self.reset_mode()
                     self.view.reset_display()
@@ -713,9 +740,8 @@ class Controller(QObserver):
                             item.setSelected(True)
                             self.view.status_tree.setCurrentItem(item)
                             self.view.status_tree.setItemSelected(item, True)
-                            scrollbar.setValue(scrollvalue)
                 if showdiff:
-                    self.view_diff(True)
+                    self.view_diff(staged=True, scrollvalue=scrollvalue)
                 else:
                     self.reset_mode()
                     self.view.reset_display()
@@ -772,6 +798,7 @@ class Controller(QObserver):
         if not branch:
             return
         zfiles_str = self.model.git.diff(branch, name_only=True,
+                                         no_color=True,
                                          z=True).rstrip('\0')
         files = zfiles_str.split('\0')
         filename = choose_from_list('Select File', self.view, files)

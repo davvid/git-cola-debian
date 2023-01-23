@@ -7,6 +7,8 @@ import os
 import time
 from PyQt4.QtGui import QDialog
 from PyQt4.QtGui import QFont
+from PyQt4.QtGui import QMenu
+from PyQt4 import QtGui
 
 from cola import utils
 from cola import qtutils
@@ -17,6 +19,7 @@ from cola.views import CommitView
 from cola.views import OptionsView
 from cola.views import LogView
 from cola.qobserver import QObserver
+from createbranch import create_new_branch
 
 def set_diff_font(model, widget):
     if model.has_param('global_cola_fontdiff'):
@@ -41,11 +44,13 @@ def choose_from_list(title, parent, items=[], dblclick=None):
 #+-------------------------------------------------------------
 def select_commits(model, parent, title, revs, summaries):
     """Use the CommitView to select commits from a list."""
+    original_model = model
     model = model.clone()
     model.set_revisions(revs)
     model.set_summaries(summaries)
     view = CommitView(parent, title)
     ctl = SelectCommitsController(model, view)
+    ctl.original_model = original_model
     return ctl.select_commits()
 
 class SelectCommitsController(QObserver):
@@ -54,6 +59,7 @@ class SelectCommitsController(QObserver):
         self.connect(view.commit_list,
                      'itemSelectionChanged()',
                      self.commit_sha1_selected)
+        view.commit_list.contextMenuEvent = self.context_menu_event
 
     def select_commits(self):
         summaries = self.model.get_summaries()
@@ -68,6 +74,39 @@ class SelectCommitsController(QObserver):
         revs = self.model.get_revisions()
         list_widget = self.view.commit_list
         return qtutils.get_selection_list(list_widget, revs)
+
+    def context_menu_event(self, event):
+        menu = QMenu(self.view);
+        menu.addAction(self.tr('Checkout'), self.checkout_commit)
+        menu.addAction(self.tr('Create Branch here'), self.create_branch_at)
+        menu.addAction(self.tr('Cherry Pick'), self.cherry_pick)
+        menu.exec_(self.view.commit_list.mapToGlobal(event.pos()))
+
+    def checkout_commit(self):
+        row, selected = qtutils.get_selected_row(self.view.commit_list)
+        if not selected:
+            return
+        status, out, err = self.model.git.checkout(
+            self.model.get_revision_sha1(row), with_extended_output=True)
+        qtutils.show_output(out+err)
+        return
+
+    def create_branch_at(self):
+        row, selected = qtutils.get_selected_row(self.view.commit_list)
+        if not selected:
+            return
+        create_new_branch(self.original_model, self.view,
+                          revision=self.model.get_revision_sha1(row))
+        return
+
+    def cherry_pick(self):
+        row, selected = qtutils.get_selected_row(self.view.commit_list)
+        if not selected:
+            return
+        status, out, err = self.model.git.cherry_pick(
+            self.model.get_revision_sha1(row), with_extended_output=True)
+        qtutils.show_output(out+err)
+
 
     def commit_sha1_selected(self):
         row, selected = qtutils.get_selected_row(self.view.commit_list)
@@ -120,17 +159,17 @@ class OptionsController(QObserver):
                              'global_merge_tool',
                              'global_gui_diffcontext',
                              'global_gui_historybrowser',
-                             'global_cola_fontdiffsize',
+                             'global_cola_fontdiff_size',
                              'global_cola_fontdiff',
-                             'global_cola_fontuisize',
+                             'global_cola_fontui_size',
                              'global_cola_fontui',
                              'global_cola_savewindowsettings',
                              )
-        self.add_actions(global_cola_fontdiffsize = self.update_size)
-        self.add_actions(global_cola_fontuisize = self.update_size)
         self.add_actions(global_cola_fontdiff = self.tell_parent_model)
         self.add_actions(global_cola_fontui = self.tell_parent_model)
         self.add_callbacks(save_button = self.save_settings)
+        self.add_callbacks(global_cola_fontdiff_size = self.update_size)
+        self.add_callbacks(global_cola_fontui_size = self.update_size)
         self.connect(self.view, 'rejected()', self.restore_settings)
 
         self.refresh_view()
@@ -139,18 +178,12 @@ class OptionsController(QObserver):
     def refresh_view(self):
         font = self.model.get_cola_config('fontui')
         if font:
-            size = int(font.split(',')[1])
-            self.view.global_cola_fontuisize.setValue(size)
-            self.model.set_global_cola_fontuisize(size)
             fontui = QFont()
             fontui.fromString(font)
             self.view.global_cola_fontui.setCurrentFont(fontui)
 
         font = self.model.get_cola_config('fontdiff')
         if font:
-            size = int(font.split(',')[1])
-            self.view.global_cola_fontdiffsize.setValue(size)
-            self.model.set_global_cola_fontdiffsize(size)
             fontdiff = QFont()
             fontdiff.fromString(font)
             self.view.global_cola_fontdiff.setCurrentFont(fontdiff)
@@ -183,8 +216,8 @@ class OptionsController(QObserver):
     def tell_parent_model(self,*rest):
         params= ('global_cola_fontdiff',
                  'global_cola_fontui',
-                 'global_cola_fontdiffsize',
-                 'global_cola_fontuisize',
+                 'global_cola_fontdiff_size',
+                 'global_cola_fontui_size',
                  'global_cola_savewindowsettings',
                  )
         for param in params:
