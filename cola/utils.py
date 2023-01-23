@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import errno
+import commands
 import platform
 import subprocess
 import mimetypes
@@ -15,8 +16,9 @@ from cStringIO import StringIO
 from cola import git
 from cola import core
 from cola import resources
-from cola.git import shell_quote
 from cola.compat import hashlib
+from cola.decorators import memoize
+
 
 KNOWN_FILE_MIME_TYPES = {
     'text':      'script.png',
@@ -107,13 +109,13 @@ def win32_abspath(exe):
 
 
 def win32_expand_paths(args):
-    """Expand filenames after the double-dash"""
+    """Expand and quote filenames after the double-dash"""
     if '--' not in args:
         return args
     dashes_idx = args.index('--')
     cmd = args[:dashes_idx+1]
     for path in args[dashes_idx+1:]:
-        cmd.append(shell_quote(os.path.join(os.getcwd(), path)))
+        cmd.append(commands.mkarg(os.path.join(os.getcwd(), path)))
     return cmd
 
 
@@ -137,14 +139,14 @@ def fork(args):
 
         # e.g. fork(['gitk', '--all'])
         sh_exe = win32_abspath('sh')
-        enc_argv = map(shell_quote, enc_args)
+        enc_argv = map(commands.mkarg, enc_args)
         cmdstr = ' '.join(enc_argv)
         cmd = ['sh.exe', '-c', cmdstr]
         return os.spawnv(os.P_NOWAIT, sh_exe, cmd)
     else:
         # Unix is absolutely simple
         enc_args = [core.encode(a) for a in args]
-        enc_argv = map(shell_quote, enc_args)
+        enc_argv = map(commands.mkarg, enc_args)
         cmdstr = ' '.join(enc_argv)
         return os.system(cmdstr + '&')
 
@@ -226,17 +228,18 @@ def dirname(path):
 
 def slurp(path):
     """Slurps a filepath into a string."""
-    fh = open(path)
+    fh = open(core.encode(path))
     slushy = core.read_nointr(fh)
     fh.close()
     return core.decode(slushy)
 
 
 def write(path, contents):
-    """Writes a string to a file."""
-    fh = open(path, 'w')
+    """Writes a raw string to a file."""
+    fh = open(core.encode(path), 'wb')
     core.write_nointr(fh, core.encode(contents))
     fh.close()
+
 
 def strip_prefix(prefix, string):
     """Return string, without the prefix. Blow up if string doesn't
@@ -279,15 +282,13 @@ def is_darwin():
     return 'macintosh' in p or 'darwin' in p
 
 
-_is_win32 = None
+@memoize
 def is_win32():
     """Return True on win32"""
-    global _is_win32
-    if _is_win32 is None:
-        _is_win32 = os.name in ('nt', 'dos')
-    return _is_win32
+    return os.name in ('nt', 'dos')
 
 
+@memoize
 def is_broken():
     """Is it windows or mac? (e.g. is running git-mergetool non-trivial?)"""
     if is_darwin():
@@ -299,6 +300,7 @@ def is_broken():
             if e.errno == errno.EINTR:
                 continue
             raise e
+    return False
 
 
 def checksum(path):

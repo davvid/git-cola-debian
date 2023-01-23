@@ -10,31 +10,31 @@ from cStringIO import StringIO
 
 from cola import core
 from cola import utils
-from cola import gitcmd
+from cola import git
 from cola import gitcfg
 from cola import gitcmds
 from cola.compat import set
 from cola import serializer
 from cola.models.observable import ObservableModel, OMSerializer
+from cola.decorators import memoize
+
 
 # Static GitConfig instance
 _config = gitcfg.instance()
 
+
 # Provides access to a global MainModel instance
-_instance = None
+@memoize
 def model():
     """Returns the main model singleton"""
-    global _instance
-    if _instance:
-        return _instance
-    _instance = MainModel()
-    return _instance
+    return MainModel()
 
 
 class MainSerializer(OMSerializer):
     def post_decode_hook(self):
         OMSerializer.post_decode_hook(self)
         self.obj.generate_remote_helpers()
+
 
 class MainModel(ObservableModel):
     """Provides a friendly wrapper for doing common git operations."""
@@ -70,7 +70,7 @@ class MainModel(ObservableModel):
         ObservableModel.__init__(self)
 
         # Initialize the git command object
-        self.git = gitcmd.instance()
+        self.git = git.instance()
 
         #####################################################
         self.head = 'HEAD'
@@ -591,6 +591,9 @@ class MainModel(ObservableModel):
 
     def stage_paths(self, paths):
         """Stages add/removals to git."""
+        if not paths:
+            self.stage_all()
+            return
         add = []
         remove = []
         sset = set(self.staged)
@@ -636,6 +639,9 @@ class MainModel(ObservableModel):
         self.notify_message_observers(self.message_updated)
 
     def unstage_paths(self, paths):
+        if not paths:
+            self.unstage_all()
+            return
         self.notify_message_observers(self.message_about_to_update)
 
         staged_set = set(self.staged)
