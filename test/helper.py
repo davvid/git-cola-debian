@@ -1,5 +1,4 @@
 import os
-import sys
 import shutil
 import unittest
 import tempfile
@@ -25,7 +24,7 @@ def shell(cmd):
 
 def pipe(cmd):
     p = os.popen(cmd)
-    out = core.read(p).strip()
+    out = core.fread(p).strip()
     p.close()
     return out
 
@@ -56,7 +55,7 @@ class GitRepositoryTestCase(TmpPathTestCase):
         self.initialize_repo()
         if commit:
             self.commit_files()
-        git.instance().set_worktree(os.getcwd())
+        git.instance().set_worktree(core.getcwd())
         gitcfg.instance().reset()
         gitcmds.clear_cache()
 

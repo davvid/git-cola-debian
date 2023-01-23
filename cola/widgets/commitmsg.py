@@ -3,31 +3,31 @@ from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
-import cola
 from cola import cmds
+from cola import core
 from cola import gitcmds
 from cola import gitcfg
-from cola import utils
+from cola import textwrap
 from cola.cmds import Interaction
 from cola.gitcmds import commit_message_path
 from cola.i18n import N_
-from cola.qt import create_toolbutton
+from cola.models.dag import DAG
+from cola.models.dag import RepoReader
+from cola.models.prefs import tabwidth
+from cola.models.prefs import textwidth
+from cola.models.prefs import linebreak
 from cola.qtutils import add_action
 from cola.qtutils import confirm
 from cola.qtutils import connect_action_bool
 from cola.qtutils import connect_button
+from cola.qtutils import create_toolbutton
+from cola.qtutils import diff_font
 from cola.qtutils import options_icon
 from cola.qtutils import save_icon
 from cola.widgets import defs
-from cola.prefs import diff_font
-from cola.prefs import tabwidth
-from cola.prefs import textwidth
-from cola.prefs import linebreak
-from cola.dag.model import DAG
-from cola.dag.model import RepoReader
 from cola.widgets.selectcommits import select_commits
-from cola.widgets.text import HintedLineEdit
 from cola.widgets.spellcheck import SpellCheckTextEdit
+from cola.widgets.text import HintedLineEdit
 
 
 class CommitMessageEditor(QtGui.QWidget):
@@ -93,16 +93,22 @@ class CommitMessageEditor(QtGui.QWidget):
         self.check_spelling_action.setChecked(False)
 
         # Line wrapping
-        self.actions_menu.addSeparator()
         self.autowrap_action = self.actions_menu.addAction(
                 N_('Auto-Wrap Lines'))
         self.autowrap_action.setCheckable(True)
         self.autowrap_action.setChecked(linebreak())
 
-        self.prev_commits_menu = self.actions_menu.addMenu(
+        # Commit message
+        self.actions_menu.addSeparator()
+        self.load_commitmsg_menu = self.actions_menu.addMenu(
                 N_('Load Previous Commit Message'))
-        self.connect(self.prev_commits_menu, SIGNAL('aboutToShow()'),
-                     self.build_prev_commits_menu)
+        self.connect(self.load_commitmsg_menu, SIGNAL('aboutToShow()'),
+                     self.build_commitmsg_menu)
+
+        self.fixup_commit_menu = self.actions_menu.addMenu(
+                N_('Fixup Previous Commit'))
+        self.connect(self.fixup_commit_menu, SIGNAL('aboutToShow()'),
+                     self.build_fixup_menu)
 
         self.toplayout = QtGui.QHBoxLayout()
         self.toplayout.setMargin(0)
@@ -119,9 +125,6 @@ class CommitMessageEditor(QtGui.QWidget):
         self.setLayout(self.mainlayout)
 
         connect_button(self.commit_button, self.commit)
-
-        notifier = cola.notifier()
-        notifier.connect(notifier.AMEND, self.amend_action.setChecked)
 
         # Broadcast the amend mode
         connect_action_bool(self.amend_action, cmds.run(cmds.AmendMode))
@@ -169,10 +172,10 @@ class CommitMessageEditor(QtGui.QWidget):
         self.set_linebreak(linebreak())
 
         # Loading message
-        commit_msg = ""
+        commit_msg = ''
         commit_msg_path = commit_message_path()
         if commit_msg_path:
-            commit_msg = utils.slurp(commit_msg_path)
+            commit_msg = core.read(commit_msg_path)
         self.set_commit_message(commit_msg)
 
         # Allow tab to jump from the summary to the description
@@ -211,7 +214,7 @@ class CommitMessageEditor(QtGui.QWidget):
         text = self.description.value()
         if not self._linebreak:
             return text
-        return utils.word_wrap(text, self._tabwidth, self._textwidth)
+        return textwrap.word_wrap(text, self._tabwidth, self._textwidth)
 
     def commit_message_changed(self, value=None):
         """Update the model when values change"""
@@ -326,8 +329,10 @@ class CommitMessageEditor(QtGui.QWidget):
         self.description.setFont(font)
 
     def set_mode(self, mode):
+        can_amend = not self.model.is_merging
         checked = (mode == self.model.mode_amend)
         blocksignals = self.amend_action.blockSignals(True)
+        self.amend_action.setEnabled(can_amend)
         self.amend_action.setChecked(checked)
         self.amend_action.blockSignals(blocksignals)
 
@@ -361,7 +366,7 @@ class CommitMessageEditor(QtGui.QWidget):
                                error_msg,
                                informative_text,
                                N_('Stage and Commit'),
-                               default=False,
+                               default=True,
                                icon=save_icon()):
                     return
             else:
@@ -380,14 +385,25 @@ class CommitMessageEditor(QtGui.QWidget):
                         N_('Amend Commit'),
                         default=False, icon=save_icon())):
             return
-        status, output = cmds.do(cmds.Commit, amend, msg)
+        status, out, err = cmds.do(cmds.Commit, amend, msg)
         if status != 0:
             Interaction.critical(N_('Commit failed'),
                                  N_('"git commit" returned exit code %s') %
                                     (status,),
-                                 output)
+                                 out + err)
 
-    def build_prev_commits_menu(self):
+    def build_fixup_menu(self):
+        self.build_commits_menu(cmds.LoadFixupMessage,
+                                self.fixup_commit_menu,
+                                self.choose_fixup_commit,
+                                prefix='fixup! ')
+
+    def build_commitmsg_menu(self):
+        self.build_commits_menu(cmds.LoadCommitMessageFromSHA1,
+                                self.load_commitmsg_menu,
+                                self.choose_commit_message)
+
+    def build_commits_menu(self, cmd, menu, chooser, prefix=''):
         dag = DAG('HEAD', 6)
         commits = RepoReader(dag)
 
@@ -397,24 +413,29 @@ class CommitMessageEditor(QtGui.QWidget):
             if idx > 5:
                 continue
 
-        menu = self.prev_commits_menu
         menu.clear()
         for c in menu_commits:
-            menu.addAction(c.summary,
-                           cmds.run(cmds.LoadPreviousMessage, c.sha1))
+            menu.addAction(prefix + c.summary, cmds.run(cmd, c.sha1))
 
         if len(commits) == 6:
             menu.addSeparator()
-            menu.addAction(N_('More...'), self.choose_commit)
+            menu.addAction(N_('More...'), chooser)
 
-    def choose_commit(self):
+
+    def choose_commit(self, cmd):
         revs, summaries = gitcmds.log_helper()
-        sha1s = select_commits(N_('Select Commit Message'), revs, summaries,
+        sha1s = select_commits(N_('Select Commit'), revs, summaries,
                                multiselect=False)
         if not sha1s:
             return
         sha1 = sha1s[0]
-        cmds.do(cmds.LoadPreviousMessage, sha1)
+        cmds.do(cmd, sha1)
+
+    def choose_commit_message(self):
+        self.choose_commit(cmds.LoadCommitMessageFromSHA1)
+
+    def choose_fixup_commit(self):
+        self.choose_commit(cmds.LoadFixupMessage)
 
     def toggle_check_spelling(self, enabled):
         spellcheck = self.description.spellcheck

@@ -3,16 +3,14 @@
 """Provides the main() routine and ColaApplicaiton"""
 
 import glob
-import optparse
 import os
 import signal
 import sys
-import subprocess
 
 # Make homebrew work by default
 if sys.platform == 'darwin':
-    version_info = sys.version_info
-    python_version = '%s.%s' % (version_info.major, version_info.minor)
+    from distutils import sysconfig
+    python_version = sysconfig.get_python_version()
     homebrew_mods = '/usr/local/lib/python%s/site-packages' % python_version
     if os.path.isdir(homebrew_mods):
         sys.path.append(homebrew_mods)
@@ -29,9 +27,8 @@ except ImportError:
 
 
 # Import cola modules
-import cola
-from cola import compat
 from cola import core
+from cola import compat
 from cola import git
 from cola import inotify
 from cola import i18n
@@ -42,7 +39,7 @@ from cola import utils
 from cola import version
 from cola.decorators import memoize
 from cola.interaction import Interaction
-from cola.main.view import MainView
+from cola.models import main
 from cola.widgets import cfgactions
 from cola.widgets import startup
 
@@ -52,18 +49,18 @@ def setup_environment():
     os.environ.setdefault('DISPLAY', ':0')
 
     # Setup the path so that git finds us when we run 'git cola'
-    path_entries = os.environ.get('PATH').split(os.pathsep)
-    bindir = os.path.dirname(os.path.abspath(__file__))
+    path_entries = core.getenv('PATH', '').split(os.pathsep)
+    bindir = os.path.dirname(core.abspath(__file__))
     path_entries.insert(0, bindir)
     path = os.pathsep.join(path_entries)
-    compat.putenv('PATH', path)
+    compat.setenv('PATH', path)
 
     # We don't ever want a pager
-    compat.putenv('GIT_PAGER', '')
+    compat.setenv('GIT_PAGER', '')
 
     # Setup *SSH_ASKPASS
-    git_askpass = os.getenv('GIT_ASKPASS')
-    ssh_askpass = os.getenv('SSH_ASKPASS')
+    git_askpass = core.getenv('GIT_ASKPASS')
+    ssh_askpass = core.getenv('SSH_ASKPASS')
     if git_askpass:
         askpass = git_askpass
     elif ssh_askpass:
@@ -73,8 +70,8 @@ def setup_environment():
     else:
         askpass = resources.share('bin', 'ssh-askpass')
 
-    compat.putenv('GIT_ASKPASS', askpass)
-    compat.putenv('SSH_ASKPASS', askpass)
+    compat.setenv('GIT_ASKPASS', askpass)
+    compat.setenv('SSH_ASKPASS', askpass)
 
     # --- >8 --- >8 ---
     # Git v1.7.10 Release Notes
@@ -106,7 +103,7 @@ def setup_environment():
     # --- >8 --- >8 ---
     # Longer-term: Use `git merge --no-commit` so that we always
     # have a chance to explain our merges.
-    compat.putenv('GIT_MERGE_AUTOEDIT', 'no')
+    compat.setenv('GIT_MERGE_AUTOEDIT', 'no')
 
 
 @memoize
@@ -151,201 +148,64 @@ class ColaApplication(object):
         """Wrap activeWindow()"""
         return self._app.activeWindow()
 
+    def desktop(self):
+        return self._app.desktop()
+
     def exec_(self):
         """Wrap exec_()"""
         return self._app.exec_()
 
 
-def parse_args(context):
-    # TODO switch to argparse, bundle it for win32?
-    args = sys.argv[1:]
-    builtins = set(('archive',
-                    'branch',
-                    'browse',
-                    'classic',
-                    'config',
-                    'dag',
-                    'diff',
-                    'fetch',
-                    'grep',
-                    'merge',
-                    'pull',
-                    'push',
-                    'remote',
-                    'stash',
-                    'search',
-                    'tag'))
-    if context in ('git-dag', 'dag'):
-        context = 'dag'
-        usage = 'git dag [options]'
-    elif args and args[0] in builtins:
-        context = args.pop(0)
-        sys.argv = sys.argv[0:1] + args
-        usage = 'git cola %s [options]' % context
-    else:
-        usage = ('git cola [sub-command] [options]\n'
-                 '\n'
-                 'Sub-commands:\n\t' +
-                 '\n\t'.join(sorted(builtins)))
-
-    parser = optparse.OptionParser(usage=usage)
-
-    # We also accept 'git cola version'
-    parser.add_option('-v', '--version',
-                      help='Show cola version',
-                      dest='version',
-                      default=False,
-                      action='store_true')
-
-    # Specifies a git repository to open
-    parser.add_option('-r', '--repo',
-                      help='Specifies the path to a git repository.',
-                      dest='repo',
-                      metavar='PATH',
-                      default=os.getcwd())
-
-    # Specifies that we should prompt for a repository at startup
-    parser.add_option('--prompt',
-                      help='Prompt for a repository before starting the main GUI.',
-                      dest='prompt',
-                      action='store_true',
-                      default=False)
-
-    # Used on Windows for adding 'git' to the path
-    parser.add_option('-g', '--git-path',
-                      help='Specifies the path to the git binary',
-                      dest='git',
-                      metavar='PATH',
-                      default='')
-
-    if context == 'dag':
-        parser.add_option('-c', '--count',
-                          help='Number of commits to display.',
-                          dest='count',
-                          type='int',
-                          default=1000)
-
-    opts, args = parser.parse_args()
-    return opts, args, context
-
-
-def process_args(opts, args):
-    if opts.version or (args and args[0] == 'version'):
+def process_args(args):
+    if args.version:
         # Accept 'git cola --version' or 'git cola version'
-        print('cola version %s' % version.version())
+        version.print_version()
         sys.exit(0)
 
-    if opts.git:
+    if args.git_path:
         # Adds git to the PATH.  This is needed on Windows.
-        path_entries = os.environ.get('PATH', '').split(os.pathsep)
-        path_entries.insert(0, os.path.dirname(opts.git))
-        compat.putenv('PATH', os.pathsep.join(path_entries))
+        path_entries = core.getenv('PATH', '').split(os.pathsep)
+        path_entries.insert(0, os.path.dirname(core.decode(args.git_path)))
+        compat.setenv('PATH', os.pathsep.join(path_entries))
 
     # Bail out if --repo is not a directory
-    repo = os.path.realpath(opts.repo)
-    if not os.path.isdir(repo):
+    repo = core.decode(args.repo)
+    if repo.startswith('file:'):
+        repo = repo[len('file:'):]
+    repo = core.realpath(repo)
+    if not core.isdir(repo):
         sys.stderr.write("fatal: '%s' is not a directory.  "
                          'Consider supplying -r <path>.\n' % repo)
         sys.exit(-1)
 
     # We do everything relative to the repo root
-    os.chdir(opts.repo)
+    os.chdir(args.repo)
     return repo
 
 
-def main(context):
+def application_init(args, update=False):
     """Parses the command-line arguments and starts git-cola
     """
     setup_environment()
-    opts, args, context = parse_args(context)
-    repo = process_args(opts, args)
-
-    # Allow Ctrl-C to exit
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-
-    # Initialize the app
-    app = ColaApplication(sys.argv)
+    process_args(args)
 
     # Ensure that we're working in a valid git repository.
     # If not, try to find one.  When found, chdir there.
-    model = cola.model()
-    valid = model.set_worktree(repo) and not opts.prompt
-    while not valid:
-        startup_dlg = startup.StartupDialog(app.activeWindow())
-        gitdir = startup_dlg.find_git_repo()
-        if not gitdir:
-            sys.exit(-1)
-        valid = model.set_worktree(gitdir)
+    app = new_application()
+    model = new_model(app, args.repo, prompt=args.prompt)
+    if update:
+        model.update_status()
 
-    # Finally, go to the root of the git repo
-    os.chdir(model.git.worktree())
+    return ApplicationContext(args, app, model)
 
-    # Show the GUI
-    if context == 'archive':
-        from cola.widgets.archive import GitArchiveDialog
-        model.update_status()
-        view = GitArchiveDialog(model.currentbranch)
-    elif context == 'branch':
-        from cola.widgets.createbranch import create_new_branch
-        view = create_new_branch()
-    elif context in ('git-dag', 'dag'):
-        from cola.dag import git_dag
-        view = git_dag(model, opts=opts, args=args)
-    elif context in ('classic', 'browse'):
-        from cola.classic import cola_classic
-        view = cola_classic(update=False)
-    elif context == 'config':
-        from cola.prefs import preferences
-        view = preferences()
-    elif context == 'diff':
-        from cola.difftool import diff_expression
-        while args and args[0] == '--':
-            args.pop(0)
-        expr = subprocess.list2cmdline(map(core.decode, args))
-        view = diff_expression(None, expr, create_widget=True)
-    elif context == 'fetch':
-        # TODO: the calls to update_status() can be done asynchronously
-        # by hooking into the message_updated notification.
-        from cola.widgets import remote
-        model.update_status()
-        view = remote.fetch()
-    elif context == 'grep':
-        from cola.widgets import grep
-        view = grep.run_grep(parent=None)
-    elif context == 'merge':
-        from cola.merge import view
-        model.update_status()
-        view = view.MergeView(model, parent=None)
-    elif context == 'pull':
-        from cola.widgets import remote
-        model.update_status()
-        view = remote.pull()
-    elif context == 'push':
-        from cola.widgets import remote
-        model.update_status()
-        view = remote.push()
-    elif context == 'remote':
-        from cola.widgets import editremotes
-        view = editremotes.edit()
-    elif context == 'search':
-        from cola.widgets.search import search
-        view = search()
-    elif context == 'stash':
-        from cola.stash import stash
-        model.update_status()
-        view = stash()
-    elif context == 'tag':
-        from cola.widgets.createtag import create_tag
-        view = create_tag()
-    else:
-        view = MainView(model, qtutils.active_window())
 
+def application_start(context, view):
     # Make sure that we start out on top
     view.show()
     view.raise_()
 
     # Scan for the first time
-    task = _start_update_thread(model)
+    task = _start_update_thread(context.model)
 
     # Start the inotify thread
     inotify.start()
@@ -356,18 +216,59 @@ def main(context):
     msg_timer.start(0)
 
     # Start the event loop
-    result = app.exec_()
+    result = context.app.exec_()
 
     # All done, cleanup
     inotify.stop()
     QtCore.QThreadPool.globalInstance().waitForDone()
+    del task
 
     pattern = utils.tmp_file_pattern()
     for filename in glob.glob(pattern):
         os.unlink(filename)
-    sys.exit(result)
 
-    return view, task
+    return result
+
+
+def add_common_arguments(parser):
+    # We also accept 'git cola version'
+    parser.add_argument('--version', default=False, action='store_true',
+                        help='prints the version')
+
+    # Specifies a git repository to open
+    parser.add_argument('-r', '--repo', metavar='<repo>', default=os.getcwd(),
+                        help='specifies the path to a git repository')
+
+    # Specifies that we should prompt for a repository at startup
+    parser.add_argument('--prompt', action='store_true', default=False,
+                        help='prompts for a repository')
+
+    # Used on Windows for adding 'git' to the path
+    parser.add_argument('-g', '--git-path', metavar='<path>', default=None,
+                        help='specifies the path to the git binary')
+
+
+def new_application():
+    # Allow Ctrl-C to exit
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+    # Initialize the app
+    return ColaApplication(sys.argv)
+
+
+def new_model(app, repo, prompt=False):
+    model = main.model()
+    valid = model.set_worktree(repo) and not prompt
+    while not valid:
+        startup_dlg = startup.StartupDialog(app.activeWindow())
+        gitdir = startup_dlg.find_git_repo()
+        if not gitdir:
+            sys.exit(-1)
+        valid = model.set_worktree(gitdir)
+
+    # Finally, go to the root of the git repo
+    os.chdir(model.git.worktree())
+    return model
 
 
 def _start_update_thread(model):
@@ -394,3 +295,11 @@ def _send_msg():
                '"plumbing" API and are not intended for typical '
                'day-to-day use.  Here be dragons')
         Interaction.log(msg)
+
+
+class ApplicationContext(object):
+
+    def __init__(self, args, app, model):
+        self.args = args
+        self.app = app
+        self.model = model

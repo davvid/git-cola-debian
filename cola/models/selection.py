@@ -2,6 +2,7 @@
 
 import collections
 
+from cola.compat import set
 from cola.observable import Observable
 from cola.decorators import memoize
 
@@ -32,6 +33,29 @@ def filename():
     return selection_model().filename()
 
 
+def pick(s):
+    if s.staged:
+        files = s.staged
+    elif s.unmerged:
+        files = s.unmerged
+    elif s.modified:
+        files = s.modified
+    elif s.untracked:
+        files = s.untracked
+    else:
+        files = []
+    return files
+
+
+def _filter(a, b):
+    b_set = set(b)
+    a_copy = list(a)
+    last = len(a_copy) - 1
+    for idx, i in enumerate(reversed(a)):
+        if i not in b_set:
+            a.pop(last - idx)
+
+
 class SelectionModel(Observable):
     """Provides information about selected file paths."""
     # Notification message sent out when selection changes
@@ -50,12 +74,29 @@ class SelectionModel(Observable):
         self.modified = []
         self.untracked = []
 
+    def reset(self):
+        self.staged = []
+        self.unmerged = []
+        self.modified = []
+        self.untracked = []
+
+    def is_empty(self):
+        return not(bool(self.staged or self.unmerged or
+                        self.modified or self.untracked))
+
     def set_selection(self, s):
         """Set the new selection."""
         self.staged = s.staged
         self.unmerged = s.unmerged
         self.modified = s.modified
         self.untracked = s.untracked
+        self.notify_observers(self.message_selection_changed)
+
+    def update(self, other):
+        _filter(self.staged, other.staged)
+        _filter(self.unmerged, other.unmerged)
+        _filter(self.modified, other.modified)
+        _filter(self.untracked, other.untracked)
         self.notify_observers(self.message_selection_changed)
 
     def selection(self):
@@ -86,14 +127,4 @@ class SelectionModel(Observable):
 
     def group(self):
         """A list of selected files in various states of being"""
-        selection = []
-        s = self.selection()
-        if s.staged:
-            selection = s.staged
-        elif s.unmerged:
-            selection = s.unmerged
-        elif s.modified:
-            selection = s.modified
-        elif s.untracked:
-            selection = s.untracked
-        return selection
+        return pick(self.selection())

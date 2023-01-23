@@ -6,15 +6,13 @@ import os
 import random
 import re
 import shlex
-import subprocess
 import sys
 import time
+import traceback
 
 from cola import core
 from cola import resources
-from cola import textwrap
 from cola.compat import hashlib
-from cola.decorators import interruptable
 
 random.seed(hash(time.time()))
 
@@ -56,7 +54,7 @@ def add_parents(path_entry_set):
 
 def ident_file_type(filename):
     """Returns an icon based on the contents of filename."""
-    if os.path.exists(filename):
+    if core.exists(filename):
         filemimetype = mimetypes.guess_type(filename)
         if filemimetype[0] != None:
             for filetype, iconname in KNOWN_FILE_MIME_TYPES.iteritems():
@@ -81,48 +79,16 @@ def file_icon(filename):
     return resources.icon(ident_file_type(filename))
 
 
-@interruptable
-def _fork_posix(args):
-    """Launch a process in the background."""
-    encoded_args = [core.encode(arg) for arg in args]
-    return subprocess.Popen(encoded_args).pid
-
-
-def _fork_win32(args):
-    """Launch a background process using crazy win32 voodoo."""
-    # This is probably wrong, but it works.  Windows.. wow.
-    if args[0] == 'git-dag':
-        # win32 can't exec python scripts
-        args = [sys.executable] + args
-
-    enc_args = map(core.encode, args)
-    abspath = win32_abspath(enc_args[0])
-    if abspath:
-        # e.g. fork(['git', 'difftool', '--no-prompt', '--', 'path'])
-        enc_args[0] = abspath
+def format_exception(e):
+    exc_type, exc_value, exc_tb = sys.exc_info()
+    details = traceback.format_exception(exc_type, exc_value, exc_tb)
+    details = '\n'.join(details)
+    if hasattr(e, 'msg'):
+        msg = e.msg
     else:
-        # e.g. fork(['gitk', '--all'])
-        cmdstr = subprocess.list2cmdline(enc_args)
-        sh_exe = win32_abspath('sh')
-        enc_args = [sh_exe, '-c', cmdstr]
+        msg = str(e)
+    return (msg, details)
 
-    DETACHED_PROCESS = 0x00000008 # Amazing!
-    return subprocess.Popen(enc_args, creationflags=DETACHED_PROCESS).pid
-
-
-def win32_abspath(exe):
-    """Return the absolute path to an .exe if it exists"""
-    if os.path.exists(exe):
-        return exe
-    if not exe.endswith('.exe'):
-        exe += '.exe'
-    if os.path.exists(exe):
-        return exe
-    for path in os.environ['PATH'].split(os.pathsep):
-        abspath = os.path.join(path, exe)
-        if os.path.exists(abspath):
-            return abspath
-    return None
 
 def sublist(a,b):
     """Subtracts list b from list a and returns the resulting list."""
@@ -218,23 +184,6 @@ def dirname(path):
     return path.rsplit('/', 1)[0]
 
 
-def slurp(path, size=-1):
-    """Slurps a filepath into a string."""
-    fh = open(core.encode(path))
-    slushy = core.read(fh, size=size)
-    fh.close()
-    return core.decode(slushy)
-
-
-def write(path, contents, encoding=None):
-    """Writes a raw string to a file."""
-    with open(core.encode(path), 'wb') as fh:
-        try:
-            core.write(fh, core.encode(contents, encoding=encoding))
-        except IOError:
-            fh.close()
-
-
 def strip_prefix(prefix, string):
     """Return string, without the prefix. Blow up if string doesn't
     start with prefix."""
@@ -247,41 +196,6 @@ def sanitize(s):
     for c in """ \t!@#$%^&*()\\;,<>"'[]{}~|""":
         s = s.replace(c, '_')
     return s
-
-
-def word_wrap(text, tabwidth, limit):
-    r"""Wrap long lines to the specified limit
-
-    >>> text = 'a bb ccc dddd\neeeee'
-    >>> word_wrap(text, 8, 2)
-    'a\nbb\nccc\ndddd\neeeee'
-
-    >>> word_wrap(text, 8, 4)
-    'a bb\nccc\ndddd\neeeee'
-
-    >>> text = 'a bb ccc dddd\n\teeeee'
-    >>> word_wrap(text, 8, 4)
-    'a bb\nccc\ndddd\n\t\neeeee'
-
-    """
-
-    lines = []
-
-    # Acked-by:, Signed-off-by:, Helped-by:, etc.
-    special_tag_rgx = re.compile('^[a-zA-Z_-]+:')
-
-    w = textwrap.TextWrapper(width=limit,
-                             tabwidth=tabwidth,
-                             break_on_hyphens=True,
-                             drop_whitespace=True)
-
-    for line in text.split('\n'):
-        if special_tag_rgx.match(line):
-            lines.append(line)
-        else:
-            lines.append(w.fill(line))
-
-    return '\n'.join(lines)
 
 
 def tablength(word, tabwidth):
@@ -299,7 +213,7 @@ def _shell_split(s):
     try:
         return shlex.split(core.encode(s))
     except ValueError:
-        return [s]
+        return [core.encode(s)]
 
 
 def shell_split(s):
@@ -309,7 +223,7 @@ def shell_split(s):
 
 def tmp_dir():
     # Allow TMPDIR/TMP with a fallback to /tmp
-    return os.environ.get('TMP', os.environ.get('TMPDIR', '/tmp'))
+    return core.getenv('TMP', core.getenv('TMPDIR', '/tmp'))
 
 
 def tmp_file_pattern():
@@ -317,7 +231,8 @@ def tmp_file_pattern():
 
 
 def tmp_filename(prefix):
-    randstr = ''.join([chr(random.randint(ord('a'), ord('z'))) for i in range(7)])
+    randstr = ''.join([chr(random.randint(ord('a'), ord('z')))
+                        for i in range(7)])
     prefix = prefix.replace('/', '-').replace('\\', '-')
     basename = 'git-cola-%s-%s-%s' % (os.getpid(), randstr, prefix)
     return os.path.join(tmp_dir(), basename)
@@ -346,24 +261,8 @@ def is_win32():
 def checksum(path):
     """Return a cheap md5 hexdigest for a path."""
     md5 = hashlib.new('md5')
-    md5.update(slurp(path))
+    md5.update(core.read(path))
     return md5.hexdigest()
-
-
-def error(msg, *args):
-    """Print an error message to stderr."""
-    print >> sys.stderr, "ERROR:", msg % args
-
-
-def warn(msg, *args):
-    """Print a warning message to stderr."""
-    print >> sys.stderr, "warning:", msg % args
-
-
-def die(msg, *args):
-    """Print as error message to stderr and exit the program."""
-    error(msg, *args)
-    sys.exit(1)
 
 
 class ProgressIndicator(object):
@@ -412,53 +311,3 @@ class ProgressIndicator(object):
         if noprefix:
             self.prefix = ""
         self(msg, True)
-
-
-def start_command(args, cwd=None, shell=False, add_env=None,
-                  universal_newlines=False,
-                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                  stderr=subprocess.PIPE):
-    """Start the given command, and return a subprocess object.
-
-    This provides a simpler interface to the subprocess module.
-
-    """
-    env = None
-    if add_env is not None:
-        env = os.environ.copy()
-        env.update(add_env)
-    return subprocess.Popen(args, bufsize=1, stdin=stdin, stdout=stdout,
-                            stderr=stderr, cwd=cwd, shell=shell, env=env,
-                            universal_newlines=universal_newlines)
-
-
-def run_command(args, cwd=None, shell=False, add_env=None,
-                flag_error=False):
-    """Run the given command to completion, and return its results.
-
-    This provides a simpler interface to the subprocess module.
-
-    The results are formatted as a 3-tuple: (exit_code, output, errors)
-
-    If flag_error is enabled, Error messages will be produced if the
-    subprocess terminated with a non-zero exit code and/or stderr
-    output.
-
-    The other arguments are passed on to start_command().
-
-    """
-    process = start_command(args, cwd, shell, add_env)
-    (output, errors) = process.communicate()
-    exit_code = process.returncode
-    if flag_error and errors:
-        error("'%s' returned errors:\n---\n%s---", " ".join(args), errors)
-    if flag_error and exit_code:
-        error("'%s' returned exit code %i", " ".join(args), exit_code)
-    return (exit_code, output, errors)
-
-
-# Portability wrappers
-if is_win32():
-    fork = _fork_win32
-else:
-    fork = _fork_posix

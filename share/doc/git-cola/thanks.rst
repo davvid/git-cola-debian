@@ -2,16 +2,19 @@ Thanks
 ======
 `git-cola` was made possible thanks to the contributions of the following people:
 
+* Aaron Cook
 * Andreas Sommer
 * Audrius Karabanovas
 * Barry Roberts
 * Boris W
 * Ben Boeckel
 * Christian Jann
+* Christopher Meng
 * Daniel King
 * Daniel Fahlke
 * David Aguilar
 * David Martínez Martí
+* Dennis Gilmore
 * Eric Drechsel
 * `GIT Hackers <http://git-scm.com/about>`_
 * Glen Mailer
@@ -43,7 +46,11 @@ Thanks
 * Peter Júnoš
 * Rustam Safin
 * Sergey Leschina
+* Srinivasa Nallapati
+* Stanisław Halik
 * Stefan Naewe
 * Steffen Prohaska
+* Sven Claussner
+* Taylor Braun-Jones
 * Ugo Riboni
 * Uri Okrent

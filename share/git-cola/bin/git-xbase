@@ -1,0 +1,616 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import re
+from argparse import ArgumentParser
+
+from os.path import abspath
+from os.path import dirname
+
+
+def setup_environment():
+    prefix = dirname(dirname(dirname(dirname(abspath(__file__)))))
+    source_tree = os.path.join(prefix, 'cola', '__init__.py')
+    if os.path.exists(source_tree):
+        modules = prefix
+    else:
+        modules = os.path.join(prefix, 'share', 'git-cola', 'lib')
+    sys.path.insert(1, modules)
+setup_environment()
+
+from cola import app
+from cola import cmds
+from cola import core
+from cola import difftool
+from cola import observable
+from cola import qtutils
+from cola import utils
+from cola.compat import json
+from cola.compat import set
+from cola.i18n import N_
+from cola.models.dag import DAG
+from cola.models.dag import RepoReader
+from cola.qtutils import diff_font
+from cola.widgets import defs
+from cola.widgets.diff import DiffWidget
+from cola.widgets.diff import COMMITS_SELECTED
+from cola.widgets.standard import TreeWidget
+
+from PyQt4 import QtCore
+from PyQt4 import QtGui
+from PyQt4.QtCore import Qt
+from PyQt4.QtCore import SIGNAL
+
+
+XBASE_MIMETYPE = 'application/git-xbase-items'
+PICK = 'pick'
+REWORD = 'reword'
+EDIT = 'edit'
+FIXUP = 'fixup'
+SQUASH = 'squash'
+COMMANDS = (PICK, REWORD, EDIT, FIXUP, SQUASH,)
+COMMAND_TO_IDX = dict([(cmd, idx) for idx, cmd in enumerate(COMMANDS)])
+
+
+def main():
+    args = parse_args()
+    app.setup_environment()
+    new_app = app.new_application()
+    app.new_model(new_app, os.getcwd())
+
+    desktop = new_app.desktop()
+    window = new_window(args.filename)
+    window.resize(desktop.width(), desktop.height())
+    window.show()
+    window.raise_()
+    new_app.exec_()
+    return window.status
+
+
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument('filename', metavar='<filename>',
+                        help='git-rebase-todo file to edit')
+    return parser.parse_args()
+
+
+def new_window(filename):
+    editor = Editor(filename)
+    window = MainWindow(editor)
+    return window
+
+
+class MainWindow(QtGui.QMainWindow):
+
+    def __init__(self, editor, parent=None):
+        super(MainWindow, self).__init__(parent)
+        self.status = 1
+        default_title = '%s - git xbase' % core.getcwd()
+        title = core.getenv('GIT_XBASE_TITLE', default_title)
+        self.setAttribute(Qt.WA_MacMetalStyle)
+        self.setWindowTitle(title)
+        self.setCentralWidget(editor)
+        self.connect(editor, SIGNAL('exit(int)'), self.exit)
+        editor.setFocus()
+
+        self.show_help_action = qtutils.add_action(self,
+                N_('Show Help'), show_help, Qt.Key_Question)
+
+        self.menubar = QtGui.QMenuBar(self)
+        self.help_menu = self.menubar.addMenu(N_('Help'))
+        self.help_menu.addAction(self.show_help_action)
+        self.setMenuBar(self.menubar)
+
+        qtutils.add_close_action(self)
+
+    def exit(self, status):
+        self.status = status
+        self.close()
+
+
+class Editor(QtGui.QWidget):
+
+    def __init__(self, filename, parent=None):
+        super(Editor, self).__init__(parent)
+
+        self.widget_version = 1
+        self.filename = filename
+
+        self.notifier = notifier = observable.Observable()
+        self.diff = DiffWidget(notifier, self)
+        self.tree = RebaseTreeWidget(notifier, self)
+        self.setFocusProxy(self.tree)
+
+        self.rebase_button = qtutils.create_button(
+                text=core.getenv('GIT_XBASE_ACTION', N_('Rebase')),
+                tooltip=N_('Accept changes and rebase\n'
+                           'Shortcut: Ctrl+Enter'),
+                icon=qtutils.apply_icon())
+
+        self.external_diff_button = qtutils.create_button(
+                text=N_('External Diff'),
+                tooltip=N_('Launch external diff\n'
+                           'Shortcut: Ctrl+D'))
+        self.external_diff_button.setEnabled(False)
+
+        self.help_button = qtutils.create_button(
+                text=N_('Help'),
+                tooltip=N_('Show help\nShortcut: ?'),
+                icon=qtutils.help_icon())
+
+        self.cancel_button = qtutils.create_button(
+                text=N_('Cancel'),
+                tooltip=N_('Cancel rebase\nShortcut: Ctrl+Q'),
+                icon=qtutils.close_icon())
+        splitter = QtGui.QSplitter()
+        splitter.setHandleWidth(defs.handle_width)
+        splitter.setOrientation(Qt.Vertical)
+        splitter.insertWidget(0, self.tree)
+        splitter.insertWidget(1, self.diff)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
+
+        controls_layout = QtGui.QHBoxLayout()
+        controls_layout.setMargin(defs.no_margin)
+        controls_layout.setSpacing(defs.button_spacing)
+        controls_layout.addWidget(self.rebase_button)
+        controls_layout.addWidget(self.external_diff_button)
+        controls_layout.addWidget(self.help_button)
+        controls_layout.addStretch()
+        controls_layout.addWidget(self.cancel_button)
+
+        layout = QtGui.QVBoxLayout()
+        layout.setMargin(defs.no_margin)
+        layout.setSpacing(defs.spacing)
+        layout.addWidget(splitter)
+        layout.addLayout(controls_layout)
+        self.setLayout(layout)
+
+        self.action_rebase = qtutils.add_action(self,
+                N_('Rebase'), self.rebase, 'Ctrl+Return')
+
+        notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
+
+        qtutils.connect_button(self.rebase_button, self.rebase)
+        qtutils.connect_button(self.external_diff_button, self.external_diff)
+        qtutils.connect_button(self.help_button, show_help)
+        qtutils.connect_button(self.cancel_button, self.cancel)
+        self.connect(self.tree, SIGNAL('external_diff()'), self.external_diff)
+
+        insns = core.read(filename)
+        self.parse_sequencer_instructions(insns)
+
+    # notifier callbacks
+    def commits_selected(self, commits):
+        self.external_diff_button.setEnabled(bool(commits))
+
+    # helpers
+    def emit_exit(self, status):
+        self.emit(SIGNAL('exit(int)'), status)
+
+    def parse_sequencer_instructions(self, insns):
+        idx = 1
+        rebase_command = re.compile(
+                r'^(# )?(pick|fixup|squash) ([0-9a-f]{7,40}) (.+)$')
+        for line in insns.splitlines():
+            match = rebase_command.match(line)
+            if match is None:
+                continue
+            enabled = match.group(1) is None
+            command = match.group(2)
+            sha1hex = match.group(3)
+            summary = match.group(4)
+            self.tree.add_step(idx, enabled, command, sha1hex, summary)
+            idx += 1
+        self.tree.decorate()
+        self.tree.refit()
+        self.tree.select_first()
+
+    # actions
+    def cancel(self):
+        self.emit_exit(1)
+
+    def rebase(self):
+        lines = [item.value() for item in self.tree.items()]
+        sequencer_instructions = '\n'.join(lines) + '\n'
+        try:
+            core.write(self.filename, sequencer_instructions)
+            self.emit_exit(0)
+        except Exception as e:
+            msg, details = utils.format_exception(e)
+            sys.stderr.write(msg + '\n\n' + details)
+            self.emit_exit(128)
+
+    def external_diff(self):
+        items = self.tree.selected_items()
+        if not items:
+            return
+        item = items[0]
+        difftool.diff_expression(self, item.sha1hex + '^!',
+                                 hide_expr=True)
+
+
+class RebaseTreeWidget(TreeWidget):
+
+    def __init__(self, notifier, parent=None):
+        super(RebaseTreeWidget, self).__init__()
+        self.notifier = notifier
+        # header
+        self.setHeaderLabels([N_('#'),
+                              N_('Enabled'),
+                              N_('Command'),
+                              N_('SHA-1'),
+                              N_('Summary')])
+        self.header().setStretchLastSection(True)
+        self.setColumnCount(5)
+
+        # drag+drop
+        self.clicked_item = None
+        self.clicked_idx = -1
+        self.dragged_items = []
+        self.inner_drag = False
+        self.setSelectionMode(self.SingleSelection)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
+        self.setSortingEnabled(False)
+
+        # actions
+        self.copy_sha1_action = qtutils.add_action(self,
+                N_('Copy SHA-1'), self.copy_sha1, QtGui.QKeySequence.Copy)
+
+        self.external_diff_action = qtutils.add_action(self,
+                N_('External Diff'), self.external_diff,
+                cmds.LaunchDifftool.SHORTCUT)
+
+        self.toggle_enabled_action = qtutils.add_action(self,
+                N_('Toggle Enabled'), self.toggle_enabled,
+                Qt.Key_Space)
+
+        self.action_pick = qtutils.add_action(self,
+                N_('Pick'), lambda: self.set_selected_to(PICK),
+                Qt.Key_1, Qt.Key_P)
+
+        self.action_reword = qtutils.add_action(self,
+                N_('Reword'), lambda: self.set_selected_to(REWORD),
+                Qt.Key_2, Qt.Key_R)
+
+        self.action_edit = qtutils.add_action(self,
+                N_('Edit'), lambda: self.set_selected_to(EDIT),
+                Qt.Key_3, Qt.Key_E)
+
+        self.action_fixup = qtutils.add_action(self,
+                N_('Fixup'), lambda: self.set_selected_to(FIXUP),
+                Qt.Key_4, Qt.Key_F)
+
+        self.action_squash = qtutils.add_action(self,
+                N_('Squash'), lambda: self.set_selected_to(SQUASH),
+                Qt.Key_5, Qt.Key_S)
+
+        self.action_shift_down = qtutils.add_action(self,
+                N_('Shift Down'), self.shift_down, 'Shift+j')
+
+        self.action_shift_up = qtutils.add_action(self,
+                N_('Shift Up'), self.shift_up, 'Shift+k')
+
+        self.connect(self, SIGNAL('itemChanged(QTreeWidgetItem *, int)'),
+                     self.item_changed)
+
+        self.connect(self, SIGNAL('itemSelectionChanged()'),
+                     self.selection_changed)
+
+        self.connect(self, SIGNAL('move'), self.move)
+
+    def add_step(self, idx, enabled, command, sha1hex, summary):
+        item = RebaseTreeWidgetItem(idx, enabled, command,
+                                    sha1hex, summary)
+        self.invisibleRootItem().addChild(item)
+
+    def decorate(self):
+        for item in self.items():
+            self.decorate_item(item)
+
+    def refit(self):
+        self.resizeColumnToContents(0)
+        self.resizeColumnToContents(1)
+        self.resizeColumnToContents(2)
+        self.resizeColumnToContents(3)
+        self.resizeColumnToContents(4)
+
+    # actions
+    def item_changed(self, item, column):
+        if column == item.ENABLED_COLUMN:
+            self.validate()
+
+    def validate(self):
+        invalid_first_choice = set([FIXUP, SQUASH])
+        for item in self.items():
+            if not item.is_enabled():
+                continue
+            if item.command in invalid_first_choice:
+                item.command = PICK
+                self.decorate_item(item)
+            break
+
+    def decorate_item(self, item):
+        item.combo = combo = QtGui.QComboBox()
+        combo.addItems(COMMANDS)
+        combo.setEditable(False)
+        combo.setCurrentIndex(COMMAND_TO_IDX[item.command])
+        combo.connect(combo, SIGNAL('currentIndexChanged(const QString &)'),
+                lambda s: self.set_command(item, unicode(s)))
+        self.setItemWidget(item, item.COMMAND_COLUMN, combo)
+
+    def set_selected_to(self, command):
+        for i in self.selected_items():
+            i.command = command
+            i.combo.setCurrentIndex(COMMAND_TO_IDX[command])
+        self.validate()
+
+    def set_command(self, item, command):
+        item.command = command
+        item.combo.setCurrentIndex(COMMAND_TO_IDX[command])
+        self.validate()
+
+    def copy_sha1(self):
+        item = self.selected_item()
+        if item is None:
+            return
+        sha1hex = item.sha1hex
+        qtutils.set_clipboard(sha1hex)
+
+    def selection_changed(self):
+        item = self.selected_item()
+        if item is None:
+            return
+        sha1hex = item.sha1hex
+        dag = DAG(sha1hex, 2)
+        repo = RepoReader(dag)
+        commits = []
+        for c in repo:
+            commits.append(c)
+        if commits:
+            commits = commits[-1:]
+        self.notifier.notify_observers(COMMITS_SELECTED, commits)
+
+    def external_diff(self):
+        self.emit(SIGNAL('external_diff()'))
+
+    def toggle_enabled(self):
+        item = self.selected_item()
+        if item is None:
+            return
+        item.toggle_enabled()
+
+    def select_first(self):
+        items = self.items()
+        if not items:
+            return
+        idx = self.model().index(0, 0)
+        if idx.isValid():
+            self.setCurrentIndex(idx)
+
+    def shift_down(self):
+        item = self.selected_item()
+        if item is None:
+            return
+        items = self.items()
+        idx = items.index(item)
+        if idx < len(items) - 1:
+            self.emit(SIGNAL('move'), [idx], idx + 1)
+
+    def shift_up(self):
+        item = self.selected_item()
+        if item is None:
+            return
+        items = self.items()
+        idx = items.index(item)
+        if idx > 0:
+            self.emit(SIGNAL('move'), [idx], idx - 1)
+
+    # Qt events
+    def mimeTypes(self):
+        return [XBASE_MIMETYPE]
+
+    def mousePressEvent(self, event):
+        self.clicked_item = self.itemAt(event.pos())
+        if self.clicked_item:
+            self.clicked_idx = self.items().index(self.clicked_item)
+        else:
+            self.clicked_idx = -1
+            self.clearSelection()
+        super(RebaseTreeWidget, self).mousePressEvent(event)
+        return QtGui.QTreeWidget.mousePressEvent(self, event)
+
+    def supportedDropActions(self):
+        return Qt.CopyAction
+
+    def dropMimeData(self, parent, index, data, action):
+        return False
+
+    def mimeData(self, items):
+        mime = QtCore.QMimeData()
+        data = [i.copy() for i in self.selected_items()]
+        mime.setData(XBASE_MIMETYPE, json.dumps(data))
+        self.dragged_items = self.selected_items()
+        return mime
+
+    def dragEnterEvent(self, event):
+        """Detect drag enter events to flag internal moves."""
+        self.inner_drag = event.source() == self
+        event.accept()
+        return super(RebaseTreeWidget, self).dragEnterEvent(event)
+
+    def dragLeaveEvent(self, event):
+        """Detect when drags leave so that we can flag it."""
+        self.inner_drag = False
+        return super(RebaseTreeWidget, self).dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        # Qt's default action is losing items so we handle the internal
+        # move ourselves.  Ignore the event and reorder the tree.
+        event.accept()
+
+        if self.clicked_item is None:
+            return
+
+        drop_pos = event.pos()
+        dst_item = self.itemAt(drop_pos)
+        if dst_item:
+            dst_idx = self.items().index(dst_item)
+        else:
+            dst_idx = len(self.items())
+
+        src_idxs = [self.items().index(i) for i in self.dragged_items]
+        if src_idxs:
+            self.emit(SIGNAL('move'), src_idxs, dst_idx)
+
+        self.viewport().update()
+        self.dragged_items = []
+
+    def move(self, src_idxs, dst_idx):
+        new_items = []
+        items = self.items()
+        for idx in reversed(sorted(src_idxs)):
+            data = items[idx].copy()
+            self.invisibleRootItem().takeChild(idx)
+            item = RebaseTreeWidgetItem(data['idx'], data['enabled'],
+                                        data['command'], data['sha1hex'],
+                                        data['summary'])
+            new_items.insert(0, item)
+
+        if new_items:
+            self.invisibleRootItem().insertChildren(dst_idx, new_items)
+            self.setCurrentItem(new_items[0])
+
+        self.decorate()
+        self.validate()
+
+    def contextMenuEvent(self, event):
+        menu = QtGui.QMenu(self)
+        menu.addAction(self.action_pick)
+        menu.addAction(self.action_reword)
+        menu.addAction(self.action_edit)
+        menu.addAction(self.action_fixup)
+        menu.addAction(self.action_squash)
+        menu.addSeparator()
+        menu.addAction(self.toggle_enabled_action)
+        menu.addSeparator()
+        menu.addAction(self.copy_sha1_action)
+        menu.addAction(self.external_diff_action)
+        menu.exec_(self.mapToGlobal(event.pos()))
+
+
+class RebaseTreeWidgetItem(QtGui.QTreeWidgetItem):
+
+    ENABLED_COLUMN = 1
+    COMMAND_COLUMN = 2
+
+    def __init__(self, idx, enabled, command, sha1hex, summary, parent=None):
+        QtGui.QTreeWidgetItem.__init__(self, parent)
+        self.combo = None
+        self.command = command
+        self.idx = idx
+        self.sha1hex = sha1hex
+        self.summary = summary
+
+        self.setText(0, '%02d' % idx)
+        self.set_enabled(enabled)
+        # combo box on 2
+        self.setText(3, sha1hex)
+        self.setText(4, summary)
+
+        flags = self.flags() | Qt.ItemIsUserCheckable
+        flags = flags | Qt.ItemIsDragEnabled
+        flags = flags & ~Qt.ItemIsDropEnabled
+        self.setFlags(flags)
+
+    def copy(self):
+        return {
+            'command': self.command,
+            'enabled': self.is_enabled(),
+            'idx': self.idx,
+            'sha1hex': self.sha1hex,
+            'summary': self.summary,
+        }
+
+    def value(self):
+        return '%s %s %s %s' % (
+                not self.is_enabled() and '# ' or '',
+                self.command, self.sha1hex, self.summary)
+
+    def is_enabled(self):
+        return self.checkState(self.ENABLED_COLUMN) == Qt.Checked
+
+    def set_enabled(self, enabled):
+        self.setCheckState(self.ENABLED_COLUMN,
+                           enabled and Qt.Checked or Qt.Unchecked)
+
+    def toggle_enabled(self):
+        self.set_enabled(not self.is_enabled())
+
+
+def show_help():
+    help_text = N_("""
+Commands
+--------
+pick = use commit
+reword = use commit, but edit the commit message
+edit = use commit, but stop for amending
+squash = use commit, but meld into previous commit
+fixup = like "squash", but discard this commit's log message
+
+These lines can be re-ordered; they are executed from top to bottom.
+
+If you disable a line here THAT COMMIT WILL BE LOST.
+
+However, if you disable everything, the rebase will be aborted.
+
+Keyboard Shortcuts
+------------------
+? = show help
+j = move down
+k = move up
+J = shift row down
+K = shift row up
+
+1, p = pick
+2, r = reword
+3, e = edit
+4, f = fixup
+5, s = squash
+spacebar = toggle enabled
+
+ctrl+enter = accept changes and rebase
+ctrl+q     = cancel and abort the rebase
+ctrl+d     = launch external diff
+""")
+
+    parent = qtutils.active_window()
+    text = QtGui.QLabel(parent)
+    text.setFont(diff_font())
+    text.setText(help_text)
+    text.setTextInteractionFlags(Qt.NoTextInteraction)
+
+    layout = QtGui.QHBoxLayout()
+    layout.setMargin(defs.margin)
+    layout.setSpacing(defs.spacing)
+    layout.addWidget(text)
+
+    widget = QtGui.QDialog(parent)
+    widget.setWindowModality(Qt.WindowModal)
+    widget.setWindowTitle(N_('Help - git-xbase'))
+    widget.setLayout(layout)
+
+    qtutils.add_action(widget, N_('Close'), widget.accept,
+                       Qt.Key_Question,
+                       Qt.Key_Enter,
+                       Qt.Key_Return)
+    widget.show()
+    return widget
+
+
+if __name__ == '__main__':
+    sys.exit(main())

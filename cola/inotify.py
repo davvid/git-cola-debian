@@ -4,10 +4,6 @@
 import os
 from threading import Timer
 from threading import Lock
-from cola import utils
-from cola import cmds
-from cola.i18n import N_
-from cola.interaction import Interaction
 
 try:
     import pyinotify
@@ -20,6 +16,7 @@ except ImportError:
     ProcessEvent = object
     AVAILABLE = False
 
+from cola import utils
 if utils.is_win32():
     try:
         import win32file
@@ -33,12 +30,18 @@ if utils.is_win32():
 
 from PyQt4 import QtCore
 
-import cola
-from cola import core
 from cola import gitcfg
+from cola import cmds
+from cola import core
 from cola.compat import set
+from cola.git import STDOUT
+from cola.i18n import N_
+from cola.interaction import Interaction
+from cola.models import main
+
 
 _thread = None
+
 def start():
     global _thread
 
@@ -72,6 +75,7 @@ def start():
     else:
         msg = N_('inotify enabled.')
     Interaction.log(msg)
+
 
 def stop():
     if not has_inotify():
@@ -120,8 +124,10 @@ class FileSysEvent(ProcessEvent):
 
     def process_default(self, event):
         """Queues up inotify events for broadcast"""
-        if event.name is not None:
-            path = os.path.join(event.path, event.name)
+        if event.name:
+            return
+        path = os.path.join(event.path, event.name)
+        if os.path.exists(path):
             path = os.path.relpath(path)
             self._handler.handle(path)
 
@@ -133,7 +139,7 @@ class GitNotifier(QtCore.QThread):
         """Set up the pyinotify thread"""
         QtCore.QThread.__init__(self)
         ## Git command object
-        self._git = cola.model().git
+        self._git = main.model().git
         ## pyinotify timeout
         self._timeout = timeout
         ## Path to monitor
@@ -161,8 +167,8 @@ class GitNotifier(QtCore.QThread):
         """Set up a directory for monitoring by inotify"""
         if not self._wmgr:
             return
-        directory = os.path.realpath(directory)
-        if not os.path.exists(directory):
+        directory = core.realpath(directory)
+        if not core.exists(directory):
             return
         if directory not in self._dirs_seen:
             self._wmgr.add_watch(directory, self._mask)
@@ -197,8 +203,8 @@ class GitNotifier(QtCore.QThread):
         self._watch_directory(self._path)
 
         # Register files/directories known to git
-        for filename in core.decode(self._git.ls_files()).splitlines():
-            filename = os.path.realpath(filename)
+        for filename in self._git.ls_files()[STDOUT].splitlines():
+            filename = core.realpath(filename)
             directory = os.path.dirname(filename)
             self._watch_directory(directory)
 

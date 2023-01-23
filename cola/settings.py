@@ -4,15 +4,11 @@
 
 import os
 import sys
-try:
-    import simplejson
-    json = simplejson
-except ImportError:
-    import json
 
 from cola import core
 from cola import git
-from cola import xdg
+from cola import resources
+from cola.compat import json
 
 
 def mkdict(obj):
@@ -30,7 +26,10 @@ def mklist(obj):
 
 
 class Settings(object):
-    _file = xdg.config_home('settings')
+    _file = resources.config_home('settings')
+    bookmarks = property(lambda self: mklist(self.values['bookmarks']))
+    gui_state = property(lambda self: mkdict(self.values['gui_state']))
+    recent = property(lambda self: mklist(self.values['recent']))
 
     def __init__(self, verify=git.is_git_worktree):
         """Load existing settings if they exist"""
@@ -43,13 +42,12 @@ class Settings(object):
         self.load()
         self.remove_missing()
 
-
     def remove_missing(self):
         missing_bookmarks = []
         missing_recent = []
 
         for bookmark in self.bookmarks:
-            if not self.verify(core.encode(bookmark)):
+            if not self.verify(bookmark):
                 missing_bookmarks.append(bookmark)
 
         for bookmark in missing_bookmarks:
@@ -59,7 +57,7 @@ class Settings(object):
                 pass
 
         for recent in self.recent:
-            if not self.verify(core.encode(recent)):
+            if not self.verify(recent):
                 missing_recent.append(recent)
 
         for recent in missing_recent:
@@ -67,20 +65,6 @@ class Settings(object):
                 self.recent.remove(recent)
             except:
                 pass
-
-    # properties
-    def _get_bookmarks(self):
-        return mklist(self.values['bookmarks'])
-
-    def _get_gui_state(self):
-        return mkdict(self.values['gui_state'])
-
-    def _get_recent(self):
-        return mklist(self.values['recent'])
-
-    bookmarks = property(_get_bookmarks)
-    gui_state = property(_get_gui_state)
-    recent = property(_get_recent)
 
     def add_bookmark(self, bookmark):
         """Adds a bookmark to the saved settings"""
@@ -106,11 +90,10 @@ class Settings(object):
         path = self.path()
         try:
             parent = os.path.dirname(path)
-            if not os.path.isdir(parent):
-                os.makedirs(parent)
-            fp = open(path, 'wb')
-            json.dump(self.values, fp, indent=4)
-            fp.close()
+            if not core.isdir(parent):
+                core.makedirs(parent)
+            with core.xopen(path, 'wb') as fp:
+                json.dump(self.values, fp, indent=4)
         except:
             sys.stderr.write('git-cola: error writing "%s"\n' % path)
 
@@ -119,10 +102,10 @@ class Settings(object):
 
     def _load(self):
         path = self.path()
-        if not os.path.exists(path):
+        if not core.exists(path):
             return self._load_dot_cola()
         try:
-            fp = open(path, 'rb')
+            fp = core.xopen(path, 'rb')
             return mkdict(json.load(fp))
         except: # bad json
             return {}
@@ -133,13 +116,12 @@ class Settings(object):
 
     def _load_dot_cola(self):
         values = {}
-        path = os.path.join(os.path.expanduser('~'), '.cola')
-        if not os.path.exists(path):
+        path = os.path.join(core.expanduser('~'), '.cola')
+        if not core.exists(path):
             return {}
         try:
-            fp = open(path, 'rb')
-            json_values = json.load(fp)
-            fp.close()
+            with core.xopen(path, 'r') as fp:
+                json_values = json.load(fp)
         except: # bad json
             return {}
 

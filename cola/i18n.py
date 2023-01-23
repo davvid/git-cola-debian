@@ -7,7 +7,6 @@ import sys
 from cola import compat
 from cola import core
 from cola import resources
-from cola import xdg
 
 _null_translation = _gettext.NullTranslations()
 _translation = _null_translation
@@ -33,8 +32,8 @@ def install(locale):
     if sys.platform == 'win32':
         _check_win32_locale()
     if locale:
-        compat.putenv('LANG', locale)
-        compat.putenv('LC_MESSAGES', locale)
+        compat.setenv('LANG', locale)
+        compat.setenv('LC_MESSAGES', locale)
     _install_custom_language()
     _gettext.textdomain('messages')
     _translation = _gettext.translation('git-cola',
@@ -52,17 +51,15 @@ def _get_locale_dir():
 
 def _install_custom_language():
     """Allow a custom language to be set in ~/.config/git-cola/language"""
-    lang_file = xdg.config_home('language')
-    if not os.path.exists(lang_file):
+    lang_file = resources.config_home('language')
+    if not core.exists(lang_file):
         return
     try:
-        fp = open(lang_file, 'r')
-        lang = core.read(fp).strip()
-        fp.close()
+        lang = core.read(lang_file).strip()
     except:
         return
     if lang:
-        compat.putenv('LANGUAGE', lang)
+        compat.setenv('LANGUAGE', lang)
 
 
 def _check_win32_locale():
@@ -89,4 +86,4 @@ def _check_win32_locale():
             lang = ':'.join([i for i in lang if i])
         # set lang code for gettext
         if lang:
-            compat.putenv('LANGUAGE', lang)
+            compat.setenv('LANGUAGE', lang)
