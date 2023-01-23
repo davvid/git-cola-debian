@@ -185,8 +185,7 @@ class MainView(standard.MainWindow):
         self.unstage_all_action.setIcon(icons.remove())
 
         self.undo_commit_action = add_action(
-            self, N_('Undo Last Commit'),
-            cmds.run(cmds.UndoLastCommit, context)
+            self, N_('Undo Last Commit'), cmds.run(cmds.UndoLastCommit, context)
         )
         self.undo_commit_action.setIcon(icons.style_dialog_discard())
 
@@ -285,9 +284,7 @@ class MainView(standard.MainWindow):
         self.cherry_pick_action.setIcon(icons.style_dialog_apply())
 
         self.load_commitmsg_action = add_action(
-            self,
-            N_('Load Commit Message...'),
-            partial(guicmds.load_commitmsg, context)
+            self, N_('Load Commit Message...'), partial(guicmds.load_commitmsg, context)
         )
 
         self.prepare_commitmsg_hook_action = add_action(
@@ -298,9 +295,7 @@ class MainView(standard.MainWindow):
         )
 
         self.save_tarball_action = add_action(
-            self,
-            N_('Save As Tarball/Zip...'),
-            partial(archive.save_archive, context)
+            self, N_('Save As Tarball/Zip...'), partial(archive.save_archive, context)
         )
         self.save_tarball_action.setIcon(icons.file_zip())
 
@@ -368,43 +363,45 @@ class MainView(standard.MainWindow):
         self.stash_action.setIcon(icons.commit())
 
         self.reset_soft_action = add_action(
-            self, N_('Reset Branch (Soft)'),
-            partial(guicmds.reset_soft, context)
+            self, N_('Reset Branch (Soft)'), partial(guicmds.reset_soft, context)
         )
         self.reset_soft_action.setIcon(icons.style_dialog_reset())
         self.reset_soft_action.setToolTip(cmds.ResetSoft.tooltip('<commit>'))
 
         self.reset_mixed_action = add_action(
-            self, N_('Reset Branch and Stage (Mixed)'),
-            partial(guicmds.reset_mixed, context)
+            self,
+            N_('Reset Branch and Stage (Mixed)'),
+            partial(guicmds.reset_mixed, context),
         )
         self.reset_mixed_action.setIcon(icons.style_dialog_reset())
         self.reset_mixed_action.setToolTip(cmds.ResetMixed.tooltip('<commit>'))
 
         self.reset_keep_action = add_action(
-            self, N_('Restore Worktree and Reset All (Keep Unstaged Changes)'),
-            partial(guicmds.reset_keep, context)
+            self,
+            N_('Restore Worktree and Reset All (Keep Unstaged Changes)'),
+            partial(guicmds.reset_keep, context),
         )
         self.reset_keep_action.setIcon(icons.style_dialog_reset())
         self.reset_keep_action.setToolTip(cmds.ResetKeep.tooltip('<commit>'))
 
         self.reset_merge_action = add_action(
-            self, N_('Restore Worktree and Reset All (Merge)'),
-            partial(guicmds.reset_merge, context)
+            self,
+            N_('Restore Worktree and Reset All (Merge)'),
+            partial(guicmds.reset_merge, context),
         )
         self.reset_merge_action.setIcon(icons.style_dialog_reset())
         self.reset_merge_action.setToolTip(cmds.ResetMerge.tooltip('<commit>'))
 
         self.reset_hard_action = add_action(
-            self, N_('Restore Worktree and Reset All (Hard)'),
-            partial(guicmds.reset_hard, context)
+            self,
+            N_('Restore Worktree and Reset All (Hard)'),
+            partial(guicmds.reset_hard, context),
         )
         self.reset_hard_action.setIcon(icons.style_dialog_reset())
         self.reset_hard_action.setToolTip(cmds.ResetHard.tooltip('<commit>'))
 
         self.restore_worktree_action = add_action(
-            self, N_('Restore Worktree'),
-            partial(guicmds.restore_worktree, context)
+            self, N_('Restore Worktree'), partial(guicmds.restore_worktree, context)
         )
         self.restore_worktree_action.setIcon(icons.edit())
         self.restore_worktree_action.setToolTip(
@@ -633,8 +630,9 @@ class MainView(standard.MainWindow):
             bookmarkswidget.tree,
             recentwidget.tree,
         )
+        select_widgets = copy_widgets + (self.statuswidget.tree,)
         edit_proxy.override('copy', copy_widgets)
-        edit_proxy.override('selectAll', copy_widgets)
+        edit_proxy.override('selectAll', select_widgets)
 
         edit_menu = self.edit_menu = add_menu(N_('&Edit'), self.menubar)
         add_action(edit_menu, N_('Undo'), edit_proxy.undo, hotkeys.UNDO)
@@ -649,7 +647,6 @@ class MainView(standard.MainWindow):
             edit_menu, N_('Select All'), edit_proxy.selectAll, hotkeys.SELECT_ALL
         )
         edit_menu.addSeparator()
-
         commitmsg.add_menu_actions(edit_menu, self.commiteditor.menu_actions)
 
         # Actions menu
@@ -677,6 +674,8 @@ class MainView(standard.MainWindow):
         self.commit_menu.addAction(self.commit_amend_action)
         self.commit_menu.addAction(self.undo_commit_action)
         self.commit_menu.addSeparator()
+        self.commit_menu.addAction(self.statuswidget.tree.process_selection_action)
+        self.commit_menu.addAction(self.statuswidget.tree.stage_or_unstage_all_action)
         self.commit_menu.addAction(self.stage_modified_action)
         self.commit_menu.addAction(self.stage_untracked_action)
         self.commit_menu.addSeparator()

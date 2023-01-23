@@ -114,9 +114,7 @@ class Settings(object):
         normalize = display.normalize_path
         path = normalize(path)
         try:
-            index = [
-                normalize(recent['path']) for recent in self.recent
-            ].index(path)
+            index = [normalize(recent['path']) for recent in self.recent].index(path)
             entry = self.recent.pop(index)
         except (IndexError, ValueError):
             entry = {
@@ -132,10 +130,9 @@ class Settings(object):
         normalize = display.normalize_path
         path = normalize(path)
         try:
-            index = [
-                normalize(recent.get('path', ''))
-                for recent in self.recent
-            ].index(path)
+            index = [normalize(recent.get('path', '')) for recent in self.recent].index(
+                path
+            )
         except ValueError:
             return
         try:
@@ -229,7 +226,7 @@ def rename_entry(entries, path, name, new_name):
     except ValueError:
         return False
 
-    if all([item['name'] != new_name for item in entries]):
+    if all(item['name'] != new_name for item in entries):
         entries[index]['name'] = new_name
         result = True
     else:

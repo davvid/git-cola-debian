@@ -96,6 +96,12 @@ way to try the latest version.
     ./bin/git-cola
     ./bin/git-dag
 
+You can also start `cola` as a Python module if Python can find it.
+
+    cd git-cola
+    python -m cola
+    python -m cola dag
+
 Having git-cola's `bin/` directory in your path allows you to run
 `git cola` like a regular built-in Git command:
 
@@ -179,9 +185,11 @@ Available in [SlackBuilds.org](http://slackbuilds.org/result/?search=git-cola).
 
 ## Ubuntu
 
-The default version on 18.04 is older and is missing features and enhancements.
-Use this [PPA](https://launchpad.net/~pavreh/+archive/ubuntu/git-cola)
-maintained by @pavreh to get a newer version.
+[See here](https://packages.ubuntu.com/search?keywords=git-cola) for the
+versions that are available in Ubuntu's repositories.
+
+There was a [PPA by @pavreh](https://launchpad.net/~pavreh/+archive/ubuntu/git-cola)
+but it has not been updated for a while.
 
 ## MAC OS X
 
@@ -225,10 +233,21 @@ If you upgrade using `brew` then it is recommended that you re-install
 git-cola's dependencies when upgrading.  Re-installing ensures that the
 Python modules provided by Homebrew will be properly set up.
 
+A quick fix when upgrading to newer versions of XCode or macOS is to
+reinstall pyqt5.
+
+    brew reinstall pyqt@5
+
+You may also need to relink your pyqt installation:
+
+    brew link pyqt@5
+
 This is required when upgrading to a modern (post-10.11 El Capitan) Mac OS X.
 Homebrew now bundles its own Python3 installation instead of using the
 system-provided default Python.
 
+If the "brew reinstall" command above does not work then re-installing from
+scratch using the instructions below should get things back in shape.
 
     # update homebrew
     brew update

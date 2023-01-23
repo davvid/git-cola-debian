@@ -36,6 +36,8 @@ _versions = {
     'force-with-lease': '1.8.5',
     # git submodule update --recursive was introduced in 1.6.5
     'submodule-update-recursive': '1.6.5',
+    # git include.path pseudo-variable was introduced in 1.7.10
+    'config-includes': '1.7.10',
     # git for-each-ref --sort=version:refname
     'version-sort': '2.7.0',
     # Qt support for QT_AUTO_SCREEN_SCALE_FACTOR and QT_SCALE_FACTOR
@@ -62,8 +64,7 @@ def build_version():
 
 @memoize
 def check_version(min_ver, ver):
-    """Check whether ver is greater or equal to min_ver
-    """
+    """Check whether ver is greater or equal to min_ver"""
     min_ver_list = version_to_list(min_ver)
     ver_list = version_to_list(ver)
     return min_ver_list <= ver_list
@@ -81,8 +82,7 @@ def check_git(context, key):
 
 
 def version_to_list(value):
-    """Convert a version string to a list of numbers or strings
-    """
+    """Convert a version string to a list of numbers or strings"""
     ver_list = []
     for p in value.split('.'):
         try:

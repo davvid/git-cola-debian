@@ -10,6 +10,7 @@ import struct
 from . import core
 from . import observable
 from . import utils
+from . import version
 from .compat import int_types
 from .git import STDOUT
 from .compat import ustr
@@ -211,7 +212,10 @@ class GitConfig(observable.Observable):
             return self._read_config_file(path)
 
         dest = {}
-        args = ('--null', '--file', path, '--list')
+        if version.check_git(self, 'config-includes'):
+            args = ('--null', '--file', path, '--list', '--includes')
+        else:
+            args = ('--null', '--file', path, '--list')
         config_lines = self.git.config(*args)[STDOUT].split('\0')
         for line in config_lines:
             if not line:
@@ -461,6 +465,15 @@ class GitConfig(observable.Observable):
         except (struct.error, TypeError):
             r, g, b = struct.unpack(struct_layout, unhex(default))
         return (r, g, b)
+
+    def hooks(self):
+        """Return the path to the git hooks directory"""
+        gitdir_hooks = self.git.git_path('hooks')
+        return self.get('core.hookspath', default=gitdir_hooks)
+
+    def hooks_path(self, *paths):
+        """Return a path from within the git hooks directory"""
+        return os.path.join(self.hooks(), *paths)
 
 
 def python_to_git(value):

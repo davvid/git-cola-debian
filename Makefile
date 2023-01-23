@@ -46,7 +46,7 @@ MKDIR_P = mkdir -p
 PIP = pip
 PYLINT = pylint
 PYTHON ?= python
-PYTEST = $(PYTHON) -m pytest
+PYTEST = $(PYTHON) -B -m pytest
 RM = rm -f
 RM_R = rm -fr
 RMDIR = rmdir
@@ -71,14 +71,13 @@ endif
 FLAKE8_FLAGS = $(VERBOSE)
 
 PYTEST_FLAGS = $(QUIET) $(TEST_VERBOSE)
-PYTEST_FLAGS += --doctest-modules
 uname_S := $(shell uname -s)
 ifneq ($(uname_S),Linux)
     PYTEST_FLAGS += --ignore=cola/inotify.py
 endif
 
 TOX_FLAGS = $(VERBOSE_SHORT) --develop --skip-missing-interpreters
-TOX_ENVS ?= py{27,34,35,36,37},pylint{2,36,37}
+TOX_ENVS ?= py{27,36,37,38,39,lint}
 
 PYLINT_FLAGS = --rcfile=.pylintrc
 PYLINT_FLAGS += --score=no
@@ -100,7 +99,10 @@ hicolordir = $(prefix)/share/icons/hicolor/scalable/apps
 cola_base := git-cola
 cola_app_base= $(cola_base).app
 cola_app = $(CURDIR)/$(cola_app_base)
-cola_version = $(shell $(PYTHON) bin/git-cola version --brief)
+
+# Read $(VERSION) from cola/_version.py and strip quotes.
+include cola/_version.py
+cola_version := $(subst ',,$(VERSION))
 cola_dist := $(cola_base)-$(cola_version)
 
 SETUP ?= $(PYTHON) setup.py
@@ -160,12 +162,6 @@ install: all
 	$(LN_S) "$(datadir)/icons/git-cola.svg" \
 		"$(DESTDIR)$(hicolordir)/git-cola.svg"
 	$(LN_S) git-cola "$(DESTDIR)$(bindir)/cola"
-
-# Maintainer's dist target
-.PHONY: dist
-dist:
-	$(GIT) archive --format=tar --prefix=$(cola_dist)/ HEAD^{tree} | \
-		$(GZIP) -f -9 - >$(cola_dist).tar.gz
 
 .PHONY: doc
 doc:
@@ -334,4 +330,4 @@ tox:
 
 .PHONY: tox-check
 tox-check:
-	$(TOX) $(TOX_FLAGS) -e "$(TOX_ENVS)" $(flags)
+	$(TOX) $(TOX_FLAGS) --parallel auto -e "$(TOX_ENVS)" $(flags)

@@ -1,3 +1,64 @@
+.. _v3.10.1:
+
+v3.10.1
+=======
+
+Fixes
+-----
+* Patch release to fix a typo in the Interactive Rebase feature.
+
+.. _v3.10:
+
+v3.10
+=====
+
+Usability, bells and whistles
+-----------------------------
+* The git config reader now supports the `include.path` directive
+  for including config files.
+  (`#1136 <https://github.com/git-cola/git-cola/issues/1136>`_)
+  (`#1137 <https://github.com/git-cola/git-cola/pull/1137>`_)
+
+* The dialog for selecting commits now support filtering.
+  (`#1121 <https://github.com/git-cola/git-cola/pull/1121>`_)
+
+* The diff editor now wraps long lines by default. The diff options
+  menu can be used to enable/disable line wrapping.
+  (`#1123 <https://github.com/git-cola/git-cola/pull/1123>`_)
+
+* Git Cola now honors `core.hooksPath` for configuring custom Git hooks,
+  which was introduced in Git v2.9.
+  (`#1118 <https://github.com/git-cola/git-cola/issues/1118>`_)
+
+* A new `Ctrl + Shift + S` hotkey was added for staging/unstaging all
+  files, both modified and untracked.
+
+* The `Status` tool now supports `Ctrl + A` for selecting all files and
+  it behaves more predictably when performing operations when multiple
+  categories of files are selected (eg. when both modified and untracked
+  header items are selected).
+  (`#1117 <https://github.com/git-cola/git-cola/issues/1117>`_)
+
+Translations
+------------
+* Updated Hungarian translation.
+  (`#1135 <https://github.com/git-cola/git-cola/pull/1135>`_)
+
+Fixes
+-----
+* The "Interactive Rebase" feature was updated to work with Windows.
+
+* `make install-man` was updated to support Sphinx 4.0.
+  (`#1141 <https://github.com/git-cola/git-cola/issues/1141>`_)
+
+* `git cola --help-commands` was updated for newer versions of argparse.
+  (`#1133 <https://github.com/git-cola/git-cola/issues/1133>`_)
+
+Development
+-----------
+* Git Cola can now be started as a Python module.
+  (`#1119 <https://github.com/git-cola/git-cola/pull/1119>`_)
+
 .. _v3.9:
 
 v3.9
