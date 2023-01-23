@@ -9,9 +9,12 @@ from PyQt4.QtCore import SIGNAL
 from cola import cmds
 from cola import core
 from cola import gitcmds
+from cola import hotkeys
+from cola import icons
 from cola import utils
 from cola import qtutils
 from cola.i18n import N_
+from cola.utils import Group
 from cola.widgets import completion
 from cola.widgets import defs
 from cola.widgets import filetree
@@ -93,26 +96,25 @@ class Finder(standard.Dialog):
 
         self.tree = filetree.FileTree(parent=self)
 
-        self.edit_button = QtGui.QPushButton(N_('Edit'))
-        self.edit_button.setIcon(qtutils.open_file_icon())
-        self.edit_button.setEnabled(False)
-        self.edit_button.setShortcut(cmds.Edit.SHORTCUT)
+        self.edit_button = qtutils.edit_button()
+        self.edit_button.setShortcut(hotkeys.EDIT)
 
-        self.open_default_button = QtGui.QPushButton(cmds.OpenDefaultApp.name())
-        self.open_default_button.setIcon(qtutils.open_file_icon())
-        self.open_default_button.setEnabled(False)
-        self.open_default_button.setShortcut(cmds.OpenDefaultApp.SHORTCUT)
+        text = cmds.OpenDefaultApp.name()
+        icon = icons.default_app()
+        self.open_default_button = qtutils.create_button(text=text, icon=icon)
+        self.open_default_button.setShortcut(hotkeys.PRIMARY_ACTION)
 
-        self.refresh_button = QtGui.QPushButton(N_('Refresh'))
-        self.refresh_button.setIcon(qtutils.reload_icon())
-        self.refresh_button.setShortcut(QtGui.QKeySequence.Refresh)
+        self.button_group = Group(self.edit_button, self.open_default_button)
+        self.button_group.setEnabled(False)
+
+        self.refresh_button = qtutils.refresh_button()
+        self.refresh_button.setShortcut(hotkeys.REFRESH)
 
         self.help_button = qtutils.create_button(
-                text=N_('Help'),
-                tooltip=N_('Show help\nShortcut: ?'),
-                icon=qtutils.help_icon())
+            text=N_('Help'), tooltip=N_('Show help\nShortcut: ?'),
+            icon=icons.question())
 
-        self.close_button = QtGui.QPushButton(N_('Close'))
+        self.close_button = qtutils.close_button()
 
         self.input_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                          self.input_label, self.input_txt)
@@ -149,10 +151,10 @@ class Finder(standard.Dialog):
         self.connect(self.tree, SIGNAL('space()'), self.open_default)
 
         qtutils.add_action(self, 'Focus Input', self.focus_input,
-                           'Ctrl+L', 'Ctrl+T')
+                           hotkeys.FOCUS, hotkeys.FINDER)
 
         self.show_help_action = qtutils.add_action(self,
-                N_('Show Help'), show_help, Qt.Key_Question)
+                N_('Show Help'), show_help, hotkeys.QUESTION)
 
         qtutils.connect_button(self.edit_button, self.edit)
         qtutils.connect_button(self.open_default_button, self.open_default)
@@ -176,8 +178,7 @@ class Finder(standard.Dialog):
         return standard.Dialog.done(self, exit_code)
 
     def search(self):
-        self.edit_button.setEnabled(False)
-        self.open_default_button.setEnabled(False)
+        self.button_group.setEnabled(False)
         self.refresh_button.setEnabled(False)
         query = self.input_txt.value()
         self.worker_thread.query = query
@@ -201,5 +202,4 @@ class Finder(standard.Dialog):
 
     def tree_item_selection_changed(self):
         enabled = bool(self.tree.selected_item())
-        self.edit_button.setEnabled(enabled)
-        self.open_default_button.setEnabled(enabled)
+        self.button_group.setEnabled(enabled)

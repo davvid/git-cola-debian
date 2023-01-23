@@ -4,8 +4,8 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import argparse
-import glob
 import os
+import shutil
 import signal
 import sys
 
@@ -62,9 +62,10 @@ from PyQt4.QtCore import SIGNAL
 from cola import cmds
 from cola import core
 from cola import compat
+from cola import fsmonitor
 from cola import git
 from cola import gitcfg
-from cola import inotify
+from cola import icons
 from cola import i18n
 from cola import qtcompat
 from cola import qtutils
@@ -86,7 +87,7 @@ def setup_environment():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Session management wants an absolute path when restarting
-    sys.argv[0] = core.abspath(sys.argv[0])
+    sys.argv[0] = sys_argv0 = core.abspath(sys.argv[0])
 
     # Spoof an X11 display for SSH
     os.environ.setdefault('DISPLAY', ':0')
@@ -99,8 +100,8 @@ def setup_environment():
 
     # Setup the path so that git finds us when we run 'git cola'
     path_entries = core.getenv('PATH', '').split(os.pathsep)
-    bindir = os.path.dirname(core.abspath(__file__))
-    path_entries.insert(0, bindir)
+    bindir = os.path.dirname(sys_argv0)
+    path_entries.append(bindir)
     path = os.pathsep.join(path_entries)
     compat.setenv('PATH', path)
 
@@ -167,29 +168,14 @@ class ColaApplication(object):
         i18n.install(locale)
         qtcompat.install()
         qtutils.install()
+        icons.install()
 
-        self.notifier = QtCore.QObject()
-        self.notifier.connect(self.notifier, SIGNAL('update_files()'),
-                              self._update_files, Qt.QueuedConnection)
-        # Call _update_files when inotify detects changes
-        inotify.observer(self._update_files_notifier)
-
-        # Add the default style dir so that we find our icons
-        icon_dir = resources.icon_dir()
-        qtcompat.add_search_path(os.path.basename(icon_dir), icon_dir)
+        QtCore.QObject.connect(fsmonitor.instance(), SIGNAL('files_changed'),
+                               self._update_files)
 
         if gui:
             self._app = current(tuple(argv))
-            self._app.setWindowIcon(qtutils.git_icon())
-            self._app.setStyleSheet("""
-                QMainWindow::separator {
-                    width: 3px;
-                    height: 3px;
-                }
-                QMainWindow::separator:hover {
-                    background: white;
-                }
-                """)
+            self._app.setWindowIcon(icons.cola())
         else:
             self._app = QtCore.QCoreApplication(argv)
 
@@ -209,11 +195,8 @@ class ColaApplication(object):
             self._app.view = view
 
     def _update_files(self):
-        # Respond to inotify updates
+        # Respond to file system updates
         cmds.do(cmds.Refresh)
-
-    def _update_files_notifier(self):
-        self.notifier.emit(SIGNAL('update_files()'))
 
 
 @memoize
@@ -290,7 +273,8 @@ def application_init(args, update=False):
     process_args(args)
 
     app = new_application(args)
-    model = new_model(app, args.repo, prompt=args.prompt)
+    model = new_model(app, args.repo,
+                      prompt=args.prompt, settings=args.settings)
     if update:
         model.update_status()
     cfg = gitcfg.current()
@@ -307,10 +291,11 @@ def application_start(context, view):
     view.raise_()
 
     # Scan for the first time
-    task = _start_update_thread(context.model)
+    runtask = qtutils.RunTask(parent=view)
+    init_update_task(view, runtask, context.model)
 
-    # Start the inotify thread
-    inotify.start()
+    # Start the filesystem monitor thread
+    fsmonitor.instance().start()
 
     msg_timer = QtCore.QTimer()
     msg_timer.setSingleShot(True)
@@ -321,13 +306,11 @@ def application_start(context, view):
     result = context.app.exec_()
 
     # All done, cleanup
-    inotify.stop()
+    fsmonitor.instance().stop()
     QtCore.QThreadPool.globalInstance().waitForDone()
-    del task
 
-    pattern = utils.tmp_file_pattern()
-    for filename in glob.glob(pattern):
-        os.unlink(filename)
+    tmpdir = utils.tmpdir()
+    shutil.rmtree(tmpdir, ignore_errors=True)
 
     return result
 
@@ -355,11 +338,25 @@ def new_application(args):
     return ColaApplication(sys.argv)
 
 
-def new_model(app, repo, prompt=False):
+def new_model(app, repo, prompt=False, settings=None):
     model = main.model()
-    valid = model.set_worktree(repo) and not prompt
+    valid = False
+    if not prompt:
+        valid = model.set_worktree(repo)
+        if not valid:
+            # We are not currently in a git repository so we need to find one.
+            # Before prompting the user for a repostiory, check if they've
+            # configured a default repository and attempt to use it.
+            default_repo = gitcfg.current().get('cola.defaultrepo')
+            if default_repo:
+                valid = model.set_worktree(default_repo)
+
     while not valid:
-        startup_dlg = startup.StartupDialog(app.activeWindow())
+        # If we've gotten into this loop then that means that neither the
+        # current directory nor the default repository were available.
+        # Prompt the user for a repository.
+        startup_dlg = startup.StartupDialog(app.activeWindow(),
+                                            settings=settings)
         gitdir = startup_dlg.find_git_repo()
         if not gitdir:
             sys.exit(EX_NOINPUT)
@@ -370,21 +367,18 @@ def new_model(app, repo, prompt=False):
     return model
 
 
-def _start_update_thread(model):
+def init_update_task(parent, runtask, model):
     """Update the model in the background
 
     git-cola should startup as quickly as possible.
 
     """
-    class UpdateTask(QtCore.QRunnable):
-        def run(self):
-            model.update_status(update_index=True)
 
-    # Hold onto a reference to prevent PyQt from dereferencing
-    task = UpdateTask()
-    QtCore.QThreadPool.globalInstance().start(task)
+    def update_status():
+        model.update_status(update_index=True)
 
-    return task
+    task = qtutils.SimpleTask(parent, update_status)
+    runtask.start(task)
 
 
 def _send_msg():

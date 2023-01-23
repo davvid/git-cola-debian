@@ -1,7 +1,6 @@
 from __future__ import division, absolute_import, unicode_literals
 
 import sys
-import subprocess
 
 from cola import core
 from cola import gitcfg
@@ -9,6 +8,8 @@ from cola import observable
 from cola import utils
 
 
+BLAME_VIEWER = 'cola.blameviewer'
+BOLD_HEADERS = 'cola.boldheaders'
 CHECKCONFLICTS = 'cola.checkconflicts'
 COMMENT_CHAR = 'core.commentchar'
 DIFFCONTEXT = 'gui.diffcontext'
@@ -29,6 +30,19 @@ TABWIDTH = 'cola.tabwidth'
 TEXTWIDTH = 'cola.textwidth'
 USER_EMAIL = 'user.email'
 USER_NAME = 'user.name'
+
+
+def default_blame_viewer():
+    return 'git gui blame'
+
+
+def blame_viewer():
+    default = default_blame_viewer()
+    return gitcfg.current().get(BLAME_VIEWER, default)
+
+
+def bold_headers():
+    return gitcfg.current().get(BOLD_HEADERS, False)
 
 
 def check_conflicts():
@@ -53,11 +67,11 @@ def default_history_browser():
         # On Windows, a sensible default is "python git-cola dag"
         # which is different than `gitk` below, but is preferred
         # because we don't have to guess paths.
-        git_cola = sys.argv[0]
-        python = sys.executable
+        git_cola = sys.argv[0].replace("\\", '/')
+        python = sys.executable.replace("\\", '/')
         argv = [python, git_cola, 'dag']
         argv = core.prep_for_subprocess(argv)
-        default = core.decode(subprocess.list2cmdline(argv))
+        default = core.list2cmdline(argv)
     else:
         # The `gitk` script can be launched as-is on unix
         default = 'gitk'

@@ -14,9 +14,10 @@ except ImportError:
 
 from cola import compat
 from cola import core
+from cola import fsmonitor
 from cola import gitcfg
 from cola import gitcmds
-from cola import inotify
+from cola import icons
 from cola import utils
 from cola import difftool
 from cola import resources
@@ -145,7 +146,6 @@ class Command(ModelCommand):
 class AmendMode(Command):
     """Try to amend a commit."""
 
-    SHORTCUT = 'Ctrl+M'
     LAST_MESSAGE = None
 
     @staticmethod
@@ -322,6 +322,25 @@ class Checkout(Command):
             self.model.update_file_status()
 
 
+class BlamePaths(Command):
+    """Blame view for paths."""
+
+    def __init__(self, paths):
+        Command.__init__(self)
+        viewer = utils.shell_split(prefs.blame_viewer())
+        self.argv = viewer + list(paths)
+
+    def do(self):
+        try:
+            core.fork(self.argv)
+        except Exception as e:
+            _, details = utils.format_exception(e)
+            title = N_('Error Launching Blame Viewer')
+            msg = (N_('Cannot exec "%s": please configure a blame viewer') %
+                   ' '.join(self.argv))
+            Interaction.critical(title, message=msg, details=details)
+
+
 class CheckoutBranch(Checkout):
     """Checkout a branch."""
 
@@ -357,8 +376,6 @@ class ResetMode(Command):
 
 class Commit(ResetMode):
     """Attempt to create a new commit."""
-
-    SHORTCUT = 'Ctrl+Return'
 
     def __init__(self, amend, msg, sign, no_verify=False):
         ResetMode.__init__(self)
@@ -429,7 +446,7 @@ class Ignore(Command):
 
 
 def file_summary(files):
-    txt = subprocess.list2cmdline(files)
+    txt = core.list2cmdline(files)
     if len(txt) > 768:
         txt = txt[:768].rstrip() + '...'
     return txt
@@ -576,9 +593,6 @@ class RemoveFiles(Command):
 class Delete(RemoveFiles):
     """Delete files."""
 
-    SHORTCUT = 'Ctrl+Shift+Backspace'
-    ALT_SHORTCUT = 'Ctrl+Backspace'
-
     def __init__(self, filenames):
         RemoveFiles.__init__(self, os.remove, filenames)
 
@@ -594,8 +608,7 @@ class Delete(RemoveFiles):
         ok_txt = N_('Delete Files')
 
         if not Interaction.confirm(title, msg, info_txt, ok_txt,
-                                   default=True,
-                                   icon=resources.icon('remove.svg')):
+                                   default=True, icon=icons.remove()):
             return
 
         return RemoveFiles.do(self)
@@ -604,7 +617,6 @@ class Delete(RemoveFiles):
 class MoveToTrash(RemoveFiles):
     """Move files to the trash using send2trash"""
 
-    SHORTCUT = 'Ctrl+Backspace'
     AVAILABLE = send2trash is not None
 
     def __init__(self, filenames):
@@ -734,7 +746,6 @@ class Difftool(Command):
 
 class Edit(Command):
     """Edit a file using the configured gui.editor."""
-    SHORTCUT = 'Ctrl+E'
 
     @staticmethod
     def name():
@@ -795,8 +806,6 @@ class FormatPatch(Command):
 
 class LaunchDifftool(BaseCommand):
 
-    SHORTCUT = 'Ctrl+D'
-
     @staticmethod
     def name():
         return N_('Launch Diff Tool')
@@ -814,16 +823,19 @@ class LaunchDifftool(BaseCommand):
                 cfg = gitcfg.current()
                 cmd = cfg.terminal()
                 argv = utils.shell_split(cmd)
-                argv.extend(['git', 'mergetool', '--no-prompt', '--'])
-                argv.extend(paths)
+                mergetool = ['git', 'mergetool', '--no-prompt', '--']
+                mergetool.extend(paths)
+                needs_shellquote = set(['gnome-terminal', 'xfce4-terminal'])
+                if os.path.basename(argv[0]) in needs_shellquote:
+                    argv.append(core.list2cmdline(mergetool))
+                else:
+                    argv.extend(mergetool)
                 core.fork(argv)
         else:
             difftool.run()
 
 
 class LaunchTerminal(BaseCommand):
-
-    SHORTCUT = 'Ctrl+Shift+T'
 
     @staticmethod
     def name():
@@ -842,7 +854,6 @@ class LaunchTerminal(BaseCommand):
 
 
 class LaunchEditor(Edit):
-    SHORTCUT = 'Ctrl+E'
 
     @staticmethod
     def name():
@@ -918,15 +929,17 @@ class LoadFixupMessage(LoadCommitMessageFromSHA1):
 
     def __init__(self, sha1):
         LoadCommitMessageFromSHA1.__init__(self, sha1, prefix='fixup! ')
+        if self.new_commitmsg:
+            self.new_commitmsg = self.new_commitmsg.splitlines()[0]
 
 
 class Merge(Command):
     """Merge commits"""
 
-    def __init__(self, revision, no_commit, squash, noff, sign):
+    def __init__(self, revision, no_commit, squash, no_ff, sign):
         Command.__init__(self)
         self.revision = revision
-        self.no_ff = noff
+        self.no_ff = no_ff
         self.no_commit = no_commit
         self.squash = squash
         self.sign = sign
@@ -937,9 +950,8 @@ class Merge(Command):
         no_ff = self.no_ff
         no_commit = self.no_commit
         sign = self.sign
-        msg = gitcmds.merge_message(revision)
 
-        status, out, err = self.model.git.merge('-m', msg, revision,
+        status, out, err = self.model.git.merge(revision,
                                                 gpg_sign=sign,
                                                 no_ff=no_ff,
                                                 no_commit=no_commit,
@@ -950,7 +962,6 @@ class Merge(Command):
 
 class OpenDefaultApp(BaseCommand):
     """Open a file using the OS default."""
-    SHORTCUT = 'Space'
 
     @staticmethod
     def name():
@@ -973,7 +984,6 @@ class OpenDefaultApp(BaseCommand):
 
 class OpenParentDir(OpenDefaultApp):
     """Open parent directories using the OS default."""
-    SHORTCUT = 'Shift+Space'
 
     @staticmethod
     def name():
@@ -1017,8 +1027,8 @@ class OpenRepo(Command):
         self.model.set_directory(self.repo_path)
         cfg = gitcfg.current()
         cfg.reset()
-        inotify.stop()
-        inotify.start()
+        fsmonitor.instance().stop()
+        fsmonitor.instance().start()
         self.model.update_status()
 
 
@@ -1198,14 +1208,13 @@ class Rescan(Command):
 class Refresh(Command):
     """Update refs and refresh the index"""
 
-    SHORTCUTS = ('Ctrl+R', 'F5')
-
     @staticmethod
     def name():
         return N_('Refresh')
 
     def do(self):
         self.model.update_status(update_index=True)
+        fsmonitor.instance().refresh()
 
 
 class RevertEditsCommand(ConfirmAction):
@@ -1213,7 +1222,7 @@ class RevertEditsCommand(ConfirmAction):
     def __init__(self):
         ConfirmAction.__init__(self)
         self.model = main.model()
-        self.icon = resources.icon('edit-undo.svg')
+        self.icon = icons.undo()
 
     def ok_to_run(self):
         return self.model.undoable()
@@ -1247,8 +1256,6 @@ class RevertEditsCommand(ConfirmAction):
 
 class RevertUnstagedEdits(RevertEditsCommand):
 
-    SHORTCUT = 'Ctrl+U'
-
     @staticmethod
     def name():
         return N_('Revert Unstaged Edits...')
@@ -1270,8 +1277,6 @@ class RevertUnstagedEdits(RevertEditsCommand):
 
 
 class RevertUncommittedEdits(RevertEditsCommand):
-
-    SHORTCUT = 'Ctrl+Z'
 
     @staticmethod
     def name():
@@ -1369,6 +1374,16 @@ class RunConfigAction(Command):
         return status
 
 
+class SetDefaultRepo(Command):
+
+    def __init__(self, repo):
+        Command.__init__(self)
+        self.repo = repo
+
+    def do(self):
+        gitcfg.current().set_user('cola.defaultrepo', self.repo)
+
+
 class SetDiffText(Command):
 
     def __init__(self, text):
@@ -1401,7 +1416,6 @@ class ShowUntracked(Command):
 
 
 class SignOff(Command):
-    SHORTCUT = 'Ctrl+I'
 
     @staticmethod
     def name():
@@ -1482,7 +1496,6 @@ def should_stage_conflicts(path):
 
 class Stage(Command):
     """Stage a set of paths."""
-    SHORTCUT = 'Ctrl+S'
 
     @staticmethod
     def name():
@@ -1498,7 +1511,7 @@ class Stage(Command):
         # Prevent external updates while we are staging files.
         # We update file stats at the end of this operation
         # so there's no harm in ignoring updates from other threads
-        # (e.g. inotify).
+        # (e.g. the file system change monitor).
         with CommandDisabled(UpdateFileStatus):
             self.model.stage_paths(self.paths)
 
@@ -1532,8 +1545,6 @@ class StageCarefully(Stage):
 class StageModified(StageCarefully):
     """Stage all modified files."""
 
-    SHORTCUT = 'Ctrl+S'
-
     @staticmethod
     def name():
         return N_('Stage Modified')
@@ -1544,8 +1555,6 @@ class StageModified(StageCarefully):
 
 class StageUnmerged(StageCarefully):
     """Stage unmerged files."""
-
-    SHORTCUT = 'Ctrl+S'
 
     @staticmethod
     def name():
@@ -1558,8 +1567,6 @@ class StageUnmerged(StageCarefully):
 class StageUntracked(StageCarefully):
     """Stage all untracked files."""
 
-    SHORTCUT = 'Ctrl+S'
-
     @staticmethod
     def name():
         return N_('Stage Untracked')
@@ -1570,8 +1577,6 @@ class StageUntracked(StageCarefully):
 
 class StageOrUnstage(Command):
     """If the selection is staged, unstage it, otherwise stage"""
-
-    SHORTCUT = 'Ctrl+S'
 
     @staticmethod
     def name():
@@ -1635,8 +1640,6 @@ class Tag(Command):
 
 class Unstage(Command):
     """Unstage a set of paths."""
-
-    SHORTCUT = 'Ctrl+S'
 
     @staticmethod
     def name():

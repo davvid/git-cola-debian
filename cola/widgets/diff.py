@@ -12,6 +12,8 @@ from cola import core
 from cola import gitcfg
 from cola import gitcmds
 from cola import gravatar
+from cola import hotkeys
+from cola import icons
 from cola import qtutils
 from cola.i18n import N_
 from cola.models import main
@@ -20,7 +22,6 @@ from cola.qtutils import add_action
 from cola.qtutils import create_action_button
 from cola.qtutils import create_menu
 from cola.qtutils import RGB, make_format
-from cola.qtutils import options_icon
 from cola.widgets import defs
 from cola.widgets.text import VimMonoTextView
 from cola.compat import ustr
@@ -149,28 +150,27 @@ class DiffEditor(DiffTextEdit):
         self.model = model = main.model()
 
         # "Diff Options" tool menu
-        self.diff_ignore_space_at_eol_action = add_action(self,
-                N_('Ignore changes in whitespace at EOL'),
-                self._update_diff_opts)
+        self.diff_ignore_space_at_eol_action = add_action(
+            self, N_('Ignore changes in whitespace at EOL'),
+            self._update_diff_opts)
         self.diff_ignore_space_at_eol_action.setCheckable(True)
 
-        self.diff_ignore_space_change_action = add_action(self,
-                N_('Ignore changes in amount of whitespace'),
-                self._update_diff_opts)
+        self.diff_ignore_space_change_action = add_action(
+            self, N_('Ignore changes in amount of whitespace'),
+            self._update_diff_opts)
         self.diff_ignore_space_change_action.setCheckable(True)
 
-        self.diff_ignore_all_space_action = add_action(self,
-                N_('Ignore all whitespace'),
-                self._update_diff_opts)
+        self.diff_ignore_all_space_action = add_action(
+            self, N_('Ignore all whitespace'), self._update_diff_opts)
         self.diff_ignore_all_space_action.setCheckable(True)
 
-        self.diff_function_context_action = add_action(self,
-                N_('Show whole surrounding functions of changes'),
-                self._update_diff_opts)
+        self.diff_function_context_action = add_action(
+            self, N_('Show whole surrounding functions of changes'),
+            self._update_diff_opts)
         self.diff_function_context_action.setCheckable(True)
 
         self.diffopts_button = create_action_button(
-                tooltip=N_('Diff Options'), icon=options_icon())
+            tooltip=N_('Diff Options'), icon=icons.configure())
         self.diffopts_menu = create_menu(N_('Diff Options'),
                                          self.diffopts_button)
 
@@ -183,13 +183,12 @@ class DiffEditor(DiffTextEdit):
 
         titlebar.add_corner_widget(self.diffopts_button)
 
-        self.action_apply_selection = qtutils.add_action(self, '',
-                self.apply_selection, Qt.Key_S)
+        self.action_apply_selection = qtutils.add_action(
+            self, 'Apply', self.apply_selection, hotkeys.STAGE_DIFF)
 
-        self.action_revert_selection = qtutils.add_action(self, '',
-                self.revert_selection, Qt.ControlModifier + Qt.Key_U)
-        icon = qtutils.theme_icon('edit-undo.svg')
-        self.action_revert_selection.setIcon(icon)
+        self.action_revert_selection = qtutils.add_action(
+            self, 'Revert', self.revert_selection, hotkeys.REVERT)
+        self.action_revert_selection.setIcon(icons.undo())
 
         self.launch_editor = actions.launch_editor(self, 'Return', 'Enter')
         self.launch_difftool = actions.launch_difftool(self)
@@ -253,12 +252,10 @@ class DiffEditor(DiffTextEdit):
 
         if s.modified and self.model.stageable():
             if s.modified[0] in main.model().submodules:
-                action = menu.addAction(qtutils.add_icon(),
-                                        cmds.Stage.name(),
+                action = menu.addAction(icons.add(), cmds.Stage.name(),
                                         cmds.run(cmds.Stage, s.modified))
-                action.setShortcut(cmds.Stage.SHORTCUT)
-                menu.addAction(qtutils.git_icon(),
-                               N_('Launch git-cola'),
+                action.setShortcut(hotkeys.STAGE_SELECTION)
+                menu.addAction(icons.cola(), N_('Launch git-cola'),
                                cmds.run(cmds.OpenRepo,
                                         core.abspath(s.modified[0])))
             elif s.modified[0] not in main.model().unstaged_deleted:
@@ -270,7 +267,7 @@ class DiffEditor(DiffTextEdit):
                     revert_text = N_('Revert Diff Hunk...')
 
                 self.action_apply_selection.setText(apply_text)
-                self.action_apply_selection.setIcon(qtutils.add_icon())
+                self.action_apply_selection.setIcon(icons.add())
 
                 self.action_revert_selection.setText(revert_text)
 
@@ -279,12 +276,10 @@ class DiffEditor(DiffTextEdit):
 
         if s.staged and self.model.unstageable():
             if s.staged[0] in main.model().submodules:
-                action = menu.addAction(qtutils.remove_icon(),
-                                        cmds.Unstage.name(),
+                action = menu.addAction(icons.remove(), cmds.Unstage.name(),
                                         cmds.do(cmds.Unstage, s.staged))
-                action.setShortcut(cmds.Unstage.SHORTCUT)
-                menu.addAction(qtutils.git_icon(),
-                               N_('Launch git-cola'),
+                action.setShortcut(hotkeys.STAGE_SELECTION)
+                menu.addAction(icons.cola(), N_('Launch git-cola'),
                                cmds.do(cmds.OpenRepo,
                                        core.abspath(s.staged[0])))
             elif s.staged[0] not in main.model().staged_deleted:
@@ -294,7 +289,7 @@ class DiffEditor(DiffTextEdit):
                     apply_text = N_('Unstage Diff Hunk')
 
                 self.action_apply_selection.setText(apply_text)
-                self.action_apply_selection.setIcon(qtutils.remove_icon())
+                self.action_apply_selection.setIcon(icons.remove())
                 menu.addAction(self.action_apply_selection)
 
         if self.model.stageable() or self.model.unstageable():
@@ -314,12 +309,11 @@ class DiffEditor(DiffTextEdit):
         menu.addAction(self.move_down)
 
         menu.addSeparator()
-        action = menu.addAction(qtutils.theme_icon('edit-copy.svg'),
-                                N_('Copy'), self.copy)
+        action = menu.addAction(icons.copy(), N_('Copy'), self.copy)
         action.setShortcut(QtGui.QKeySequence.Copy)
 
-        action = menu.addAction(qtutils.theme_icon('edit-select-all.svg'),
-                                N_('Select All'), self.selectAll)
+        action = menu.addAction(icons.select_all(), N_('Select All'),
+                                self.selectAll)
         action.setShortcut(QtGui.QKeySequence.SelectAll)
         menu.exec_(self.mapToGlobal(event.pos()))
 
@@ -440,9 +434,7 @@ class DiffEditor(DiffTextEdit):
                                N_('This operation drops uncommitted changes.\n'
                                   'These changes cannot be recovered.'),
                                N_('Revert the uncommitted changes?'),
-                               ok_text,
-                               default=True,
-                               icon=qtutils.theme_icon('edit-undo.svg')):
+                               ok_text, default=True, icon=icons.undo()):
             return
         self.process_diff_selection(reverse=True, apply_to_worktree=True)
 
@@ -455,11 +447,12 @@ class DiffEditor(DiffTextEdit):
                 self.has_selection(), reverse, apply_to_worktree)
 
 
-
 class DiffWidget(QtGui.QWidget):
 
     def __init__(self, notifier, parent):
         QtGui.QWidget.__init__(self, parent)
+
+        self.runtask = qtutils.RunTask(parent=self)
 
         author_font = QtGui.QFont(self.font())
         author_font.setPointSize(int(author_font.pointSize() * 1.1))
@@ -493,8 +486,6 @@ class DiffWidget(QtGui.QWidget):
         self.sha1_label.elide()
 
         self.diff = DiffTextEdit(self, whitespace=False)
-        self.tasks = set()
-        self.reflector = QtCore.QObject(self)
 
         self.info_layout = qtutils.vbox(defs.no_margin, defs.no_spacing,
                                         self.author_label, self.summary_label,
@@ -510,22 +501,12 @@ class DiffWidget(QtGui.QWidget):
 
         notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
         notifier.add_observer(FILES_SELECTED, self.files_selected)
-        self.connect(self.reflector, SIGNAL('diff(PyQt_PyObject)'),
-                     self.diff.setText, Qt.QueuedConnection)
-        self.connect(self.reflector, SIGNAL('task_done(PyQt_PyObject)'),
-                     self.task_done, Qt.QueuedConnection)
-
-    def task_done(self, task):
-        try:
-            self.tasks.remove(task)
-        except:
-            pass
 
     def set_diff_sha1(self, sha1, filename=None):
         self.diff.setText('+++ ' + N_('Loading...'))
-        task = DiffInfoTask(sha1, self.reflector, filename=filename)
-        self.tasks.add(task)
-        QtCore.QThreadPool.globalInstance().start(task)
+        task = DiffInfoTask(sha1, filename, self)
+        task.connect(self.diff.setText)
+        self.runtask.start(task)
 
     def commits_selected(self, commits):
         if len(commits) != 1:
@@ -611,14 +592,12 @@ class TextLabel(QtGui.QLabel):
         QtGui.QLabel.resizeEvent(self, event)
 
 
-class DiffInfoTask(QtCore.QRunnable):
+class DiffInfoTask(qtutils.Task):
 
-    def __init__(self, sha1, reflector, filename=None):
-        QtCore.QRunnable.__init__(self)
+    def __init__(self, sha1, filename, parent):
+        qtutils.Task.__init__(self, parent)
         self.sha1 = sha1
-        self.reflector = reflector
         self.filename = filename
 
-    def run(self):
-        diff = gitcmds.diff_info(self.sha1, filename=self.filename)
-        self.reflector.emit(SIGNAL('diff(PyQt_PyObject)'), diff)
+    def task(self):
+        return gitcmds.diff_info(self.sha1, filename=self.filename)

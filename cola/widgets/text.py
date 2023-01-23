@@ -3,6 +3,7 @@ from __future__ import division, absolute_import, unicode_literals
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt, SIGNAL
 
+from cola import hotkeys
 from cola import qtutils
 from cola.compat import ustr
 from cola.i18n import N_
@@ -75,7 +76,7 @@ class TextEdit(QtGui.QTextEdit):
         self.setMinimumSize(QtCore.QSize(1, 1))
         self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         self.setAcceptRichText(False)
-        self.setCursorWidth(2)
+        self.setCursorWidth(defs.cursor_width)
 
     def as_unicode(self):
         return ustr(self.toPlainText())
@@ -212,6 +213,7 @@ class HintWidget(QtCore.QObject):
         QtCore.QObject.__init__(self, widget)
         self._widget = widget
         self._hint = hint
+        self._is_error = False
         widget.installEventFilter(self)
 
         # Palette for normal text
@@ -221,6 +223,13 @@ class HintWidget(QtCore.QObject):
         self.hint_palette = pal = QtGui.QPalette(widget.palette())
         color = self.hint_palette.text().color()
         color.setAlpha(128)
+        pal.setColor(QtGui.QPalette.Active, QtGui.QPalette.Text, color)
+        pal.setColor(QtGui.QPalette.Inactive, QtGui.QPalette.Text, color)
+
+        # Palette for error text
+        self.error_palette = pal = QtGui.QPalette(widget.palette())
+        color = QtGui.QColor(Qt.red)
+        color.setAlpha(200)
         pal.setColor(QtGui.QPalette.Active, QtGui.QPalette.Text, color)
         pal.setColor(QtGui.QPalette.Inactive, QtGui.QPalette.Text, color)
 
@@ -235,6 +244,11 @@ class HintWidget(QtCore.QObject):
     def value(self):
         """Return the current hint text"""
         return self._hint
+
+    def set_error(self, is_error):
+        """Enable/disable error mode"""
+        self._is_error = is_error
+        self.refresh()
 
     def set_value(self, hint):
         """Change the hint text"""
@@ -251,18 +265,21 @@ class HintWidget(QtCore.QObject):
             self._widget.cursor_position.reset()
         else:
             self._widget.clear()
-        self._enable_hint_palette(hint)
+        self._update_palette(hint)
 
     def refresh(self):
         """Update the palette to match the current mode"""
-        self._enable_hint_palette(self.active())
+        self._update_palette(self.active())
 
-    def _enable_hint_palette(self, hint):
-        """Enable/disable the hint-mode palette"""
-        if hint:
-            self._widget.setPalette(self.hint_palette)
+    def _update_palette(self, hint):
+        """Update to palette for normal/error/hint mode"""
+        if self._is_error:
+            self._widget.setPalette(self.error_palette)
         else:
-            self._widget.setPalette(self.default_palette)
+            if hint:
+                self._widget.setPalette(self.hint_palette)
+            else:
+                self._widget.setPalette(self.default_palette)
 
     def eventFilter(self, obj, event):
         """Enable/disable hint-mode when focus changes"""
@@ -312,22 +329,22 @@ class VimMixin(object):
     def __init__(self, base):
         self._base = base
         # Common vim/unix-ish keyboard actions
-        self.add_navigation('Up', Qt.Key_K, shift=True)
-        self.add_navigation('Down', Qt.Key_J, shift=True)
-        self.add_navigation('Left', Qt.Key_H, shift=True)
-        self.add_navigation('Right', Qt.Key_L, shift=True)
-        self.add_navigation('WordLeft', Qt.Key_B)
-        self.add_navigation('WordRight', Qt.Key_W)
-        self.add_navigation('StartOfLine', Qt.Key_0)
-        self.add_navigation('EndOfLine', Qt.Key_Dollar)
+        self.add_navigation('Up', hotkeys.MOVE_UP, shift=True)
+        self.add_navigation('Down', hotkeys.MOVE_DOWN, shift=True)
+        self.add_navigation('Left', hotkeys.MOVE_LEFT, shift=True)
+        self.add_navigation('Right', hotkeys.MOVE_RIGHT, shift=True)
+        self.add_navigation('WordLeft', hotkeys.WORD_LEFT)
+        self.add_navigation('WordRight', hotkeys.WORD_RIGHT)
+        self.add_navigation('StartOfLine', hotkeys.START_OF_LINE)
+        self.add_navigation('EndOfLine', hotkeys.END_OF_LINE)
 
         qtutils.add_action(self, 'PageUp',
                            lambda: self.page(-self.height()//2),
-                           Qt.ShiftModifier + Qt.Key_Space)
+                           hotkeys.SECONDARY_ACTION)
 
         qtutils.add_action(self, 'PageDown',
                            lambda: self.page(self.height()//2),
-                           Qt.Key_Space)
+                           hotkeys.PRIMARY_ACTION)
 
     def add_navigation(self, name, hotkey, shift=False):
         """Add a hotkey along with a shift-variant"""
@@ -335,9 +352,9 @@ class VimMixin(object):
         qtutils.add_action(self, name,
                            lambda: self.move(direction), hotkey)
         if shift:
-            qtutils.add_action(self, 'Shift'+name,
+            qtutils.add_action(self, 'Shift' + name,
                                lambda: self.move(direction, True),
-                               Qt.ShiftModifier+hotkey)
+                               Qt.ShiftModifier | hotkey)
 
     def move(self, direction, select=False, n=1):
         cursor = self.textCursor()
@@ -351,7 +368,7 @@ class VimMixin(object):
     def page(self, offset):
         rect = self.cursorRect()
         x = rect.x()
-        y = max(0, rect.y() + offset)
+        y = rect.y() + offset
         new_cursor = self.cursorForPosition(QtCore.QPoint(x, y))
         if new_cursor is not None:
             self.set_text_cursor(new_cursor)

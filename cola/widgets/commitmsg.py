@@ -11,6 +11,8 @@ from cola import cmds
 from cola import core
 from cola import gitcmds
 from cola import gitcfg
+from cola import hotkeys
+from cola import icons
 from cola import textwrap
 from cola import qtutils
 from cola.cmds import Interaction
@@ -19,6 +21,7 @@ from cola.i18n import N_
 from cola.models import dag
 from cola.models import prefs
 from cola.models import selection
+from cola.utils import Group
 from cola.widgets import defs
 from cola.widgets.selectcommits import select_commits
 from cola.widgets.spellcheck import SpellCheckTextEdit
@@ -40,13 +43,12 @@ class CommitMessageEditor(QtGui.QWidget):
         # Actions
         self.signoff_action = qtutils.add_action(self, cmds.SignOff.name(),
                                                  cmds.run(cmds.SignOff),
-                                                 cmds.SignOff.SHORTCUT)
+                                                 hotkeys.SIGNOFF)
         self.signoff_action.setToolTip(N_('Sign off on this commit'))
 
         self.commit_action = qtutils.add_action(self,
                                                 N_('Commit@@verb'),
-                                                self.commit,
-                                                cmds.Commit.SHORTCUT)
+                                                self.commit, hotkeys.COMMIT)
         self.commit_action.setToolTip(N_('Commit staged changes'))
         self.clear_action = qtutils.add_action(self, N_('Clear...'), self.clear)
 
@@ -88,12 +90,13 @@ class CommitMessageEditor(QtGui.QWidget):
         commit_button_tooltip = N_('Commit staged changes\n'
                                    'Shortcut: Ctrl+Enter')
         self.commit_button = qtutils.create_toolbutton(
-                text=N_('Commit@@verb'), tooltip=commit_button_tooltip,
-                icon=qtutils.save_icon())
+            text=N_('Commit@@verb'), tooltip=commit_button_tooltip,
+            icon=icons.download())
+        self.commit_group = Group(self.commit_action, self.commit_button)
 
         self.actions_menu = QtGui.QMenu()
         self.actions_button = qtutils.create_toolbutton(
-                icon=qtutils.options_icon(), tooltip=N_('Actions...'))
+            icon=icons.configure(), tooltip=N_('Actions...'))
         self.actions_button.setMenu(self.actions_menu)
         self.actions_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         qtutils.hide_button_menu_indicator(self.actions_button)
@@ -106,7 +109,7 @@ class CommitMessageEditor(QtGui.QWidget):
         self.amend_action = self.actions_menu.addAction(
                 N_('Amend Last Commit'))
         self.amend_action.setCheckable(True)
-        self.amend_action.setShortcut(cmds.AmendMode.SHORTCUT)
+        self.amend_action.setShortcut(hotkeys.AMEND)
         self.amend_action.setShortcutContext(Qt.ApplicationShortcut)
 
         # Bypass hooks
@@ -167,12 +170,10 @@ class CommitMessageEditor(QtGui.QWidget):
         qtutils.connect_action_bool(self.autowrap_action, self.set_linebreak)
 
         qtutils.add_action(self.summary, N_('Move Down'),
-                           self.focus_description,
-                           Qt.Key_Return, Qt.Key_Enter)
+                           self.focus_description, *hotkeys.ACCEPT)
 
         qtutils.add_action(self.summary, N_('Move Down'),
-                           self.summary_cursor_down,
-                           Qt.Key_Down)
+                           self.summary_cursor_down, hotkeys.DOWN)
 
         self.selection_model = selection_model = selection.selection_model()
         selection_model.add_observer(selection_model.message_selection_changed,
@@ -209,8 +210,7 @@ class CommitMessageEditor(QtGui.QWidget):
         self.summary.hint.enable(True)
         self.description.hint.enable(True)
 
-        self.commit_button.setEnabled(False)
-        self.commit_action.setEnabled(False)
+        self.commit_group.setEnabled(False)
 
         self.setFocusProxy(self.summary)
 
@@ -324,16 +324,13 @@ class CommitMessageEditor(QtGui.QWidget):
                 N_('Clear commit message?'),
                 N_('The commit message will be cleared.'),
                 N_('This cannot be undone.  Clear commit message?'),
-                N_('Clear commit message'),
-                default=True,
-                icon=qtutils.discard_icon()):
+                N_('Clear commit message'), default=True, icon=icons.discard()):
             return
         self.model.set_commitmsg('')
 
     def update_actions(self):
         commit_enabled = bool(self.summary.value())
-        self.commit_button.setEnabled(commit_enabled)
-        self.commit_action.setEnabled(commit_enabled)
+        self.commit_group.setEnabled(commit_enabled)
 
     def refresh_palettes(self):
         """Update the color palette for the hint text"""
@@ -459,11 +456,9 @@ class CommitMessageEditor(QtGui.QWidget):
                 informative_text = N_('Would you like to stage and '
                                       'commit all modified files?')
                 if not qtutils.confirm(
-                        N_('Stage and commit?'),
-                        error_msg, informative_text,
+                        N_('Stage and commit?'), error_msg, informative_text,
                         N_('Stage and Commit'),
-                        default=True,
-                        icon=qtutils.save_icon()):
+                        default=True, icon=icons.save()):
                     return
             else:
                 Interaction.information(N_('Nothing to commit'), error_msg)
@@ -479,8 +474,7 @@ class CommitMessageEditor(QtGui.QWidget):
                            'This operation will rewrite published history.\n'
                            'You probably don\'t want to do this.'),
                         N_('Amend the published commit?'),
-                        N_('Amend Commit'),
-                        default=False, icon=qtutils.save_icon())):
+                        N_('Amend Commit'), default=False, icon=icons.save())):
             return
         no_verify = self.bypass_commit_hooks_action.isChecked()
         sign = self.sign_action.isChecked()
@@ -598,7 +592,7 @@ class CommitMessageTextEdit(SpellCheckTextEdit):
         self.extra_actions = []
 
         self.action_emit_leave = qtutils.add_action(self,
-                'Shift Tab', self.emit_leave, 'Shift+Tab')
+                'Shift Tab', self.emit_leave, hotkeys.LEAVE)
 
     def contextMenuEvent(self, event):
         menu, spell_menu = self.context_menu()

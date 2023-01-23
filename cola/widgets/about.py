@@ -6,6 +6,7 @@ from PyQt4.QtCore import Qt
 
 from cola import core
 from cola import resources
+from cola import hotkeys
 from cola import qtutils
 from cola import version
 from cola.i18n import N_
@@ -64,8 +65,7 @@ class AboutView(QtGui.QDialog):
         self.text.setReadOnly(True)
         self.text.setPlainText(COPYRIGHT)
 
-        self.close_button = QtGui.QPushButton()
-        self.close_button.setText(N_('Close'))
+        self.close_button = qtutils.close_button()
         self.close_button.setDefault(True)
 
         self.button_layout = qtutils.hbox(defs.spacing, defs.margin,
@@ -98,8 +98,8 @@ def show_shortcuts():
     try:
         html = show_shortcuts.html
     except AttributeError:
-        hotkeys = resources.doc(N_('hotkeys.html'))
-        html = show_shortcuts.html = core.read(hotkeys)
+        hotkeys_html = resources.doc(N_('hotkeys.html'))
+        html = show_shortcuts.html = core.read(hotkeys_html)
 
     try:
         widget = show_shortcuts.widget
@@ -115,8 +115,7 @@ def show_shortcuts():
         layout = qtutils.hbox(defs.no_margin, defs.spacing, web)
         widget.setLayout(layout)
         widget.resize(800, min(parent.height(), 600))
-
         qtutils.add_action(widget, N_('Close'), widget.accept,
-                           Qt.Key_Question, Qt.Key_Enter, Qt.Key_Return)
+                           hotkeys.QUESTION, *hotkeys.ACCEPT)
     widget.show()
     return widget
