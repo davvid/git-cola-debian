@@ -171,14 +171,14 @@ class MainWindowMixin(WidgetMixin):
 
     def apply_state(self, state):
         result = WidgetMixin.apply_state(self, state)
-        windowstate = state.get('windowstate', None)
-        if windowstate is None:
-            result = False
-        else:
+        windowstate = state.get('windowstate', '')
+        if windowstate:
             from_base64 = QtCore.QByteArray.fromBase64
             result = self.restoreState(
                 from_base64(core.encode(windowstate)),
                 self.widget_version) and result
+        else:
+            result = False
 
         self.lock_layout = state.get('lock_layout', self.lock_layout)
         self.update_dockwidget_lock_state()
@@ -702,6 +702,11 @@ class SpinBox(QtWidgets.QSpinBox):
             self.setSingleStep(step)
         if value is not None:
             self.setValue(value)
+
+        font = self.font()
+        metrics = QtGui.QFontMetrics(font)
+        width = max(self.minimumWidth(), metrics.width('XXXXXX'))
+        self.setMinimumWidth(width)
 
 
 def export_header_columns(widget, state):

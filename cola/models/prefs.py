@@ -3,6 +3,7 @@ from __future__ import division, absolute_import, unicode_literals
 import sys
 
 from .. import core
+from .. import hidpi
 from .. import observable
 from .. import utils
 from ..cmd import Command
@@ -19,6 +20,7 @@ DISPLAY_UNTRACKED = 'gui.displayuntracked'
 EDITOR = 'gui.editor'
 FONTDIFF = 'cola.fontdiff'
 HISTORY_BROWSER = 'gui.historybrowser'
+ICON_THEME = 'cola.icontheme'
 LINEBREAK = 'cola.linebreak'
 MAXRECENT = 'cola.maxrecent'
 MERGE_DIFFSTAT = 'merge.diffstat'
@@ -29,6 +31,8 @@ MERGETOOL = 'merge.tool'
 EXPANDTAB = 'cola.expandtab'
 SAVEWINDOWSETTINGS = 'cola.savewindowsettings'
 SORT_BOOKMARKS = 'cola.sortbookmarks'
+STATUS_INDENT = 'cola.statusindent'
+STATUS_SHOW_TOTALS = 'cola.statusshowtotals'
 TABWIDTH = 'cola.tabwidth'
 TEXTWIDTH = 'cola.textwidth'
 USER_EMAIL = 'user.email'
@@ -36,6 +40,8 @@ USER_NAME = 'user.name'
 SAFE_MODE = 'cola.safemode'
 SHOW_PATH = 'cola.showpath'
 SPELL_CHECK = 'cola.spellcheck'
+THEME = 'cola.theme'
+HIDPI = 'cola.hidpi'
 
 
 class Defaults(object):
@@ -51,13 +57,14 @@ class Defaults(object):
     editor = 'gvim'
     expandtab = False
     history_browser = 'gitk'
+    icon_theme = 'default'
     linebreak = True
     maxrecent = 8
     mergetool = difftool
     merge_diffstat = True
     merge_keep_backup = True
     merge_summary = True
-    merge_verbosity = 4
+    merge_verbosity = 2
     save_window_settings = True
     safe_mode = False
     show_path = True
@@ -65,6 +72,10 @@ class Defaults(object):
     spellcheck = False
     tabwidth = 8
     textwidth = 72
+    theme = 'default'
+    hidpi = hidpi.Option.AUTO
+    status_indent = False
+    status_show_totals = False
 
 
 def blame_viewer(context):
@@ -154,6 +165,15 @@ def tabwidth(context):
 
 def textwidth(context):
     return context.cfg.get(TEXTWIDTH, default=Defaults.textwidth)
+
+
+def status_indent(context):
+    return context.cfg.get(STATUS_INDENT, default=Defaults.status_indent)
+
+
+def status_show_totals(context):
+    return context.cfg.get(STATUS_SHOW_TOTALS,
+                           default=Defaults.status_show_totals)
 
 
 class PreferencesModel(observable.Observable):

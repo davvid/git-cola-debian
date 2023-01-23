@@ -264,20 +264,16 @@ class RemoteActionDialog(standard.Dialog):
         self.top_layout = qtutils.hbox(defs.no_margin, defs.spacing, *widgets)
 
         self.main_layout = qtutils.vbox(
-            defs.no_margin, defs.spacing,
+            defs.margin, defs.spacing,
             self.top_layout, self.options_layout)
         self.setLayout(self.main_layout)
 
+        # Select the upstream remote if configured, or "origin"
         default_remote = gitcmds.upstream_remote(context) or 'origin'
-
-        remotes = self.model.remotes
-        if default_remote in remotes:
-            idx = remotes.index(default_remote)
-            if self.select_remote(idx):
-                self.set_remote_name(default_remote)
-        else:
-            if self.select_first_remote():
-                self.set_remote_name(remotes[0])
+        if self.select_remote_by_name(default_remote):
+            self.set_remote_name(default_remote)
+        elif self.select_first_remote():
+            self.set_remote_name(model.remotes[0])
 
         # Trim the remote list to just the default remote
         self.update_remotes()
@@ -391,6 +387,36 @@ class RemoteActionDialog(standard.Dialog):
         else:
             result = False
         return result
+
+    def select_remote_by_name(self, remote):
+        """Select a remote by name"""
+        remotes = self.model.remotes
+        if remote in remotes:
+            idx = remotes.index(remote)
+            result = self.select_remote(idx)
+        else:
+            result = False
+        return result
+
+    def set_selected_remotes(self, remotes):
+        """Set the list of selected remotes
+
+        Return True if all remotes were found and selected.
+
+        """
+        # Invalid remote names are ignored.
+        # This handles a remote going away between sessions.
+        # The selection is unchanged when none of the specified remotes exist.
+        found = False
+        for remote in remotes:
+            if remote in self.model.remotes:
+                found = True
+                break
+        if found:
+            # Only clear the selection if the specified remotes exist
+            self.remotes.clearSelection()
+            found = all([self.select_remote_by_name(x) for x in remotes])
+        return found
 
     def select_local_branch(self, idx):
         """Selects a local branch by index in the list view"""
@@ -639,19 +665,33 @@ class Push(RemoteActionDialog):
     def export_state(self):
         """Export persistent settings"""
         state = RemoteActionDialog.export_state(self)
-        state['tags'] = get(self.tags_checkbox)
         state['prompt'] = get(self.prompt_checkbox)
+        state['remote'] = get(self.remote_name)
+        state['selection'] = self.selected_remotes
+        state['tags'] = get(self.tags_checkbox)
         return state
 
     def apply_state(self, state):
         """Apply persistent settings"""
         result = RemoteActionDialog.apply_state(self, state)
 
+        # Restore the "prompt on creation" checkbox
+        prompt = bool(state.get('prompt', True))
+        self.prompt_checkbox.setChecked(prompt)
+
+        # Restore the "remote" text
+        remote = state.get('remote', None)
+        if remote is not None:
+            self.set_remote_name(remote)
+
+        # Restore selected remotes
+        selection = state.get('selection', [])
+        self.set_selected_remotes(selection)
+
+        # Restore the "tags" checkbox
         tags = bool(state.get('tags', False))
         self.tags_checkbox.setChecked(tags)
 
-        prompt = bool(state.get('prompt', True))
-        self.prompt_checkbox.setChecked(prompt)
         return result
 
 

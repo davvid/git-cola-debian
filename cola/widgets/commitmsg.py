@@ -28,7 +28,7 @@ from .spellcheck import SpellCheckTextEdit
 from .text import HintedLineEdit
 
 
-class CommitMessageEditor(QtWidgets.QWidget):
+class CommitMessageEditor(QtWidgets.QFrame):
     commit_message_changed = Signal(object)
     cursor_changed = Signal(int, int)
     down = Signal()
@@ -36,7 +36,7 @@ class CommitMessageEditor(QtWidgets.QWidget):
     updated = Signal()
 
     def __init__(self, context, parent):
-        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QFrame.__init__(self, parent)
         self.context = context
         self.model = model = context.model
         self.spellcheck_initialized = False
@@ -103,8 +103,6 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.actions_button = qtutils.create_toolbutton(
             icon=icons.configure(), tooltip=N_('Actions...'))
         self.actions_button.setMenu(self.actions_menu)
-        self.actions_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
-        qtutils.hide_button_menu_indicator(self.actions_button)
 
         self.actions_menu.addAction(self.signoff_action)
         self.actions_menu.addAction(self.commit_action)

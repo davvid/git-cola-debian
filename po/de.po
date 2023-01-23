@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: git-cola VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2018-04-14 07:38+0200\n"
-"PO-Revision-Date: 2018-04-14 08:23+0200\n"
+"PO-Revision-Date: 2019-03-07 07:18+0100\n"
 "Last-Translator: Kai Krakow <kai@kaishome.de>\n"
 "Language-Team: German\n"
 "Language: de\n"
@@ -507,6 +507,12 @@ msgstr "Alter"
 msgid "All Repositories"
 msgstr "Alle Repositories"
 
+#, python-format
+msgid ""
+"All submodules will be updated using\n"
+"\"%s\""
+msgstr ""
+
 msgid "Allow non-fast-forward updates.  Using \"force\" can cause the remote repository to lose commits; use it with care"
 msgstr "Aktualisierungen ohne schnelles Vorspulen erlauben.  Die Nutzung von \"force\" kann dazu führen, dass im externen Repository Commits verloren gehen; seien Sie vorsichtig"
 
@@ -542,6 +548,9 @@ msgstr ""
 "Stattdessen wird ein einfacher, unsignierter Tag erstellt.\n"
 "Unsignierten Tag erstellen?"
 
+msgid "Appearance"
+msgstr ""
+
 msgid "Apply"
 msgstr "Anwenden"
 
@@ -551,7 +560,6 @@ msgstr "Patches anwenden"
 msgid "Apply Patches..."
 msgstr "Patches anwenden..."
 
-#, fuzzy
 msgid "Apply and drop the selected stash (git stash pop)"
 msgstr "Die ausgewählte Ablage in den Arbeitsbereich zurück übernehmen"
 
@@ -570,6 +578,9 @@ msgstr "Autor"
 msgid "Authors"
 msgstr "Autoren"
 
+msgid "Auto"
+msgstr ""
+
 msgid "Auto-Wrap Lines"
 msgstr "Zeilen automatisch umbrechen"
 
@@ -579,11 +590,14 @@ msgstr "Einfacher regulärer Ausdruck"
 msgid "Blame Viewer"
 msgstr "Verantwortlichkeitsbetrachter"
 
+msgid "Blame selected paths"
+msgstr ""
+
 msgid "Blame..."
 msgstr "Verantwortlichkeit..."
 
-msgid "Bold on dark headers instead of italic (restart required)"
-msgstr "Fettschrift mit dunklem Hintergrund verwenden anstelle von schräg geschriebenen Überschriften (Neustart erforderlich)"
+msgid "Bold on dark headers instead of italic"
+msgstr "Fettschrift mit dunklem Hintergrund verwenden anstelle von schräg geschriebenen Überschriften"
 
 msgid "Branch"
 msgstr "Branch"
@@ -871,8 +885,14 @@ msgstr "Tschechische Übersetzung"
 msgid "DAG..."
 msgstr "DAG..."
 
+msgid "Dark Theme"
+msgstr ""
+
 msgid "Date, Time"
 msgstr "Datum und Zeit"
+
+msgid "Default"
+msgstr ""
 
 msgid "Delete"
 msgstr "Löschen"
@@ -1079,6 +1099,13 @@ msgstr "Fehler beim Umbenennen von \"%(name)s\" in \"%(new_name)s\""
 msgid "Error running prepare-commitmsg hook"
 msgstr "Fehler beim Aufrufen der Vor-Eintragen-Kontrolle"
 
+#, python-format
+msgid "Error updating submodule %s"
+msgstr ""
+
+msgid "Error updating submodules"
+msgstr ""
+
 msgid "Error: Cannot find commit template"
 msgstr "Fehler: Commit-Vorlage nicht gefunden"
 
@@ -1201,6 +1228,30 @@ msgstr "Nachbessern (fixup)"
 msgid "Fixup Previous Commit"
 msgstr "Vorherigen Commit nachbessern (fixup)"
 
+msgid "Flat dark blue"
+msgstr ""
+
+msgid "Flat dark green"
+msgstr ""
+
+msgid "Flat dark grey"
+msgstr ""
+
+msgid "Flat dark red"
+msgstr ""
+
+msgid "Flat light blue"
+msgstr ""
+
+msgid "Flat light green"
+msgstr ""
+
+msgid "Flat light grey"
+msgstr ""
+
+msgid "Flat light red"
+msgstr ""
+
 msgid "Font Size"
 msgstr "Schriftgröße"
 
@@ -1235,6 +1286,9 @@ msgstr "Französische Übersetzung"
 
 msgid "GPG-sign the merge commit"
 msgstr "GPG-signierter Merge-Commit"
+
+msgid "GUI theme"
+msgstr ""
 
 #, python-format
 msgid "Gathering info for \"%s\"..."
@@ -1279,11 +1333,17 @@ msgstr "Hilfe - git-xbase"
 msgid "Hide Details.."
 msgstr ""
 
+msgid "High DPI"
+msgstr ""
+
 msgid "History Browser"
 msgstr "Werkzeug für die Verlaufsansicht"
 
 msgid "Hungarian translation"
 msgstr "Ungarische Übersetzung"
+
+msgid "Icon theme"
+msgstr ""
 
 msgid "Ignore all whitespace"
 msgstr "Alle Leerzeichen ignorieren"
@@ -1305,6 +1365,9 @@ msgstr "Dateiname oder Muster ignorieren"
 
 msgid "Include tags "
 msgstr "Übernehmen der Tags "
+
+msgid "Indent Status paths"
+msgstr ""
 
 msgid "Indonesian translation"
 msgstr "Indonesische Übersetzung"
@@ -1363,6 +1426,9 @@ msgstr "Git-difftool gegen Vorversionen ausführen"
 
 msgid "Launch git-difftool on the current path"
 msgstr "Gegenwärtigen Pfad im Vergleichswerkzeug öffnen"
+
+msgid "Light Theme"
+msgstr ""
 
 msgid "Load Commit Message"
 msgstr "Commit-Beschreibung laden"
@@ -1524,6 +1590,9 @@ msgstr "Öffnen"
 msgid "Open Git Repository..."
 msgstr "Git-Repository öffnen..."
 
+msgid "Open Parent"
+msgstr ""
+
 msgid "Open Parent Directory"
 msgstr "Übergeordnetes Verzeichnis öffnen"
 
@@ -1554,10 +1623,6 @@ msgstr "Möchten Sie die Datei\"%s\" überschreiben?"
 
 msgid "Overwrite File?"
 msgstr "Möchten Sie die Datei überschreiben?"
-
-#, python-format
-msgid "PATCH %(current)d/%(count)d"
-msgstr "PATCH %(current)d/%(count)d"
 
 msgid ""
 "Parse arguments using a shell.\n"
@@ -1793,32 +1858,26 @@ msgstr "Branch-Head zurücksetzen"
 msgid "Reset Branch?"
 msgstr "Branch zurücksetzen?"
 
-#, fuzzy
 msgid "Reset Hard"
-msgstr "Branch-Head zurücksetzen"
+msgstr ""
 
-#, fuzzy
 msgid "Reset Merge"
-msgstr "Zusammenzuführende Revision"
+msgstr ""
 
-#, fuzzy
 msgid "Reset Soft"
-msgstr "Arbeitsbaum zurücksetzen"
+msgstr ""
 
 msgid "Reset Worktree"
 msgstr "Arbeitsbaum zurücksetzen"
 
-#, fuzzy
 msgid "Reset hard?"
-msgstr "Branch zurücksetzen?"
+msgstr ""
 
-#, fuzzy
 msgid "Reset merge?"
-msgstr "Arbeitsbaum zurücksetzen?"
+msgstr ""
 
-#, fuzzy
 msgid "Reset soft?"
-msgstr "»%s« zurücksetzen?"
+msgstr ""
 
 msgid "Reset worktree?"
 msgstr "Arbeitsbaum zurücksetzen?"
@@ -1826,6 +1885,9 @@ msgstr "Arbeitsbaum zurücksetzen?"
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Das Zurücksetzen von \"%(branch)s\" nach \"%(revision)s\" verwirft Commits."
+
+msgid "Restart the application after changing appearance settings."
+msgstr ""
 
 msgid "Revert"
 msgstr ""
@@ -2045,6 +2107,11 @@ msgstr "Standard-Repository auswählen"
 msgid "Set Upstream Branch"
 msgstr "Upstream-Branch setzen"
 
+msgid ""
+"Set the sort order for branches and tags.\n"
+"Toggle between date-based and version-name-based sorting."
+msgstr ""
+
 msgid "Set upstream"
 msgstr "Neuen Upstream setzen"
 
@@ -2063,9 +2130,8 @@ msgstr "Nach oben schieben"
 msgid "Shortcuts"
 msgstr "Tastenkürzel"
 
-#, fuzzy
 msgid "Show Details..."
-msgstr "Lösche Datei(en)..."
+msgstr ""
 
 msgid "Show Diffstat After Merge"
 msgstr "Vergleichsstatistik nach Zusammenführen anzeigen"
@@ -2078,6 +2144,9 @@ msgstr "Hilfe anzeigen"
 
 msgid "Show History"
 msgstr "Verlauf anzeigen"
+
+msgid "Show file counts in Status titles"
+msgstr ""
 
 msgid ""
 "Show help\n"
@@ -2222,14 +2291,14 @@ msgstr "Zustand"
 msgid "Stop tracking paths"
 msgstr "Versionskontrolle für den ausgewählten Pfad beenden"
 
+msgid "Submodules"
+msgstr ""
+
 msgid "Summarize Merge Commits"
 msgstr "Zusammenfassung beim Zusammenführen anzeigen"
 
 msgid "Summary"
 msgstr "Zusammenfassung"
-
-msgid "Summary:"
-msgstr "Zusammenfassung:"
 
 msgid "Tab Width"
 msgstr "Tabulatorweite"
@@ -2255,21 +2324,21 @@ msgstr "Textbreite"
 msgid "The branch will be no longer available."
 msgstr "Der Branch wird nicht mehr verfügbar sein."
 
-#, fuzzy, python-format
+#, python-format
 msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
+msgstr "Der Branch wird zurückgesetzt mit \"git reset --hard %s\""
 
-#, fuzzy, python-format
+#, python-format
 msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
+msgstr "Der Branch wird zurückgesetzt mit \"git reset --merge %s\""
 
 #, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
 
-#, fuzzy, python-format
+#, python-format
 msgid "The branch will be reset using \"git reset --soft %s\""
-msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
+msgstr "Der Branch wird zurückgesetzt mit \"git reset --soft %s\""
 
 msgid "The commit message will be cleared."
 msgstr "Die Commit-Beschreibung wird geleert."
@@ -2284,9 +2353,15 @@ msgstr "Die folgenden Zeilen werden gleich gelöscht:"
 msgid "The revision expression cannot be empty."
 msgstr "Der Ausdruck darf nicht leer sein."
 
-#, fuzzy, python-format
+#, python-format
+msgid ""
+"The submodule will be updated using\n"
+"\"%s\""
+msgstr ""
+
+#, python-format
 msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "Der Arbeitsbaum wird zurückgesetzt mit \"git reset --merge %s\""
+msgstr "Der Arbeitsbaum wird zurückgesetzt mit \"git reset --keep %s\""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "Dies kann nicht rückgängig gemacht werden. Commit-Beschreibung leeren?"
@@ -2416,8 +2491,32 @@ msgstr "Nicht unter Versionskontrolle"
 msgid "Untracking: %s"
 msgstr "Nicht mehr verfolgen: %s"
 
+msgid "Update All Submodules..."
+msgstr ""
+
 msgid "Update Existing Branch:"
 msgstr "Existierenden Branch aktualisieren:"
+
+msgid "Update Submodule"
+msgstr ""
+
+msgid "Update Submodule..."
+msgstr ""
+
+msgid "Update Submodules"
+msgstr ""
+
+msgid "Update all submodules?"
+msgstr ""
+
+msgid "Update submodules..."
+msgstr ""
+
+msgid "Update this submodule"
+msgstr ""
+
+msgid "Update this submodule?"
+msgstr ""
 
 msgid "Updating"
 msgstr "Aktualisierung"
@@ -2517,6 +2616,15 @@ msgstr "unbekannt"
 msgid "vX.Y.Z"
 msgstr "vX.Y.Z"
 
+msgid "x 1"
+msgstr ""
+
+msgid "x 1.5"
+msgstr ""
+
+msgid "x 2"
+msgstr ""
+
 msgid "yyyy-MM-dd"
 msgstr "dd.MM.yyyy"
 
@@ -2543,9 +2651,8 @@ msgstr "dd.MM.yyyy"
 #~ "Dies ist ein bekanntes Problem der Tcl-Version, die\n"
 #~ "in Cygwin mitgeliefert wird."
 
-#, fuzzy
 #~ msgid "\"%s\" returned exit status %d"
-#~ msgstr "\"%(command)s\" wurde mit Code %(status)d beendet"
+#~ msgstr "\"%s\" wurde mit Code %d beendet"
 
 #~ msgid "\"git %s\" succeeded."
 #~ msgstr "\"git %s\" erfolgreich ausgeführt."
@@ -2803,9 +2910,8 @@ msgstr "dd.MM.yyyy"
 #~ msgid "Enter Git Repository"
 #~ msgstr "Git Projektarchiv:"
 
-#, fuzzy
 #~ msgid "Error %s"
-#~ msgstr "Fehler: \"%s\""
+#~ msgstr "Fehler: %s"
 
 #~ msgid "Error loading commit data for amend:"
 #~ msgstr "Fehler beim Laden der Versionsdaten für Nachbessern:"
@@ -3097,7 +3203,6 @@ msgstr "dd.MM.yyyy"
 #~ msgid "Number of packs"
 #~ msgstr "Anzahl Komprimierungseinheiten"
 
-#, fuzzy
 #~ msgid "On Debian-based systems try: sudo apt-get install python-pyinotify"
 #~ msgstr "Wenn Sie git-cola auf einem Debian-System gestartet haben, versuchen Sie es mit \"sudo apt-get install python-pyinotify\" "
 
@@ -3122,6 +3227,9 @@ msgstr "dd.MM.yyyy"
 
 #~ msgid "Output: %s"
 #~ msgstr "Ausgabe: \"%s\""
+
+#~ msgid "PATCH %(current)d/%(count)d"
+#~ msgstr "PATCH %(current)d/%(count)d"
 
 #~ msgid "Packed objects waiting for pruning"
 #~ msgstr "Komprimierte Objekte, die zum Aufräumen vorgesehen sind"
@@ -3212,9 +3320,8 @@ msgstr "dd.MM.yyyy"
 #~ msgid "Refreshing file status..."
 #~ msgstr "Dateistatus aktualisieren..."
 
-#, fuzzy
 #~ msgid "Remote Branches"
-#~ msgstr "Externer Zweig"
+#~ msgstr ""
 
 #~ msgid "Remote:"
 #~ msgstr "Anderes Archiv:"
@@ -3246,9 +3353,6 @@ msgstr "dd.MM.yyyy"
 #~ "Wenn Sie zurücksetzen, gehen alle noch nicht eingetragenen Änderungen verloren.\n"
 #~ "\n"
 #~ "Änderungen jetzt zurücksetzen?"
-
-#~ msgid "Restore Defaults"
-#~ msgstr "Voreinstellungen wiederherstellen"
 
 #~ msgid "Revert Uncommitted Changes..."
 #~ msgstr "Nicht versionierte Änderungen verwerfen"
@@ -3304,9 +3408,8 @@ msgstr "dd.MM.yyyy"
 #~ msgid "Staged for removal, still present"
 #~ msgstr "Bereitgestellt zum Löschen, trotzdem vorhanden"
 
-#, fuzzy
 #~ msgid "Staging Area"
-#~ msgstr "Vermerke Änderung an »%s«"
+#~ msgstr ""
 
 #~ msgid "Staging area (index) is already locked."
 #~ msgstr "Bereitstellung (»index«) ist zur Bearbeitung gesperrt (»locked«)."
@@ -3328,6 +3431,9 @@ msgstr "dd.MM.yyyy"
 
 #~ msgid "Successfully saved bookmarks"
 #~ msgstr "Die Favoriten wurden erfolgreich gesichert."
+
+#~ msgid "Summary:"
+#~ msgstr "Zusammenfassung:"
 
 #~ msgid "The 'master' branch has not been initialized."
 #~ msgstr "Der »master«-Zweig wurde noch nicht initialisiert."
@@ -3452,9 +3558,6 @@ msgstr "dd.MM.yyyy"
 #~ msgid "Unsupported spell checker"
 #~ msgstr "Rechtschreibprüfungsprogramm nicht unterstützt"
 
-#~ msgid "Updated"
-#~ msgstr "Aktualisiert"
-
 #~ msgid "Updating the Git index failed.  A rescan will be automatically started to resynchronize git-gui."
 #~ msgstr "Das Aktualisieren der Git-Bereitstellung ist fehlgeschlagen. Eine allgemeine Git-Aktualisierung wird jetzt gestartet, um git-gui wieder mit git zu synchronisieren."
 
@@ -3544,9 +3647,8 @@ msgstr "dd.MM.yyyy"
 #~ msgid "git clone returned exit code %s"
 #~ msgstr "git clone wurde mit dem Fehlercode %s beendet"
 
-#, fuzzy
 #~ msgid "git tag returned exit code %s"
-#~ msgstr "git clone wurde mit dem Fehlercode %s beendet"
+#~ msgstr "git tag wurde mit dem Fehlercode %s beendet"
 
 #~ msgid "git-gui - a graphical user interface for Git."
 #~ msgstr "git-gui - eine grafische Oberfläche für Git."

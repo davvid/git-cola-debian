@@ -28,7 +28,7 @@ from . import defs
 from . import text
 
 
-class StatusWidget(QtWidgets.QWidget):
+class StatusWidget(QtWidgets.QFrame):
     """
     Provides a git-status-like repository widget.
 
@@ -38,7 +38,7 @@ class StatusWidget(QtWidgets.QWidget):
     """
 
     def __init__(self, context, titlebar, parent):
-        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QFrame.__init__(self, parent)
         self.context = context
 
         tooltip = N_('Toggle the paths filter')
@@ -120,9 +120,11 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
         self.setUniformRowHeights(True)
         self.setAnimated(True)
         self.setRootIsDecorated(False)
-        self.setIndentation(0)
         self.setDragEnabled(True)
         self.setAutoScroll(False)
+
+        if not prefs.status_indent(context):
+            self.setIndentation(0)
 
         ok = icons.ok()
         compare = icons.compare()
@@ -482,25 +484,26 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
 
     def _set_staged(self, items):
         """Adds items to the 'Staged' subtree."""
-        self._set_subtree(items, self.idx_staged, staged=True,
+        self._set_subtree(items, self.idx_staged, N_('Staged'), staged=True,
                           deleted_set=self.m.staged_deleted)
 
     def _set_modified(self, items):
         """Adds items to the 'Modified' subtree."""
-        self._set_subtree(items, self.idx_modified,
+        self._set_subtree(items, self.idx_modified, N_('Modified'),
                           deleted_set=self.m.unstaged_deleted)
 
     def _set_unmerged(self, items):
         """Adds items to the 'Unmerged' subtree."""
         deleted_set = set([path for path in items if not core.exists(path)])
-        self._set_subtree(items, self.idx_unmerged,
+        self._set_subtree(items, self.idx_unmerged, N_('Unmerged'),
                           deleted_set=deleted_set)
 
     def _set_untracked(self, items):
         """Adds items to the 'Untracked' subtree."""
-        self._set_subtree(items, self.idx_untracked, untracked=True)
+        self._set_subtree(items, self.idx_untracked, N_('Untracked'),
+                          untracked=True)
 
-    def _set_subtree(self, items, idx,
+    def _set_subtree(self, items, idx, parent_title,
                      staged=False,
                      untracked=False,
                      deleted_set=None):
@@ -524,6 +527,8 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
             parent.addChild(treeitem)
         self._expand_items(idx, items)
         self.blockSignals(False)
+        if prefs.status_show_totals(self.context):
+            parent.setText(0, '%s (%s)' % (parent_title, len(items)))
 
     def _update_column_widths(self):
         self.resizeColumnToContents(0)
@@ -1048,7 +1053,7 @@ def _item_filter(item):
 
 def view_blame(context):
     """Signal that we should view blame for paths."""
-    cmds.do(cmds.BlamePaths, context, context.selection.union())
+    cmds.do(cmds.BlamePaths, context)
 
 
 def view_history(context):
