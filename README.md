@@ -2,8 +2,7 @@
 
     git-cola is a powerful Git GUI with a slick and intuitive user interface.
 
-    Copyright (C) 2007, 2008, 2009, 2010, 2011, 2012, 2013
-    David Aguilar and contributors
+    Copyright (C) 2007-2015, David Aguilar and contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,14 +20,14 @@
 ## SCREENSHOTS
 
 Screenshots are available on the
-[git-cola screenshots page](http://git-cola.github.io/screenshots.html).
+[git-cola screenshots page](https://git-cola.github.io/screenshots.html).
 
 ## DOWNLOAD
 
     apt-get install git-cola python-pyinotify
 
 New releases are available on the
-[git-cola download page](http://git-cola.github.io/downloads.html).
+[git-cola download page](https://git-cola.github.io/downloads.html).
 
 ## FORK
 
@@ -56,6 +55,9 @@ New releases are available on the
 
 ## ADDITIVES
 
+*git-cola* enables additional features when the following
+Python modules are installed.
+
 [pyinotify](https://github.com/seb-m/pyinotify) 0.7.1 or newer
 enables inotify support on Linux.
 
@@ -64,17 +66,37 @@ enables inotify support on Linux.
 
 # BREWING INSTRUCTIONS
 
+## RUN FROM SOURCE
+
+You don't need to install *git-cola* to run it.
+Running *git-cola* from its source tree is the easiest
+way to try the latest version.
+
+    git clone git://github.com/git-cola/git-cola.git
+    cd git-cola
+    ./bin/git-cola
+    ./bin/git-dag
+
+Having *git-cola*'s *bin/* directory in your path allows you to run
+*git-cola* like a built-in Git command:
+
+    PATH=$PWD/bin:"$PATH"
+    export PATH
+    git cola
+    git dag
+
+# INSTALLATION
+
 Normally you can just do "make install" to install *git-cola*
 in your `$HOME` directory (`$HOME/bin`, `$HOME/share`, etc).
 If you want to do a global install you can do
 
     make prefix=/usr install
 
-You don't need to `make` to run it, though.
-*git-cola* is designed to run directly out of its source tree.
-
-    bin/git-cola
-    bin/git-dag
+There are also platform-specific installation methods.
+You'll probably want to use one of these anyways since they
+have a nice side-effect of installing *git-cola*'s PyQt4
+and argparse dependencies.
 
 ## LINUX
 
@@ -108,10 +130,19 @@ git-cola, *Qt4* and *PyQt4*.
 
     brew install git-cola
 
-Once brew has installed git-cola you can build a `git-cola.app`
-application bundle from source and copy it to `/Applications`.
+Once brew has installed git-cola you can:
 
-    make git-cola.app
+1. Clone git-cola
+
+    `git clone git://github.com/git-cola/git-cola.git && cd git-cola`
+
+2. Build the git-cola.app application bundle
+
+    `make git-cola.app`
+
+3. Copy it to _/Applications_
+
+    `rm -fr /Application/git-cola.app && cp -r git-cola.app /Applications`
 
 ## WINDOWS INSTALLATION
 
@@ -131,33 +162,29 @@ by double-clicking on the `git-cola.pyw` script.
 If you are developing *git-cola* on Windows you can use `python.exe` to run
 *git-cola* directly from source.
 
-    python.exe bin/git-cola
+    python.exe ./bin/git-cola
 
 If you want to build the `git-cola Installer` yourself run the provided script
 
-    contrib/win32/create-installer.sh
+    ./contrib/win32/create-installer.sh
 
-You have to make sure that the file
+You have to make sure that the file */share/InnoSetup/ISCC.exe* exists.
+That is normally the case when you run the *msysGit bash* and not the
+*Git for Windows bash* (look [here](http://msysgit.github.com/) for the differences).
 
-    /share/InnoSetup/ISCC.exe
+# DOCUMENTATION
 
-exists. That is normally the case when you run the *msysGit bash* and
-not the *Git for Windows bash* (look [here](http://msysgit.github.com/)
-for the differences).
-
-## DOCUMENTATION
-
-* [HTML documentation](http://git-cola.github.io/share/doc/git-cola/html/index.html)
+* [HTML documentation](https://git-cola.readthedocs.org/en/latest/)
 
 * [git-cola manual](share/doc/git-cola/git-cola.rst)
 
 * [git-dag manual](share/doc/git-cola/git-dag.rst)
 
-* [Keyboard shortcuts](http://git-cola.github.io/share/doc/git-cola/hotkeys.html)
+* [Keyboard shortcuts](https://git-cola.github.io/share/doc/git-cola/hotkeys.html)
 
 * [Contributing guidelines](CONTRIBUTING.md)
 
-## GOODIES
+# GOODIES
 
 *git-cola* ships with an interactive rebase editor called *git-xbase*.
 *git-xbase* can be used to reorder and choose commits and is typically
@@ -171,4 +198,48 @@ by telling `git rebase` to use it as its editor:
 You can also launch *git-xbase* via the *git-cola* rebase sub-command
 (as well as various other sub-commands):
 
-    bin/git-cola rebase origin/master
+    ./bin/git-cola rebase origin/master
+
+# COMMAND-LINE TOOLS
+
+The *git-cola* command exposes various sub-commands that allow you to quickly
+launch tools that are available from within the *git-cola* interface.
+For example, `./bin/git-cola find` launches the file finder,
+and `./bin/git-cola grep` launches the grep tool.
+
+See `./bin/git-cola --help-commands` for the full list of commands.
+
+    $ ./bin/git-cola --help-commands
+    usage: git-cola [-h]
+    
+                    {cola,am,archive,branch,browse,classic,config,
+                     dag,diff,fetch,find,grep,merge,pull,push,
+                     rebase,remote,search,stash,tag,version}
+                    ...
+    
+    valid commands:
+      {cola,am,archive,branch,browse,classic,config,
+       dag,diff,fetch,find,grep,merge,pull,push,
+       rebase,remote,search,stash,tag,version}
+
+        cola                start git-cola
+        am                  apply patches using "git am"
+        archive             save an archive
+        branch              create a branch
+        browse              browse repository
+        classic             browse repository
+        config              edit configuration
+        dag                 start git-dag
+        diff                view diffs
+        fetch               fetch remotes
+        find                find files
+        grep                grep source
+        merge               merge branches
+        pull                pull remote branches
+        push                push remote branches
+        rebase              interactive rebase
+        remote              edit remotes
+        search              search commits
+        stash               stash and unstash changes
+        tag                 create tags
+        version             print the version

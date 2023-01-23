@@ -3,9 +3,11 @@ from __future__ import division, absolute_import, unicode_literals
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt, SIGNAL
 
-from cola.models.prefs import tabwidth
-from cola.qtutils import diff_font
+from cola import qtutils
 from cola.compat import ustr
+from cola.i18n import N_
+from cola.models import prefs
+from cola.widgets import defs
 
 
 class MonoTextEdit(QtGui.QTextEdit):
@@ -16,8 +18,8 @@ class MonoTextEdit(QtGui.QTextEdit):
         self.setMinimumSize(QtCore.QSize(1, 1))
         self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         self.setAcceptRichText(False)
-        self.setFont(diff_font())
-        self.set_tabwidth(tabwidth())
+        self.setFont(qtutils.diff_font())
+        self.set_tabwidth(prefs.tabwidth())
         self.setCursorWidth(2)
 
     def tabwidth(self):
@@ -210,7 +212,7 @@ class HintedLineEdit(QtGui.QLineEdit, HintedTextWidgetMixin):
         QtGui.QLineEdit.__init__(self, parent)
         HintedTextWidgetMixin.__init__(self, hint)
 
-        self.setFont(diff_font())
+        self.setFont(qtutils.diff_font())
         self.connect(self,
                      SIGNAL('cursorPositionChanged(int,int)'),
                      lambda x, y: self.emit_position())
@@ -228,3 +230,24 @@ class HintedLineEdit(QtGui.QLineEdit, HintedTextWidgetMixin):
 
     def reset_cursor(self):
         self.setCursorPosition(0)
+
+
+def text_dialog(text, title):
+    """Show a wall of text in a dialog"""
+    parent = qtutils.active_window()
+    label = QtGui.QLabel(parent)
+    label.setFont(qtutils.diff_font())
+    label.setText(text)
+    label.setTextInteractionFlags(Qt.NoTextInteraction)
+
+    widget = QtGui.QDialog(parent)
+    widget.setWindowModality(Qt.WindowModal)
+    widget.setWindowTitle(title)
+
+    layout = qtutils.hbox(defs.margin, defs.spacing, label)
+    widget.setLayout(layout)
+
+    qtutils.add_action(widget, N_('Close'), widget.accept,
+                       Qt.Key_Question, Qt.Key_Enter, Qt.Key_Return)
+    widget.show()
+    return widget

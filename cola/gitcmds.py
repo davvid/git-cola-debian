@@ -12,7 +12,8 @@ from cola.git import git
 from cola.git import STDOUT
 from cola.i18n import N_
 
-config = gitcfg.instance()
+
+EMPTY_TREE_SHA1 = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 
 class InvalidRepositoryError(Exception):
@@ -22,7 +23,7 @@ class InvalidRepositoryError(Exception):
 def default_remote(config=None):
     """Return the remote tracked by the current branch."""
     if config is None:
-        config = gitcfg.instance()
+        config = gitcfg.current()
     return config.get('branch.%s.remote' % current_branch())
 
 
@@ -56,13 +57,23 @@ def _parse_diff_filenames(out):
         return []
 
 
-def all_files():
+def tracked_files(*args):
     """Return the names of all files in the repository"""
-    out = git.ls_files(z=True)[STDOUT]
+    out = git.ls_files('--', *args, z=True)[STDOUT]
     if out:
-        return out[:-1].split('\0')
+        return sorted(out[:-1].split('\0'))
     else:
         return []
+
+
+def all_files(*args):
+    """Returns a sorted list of all files, including untracked files."""
+    ls_files = git.ls_files('--', *args,
+                            z=True,
+                            cached=True,
+                            others=True,
+                            exclude_standard=True)[STDOUT]
+    return sorted([f for f in ls_files.split('\0') if f])
 
 
 class _current_branch:
@@ -71,7 +82,7 @@ class _current_branch:
     value = None
 
 
-def clear_cache():
+def reset():
     _current_branch.key = None
 
 
@@ -165,7 +176,7 @@ def all_refs(split=False, git=git):
 def tracked_branch(branch=None, config=None):
     """Return the remote branch associated with 'branch'."""
     if config is None:
-        config = gitcfg.instance()
+        config = gitcfg.current()
     if branch is None:
         branch = current_branch()
     if branch is None:
@@ -187,9 +198,9 @@ def untracked_files(git=git, paths=None):
 
     if paths is None:
         paths = []
-    filter_paths = ['--'] + paths
+    args = ['--'] + paths
     out = git.ls_files(z=True, others=True, exclude_standard=True,
-                       *filter_paths)[STDOUT]
+                       *args)[STDOUT]
     if out:
         return out[:-1].split('\0')
     return []
@@ -201,7 +212,8 @@ def tag_list():
 
 
 def log(git, *args, **kwargs):
-    return git.log(no_color=True, no_ext_diff=True, *args, **kwargs)[STDOUT]
+    return git.log(no_color=True, no_abbrev_commit=True,
+                   no_ext_diff=True, *args, **kwargs)[STDOUT]
 
 
 def commit_diff(sha1, git=git):
@@ -217,7 +229,9 @@ def update_diff_overrides(space_at_eol, space_change,
     _diff_overrides['function_context'] = function_context
 
 
-def common_diff_opts(config=config):
+def common_diff_opts(config=None):
+    if config is None:
+        config = gitcfg.current()
     submodule = version.check('diff-submodule', version.git_version())
     opts = {
         'patience': True,
@@ -267,6 +281,7 @@ def diff_helper(commit=None,
                 endref=None,
                 filename=None,
                 cached=True,
+                deleted=False,
                 head=None,
                 amending=False,
                 with_diff_header=False,
@@ -292,12 +307,8 @@ def diff_helper(commit=None,
             argv.extend(filename)
         else:
             argv.append(filename)
-            encoding = config.file_encoding(filename)
-
-    if filename is not None:
-        deleted = cached and not core.exists(filename)
-    else:
-        deleted = False
+            cfg = gitcfg.current()
+            encoding = cfg.file_encoding(filename)
 
     status, out, err = git.diff(R=reverse, M=True, cached=cached,
                                 _encoding=encoding,
@@ -419,25 +430,10 @@ def untrack_paths(args, head='HEAD'):
     return git.update_index('--', force_remove=True, *set(args))
 
 
-def worktree_state(head='HEAD'):
-    """Return a tuple of files in various states of being
-
-    Can be staged, unstaged, untracked, unmerged, or changed
-    upstream.
-
-    """
-    state = worktree_state_dict(head=head)
-    return(state.get('staged', []),
-           state.get('modified', []),
-           state.get('unmerged', []),
-           state.get('untracked', []),
-           state.get('upstream_changed', []))
-
-
-def worktree_state_dict(head='HEAD',
-                        update_index=False,
-                        display_untracked=True,
-                        paths=None):
+def worktree_state(head='HEAD',
+                   update_index=False,
+                   display_untracked=True,
+                   paths=None):
     """Return a dict of files in various states of being
 
     :rtype: dict, keys are staged, unstaged, untracked, unmerged,
@@ -447,28 +443,15 @@ def worktree_state_dict(head='HEAD',
     if update_index:
         git.update_index(refresh=True)
 
-    staged, unmerged, staged_submods = diff_index(head, paths=paths)
-    modified, modified_submods = diff_worktree(paths)
+    staged, unmerged, staged_deleted, staged_submods = diff_index(head,
+                                                                  paths=paths)
+    modified, unstaged_deleted, modified_submods = diff_worktree(paths)
     untracked = display_untracked and untracked_files(paths=paths) or []
 
     # Remove unmerged paths from the modified list
-    unmerged_set = set(unmerged)
-    modified_set = set(modified)
-    modified_unmerged = modified_set.intersection(unmerged_set)
-    for path in modified_unmerged:
-        modified.remove(path)
-
-    # All submodules
-    submodules = staged_submods.union(modified_submods)
-
-    # Only include the submodule in the staged list once it has
-    # been staged.  Otherwise, we'll see the submodule as being
-    # both modified and staged.
-    modified_submods = modified_submods.difference(staged_submods)
-
-    # Add submodules to the staged and unstaged lists
-    staged.extend(list(staged_submods))
-    modified.extend(list(modified_submods))
+    if unmerged:
+        unmerged_set = set(unmerged)
+        modified = [path for path in modified if path not in unmerged_set]
 
     # Look for upstream modified files if this is a tracking branch
     upstream_changed = diff_upstream(head)
@@ -485,62 +468,65 @@ def worktree_state_dict(head='HEAD',
             'unmerged': unmerged,
             'untracked': untracked,
             'upstream_changed': upstream_changed,
-            'submodules': submodules}
+            'staged_deleted': staged_deleted,
+            'unstaged_deleted': unstaged_deleted,
+            'submodules': staged_submods | modified_submods}
+
+
+def _parse_raw_diff(out):
+    while out:
+        info, path, out = out.split('\0', 2)
+        status = info[-1]
+        is_submodule = ('160000' in info[1:14])
+        yield (path, status, is_submodule)
 
 
 def diff_index(head, cached=True, paths=None):
-    submodules = set()
     staged = []
     unmerged = []
+    deleted = set()
+    submodules = set()
 
     if paths is None:
         paths = []
-    filter_paths = [head, '--'] + paths
-    status, out, err = git.diff_index(cached=cached, z=True,
-                                      *filter_paths)
+    args = [head, '--'] + paths
+    status, out, err = git.diff_index(cached=cached, z=True, *args)
     if status != 0:
         # handle git init
-        return all_files(), unmerged, submodules
+        args[0] = EMPTY_TREE_SHA1
+        status, out, err = git.diff_index(cached=cached, z=True, *args)
 
-    while out:
-        rest, out = out.split('\0', 1)
-        name, out = out.split('\0', 1)
-        status = rest[-1]
-        if '160000' in rest[1:14]:
-            submodules.add(name)
-        elif status  in 'DAMT':
-            staged.append(name)
+    for path, status, is_submodule in _parse_raw_diff(out):
+        if is_submodule:
+            submodules.add(path)
+        if status in 'DAMT':
+            staged.append(path)
+            if status == 'D':
+                deleted.add(path)
         elif status == 'U':
-            unmerged.append(name)
+            unmerged.append(path)
 
-    return staged, unmerged, submodules
+    return staged, unmerged, deleted, submodules
 
 
 def diff_worktree(paths=None):
     modified = []
+    deleted = set()
     submodules = set()
 
     if paths is None:
         paths = []
-    filter_paths = ['--'] + paths
-    status, out, err = git.diff_files(z=True, *filter_paths)
-    if status != 0:
-        # handle git init
-        out = git.ls_files(modified=True, z=True)[STDOUT]
-        if out:
-            modified = out[:-1].split('\0')
-        return modified, submodules
+    args = ['--'] + paths
+    status, out, err = git.diff_files(z=True, *args)
+    for path, status, is_submodule in _parse_raw_diff(out):
+        if is_submodule:
+            submodules.add(path)
+        if status in 'DAMT':
+            modified.append(path)
+            if status == 'D':
+                deleted.add(path)
 
-    while out:
-        rest, out = out.split('\0', 1)
-        name, out = out.split('\0', 1)
-        status = rest[-1]
-        if '160000' in rest[1:14]:
-            submodules.add(name)
-        elif status in 'DAMT':
-            modified.append(name)
-
-    return modified, submodules
+    return modified, deleted, submodules
 
 
 def diff_upstream(head):

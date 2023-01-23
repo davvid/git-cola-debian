@@ -14,7 +14,7 @@ from cola.models import main
 from cola.models import selection
 from cola.widgets import completion
 from cola.widgets import defs
-from cola.widgets import standard
+from cola.widgets import filetree
 from cola.compat import ustr
 
 
@@ -71,7 +71,7 @@ class FileDiffDialog(QtGui.QDialog):
 
         self.a = a
         self.b = b
-        self.expr = expr
+        self.diff_expr = expr
 
         if title is None:
             title = N_('git-cola diff')
@@ -79,66 +79,69 @@ class FileDiffDialog(QtGui.QDialog):
         self.setWindowTitle(title)
         self.setWindowModality(QtCore.Qt.WindowModal)
 
-        self._expr = completion.GitRefLineEdit(parent=self)
+        self.expr = completion.GitRefLineEdit(parent=self)
         if expr is not None:
-            self._expr.setText(expr)
+            self.expr.setText(expr)
 
         if expr is None or hide_expr:
-            self._expr.hide()
+            self.expr.hide()
 
-        self._tree = standard.TreeWidget(self)
-        self._tree.setSelectionMode(self._tree.ExtendedSelection)
-        self._tree.setHeaderHidden(True)
+        self.tree = filetree.FileTree(parent=self)
 
-        self._diff_btn = QtGui.QPushButton(N_('Compare'))
-        self._diff_btn.setIcon(qtutils.ok_icon())
-        self._diff_btn.setEnabled(False)
+        self.diff_button = QtGui.QPushButton(N_('Compare'))
+        self.diff_button.setIcon(qtutils.ok_icon())
+        self.diff_button.setEnabled(False)
 
-        self._close_btn = QtGui.QPushButton(N_('Close'))
-        self._close_btn.setIcon(qtutils.close_icon())
+        self.close_button = QtGui.QPushButton(N_('Close'))
+        self.close_button.setIcon(qtutils.close_icon())
 
-        self._button_layt = QtGui.QHBoxLayout()
-        self._button_layt.setMargin(defs.no_margin)
-        self._button_layt.addStretch()
-        self._button_layt.addWidget(self._diff_btn)
-        self._button_layt.addWidget(self._close_btn)
+        self.button_layout = qtutils.hbox(defs.no_margin, defs.spacing,
+                                          qtutils.STRETCH,
+                                          self.diff_button, self.close_button)
 
-        self._layt = QtGui.QVBoxLayout()
-        self._layt.setMargin(defs.margin)
-        self._layt.setSpacing(defs.spacing)
+        self.main_layout = qtutils.vbox(defs.margin, defs.spacing,
+                                        self.expr, self.tree,
+                                        self.button_layout)
+        self.setLayout(self.main_layout)
 
-        self._layt.addWidget(self._expr)
-        self._layt.addWidget(self._tree)
-        self._layt.addLayout(self._button_layt)
-        self.setLayout(self._layt)
+        self.connect(self.tree, SIGNAL('itemSelectionChanged()'),
+                     self.tree_selection_changed)
 
-        self.connect(self._tree, SIGNAL('itemSelectionChanged()'),
-                     self._tree_selection_changed)
-
-        self.connect(self._tree,
+        self.connect(self.tree,
                      SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
-                     self._tree_double_clicked)
+                     self.tree_double_clicked)
 
-        self.connect(self._expr, SIGNAL('textChanged(QString)'),
+        self.connect(self.expr, SIGNAL('textChanged(QString)'),
                      self.text_changed)
+        self.connect(self.tree, SIGNAL('up()'), self.focus_input)
 
-        self.connect(self._expr, SIGNAL('returnPressed()'),
-                     self.refresh)
+        self.connect(self.expr, SIGNAL('activated()'), self.focus_tree)
+        self.connect(self.expr, SIGNAL('down()'), self.focus_tree)
+        self.connect(self.expr, SIGNAL('enter()'), self.focus_tree)
+        self.connect(self.expr, SIGNAL('return()'), self.focus_tree)
 
-        qtutils.connect_button(self._diff_btn, self.diff)
-        qtutils.connect_button(self._close_btn, self.close)
+        qtutils.connect_button(self.diff_button, self.diff)
+        qtutils.connect_button(self.close_button, self.close)
+
+        qtutils.add_action(self, 'Focus Input', self.focus_input, 'Ctrl+L')
         qtutils.add_close_action(self)
 
         self.resize(720, 420)
         self.refresh()
 
+    def focus_tree(self):
+        self.tree.setFocus()
+
+    def focus_input(self):
+        self.expr.setFocus()
+
     def text_changed(self, txt):
-        self.expr = ustr(txt)
+        self.diff_expr = ustr(txt)
         self.refresh()
 
     def refresh(self):
-        if self.expr is not None:
-            self.diff_arg = utils.shell_split(self.expr)
+        if self.diff_expr is not None:
+            self.diff_arg = utils.shell_split(self.diff_expr)
         elif self.b is None:
             self.diff_arg = [self.a]
         else:
@@ -146,36 +149,20 @@ class FileDiffDialog(QtGui.QDialog):
         self.refresh_filenames()
 
     def refresh_filenames(self):
-        self._tree.clear()
-
         if self.a and self.b is None:
             filenames = gitcmds.diff_index_filenames(self.a)
         else:
             filenames = gitcmds.diff(self.diff_arg)
-        if not filenames:
-            return
+        self.tree.set_filenames(filenames, select=True)
 
-        icon = qtutils.file_icon()
-        items = []
-        for filename in filenames:
-            item = QtGui.QTreeWidgetItem()
-            item.setIcon(0, icon)
-            item.setText(0, filename)
-            item.setData(0, QtCore.Qt.UserRole, QtCore.QVariant(filename))
-            items.append(item)
-        self._tree.addTopLevelItems(items)
+    def tree_selection_changed(self):
+        self.diff_button.setEnabled(self.tree.has_selection())
 
-    def _tree_selection_changed(self):
-        self._diff_btn.setEnabled(bool(self._tree.selectedItems()))
-
-    def _tree_double_clicked(self, item, column):
-        path = item.data(0, QtCore.Qt.UserRole).toPyObject()
-        launch(self.diff_arg + ['--', ustr(path)])
+    def tree_double_clicked(self, item, column):
+        path = self.tree.filename_from_item(item)
+        launch(self.diff_arg + ['--', path])
 
     def diff(self):
-        items = self._tree.selectedItems()
-        if not items:
-            return
-        paths = [i.data(0, QtCore.Qt.UserRole).toPyObject() for i in items]
+        paths = self.tree.selected_filenames()
         for path in paths:
             launch(self.diff_arg + ['--', ustr(path)])

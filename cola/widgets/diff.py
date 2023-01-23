@@ -41,12 +41,10 @@ class DiffEditorWidget(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
 
         self.editor = DiffEditor(self, parent.titleBarWidget())
-
-        self.main_layout = QtGui.QVBoxLayout()
-        self.main_layout.setSpacing(defs.spacing)
-        self.main_layout.setMargin(defs.no_margin)
-        self.main_layout.addWidget(self.editor)
+        self.main_layout = qtutils.vbox(defs.no_margin, defs.spacing,
+                                        self.editor)
         self.setLayout(self.main_layout)
+        self.setFocusProxy(self.editor)
 
 
 class DiffEditor(DiffTextEdit):
@@ -106,7 +104,7 @@ class DiffEditor(DiffTextEdit):
         self.launch_difftool = qtutils.add_action(self,
                 cmds.LaunchDifftool.name(), run(cmds.LaunchDifftool),
                 cmds.LaunchDifftool.SHORTCUT)
-        self.launch_difftool.setIcon(qtutils.icon('git.svg'))
+        self.launch_difftool.setIcon(qtutils.git_icon())
 
         model.add_observer(model.message_diff_text_changed, self._emit_text)
 
@@ -134,7 +132,7 @@ class DiffEditor(DiffTextEdit):
         s = selection.selection()
         filename = selection.filename()
 
-        if self.model.stageable() and s.modified:
+        if s.modified and self.model.stageable():
             if s.modified[0] in main.model().submodules:
                 action = menu.addAction(qtutils.icon('add.svg'),
                                         cmds.Stage.name(),
@@ -144,7 +142,7 @@ class DiffEditor(DiffTextEdit):
                                N_('Launch git-cola'),
                                cmds.run(cmds.OpenRepo,
                                         core.abspath(s.modified[0])))
-            else:
+            elif s.modified[0] not in main.model().unstaged_deleted:
                 if self.has_selection():
                     apply_text = N_('Stage Selected Lines')
                     revert_text = N_('Revert Selected Lines...')
@@ -160,8 +158,8 @@ class DiffEditor(DiffTextEdit):
                 menu.addAction(self.action_apply_selection)
                 menu.addAction(self.action_revert_selection)
 
-        if self.model.unstageable():
-            if s.staged and s.staged[0] in main.model().submodules:
+        if s.staged and self.model.unstageable():
+            if s.staged[0] in main.model().submodules:
                 action = menu.addAction(qtutils.icon('remove.svg'),
                                         cmds.Unstage.name(),
                                         cmds.do(cmds.Unstage, s.staged))
@@ -170,7 +168,7 @@ class DiffEditor(DiffTextEdit):
                                N_('Launch git-cola'),
                                cmds.do(cmds.OpenRepo,
                                        core.abspath(s.staged[0])))
-            elif s.staged:
+            elif s.staged[0] not in main.model().staged_deleted:
                 if self.has_selection():
                     apply_text = N_('Unstage Selected Lines')
                 else:
@@ -245,9 +243,8 @@ class DiffEditor(DiffTextEdit):
 
         DiffTextEdit.setPlainText(self, text)
 
-        # If the old selection exists in the new text then
-        # re-select it.
         if selection_text and selection_text in text:
+            # If the old selection exists in the new text then re-select it.
             idx = text.index(selection_text)
             cursor = self.textCursor()
             cursor.setPosition(idx)
@@ -255,19 +252,25 @@ class DiffEditor(DiffTextEdit):
                                QtGui.QTextCursor.KeepAnchor)
             self.setTextCursor(cursor)
 
-        # Otherwise, if the text is identical and there
-        # is no selection then restore the cursor position.
         elif text == old_text:
+            # Otherwise, if the text is identical and there is no selection
+            # then restore the cursor position.
             cursor = self.textCursor()
             cursor.setPosition(offset)
+            self.setTextCursor(cursor)
+        else:
+            # If none of the above applied then restore the cursor position.
+            position = max(0, min(offset, len(text) - 1))
+            cursor = self.textCursor()
+            cursor.setPosition(position)
+            cursor.movePosition(QtGui.QTextCursor.StartOfLine)
             self.setTextCursor(cursor)
 
         if scrollbar and scrollvalue is not None:
             scrollbar.setValue(scrollvalue)
 
     def has_selection(self):
-        cursor = self.textCursor()
-        return cursor.selectionStart() != cursor.selectionEnd()
+        return self.textCursor().hasSelection()
 
     def offset_and_selection(self):
         cursor = self.textCursor()
@@ -275,12 +278,29 @@ class DiffEditor(DiffTextEdit):
         selection_text = ustr(cursor.selection().toPlainText())
         return offset, selection_text
 
+    def selected_lines(self):
+        cursor = self.textCursor()
+        selection_start = cursor.selectionStart()
+        selection_end = cursor.selectionEnd()
+
+        line_start = 0
+        for line_idx, line in enumerate(ustr(self.toPlainText()).split('\n')):
+            line_end = line_start + len(line)
+            if line_start <= selection_start <= line_end:
+                first_line_idx = line_idx
+            if line_start <= selection_end <= line_end:
+                last_line_idx = line_idx
+                break
+            line_start = line_end + 1
+
+        return first_line_idx, last_line_idx
+
     def apply_selection(self):
         s = selection.single_selection()
         if self.model.stageable() and s.modified:
-            self.process_diff_selection(staged=False)
+            self.process_diff_selection()
         elif self.model.unstageable():
-            self.process_diff_selection(staged=True)
+            self.process_diff_selection(reverse=True)
 
     def revert_selection(self):
         """Destructively revert selected lines or hunk from a worktree file."""
@@ -300,15 +320,15 @@ class DiffEditor(DiffTextEdit):
                                default=True,
                                icon=qtutils.icon('undo.svg')):
             return
-        self.process_diff_selection(staged=False, apply_to_worktree=True)
+        self.process_diff_selection(reverse=True, apply_to_worktree=True)
 
-    def process_diff_selection(self, staged=True, apply_to_worktree=False):
-        """Implement un/staging of selected lines or sections."""
+    def process_diff_selection(self, reverse=False, apply_to_worktree=False):
+        """Implement un/staging of the selected line(s) or hunk."""
         if selection.selection_model().is_empty():
             return
-        offset, selection_text = self.offset_and_selection()
-        cmds.do(cmds.ApplyDiffSelection,
-                staged, offset, selection_text, apply_to_worktree)
+        first_line_idx, last_line_idx = self.selected_lines()
+        cmds.do(cmds.ApplyDiffSelection, first_line_idx, last_line_idx,
+                self.has_selection(), reverse, apply_to_worktree)
 
 
 
@@ -352,24 +372,16 @@ class DiffWidget(QtGui.QWidget):
         self.tasks = set()
         self.reflector = QtCore.QObject(self)
 
-        self.info_layout = QtGui.QVBoxLayout()
-        self.info_layout.setMargin(defs.no_margin)
-        self.info_layout.setSpacing(defs.no_spacing)
-        self.info_layout.addWidget(self.author_label)
-        self.info_layout.addWidget(self.summary_label)
-        self.info_layout.addWidget(self.sha1_label)
+        self.info_layout = qtutils.vbox(defs.no_margin, defs.no_spacing,
+                                        self.author_label, self.summary_label,
+                                        self.sha1_label)
 
-        self.logo_layout = QtGui.QHBoxLayout()
+        self.logo_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
+                                        self.gravatar_label, self.info_layout)
         self.logo_layout.setContentsMargins(defs.margin, 0, defs.margin, 0)
-        self.logo_layout.setSpacing(defs.button_spacing)
-        self.logo_layout.addWidget(self.gravatar_label)
-        self.logo_layout.addLayout(self.info_layout)
 
-        self.main_layout = QtGui.QVBoxLayout()
-        self.main_layout.setMargin(defs.no_margin)
-        self.main_layout.setSpacing(defs.spacing)
-        self.main_layout.addLayout(self.logo_layout)
-        self.main_layout.addWidget(self.diff)
+        self.main_layout = qtutils.vbox(defs.no_margin, defs.spacing,
+                                        self.logo_layout, self.diff)
         self.setLayout(self.main_layout)
 
         notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
