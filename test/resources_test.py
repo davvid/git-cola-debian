@@ -1,10 +1,9 @@
-from __future__ import absolute_import, division, unicode_literals
-
-from mock import patch
-import pytest
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 from cola import resources
+
 from . import helper
+from .helper import patch
 
 
 @patch('cola.resources.compat')
@@ -38,7 +37,3 @@ def test_command_win32(mock_prefix, mock_compat):
     expect = helper.fixture('bin', 'exe-cmd.exe')
     actual = resources.command('exe-cmd')
     assert expect == actual
-
-
-if __name__ == '__main__':
-    pytest.main([__file__])

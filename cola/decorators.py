@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import errno
 import functools
 
@@ -64,7 +64,7 @@ def _memoize(func, *args, **opts):
 
 @decorator
 def interruptable(func, *args, **opts):
-    """Handle interruptable system calls
+    """Handle interruptible system calls
 
     OSX and others are known to interrupt system calls
 

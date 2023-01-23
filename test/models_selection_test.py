@@ -1,23 +1,17 @@
-from __future__ import absolute_import, division, unicode_literals
-import unittest
-
-import mock
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 from cola.models import selection
 
-
-class SelectionTestCase(unittest.TestCase):
-    def test_union(self):
-        t = mock.Mock()
-        t.staged = ['a']
-        t.unmerged = ['a', 'b']
-        t.modified = ['b', 'a', 'c']
-        t.untracked = ['d']
-
-        expect = ['a', 'b', 'c', 'd']
-        actual = selection.union(t)
-        self.assertEqual(expect, actual)
+from .helper import Mock
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_union():
+    t = Mock()
+    t.staged = ['a']
+    t.unmerged = ['a', 'b']
+    t.modified = ['b', 'a', 'c']
+    t.untracked = ['d']
+
+    expect = ['a', 'b', 'c', 'd']
+    actual = selection.union(t)
+    assert expect == actual

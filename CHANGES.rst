@@ -1,3 +1,57 @@
+.. _v3.11.0:
+
+v3.11.0
+=======
+
+Usability, bells and whistles
+-----------------------------
+* The Status tool was improved to better retain selected files when
+  the state changes and the display is refreshed.
+  (`#1130 <https://github.com/git-cola/git-cola/issues/1130>`_)
+  (`#1131 <https://github.com/git-cola/git-cola/pull/1131>`_)
+
+* The Diff editor can now stage selected lines for untracked files.
+  Git Cola will detect when a file is untracked and will allow you to
+  partially stage it, just like existing tracked files.
+  (`#1146 <https://github.com/git-cola/git-cola/pull/1146>`_)
+  (`#1084 <https://github.com/git-cola/git-cola/issues/1084>`_)
+
+* Diffing of staged files has been implemented for repositories that contain
+  no commits.
+  (`#1149 <https://github.com/git-cola/git-cola/pull/1149>`_)
+  (`#1110 <https://github.com/git-cola/git-cola/issues/1110>`_)
+
+* Documentation improvements and typofixes.
+  (`#1163 <https://github.com/git-cola/git-cola/pull/1163>`_)
+  (`#1164 <https://github.com/git-cola/git-cola/pull/1164>`_)
+
+Security
+--------
+* The `FIPS security mode
+  <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/FIPS_Mode_-_an_explanation>`_
+  is now supported by Git Cola when running on FIPS-enabled Python
+  (Python 3.9+ or centos8/rhel8's patched Python 3.6).
+  (`#1157 <https://github.com/git-cola/git-cola/issues/1157>`_)
+
+Fixes
+-----
+* The `argparse` usage was adjusted to remain compatible with older Pythons.
+  (`#1155 <https://github.com/git-cola/git-cola/issues/1155>`_)
+
+* The window restoration logic was fixed to properly save/restore settings
+  when different languages are used.
+  (`#1071 <https://github.com/git-cola/git-cola/issues/1071>`_)
+  (`#1161 <https://github.com/git-cola/git-cola/issues/1161>`_)
+  (`#382 <https://github.com/git-cola/git-cola/issues/382>`_)
+
+* `git dag` no longer passes floats to `QPen::setWidth()` for better compatibility.
+  (`bz #2014950 <https://bugzilla.redhat.com/show_bug.cgi?id=2014950>`_)
+
+Packaging
+---------
+* The Windows installer was slimmed down by removing unused Qt DLLs.
+  (`#1152 <https://github.com/git-cola/git-cola/pull/1152>`_)
+
 .. _v3.10.1:
 
 v3.10.1
@@ -306,7 +360,7 @@ Usability, bells and whistles
   over a stashed change.
   (`#982 <https://github.com/git-cola/git-cola/pull/982>`_)
 
-* Qt HiDPI settings are overriden by the `git cola` HiDPI appearance settings.
+* Qt HiDPI settings are overridden by the `git cola` HiDPI appearance settings.
   These overrides can now be disabled by selecting the "Disable" mode.
   This allows users to control Qt's HiDPI settings through environment
   variables.  Additionally, the "Auto" mode now detects the presence of

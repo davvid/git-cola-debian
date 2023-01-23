@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import operator
 
 from qtpy import QtCore
@@ -237,16 +237,16 @@ class RemoteEditor(standard.Dialog):
     def refresh(self, select=True):
         git = self.context.git
         remotes = git.remote()[STDOUT].splitlines()
-        self.remotes.blockSignals(True)  # ignore selection change signals
-        self.remotes.clear()
-        self.remotes.addItems(remotes)
-        self.remote_list = remotes
+        # Ignore notifications from self.remotes while mutating.
+        with qtutils.BlockSignals(self.remotes):
+            self.remotes.clear()
+            self.remotes.addItems(remotes)
+            self.remote_list = remotes
 
-        for idx in range(len(remotes)):
-            item = self.remotes.item(idx)
-            item.setFlags(item.flags() | Qt.ItemIsEditable)
+            for idx in range(len(remotes)):
+                item = self.remotes.item(idx)
+                item.setFlags(item.flags() | Qt.ItemIsEditable)
 
-        self.remotes.blockSignals(False)
         if select:
             if not self.current_name and remotes:
                 # Nothing is selected; select the first item

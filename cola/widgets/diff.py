@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import, unicode_literals
+from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 import re
 
@@ -762,10 +762,11 @@ class DiffEditor(DiffTextEdit):
         enabled = False
         s = self.selection_model.selection()
         model = self.model
-        if s.modified and model.stageable():
-            if s.modified[0] in model.submodules:
+        if model.stageable():
+            item = s.modified[0] if s.modified else None
+            if item in model.submodules:
                 pass
-            elif s.modified[0] not in model.unstaged_deleted:
+            elif item not in model.unstaged_deleted:
                 enabled = True
         self.action_revert_selection.setEnabled(enabled)
 
@@ -773,9 +774,8 @@ class DiffEditor(DiffTextEdit):
         """Enable/disable the diff line number display"""
         self.numbers.setVisible(enabled)
         if update:
-            signals = self.options.show_line_numbers.blockSignals(True)
-            self.options.show_line_numbers.setChecked(enabled)
-            self.options.show_line_numbers.blockSignals(signals)
+            with qtutils.BlockSignals(self.options.show_line_numbers):
+                self.options.show_line_numbers.setChecked(enabled)
         # Refresh the display. Not doing this results in the display not
         # correctly displaying the line numbers widget until the text scrolls.
         self.set_value(self.value())
@@ -783,9 +783,8 @@ class DiffEditor(DiffTextEdit):
     def set_word_wrapping(self, enabled, update=False):
         """Enable/disable word wrapping"""
         if update:
-            signals = self.options.enable_word_wrapping.blockSignals(True)
-            self.options.enable_word_wrapping.setChecked(enabled)
-            self.options.enable_word_wrapping.blockSignals(signals)
+            with qtutils.BlockSignals(self.options.enable_word_wrapping):
+                self.options.enable_word_wrapping.setChecked(enabled)
         if enabled:
             self.setWordWrapMode(QtGui.QTextOption.WordWrap)
             self.setLineWrapMode(QtWidgets.QPlainTextEdit.WidgetWidth)
@@ -812,8 +811,8 @@ class DiffEditor(DiffTextEdit):
                 self.stage_or_unstage.setText(N_('Unstage'))
             menu.addAction(self.stage_or_unstage)
 
-        if s.modified and model.stageable():
-            item = s.modified[0]
+        if model.stageable():
+            item = s.modified[0] if s.modified else None
             if item in model.submodules:
                 path = core.abspath(item)
                 action = menu.addAction(
@@ -954,7 +953,7 @@ class DiffEditor(DiffTextEdit):
     def apply_selection(self):
         model = self.model
         s = self.selection_model.single_selection()
-        if model.stageable() and s.modified:
+        if model.stageable() and (s.modified or s.untracked):
             self.process_diff_selection()
         elif model.unstageable():
             self.process_diff_selection(reverse=True)
@@ -1163,9 +1162,8 @@ class TextLabel(QtWidgets.QLabel):
     def resizeEvent(self, event):
         if self._elide:
             self.update_text(event.size().width())
-            block = self.blockSignals(True)
-            self.setText(self._display)
-            self.blockSignals(block)
+            with qtutils.BlockSignals(self):
+                self.setText(self._display)
         QtWidgets.QLabel.resizeEvent(self, event)
 
 
