@@ -53,9 +53,12 @@ class View(ViewBase):
         # Initialize the GUI to show 'Column: 00'
         self.show_current_column()
 
-    def set_staged(self, items):
+        # Hide the alternate button by default
+        self.alt_button.hide()
+
+    def set_staged(self, items, check=True):
         """Adds items to the 'Staged' subtree."""
-        self._set_subtree(items, View.IDX_STAGED, staged=True)
+        self._set_subtree(items, View.IDX_STAGED, staged=True, check=check)
 
     def set_modified(self, items):
         """Adds items to the 'Modified' subtree."""
@@ -69,12 +72,14 @@ class View(ViewBase):
         """Adds items to the 'Untracked' subtree."""
         self._set_subtree(items, View.IDX_UNTRACKED)
 
-    def _set_subtree(self, items, idx, staged=False, untracked=False):
+    def _set_subtree(self, items, idx,
+                     staged=False, untracked=False, check=True):
         parent = self.status_tree.topLevelItem(idx)
         parent.takeChildren()
         for item in items:
             treeitem = qtutils.create_treeitem(item,
                                                staged=staged,
+                                               check=check,
                                                untracked=untracked)
             parent.addChild(treeitem)
         if idx not in self._seen_indexes and items:
@@ -265,3 +270,20 @@ class View(ViewBase):
 
     def display_log(self):
         self.open_drawer(self.LOCATION_BOTTOM, opened=True)
+
+    def import_state(self, state):
+        """Imports data for save/restore"""
+        ViewBase.import_state(self, state)
+        if 'splitter_sizes' in state:
+            sizes = state['splitter_sizes']
+            try:
+                self.splitter.setSizes(sizes)
+            except:
+                pass
+
+    def export_state(self):
+        """Exports data for save/restore"""
+        state = ViewBase.export_state(self)
+        # Save the splitter size
+        state['splitter_sizes'] = map(int, self.splitter.sizes())
+        return state
