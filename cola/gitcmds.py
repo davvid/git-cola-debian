@@ -9,6 +9,7 @@ from cola import utils
 from cola import version
 from cola.compat import set
 from cola.git import git
+from cola.i18n import N_
 
 config = gitcfg.instance()
 
@@ -34,6 +35,16 @@ def diff_filenames(*args):
     """Return a list of filenames that have been modified"""
     diff_zstr = git.diff_tree(name_only=True,
                               no_commit_id=True, r=True, z=True, *args)
+    return _parse_diff_filenames(diff_zstr)
+
+
+def diff(args):
+    """Return a list of filenames for the given diff arguments
+
+    :param args: list of arguments to pass to "git diff --name-only"
+
+    """
+    diff_zstr = git.diff(name_only=True, z=True, *args)
     return _parse_diff_filenames(diff_zstr)
 
 
@@ -380,7 +391,7 @@ def unstage_paths(args, head='HEAD'):
 
 def untrack_paths(args, head='HEAD'):
     if not args:
-        return (-1, 'Nothing to do')
+        return (-1, N_('Nothing to do'))
     return git.update_index('--', force_remove=True,
                             with_status=True, *set(args))
 

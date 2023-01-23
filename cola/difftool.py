@@ -7,6 +7,8 @@ import cola
 from cola import utils
 from cola import qtutils
 from cola import gitcmds
+from cola.i18n import N_
+from cola.widgets import completion
 from cola.widgets import defs
 from cola.widgets import standard
 
@@ -52,34 +54,46 @@ def diff_commits(parent, a, b):
     return dlg.exec_() == QtGui.QDialog.Accepted
 
 
-def diff_expression(parent, expr):
+def diff_expression(parent, expr, create_widget=False):
     dlg = FileDiffDialog(parent, expr=expr)
+    if create_widget:
+        return dlg
     dlg.show()
     dlg.raise_()
     return dlg.exec_() == QtGui.QDialog.Accepted
 
 
 class FileDiffDialog(QtGui.QDialog):
-    def __init__(self, parent, a=None, b=None, expr=None):
+    def __init__(self, parent, a=None, b=None, expr=None, title=None):
         QtGui.QDialog.__init__(self, parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
+
         self.a = a
         self.b = b
         self.expr = expr
 
-        self.setWindowTitle('Select File(s)')
+        if title is None:
+            title = N_('git-cola diff')
+
+        self.setWindowTitle(title)
         self.setWindowModality(QtCore.Qt.WindowModal)
+
+        self._expr = completion.GitRefLineEdit(parent=self)
+        if expr is None:
+            self._expr.hide()
+        else:
+            self._expr.setText(expr)
 
         self._tree = standard.TreeWidget(self)
         self._tree.setRootIsDecorated(False)
         self._tree.setSelectionMode(self._tree.ExtendedSelection)
         self._tree.setHeaderHidden(True)
 
-        self._diff_btn = QtGui.QPushButton('Compare')
+        self._diff_btn = QtGui.QPushButton(N_('Compare'))
         self._diff_btn.setIcon(qtutils.ok_icon())
         self._diff_btn.setEnabled(False)
 
-        self._close_btn = QtGui.QPushButton('Close')
+        self._close_btn = QtGui.QPushButton(N_('Close'))
         self._close_btn.setIcon(qtutils.close_icon())
 
         self._button_layt = QtGui.QHBoxLayout()
@@ -91,6 +105,8 @@ class FileDiffDialog(QtGui.QDialog):
         self._layt = QtGui.QVBoxLayout()
         self._layt.setMargin(defs.margin)
         self._layt.setSpacing(defs.spacing)
+
+        self._layt.addWidget(self._expr)
         self._layt.addWidget(self._tree)
         self._layt.addLayout(self._button_layt)
         self.setLayout(self._layt)
@@ -102,37 +118,41 @@ class FileDiffDialog(QtGui.QDialog):
                      SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
                      self._tree_double_clicked)
 
+        self.connect(self._expr, SIGNAL('textChanged(QString)'),
+                     self.text_changed)
+
+        self.connect(self._expr, SIGNAL('returnPressed()'),
+                     self.refresh)
+
         qtutils.connect_button(self._diff_btn, self.diff)
         qtutils.connect_button(self._close_btn, self.close)
         qtutils.add_close_action(self)
 
-        if self.expr:
-            self.diff_arg = tuple(utils.shell_split(self.expr))
-        elif self.b is None:
-            self.diff_arg = (self.a,)
-        else:
-            self.diff_arg = (self.a, self.b)
-
         self.resize(720, 420)
+        self.refresh()
 
+    def text_changed(self, txt):
+        self.expr = unicode(txt)
+        self.refresh()
 
-    def exec_(self):
-        if self.expr:
-            filenames = gitcmds.diff_filenames(*self.diff_arg)
+    def refresh(self):
+        if self.expr is not None:
+            self.diff_arg = utils.shell_usplit(self.expr)
         elif self.b is None:
+            self.diff_arg = [self.a]
+        else:
+            self.diff_arg = [self.a, self.b]
+        self.refresh_filenames()
+
+    def refresh_filenames(self):
+        self._tree.clear()
+
+        if self.a and self.b is None:
             filenames = gitcmds.diff_index_filenames(self.a)
         else:
-            filenames = gitcmds.diff_filenames(*self.diff_arg)
-
+            filenames = gitcmds.diff(self.diff_arg)
         if not filenames:
-            details = ('"git diff --name-only %s" returned an empty list' %
-                       ' '.join(self.diff_arg))
-            self.hide()
-            qtutils.information('git cola',
-                                message='No changes to diff',
-                                details=details)
-            self.close()
-            return self.Accepted
+            return
 
         icon = qtutils.file_icon()
         items = []
@@ -144,14 +164,12 @@ class FileDiffDialog(QtGui.QDialog):
             items.append(item)
         self._tree.addTopLevelItems(items)
 
-        return QtGui.QDialog.exec_(self)
-
     def _tree_selection_changed(self):
         self._diff_btn.setEnabled(bool(self._tree.selectedItems()))
 
     def _tree_double_clicked(self, item, column):
         path = item.data(0, QtCore.Qt.UserRole).toPyObject()
-        launch(self.diff_arg + ('--', unicode(path)))
+        launch(self.diff_arg + ['--', unicode(path)])
 
     def diff(self):
         items = self._tree.selectedItems()
@@ -159,4 +177,4 @@ class FileDiffDialog(QtGui.QDialog):
             return
         paths = [i.data(0, QtCore.Qt.UserRole).toPyObject() for i in items]
         for path in paths:
-            launch(self.diff_arg + ('--', unicode(path)))
+            launch(self.diff_arg + ['--', unicode(path)])

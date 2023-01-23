@@ -80,7 +80,6 @@ class DiffParser(object):
         newdiff = []
         local_offset = 0
         offset = self._diff_spans[diff][0]
-        diffguts = '\n'.join(self._diffs[diff])
 
         for line in self._diffs[diff]:
             line_start = offset + local_offset
@@ -225,8 +224,8 @@ class DiffParser(object):
                 self._idx += 1
             else:
                 if self._idx < 0:
-                    errmsg = 'Malformed diff?\n\n%s' % diff
-                    raise AssertionError, errmsg
+                    errmsg = 'Malformed diff?: %s' % diff
+                    raise AssertionError(errmsg)
                 line_len = len(line) + 1
                 total_offset += line_len
 

@@ -1,16 +1,24 @@
+import os
 import subprocess
+from cola import core
 from cola import utils
+from cola.i18n import N_
 
 
 class Interaction(object):
     """Prompts the user and answers questions"""
+
+    VERBOSE = bool(os.getenv('GIT_COLA_VERBOSE'))
+
     @staticmethod
     def information(title,
                     message=None, details=None, informative_text=None):
         if message is None:
             message = title
-        scope = dict(locals())
+        scope = {}
+        scope['title'] = title
         scope['title_dashes'] = '-' * len(title)
+        scope['message'] = message
         scope['details'] = details and '\n'+details or ''
         scope['informative_text'] = (informative_text and
                 '\n'+informative_text or '')
@@ -42,28 +50,30 @@ class Interaction(object):
     @classmethod
     def question(cls, title, message, default=True):
         return cls.confirm(title, message, '',
-                           ok_text='Continue', default=default)
+                           ok_text=N_('Continue'), default=default)
 
     @classmethod
     def run_command(cls, title, cmd):
-        print('$ ' + subprocess.list2cmdline(cmd))
+        cls.log('$ ' + subprocess.list2cmdline(cmd))
         status, out, err = utils.run_command(cmd)
         cls.log_status(status, out, err)
 
     @classmethod
     def confirm_config_action(cls, name, opts):
-        return cls.confirm('Run %s' % name,
-                           'You are about to run "%s".' % name,
-                           ok_text='Run')
+        return cls.confirm(N_('Run %s?') % name,
+                           N_('Run the "%s" command?') % name,
+                           ok_text=N_('Run'))
 
     @classmethod
     def log_status(cls, status, out, err=None):
-        msg = ('%s%sexit code %s' %
-                ((out and (out+'\n') or ''),
-                 (err and (err+'\n') or ''),
-                 status))
+        msg = (
+           (out and ((N_('Output: %s') % out) + '\n') or '') +
+           (err and ((N_('Errors: %s') % err) + '\n') or '') +
+           N_('Exit code: %s') % status
+        )
         cls.log(msg)
 
-    @staticmethod
-    def log(message):
-        print(message)
+    @classmethod
+    def log(cls, message):
+        if cls.VERBOSE:
+            print(core.encode(message))

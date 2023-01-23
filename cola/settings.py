@@ -10,6 +10,8 @@ try:
 except ImportError:
     import json
 
+from cola import core
+from cola import git
 from cola import xdg
 
 
@@ -30,32 +32,51 @@ def mklist(obj):
 class Settings(object):
     _file = xdg.config_home('settings')
 
-    def __init__(self):
+    def __init__(self, verify=git.is_git_worktree):
         """Load existing settings if they exist"""
-        self.values = {}
+        self.values = {
+                'bookmarks': [],
+                'gui_state': {},
+                'recent': [],
+        }
+        self.verify = verify
         self.load()
+        self.remove_missing()
+
+
+    def remove_missing(self):
+        missing_bookmarks = []
+        missing_recent = []
+
+        for bookmark in self.bookmarks:
+            if not self.verify(core.encode(bookmark)):
+                missing_bookmarks.append(bookmark)
+
+        for bookmark in missing_bookmarks:
+            try:
+                self.bookmarks.remove(bookmark)
+            except:
+                pass
+
+        for recent in self.recent:
+            if not self.verify(core.encode(recent)):
+                missing_recent.append(recent)
+
+        for recent in missing_recent:
+            try:
+                self.recent.remove(recent)
+            except:
+                pass
 
     # properties
     def _get_bookmarks(self):
-        try:
-            bookmarks = mklist(self.values['bookmarks'])
-        except KeyError:
-            bookmarks = self.values['bookmarks'] = []
-        return bookmarks
+        return mklist(self.values['bookmarks'])
 
     def _get_gui_state(self):
-        try:
-            gui_state = mkdict(self.values['gui_state'])
-        except KeyError:
-            gui_state = self.values['gui_state'] = {}
-        return gui_state
+        return mkdict(self.values['gui_state'])
 
     def _get_recent(self):
-        try:
-            recent = mklist(self.values['recent'])
-        except KeyError:
-            recent = self.values['recent'] = []
-        return recent
+        return mklist(self.values['recent'])
 
     bookmarks = property(_get_bookmarks)
     gui_state = property(_get_gui_state)
@@ -94,12 +115,12 @@ class Settings(object):
             sys.stderr.write('git-cola: error writing "%s"\n' % path)
 
     def load(self):
-        self.values = self._load()
+        self.values.update(self._load())
 
     def _load(self):
         path = self.path()
         if not os.path.exists(path):
-            return self.load_dot_cola(path)
+            return self._load_dot_cola()
         try:
             fp = open(path, 'rb')
             return mkdict(json.load(fp))
@@ -108,27 +129,27 @@ class Settings(object):
 
     def reload_recent(self):
         values = self._load()
-        try:
-            self.values['recent'] = mklist(values['recent'])
-        except KeyError:
-            pass
+        self.values['recent'] = mklist(values.get('recent', []))
 
-    def load_dot_cola(self, path):
+    def _load_dot_cola(self):
         values = {}
         path = os.path.join(os.path.expanduser('~'), '.cola')
         if not os.path.exists(path):
-            return values
+            return {}
         try:
             fp = open(path, 'rb')
-            values = json.load(fp)
+            json_values = json.load(fp)
             fp.close()
         except: # bad json
-            return values
-        for key in ('bookmarks', 'gui_state'):
+            return {}
+
+        # Keep only the entries we care about
+        for key in self.values:
             try:
-                values[key] = values[key]
+                values[key] = json_values[key]
             except KeyError:
                 pass
+
         return values
 
     def save_gui_state(self, gui):
