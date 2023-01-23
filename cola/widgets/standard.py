@@ -9,13 +9,14 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QDockWidget
 
+from ..settings import Settings
 from .. import core
 from .. import gitcfg
 from .. import qtcompat
 from .. import qtutils
 from .. import utils
-from ..settings import Settings
 from . import defs
+
 
 class WidgetMixin(object):
     """Mix-in for common utilities and serialization of widget state"""
@@ -71,12 +72,14 @@ class WidgetMixin(object):
         # after all the events have been processsed.
         # Timer with a delay of zero will trigger immediately after control
         # returns to the main loop.
-        QtCore.QTimer.singleShot(0, lambda: self._store_unmaximized_dimensions())
+        QtCore.QTimer.singleShot(
+                0, lambda: self._store_unmaximized_dimensions())
 
     def moveEvent(self, event):
         super(WidgetMixin, self).moveEvent(event)
         # as per the QObject::resizeEvent() override
-        QtCore.QTimer.singleShot(0, lambda: self._store_unmaximized_dimensions())
+        QtCore.QTimer.singleShot(
+                0, lambda: self._store_unmaximized_dimensions())
 
     def _store_unmaximized_dimensions(self):
         state = self.windowState()
@@ -100,20 +103,24 @@ class WidgetMixin(object):
         """Imports data for view save/restore"""
         result = True
         try:
-            x, y = int(state['x']), int(state['y'])
-            self.move(x, y)
-
             width, height = int(state['width']), int(state['height'])
             self.resize(width, height)
 
+            x, y = int(state['x']), int(state['y'])
+            self.move(x, y)
+
             # calling resize/move won't invoke QWidget::{resize,move}Event
+            # so store the unmaximized size if we properly restored.
             self._unmaximized_rect = (x, y, width, height)
         except:
             result = False
         try:
             if state['maximized']:
                 try:
-                    self.resize_to_desktop()
+                    if utils.is_win32() or utils.is_darwin():
+                        self.resize_to_desktop()
+                    else:
+                        self.showMaximized()
                 except:
                     pass
         except:
@@ -133,13 +140,16 @@ class WidgetMixin(object):
         # when maximized we don't want to overwrite saved x/y/width/height with
         # desktop dimensions.
         if maximized:
+            rect = self._unmaximized_rect
             try:
-                ret['x'], ret['y'], ret['width'], ret['height'] = self._unmaximized_rect
+                ret['x'], ret['y'], ret['width'], ret['height'] = rect
             except:
                 pass
         else:
-            ret['width'], ret['height'] = self.width(), self.height()
-            ret['x'], ret['y'] = self.x(), self.y()
+            ret['width'] = self.width()
+            ret['height'] = self.height()
+            ret['x'] = self.x()
+            ret['y'] = self.y()
 
         return ret
 
@@ -444,15 +454,31 @@ class MainWindow(MainWindowMixin, QtWidgets.QMainWindow):
         QtWidgets.QMainWindow.__init__(self, parent)
         MainWindowMixin.__init__(self)
 
+        palette = self.palette()
+        window = palette.color(QtGui.QPalette.Window)
+        highlight = palette.color(QtGui.QPalette.Highlight)
+
+        window_rgb = ('rgb(%d, %d, %d)'
+                 % (window.red(),
+                    window.blue(),
+                    window.green()))
+        highlight_rgb = ('rgb(%d, %d, %d)'
+                 % (highlight.red(),
+                    highlight.blue(),
+                    highlight.green()))
+
         self.setStyleSheet("""
             QMainWindow::separator {
+                background: %(window_rgb)s;
                 width: %(separator)spx;
                 height: %(separator)spx;
             }
             QMainWindow::separator:hover {
-                background: white;
+                background: %(highlight_rgb)s;
             }
-            """ % dict(separator=defs.separator))
+            """ % dict(separator=defs.separator,
+                       window_rgb=window_rgb,
+                       highlight_rgb=highlight_rgb))
 
 
 class TreeView(QtWidgets.QTreeView):

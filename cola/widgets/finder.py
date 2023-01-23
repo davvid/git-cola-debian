@@ -1,3 +1,4 @@
+"""File finder widgets"""
 from __future__ import division, absolute_import, unicode_literals
 import os
 
@@ -31,12 +32,23 @@ def finder(paths=None):
 
 
 def new_finder(paths=None, parent=None):
+    """Create a finder widget"""
     widget = Finder(parent=parent)
     widget.search_for(paths or '')
     return widget
 
 
 def add_wildcards(arg):
+    """Add "*" around user input to generate ls-files pathspecs matches
+
+    >>> '*x*' == \
+        add_wildcards('x') == \
+        add_wildcards('*x') == \
+        add_wildcards('x*') == \
+        add_wildcards('*x*')
+    True
+
+    """
     if not arg.startswith('*'):
         arg = '*' + arg
     if not arg.endswith('*'):
@@ -45,6 +57,7 @@ def add_wildcards(arg):
 
 
 def show_help():
+    """Show the help page"""
     help_text = N_("""
 Keyboard Shortcuts
 ------------------
@@ -63,6 +76,8 @@ and the results.
 
 
 class FindFilesThread(QtCore.QThread):
+    """Finds files asynchronously"""
+
     result = Signal(object)
 
     def __init__(self, parent):
@@ -83,10 +98,10 @@ class FindFilesThread(QtCore.QThread):
 
 
 class Finder(standard.Dialog):
+    """File Finder dialog"""
 
     def __init__(self, parent=None):
         standard.Dialog.__init__(self, parent)
-        self.setAttribute(Qt.WA_MacMetalStyle)
         self.setWindowTitle(N_('Find Files'))
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
@@ -101,9 +116,9 @@ class Finder(standard.Dialog):
         self.edit_button = qtutils.edit_button()
         self.edit_button.setShortcut(hotkeys.EDIT)
 
-        text = cmds.OpenDefaultApp.name()
+        name = cmds.OpenDefaultApp.name()
         icon = icons.default_app()
-        self.open_default_button = qtutils.create_button(text=text, icon=icon)
+        self.open_default_button = qtutils.create_button(text=name, icon=icon)
         self.open_default_button.setShortcut(hotkeys.PRIMARY_ACTION)
 
         self.button_group = Group(self.edit_button, self.open_default_button)
@@ -163,7 +178,7 @@ class Finder(standard.Dialog):
         qtutils.add_close_action(self)
 
         self.init_state(None, self.resize,
-                        *qtutils.default_size(parent, 666, 420))
+                        *qtutils.default_size(parent, 720, 420))
 
     def focus_tree(self):
         self.tree.setFocus()
