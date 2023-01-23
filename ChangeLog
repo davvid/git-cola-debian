@@ -1,7 +1,230 @@
-git-cola: 1.3.7.21.g98f2
-bottled-on: Tue Apr 28 00:44:38 PDT 2009
+git-cola: 1.3.7.45.g7862
+bottled-on: Wed May  6 19:10:35 PDT 2009
 
-commit 98f2bb2dc70fb37d5d4ed3ac80935eb4cc97cb33 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit 78624f86fa667eb7ac09526e1ae6c610a6c68e6b (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: Uri Okrent <uokrent@gmail.com>
+Date:   Wed May 6 18:56:08 2009 -0700
+
+    inotify: fix a bug when exiting cola
+    
+    git-cola would hang on Ubuntu systems when pyinotify was installed.
+    This fixes it by adding a setter for the GitNotifier.
+    
+    Signed-off-by: Uri Okrent <uokrent@gmail.com>
+
+commit 45b3a307fab4b0dfceb4354431bddaca632bf897
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed May 6 02:05:09 2009 -0700
+
+    Makefile: abbreviate the version SHA-1 to 4 characters
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 49c78bc3df5ab5a73854548d959e73aeca80f095
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed May 6 01:42:55 2009 -0700
+
+    Makefile: add a 'git-cola.app' target
+    
+    'make git-cola.app' generates both the .app and the .app.tar.bz2
+    tarball in one step.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ac8426ca90a0edb88a8e68a45fc227220d0cfc52
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed May 6 00:10:11 2009 -0700
+
+    docs: use 'git-cola' consistently when referring to the script name
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c53acfdc0101aebca69904a949b3195531bc19ed
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 23:57:37 2009 -0700
+
+    INSTALL: update the git-on-windows url to point to msysgit
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bb1a58fefe8b73c345cba12223c616810ffd6eee
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 23:42:04 2009 -0700
+
+    INSTALL: mention using the stable releases
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f19e9e65906e984417c308342025708d9d8b4e13
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 22:19:51 2009 -0700
+
+    documentation: remove git-difftool.txt, update git-cola.txt
+    
+    git-cola.txt now mentions the environment variables
+    for difftool.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0e8e9ccbc408bad051ebcdbfefa7e0cec62dbbfc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 21:51:10 2009 -0700
+
+    INSTALL: update the urls to point to PyQt, add more clarifications
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6af868a3fcb554e3d41944835c6de840472cc2e3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 21:36:54 2009 -0700
+
+    darwin: add an iconfile for git-cola.app
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f6605af340d6eca576a18f603e5343794d2ce5ec
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 21:35:48 2009 -0700
+
+    Use SVGs instead of pngs for the main logo
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 55043cece137cbe509806664534d13af44fcd185
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 10:55:35 2009 -0700
+
+    darwin: add scripts for generating git-cola.app for OSX
+    
+    'make macapp' now generates the git-cola.app OSX
+    application bundle.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c615e2d9b4eae17086ac3132088938b9a62de838
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 21:34:23 2009 -0700
+
+    models: do not flag deleted files as modified
+    
+    This fixes a bug where a deleted file would still appear
+    in the modified files list after staging.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 54068edd1fd4194f89f78c9d6a76d63347a0063b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 02:53:01 2009 -0700
+
+    setup.py: add the private cola.models module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2f2428557e06c3d31e63fd0f3a11d8d97ce34863
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 02:25:30 2009 -0700
+
+    win32 installer: keep a copy of git-cola sans .pyw installed
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 272b961704c687fe1143f57b41ef454caebc0fb4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 01:39:24 2009 -0700
+
+    observable: use the current model's notify value when cloning
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6f5a511665c5438921087130bd2a3e40084709ce
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue May 5 01:33:04 2009 -0700
+
+    models: fixed a bug in clone()
+    
+    It was the best of times, it was the worst of times.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b809514eec54dae870b196dc2abe138a18599d0c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 1 21:29:36 2009 -0700
+
+    drawerwidgets: add and use an add_bottom_drawer(widget) method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 47210a699b0d5b645efe8463192a831683deb337
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri May 1 21:23:36 2009 -0700
+
+    views: move the about dialog into its own module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f417208ba08a6c770984d7681e96c5cb33d20684
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 30 04:12:09 2009 -0700
+
+    controllers/main: add more comments to the MainController class
+    
+    All methods now have docstrings and better in-line comments.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 204e95f74eb1675d2d45bb17ae388bc6e5c1a92c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 30 03:17:52 2009 -0700
+
+    models: optimize update_status() by only checking for partial staging on staged items
+    
+    We used to check every modified item to see if it was partially staged.
+    It's fast to only check the staged items.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 75fdacf0fe2698dfea85636ad5ce2125830527cd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 30 03:16:43 2009 -0700
+
+    controllers/main: allow double-click / icon-click on unmerged items
+    
+    We were previously guarding users against accidentally clicking on an
+    unmerged entry to stage it.  This was confusing
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 92140ea3868b429d0cd2ffd281a1ffc047adc933
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 30 02:29:06 2009 -0700
+
+    controllers/util: remove an unused import
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 66cf4644f1a3fdde518b8182e244b147c047bbeb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 30 02:16:39 2009 -0700
+
+    bookmarks controllers: add comments to save_bookmark()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 64c8aee39a63b0d6d9a6a386251c2a2caad275eb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 30 02:03:50 2009 -0700
+
+    refactor the cola package namespace
+    
+    The models, views and controllers packages were doing too much in module __init__.
+    This simplifies things by doing nothing in __init__ and using the fully-qualified
+    package in the callers.
+    
+    This adds a cola.models package that didn't exist before.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 98f2bb2dc70fb37d5d4ed3ac80935eb4cc97cb33
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sat Apr 25 20:15:18 2009 -0700
 

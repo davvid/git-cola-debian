@@ -68,21 +68,24 @@ def _run_setup(git_version):
           long_description = 'A highly caffeinated git gui',
           scripts = scripts,
           packages = [],
-          data_files = [
-            _app_path('share/git-cola/qm', '*.qm'),
+          data_files = cola_data_files())
+
+
+def cola_data_files():
+    return [_app_path('share/git-cola/qm', '*.qm'),
             _app_path('share/git-cola/icons', '*.png'),
+            _app_path('share/git-cola/icons', '*.svg'),
             _app_path('share/git-cola/styles', '*.qss'),
             _app_path('share/git-cola/styles/images', '*.png'),
             _app_path('share/applications', '*.desktop'),
             _app_path('share/doc/git-cola', '*.txt'),
             _lib_path('cola/*.py'),
+            _lib_path('cola/models/*.py'),
             _lib_path('cola/controllers/*.py'),
             _lib_path('cola/gui/*.py'),
             _lib_path('cola/views/*.py'),
             _lib_path('jsonpickle/*.py'),
-            _lib_path('simplejson/*.py'),
-          ])
-
+            _lib_path('simplejson/*.py')]
 
 def _lib_path(entry):
     dirname = os.path.dirname(entry)
@@ -180,4 +183,5 @@ def _run_cmd(args):
     return contents
 
 
-main()
+if __name__ == '__main__':
+    main()

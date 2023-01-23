@@ -3,9 +3,21 @@ DESTDIR	?= /
 PYTHON	?= python
 PYTHON_VER	?= $(shell $(PYTHON) -c 'import platform; print platform.python_version()[:3]')
 PYTHON_SITE	?= $(DESTDIR)$(prefix)/lib/python$(PYTHON_VER)/site-packages
+COLA_VER	?= $(shell git describe --abbrev=4 --match='v*.*')
 
 all:
 	$(PYTHON) setup.py build && rm -rf build
+
+darwin: all
+	rm -rf dist
+	$(PYTHON) darwin/py2app-setup.py py2app
+
+git-cola.app: darwin
+	rm -rf git-cola.app
+	mv dist/git-cola.app $(CURDIR)
+	find git-cola.app -name '*_debug*' | xargs rm -f
+	tar cjf git-cola-$(COLA_VER).app.tar.bz2 git-cola.app
+	rm -rf build dist
 
 install:
 	$(PYTHON) setup.py --quiet install \
@@ -59,4 +71,4 @@ clean:
 tags:
 	ctags -R cola/*.py cola/views/*.py cola/controllers/*.py
 
-.PHONY: all install doc install-doc install-html test clean
+.PHONY: all install doc install-doc install-html test clean darwin git-cola.app

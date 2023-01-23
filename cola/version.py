@@ -95,7 +95,7 @@ def get_version():
         except VersionUnavailable:
             pass
     if not _version:
-        _version = '1.3.7.21.g98f2'
+        _version = '1.3.7.45.g7862'
     return _version
 
 
