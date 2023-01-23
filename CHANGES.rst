@@ -1,3 +1,50 @@
+.. _v3.12.0:
+
+v3.12.0
+=======
+
+Usability, bells and whistles
+-----------------------------
+* The git config guitool action can now be grouped under user-defined menus.
+  This is done by using slash (``/``) delimiters in the action name.
+  Entries before the final slash are treated like submenus inside the
+  top-level ``Actions`` menu.
+  (`#1150 <https://github.com/git-cola/git-cola/issues/1150>`_)
+
+* Toolbars now have a full set of icons. The icons follow the system theme
+  and can be configured to display text, just icons, or text and icons.
+  (`#1171 <https://github.com/git-cola/git-cola/pull/1171>`_)
+
+* The startup dialog will now open the selected repository when the "enter"
+  key is pressed.
+  (`#1162 <https://github.com/git-cola/git-cola/issues/1162>`_)
+
+* ``S`` is stages selected lines (in addition to ``s``).
+  (`#1187 <https://github.com/git-cola/git-cola/issues/1187>`_)
+
+Fixes
+-----
+* The vendored qtpy library was patched to retain Python2 compatibility.
+
+* The "Unstage" toolbar action was fixed.
+  (`#1178 <https://github.com/git-cola/git-cola/issues/1178>`_)
+
+* We now avoid `setWidth(float)` for compatibility with newer Qt versions.
+  (`#1183 <https://github.com/git-cola/git-cola/pull/1183>`_)
+
+* Documentation typofixes.
+  (`#1185  <https://github.com/git-cola/git-cola/pull/1185>`_)
+
+Translations
+------------
+* Updated Polish translation.
+  (`#1184  <https://github.com/git-cola/git-cola/pull/1184>`_)
+
+Development
+-----------
+* Git Cola now uses Github Actions for running its continuous integration tests.
+  (`#1179 <https://github.com/git-cola/git-cola/pull/1179>`_)
+
 .. _v3.11.0:
 
 v3.11.0
@@ -1832,7 +1879,7 @@ v2.0.6
 ======
 Usability, bells and whistles
 -----------------------------
-* Updated Brazillian Portuguese translation.
+* Updated Brazilian Portuguese translation.
 
 * The status and browse widgets now allow drag-and-drop into
   external applications.
@@ -1877,7 +1924,7 @@ v2.0.5
 ======
 Usability, bells and whistles
 -----------------------------
-* New Brazillian Portuguese translation thanks to Vitor Lobo.
+* New Brazilian Portuguese translation thanks to Vitor Lobo.
 
 * New Indonesian translation thanks to Samsul Ma'arif.
 
