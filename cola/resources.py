@@ -14,6 +14,10 @@ if os.path.join('share', 'git-cola', 'lib') in _modpath:
     # __file__ = '$prefix/share/git-cola/lib/cola/__file__.py'
     _lib_dir = dirname(dirname(_modpath))
     _prefix = dirname(dirname(dirname(_lib_dir)))
+elif os.path.join('pkgs', 'cola') in _modpath:
+    # Windows release tree
+    # __file__ = $installdir/pkgs/cola/resources.py
+    _prefix = dirname(dirname(dirname(_modpath)))
 else:
     # this is the source tree
     # __file__ = '$prefix/cola/__file__.py'
@@ -32,11 +36,14 @@ def doc(*args):
 
 def html_docs():
     """Return the path to the cola html documentation."""
-    # index.html only exists after the install-docs target is run,
-    # so fallback to git-cola.rst.
-    htmldocs = doc('html', 'index.html')
-    if core.exists(htmldocs):
-        return htmldocs
+    # html/index.html only exists after the install-docs target is run.
+    # Fallback to the source tree and lastly git-cola.rst.
+    paths_to_try = (('html', 'index.html'),
+                    ('_build', 'html', 'index.html'))
+    for paths in paths_to_try:
+        docdir = doc(*paths)
+        if core.exists(docdir):
+            return docdir
     return doc('git-cola.rst')
 
 

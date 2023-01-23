@@ -1,6 +1,6 @@
 # Copyright (C) 2009, 2010, 2011, 2012, 2013
 # David Aguilar <davvid@gmail.com>
-"""Provides the main() routine and ColaApplicaiton"""
+"""Provides the main() routine and ColaApplication"""
 from __future__ import division, absolute_import, unicode_literals
 
 import argparse
@@ -17,24 +17,46 @@ if sys.platform == 'darwin':
     if os.path.isdir(homebrew_mods):
         sys.path.append(homebrew_mods)
 
+
+errmsg = """Sorry, you do not seem to have PyQt4 installed.
+Please install it before using git-cola.
+e.g.: sudo apt-get install python-qt4
+"""
+
+# /usr/include/sysexits.h
+#define EX_OK           0   /* successful termination */
+#define EX_USAGE        64  /* command line usage error */
+#define EX_NOINPUT      66  /* cannot open input */
+#define EX_UNAVAILABLE  69  /* service unavailable */
+EX_OK = 0
+EX_USAGE = 64
+EX_NOINPUT = 66
+EX_UNAVAILABLE = 69
+
+
 try:
     import sip
-    sip.setapi('QString', 1)
-    sip.setapi('QDate', 1)
-    sip.setapi('QDateTime', 1)
-    sip.setapi('QTextStream', 1)
-    sip.setapi('QTime', 1)
-    sip.setapi('QUrl', 1)
-    sip.setapi('QVariant', 1)
-
-    from PyQt4 import QtGui
-    from PyQt4 import QtCore
-    from PyQt4.QtCore import SIGNAL
 except ImportError:
-    sys.stderr.write('Sorry, you do not seem to have PyQt4 installed.\n')
-    sys.stderr.write('Please install it before using git-cola.\n')
-    sys.stderr.write('e.g.: sudo apt-get install python-qt4\n')
-    sys.exit(-1)
+    sys.stderr.write(errmsg)
+    sys.exit(EX_UNAVAILABLE)
+
+sip.setapi('QString', 1)
+sip.setapi('QDate', 1)
+sip.setapi('QDateTime', 1)
+sip.setapi('QTextStream', 1)
+sip.setapi('QTime', 1)
+sip.setapi('QUrl', 1)
+sip.setapi('QVariant', 1)
+
+try:
+    from PyQt4 import QtCore
+except ImportError:
+    sys.stderr.write(errmsg)
+    sys.exit(EX_UNAVAILABLE)
+
+from PyQt4 import QtGui
+from PyQt4.QtCore import Qt
+from PyQt4.QtCore import SIGNAL
 
 # Import cola modules
 from cola import cmds
@@ -140,14 +162,15 @@ class ColaApplication(object):
     ColaApplication handles i18n of user-visible data
     """
 
-    def __init__(self, argv, locale=None, gui=True, git_path=None):
+    def __init__(self, argv, locale=None, gui=True):
         cfgactions.install()
         i18n.install(locale)
         qtcompat.install()
         qtutils.install()
 
         self.notifier = QtCore.QObject()
-        self.notifier.connect(self.notifier, SIGNAL('update_files'), self._update_files)
+        self.notifier.connect(self.notifier, SIGNAL('update_files()'),
+                              self._update_files, Qt.QueuedConnection)
         # Call _update_files when inotify detects changes
         inotify.observer(self._update_files_notifier)
 
@@ -156,7 +179,7 @@ class ColaApplication(object):
         qtcompat.add_search_path(os.path.basename(icon_dir), icon_dir)
 
         if gui:
-            self._app = current(tuple(argv), git_path)
+            self._app = current(tuple(argv))
             self._app.setWindowIcon(qtutils.git_icon())
             self._app.setStyleSheet("""
                 QMainWindow::separator {
@@ -190,19 +213,18 @@ class ColaApplication(object):
         cmds.do(cmds.Refresh)
 
     def _update_files_notifier(self):
-        self.notifier.emit(SIGNAL('update_files'))
+        self.notifier.emit(SIGNAL('update_files()'))
 
 
 @memoize
-def current(argv, git_path=None):
-    return ColaQApplication(list(argv), git_path)
+def current(argv):
+    return ColaQApplication(list(argv))
 
 
 class ColaQApplication(QtGui.QApplication):
 
-    def __init__(self, argv, git_path=None):
+    def __init__(self, argv):
         QtGui.QApplication.__init__(self, argv)
-        self.git_path = git_path
         self.view = None ## injected by application_start()
 
     def event(self, e):
@@ -219,8 +241,7 @@ class ColaQApplication(QtGui.QApplication):
         sid = ustr(session_mgr.sessionId())
         skey = ustr(session_mgr.sessionKey())
         session_id = '%s_%s' % (sid, skey)
-        session = Session(session_id,
-                          repo=core.getcwd(), git_path=self.git_path)
+        session = Session(session_id, repo=core.getcwd())
         self.view.save_state(settings=session)
 
 
@@ -228,16 +249,10 @@ def process_args(args):
     if args.version:
         # Accept 'git cola --version' or 'git cola version'
         version.print_version()
-        sys.exit(0)
+        sys.exit(EX_OK)
 
     # Handle session management
     restore_session(args)
-
-    if args.git_path:
-        # Adds git to the PATH.  This is needed on Windows.
-        path_entries = core.getenv('PATH', '').split(os.pathsep)
-        path_entries.insert(0, os.path.dirname(core.decode(args.git_path)))
-        compat.setenv('PATH', os.pathsep.join(path_entries))
 
     # Bail out if --repo is not a directory
     repo = core.decode(args.repo)
@@ -248,7 +263,7 @@ def process_args(args):
         errmsg = N_('fatal: "%s" is not a directory.  '
                     'Please specify a correct --repo <path>.') % repo
         core.stderr(errmsg)
-        sys.exit(-1)
+        sys.exit(EX_USAGE)
 
     # We do everything relative to the repo root
     os.chdir(args.repo)
@@ -264,7 +279,6 @@ def restore_session(args):
     if session.load():
         args.settings = session
         args.repo = session.repo
-        args.git_path = session.git_path
 
 
 def application_init(args, update=False):
@@ -331,10 +345,6 @@ def add_common_arguments(parser):
     parser.add_argument('--prompt', action='store_true', default=False,
                         help='prompt for a repository')
 
-    # Used on Windows for adding 'git' to the path
-    parser.add_argument('-g', '--git-path', metavar='<path>', default=None,
-                        help='use the specified git executable')
-
     # Resume an X Session Management session
     parser.add_argument('-session', metavar='<session>', default=None,
                         help=argparse.SUPPRESS)
@@ -342,7 +352,7 @@ def add_common_arguments(parser):
 
 def new_application(args):
     # Initialize the app
-    return ColaApplication(sys.argv, git_path=args.git_path)
+    return ColaApplication(sys.argv)
 
 
 def new_model(app, repo, prompt=False):
@@ -352,7 +362,7 @@ def new_model(app, repo, prompt=False):
         startup_dlg = startup.StartupDialog(app.activeWindow())
         gitdir = startup_dlg.find_git_repo()
         if not gitdir:
-            sys.exit(-1)
+            sys.exit(EX_NOINPUT)
         valid = model.set_worktree(gitdir)
 
     # Finally, go to the root of the git repo

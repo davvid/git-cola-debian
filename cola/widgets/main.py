@@ -11,7 +11,6 @@ from PyQt4.QtCore import SIGNAL
 
 from cola import cmds
 from cola import core
-from cola import gitcmds
 from cola import guicmds
 from cola import gitcfg
 from cola import qtutils
@@ -73,9 +72,6 @@ class MainView(standard.MainWindow):
         # The widget version is used by import/export_state().
         # Change this whenever dockwidgets are removed.
         self.widget_version = 2
-
-        # Keeps track of merge messages we've seen
-        self.merge_message_hash = ''
 
         # Runs asynchronous tasks
         self.task_runner = TaskRunner(self)
@@ -150,11 +146,11 @@ class MainView(standard.MainWindow):
         # All Actions
         self.unstage_all_action = add_action(self,
                 N_('Unstage All'), cmds.run(cmds.UnstageAll))
-        self.unstage_all_action.setIcon(qtutils.icon('remove.svg'))
+        self.unstage_all_action.setIcon(qtutils.remove_icon())
 
         self.unstage_selected_action = add_action(self,
                 N_('Unstage From Commit'), cmds.run(cmds.UnstageSelected))
-        self.unstage_selected_action.setIcon(qtutils.icon('remove.svg'))
+        self.unstage_selected_action.setIcon(qtutils.remove_icon())
 
         self.show_diffstat_action = add_action(self,
                 N_('Diffstat'), cmds.run(cmds.Diffstat), 'Alt+D')
@@ -162,12 +158,12 @@ class MainView(standard.MainWindow):
         self.stage_modified_action = add_action(self,
                 N_('Stage Changed Files To Commit'),
                 cmds.run(cmds.StageModified), 'Alt+A')
-        self.stage_modified_action.setIcon(qtutils.icon('add.svg'))
+        self.stage_modified_action.setIcon(qtutils.add_icon())
 
         self.stage_untracked_action = add_action(self,
                 N_('Stage All Untracked'),
                 cmds.run(cmds.StageUntracked), 'Alt+U')
-        self.stage_untracked_action.setIcon(qtutils.icon('add.svg'))
+        self.stage_untracked_action.setIcon(qtutils.add_icon())
 
         self.apply_patches_action = add_action(self,
                 N_('Apply Patches...'), patch.apply_patches)
@@ -324,7 +320,6 @@ class MainView(standard.MainWindow):
             # 'Browser' widget so don't register them when
             # the browser is a dockable tool.
             self.addAction(status_tree.revert_unstaged_edits_action)
-            self.addAction(status_tree.revert_uncommitted_edits_action)
             self.addAction(status_tree.up_action)
             self.addAction(status_tree.down_action)
             self.addAction(status_tree.process_selection_action)
@@ -482,9 +477,11 @@ class MainView(standard.MainWindow):
         self.connect(self.diffeditor, SIGNAL('diff_options_updated()'),
                      self.statuswidget.refresh)
 
-        self.connect(self, SIGNAL('update'), self._update_callback)
-        self.connect(self, SIGNAL('install_config_actions'),
-                     self._install_config_actions)
+        self.connect(self, SIGNAL('update()'),
+                     self._update_callback, Qt.QueuedConnection)
+
+        self.connect(self, SIGNAL('install_cfg_actions(PyQt_PyObject)'),
+                     self._install_config_actions, Qt.QueuedConnection)
 
         # Install .git-config-defined actions
         self._config_task = None
@@ -568,7 +565,8 @@ class MainView(standard.MainWindow):
                 self._sender = sender
             def run(self):
                 actions = cfgactions.get_config_actions()
-                self._sender.emit(SIGNAL('install_config_actions'), actions)
+                self._sender.emit(SIGNAL('install_cfg_actions(PyQt_PyObject)'),
+                                  actions)
 
         task = ConfigActionsTask(self)
         QtCore.QThreadPool.globalInstance().start(task)
@@ -586,7 +584,7 @@ class MainView(standard.MainWindow):
                 action.setShortcut(shortcut)
 
     def _update(self):
-        self.emit(SIGNAL('update'))
+        self.emit(SIGNAL('update()'))
 
     def _update_callback(self):
         """Update the title with the current branch and directory name."""
@@ -628,17 +626,6 @@ class MainView(standard.MainWindow):
         self.commitdockwidget.setToolTip(msg)
         self.commitmsgeditor.set_mode(self.mode)
         self.update_actions()
-
-        if not self.model.amending():
-            # Check if there's a message file in .git/
-            merge_msg_path = gitcmds.merge_message_path()
-            if merge_msg_path is None:
-                return
-            merge_msg_hash = utils.checksum(merge_msg_path)
-            if merge_msg_hash == self.merge_message_hash:
-                return
-            self.merge_message_hash = merge_msg_hash
-            cmds.do(cmds.LoadCommitMessageFromFile, merge_msg_path)
 
     def update_actions(self):
         is_rebasing = self.model.is_rebasing

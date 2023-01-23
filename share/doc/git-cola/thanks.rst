@@ -4,6 +4,7 @@ Thanks
 
 * Aaron Cook
 * Adrien be
+* AJ Bagwell
 * Alex Chernetz
 * Alexander Kozienko
 * Andreas Sommer
@@ -12,6 +13,7 @@ Thanks
 * Boris W
 * Ben Boeckel
 * Ben Cole
+* Benedict Lee
 * Benoît Nouyrigat
 * Charles 101
 * Christian Jann
@@ -20,24 +22,29 @@ Thanks
 * Daniel Fahlke
 * Daniel Harding
 * Daniel King
+* Dave Thomas
 * David Aguilar
 * David Martínez Martí
 * Dennis Gilmore
 * Dmitry Kann
 * Eric Drechsel
-* `GIT Hackers <http://git-scm.com/about>`_
+* Geoffrey van Wyk
+* `Git Hackers <http://git-scm.com/about>`_
 * Glen Mailer
 * Guillaume de Bure
+* Harro Verton
 * Ingo Weinhold
 * Ismael Juma
 * Iulian Udrea
 * Ivar Smolin
 * Jakub Wilk
 * James Geiger
-* Jérôme Carretero
-* Johann Schmitz
-* Josh Taylor
 * Jeff Dagenais
+* Jérôme Carretero
+* JiCiT
+* Johann Schmitz
+* Jordan Bedwell
+* Josh Taylor
 * Justin Lecher
 * Karl Bielefeldt
 * Karthik Manamcheri
@@ -47,21 +54,25 @@ Thanks
 * Leho Kraav
 * Libor Jelinek
 * Liviu Cristian Mirea-Ghiban
+* Luke Bakken
+* Maarten Nieber
 * Maciej Filipiak
 * Mahmoud Hossam
 * Maicon D. Filippsen
 * Marco Costalba
 * Markus Heidelberg
-* Maarten Nieber
 * Matěj Šmíd
 * Matthew Levine
+* Matthias Mailänder
 * Micha Rosenbaum
 * Michael Geddes
 * Michael Homer
 * Minarto Margoliono
+* Naraesk
 * Nicolas Dietrich
 * OmegaPhil (Omega Weapon)
 * Owen Healy
+* Pamela Strucker
 * Paolo G. Giarrusso
 * Patrick Browne
 * Paul Hildebrandt
@@ -85,6 +96,8 @@ Thanks
 * Ugo Riboni
 * Uri Okrent
 * Ｖ字龍 (Vdragon)
+* Vaibhav Sagar
+* Ville Skyttä
 * Virgil Dupras
 * Vitor Lobo
 * v.paritskiy

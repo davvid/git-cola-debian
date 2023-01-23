@@ -28,7 +28,6 @@ class CommitMessageEditor(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
 
         self.model = model
-        self.notifying = False
         self.spellcheck_initialized = False
 
         self._linebreak = None
@@ -46,14 +45,19 @@ class CommitMessageEditor(QtGui.QWidget):
                                                 self.commit,
                                                 cmds.Commit.SHORTCUT)
         self.commit_action.setToolTip(N_('Commit staged changes'))
+        self.clear_action = qtutils.add_action(self, N_('Clear...'), self.clear)
 
         # Widgets
         self.summary = CommitSummaryLineEdit()
         self.summary.setMinimumHeight(defs.tool_button_height)
+        self.summary.extra_actions.append(self.clear_action)
+        self.summary.extra_actions.append(None)
         self.summary.extra_actions.append(self.signoff_action)
         self.summary.extra_actions.append(self.commit_action)
 
         self.description = CommitMessageTextEdit()
+        self.description.extra_actions.append(self.clear_action)
+        self.description.extra_actions.append(None)
         self.description.extra_actions.append(self.signoff_action)
         self.description.extra_actions.append(self.commit_action)
 
@@ -147,7 +151,9 @@ class CommitMessageEditor(QtGui.QWidget):
                            Qt.Key_Down)
 
         self.model.add_observer(self.model.message_commit_message_changed,
-                                self.set_commit_message)
+                                self._set_commit_message)
+        self.connect(self, SIGNAL('set_commit_message(PyQt_PyObject)'),
+                     self.set_commit_message, Qt.QueuedConnection)
 
         self.connect(self.summary, SIGNAL('cursorPosition(int,int)'),
                      self.emit_position)
@@ -266,12 +272,21 @@ class CommitMessageEditor(QtGui.QWidget):
 
     def commit_message_changed(self, value=None):
         """Update the model when values change"""
-        self.notifying = True
         message = self.commit_message()
-        self.model.set_commitmsg(message)
+        self.model.set_commitmsg(message, notify=False)
         self.refresh_palettes()
-        self.notifying = False
         self.update_actions()
+
+    def clear(self):
+        if not qtutils.confirm(
+                N_('Clear commit message?'),
+                N_('The commit message will be cleared.'),
+                N_('This cannot be undone.  Clear commit message?'),
+                N_('Clear commit message'),
+                default=True,
+                icon=qtutils.discard_icon()):
+            return
+        self.model.set_commitmsg('')
 
     def update_actions(self):
         commit_enabled = bool(self.summary.value())
@@ -283,13 +298,11 @@ class CommitMessageEditor(QtGui.QWidget):
         self.summary.refresh_palette()
         self.description.refresh_palette()
 
+    def _set_commit_message(self, message):
+        self.emit(SIGNAL('set_commit_message(PyQt_PyObject)'), message)
+
     def set_commit_message(self, message):
         """Set the commit message to match the observed model"""
-        if self.notifying:
-            # Calling self.model.set_commitmsg(message) causes us to
-            # loop around so break the loop
-            return
-
         # Parse the "summary" and "description" fields
         umsg = ustr(message)
         lines = umsg.splitlines()
@@ -532,7 +545,10 @@ class CommitSummaryLineEdit(HintedLineEdit):
         if self.extra_actions:
             menu.addSeparator()
         for action in self.extra_actions:
-            menu.addAction(action)
+            if action is None:
+                menu.addSeparator()
+            else:
+                menu.addAction(action)
         menu.exec_(self.mapToGlobal(event.pos()))
 
 
@@ -551,7 +567,10 @@ class CommitMessageTextEdit(SpellCheckTextEdit):
         if self.extra_actions:
             menu.addSeparator()
         for action in self.extra_actions:
-            menu.addAction(action)
+            if action is None:
+                menu.addSeparator()
+            else:
+                menu.addAction(action)
         menu.exec_(self.mapToGlobal(event.pos()))
 
     def keyPressEvent(self, event):
