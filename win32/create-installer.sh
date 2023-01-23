@@ -31,12 +31,11 @@ ETC=$BASENAME/etc
 ROOT="$PWD"/$BASENAME
 TARGET="$ROOT".exe
 
-echo "Building installer for git-cola v$VERSION"
+echo "Building installer for git-cola $VERSION"
 
 python setup.py --quiet install \
-	--root="$ROOT" \
-	--prefix='.' \
-	--install-scripts=bin
+	--prefix="$ROOT" \
+	--install-scripts="$ROOT"/bin
 rm -rf "$ROOT"/lib "$ROOT"/Lib build
 
 cp $BASENAME/bin/git-cola $BASENAME/bin/git-cola.pyw
@@ -47,9 +46,6 @@ NOTES=$ETC/ReleaseNotes.txt
 
 printf "git-cola: v$VERSION\nBottled-on: $(date)\n\n\n" > $NOTES
 printf "To run cola, just type 'cola' from a Git Bash session.\n\n\n" >> $NOTES
-if test -f meta/ReleaseNotes; then
-	cat meta/ReleaseNotes  >> $NOTES
-fi
 
 tag=$(git tag | tail -2 | head -1)
 echo "--------------------------------------------------------" >> $NOTES

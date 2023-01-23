@@ -6,6 +6,7 @@ import os
 import sys
 
 from cola import git
+from cola import gitcmd
 from cola import errors
 from cola import utils
 from cola import resources
@@ -20,6 +21,7 @@ _versions = {
     'difftool-builtin': '1.6.3',
     # git-mergetool learned --no-prompt in 1.6.2
     'mergetool-no-prompt': '1.6.2',
+    'patience': '1.6.2',
 }
 
 def get(key):
@@ -65,9 +67,9 @@ def builtin_version():
         return bv.version
 
 
-def _builtin_version_file(ext = 'py'):
+def _builtin_version_file(ext='py'):
     """Returns the path to cola's builtin_version.py."""
-    dirname = os.path.dirname(os.path.abspath(__file__))
+    dirname = os.path.dirname(__file__)
     return os.path.join(dirname, 'builtin_version.%s' % ext)
 
 
@@ -84,7 +86,7 @@ def write_builtin_version():
 def delete_builtin_version():
     """Deletes cola/builtin_version.py."""
     for ext in ('py', 'pyc', 'pyo'):
-        fn = _builtin_version_file(ext)
+        fn = _builtin_version_file(ext=ext)
         if os.path.exists(fn):
             os.remove(fn)
 
@@ -105,12 +107,20 @@ def version():
     return _version
 
 
+# Avoid recomputing the same checks
+_check_version_cache = {}
+
 def check_version(min_ver, ver):
     """Check whether ver is greater or equal to min_ver
     """
+    test = (min_ver, ver)
+    if test in _check_version_cache:
+        return _check_version_cache[test]
     min_ver_list = version_to_list(min_ver)
     ver_list = version_to_list(ver)
-    return min_ver_list <= ver_list
+    answer = min_ver_list <= ver_list
+    _check_version_cache[test] = answer
+    return answer
 
 
 def check(key, ver):
@@ -131,6 +141,10 @@ def version_to_list(version):
     return ver_list
 
 
+_git_version = None
 def git_version():
     """Returns the current GIT version"""
-    return utils.run_cmd(['git', '--version']).split()[2]
+    global _git_version
+    if _git_version is None:
+        _git_version = gitcmd.instance().version().split()[-1]
+    return _git_version

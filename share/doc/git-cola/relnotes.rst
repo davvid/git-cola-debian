@@ -1,3 +1,67 @@
+git-cola v1.4.1.2
+=================
+
+Usability, bells and whistles
+-----------------------------
+* It is now possible to checkout from the index as well
+  as from `HEAD`.  This corresponds to the
+  `Removed Unstaged Changes` action in the `Repository Status` tool.
+* The `remote` dialogs (fetch, push, pull) are now slightly
+  larger by default.
+* Bookmarks can be selected when `git-cola` is run outside of a Git repository.
+* Added more user documentation.  We now include many links to
+  external git resources.
+
+Fixes
+-----
+* Fixed a missing ``import`` when showing `right-click` actions
+  for unmerged files in the `Repository Status` tool.
+* ``git update-index --refresh`` is no longer run everytime
+  ``git cola version`` is run.
+* Don't try to watch non-existant directories when using `inotify`.
+
+Packaging
+---------
+* The ``Makefile`` will now conditionally include a ``config.mak``
+  file located at the root of the project.  This allows for user
+  customizations such as changes to the `prefix` variable
+  to be stored in a file so that custom settings do not need to
+  be specified every time on the command-line.
+* The build scripts no longer require a ``.git`` directory to
+  generate the ``builtin_version.py`` module.  The release tarballs
+  now include a ``version`` file at the root of the project which
+  is used in lieu of having the Git repository available.
+  This allows for ``make clean && make`` to function outside of
+  a Git repository.
+* Added maintainer's ``make dist`` target to the ``Makefile``.
+* The built-in `simplejson` and `jsonpickle` libraries can be
+  excluded from ``make install`` by specifying the ``standalone=true``
+  `make` variable.  For example, ``make standalone=true install``.
+  This corresponds to the ``--standalone`` option to ``setup.py``.
+
+
+git-cola v1.4.1.1
+=================
+
+Usability, bells and whistles
+-----------------------------
+* We now use patience diff by default when it is available via
+  `git diff --patience`.
+
+* Allow closing the `cola classic` tool with `Ctrl+W`.
+
+* Update desktop menu entry to read `Cola Git GUI`.
+
+Fixes
+-----
+* Fixed an unbound variable error in the `push` dialog.
+
+Packaging
+---------
+* Don't include `simplejson` in MANIFEST.in.
+* Update desktop entry to read `Cola Git GUI`.
+
+
 git-cola v1.4.1
 ===============
 
@@ -235,7 +299,7 @@ Usability, bells and whistles
 * The log window moved into a drawer widget at the bottom of the UI
 * Log window display can be configured with
   `cola.showoutput` = `{never, always, errors}`.  `errors` is the default.
-  `NOTE` -- this variable was removed with the GUI rewrite in 1.4.0.
+* `NOTE` -- `cola.showoutput` was removed with the GUI rewrite in 1.4.0.
 
 Developer
 ---------

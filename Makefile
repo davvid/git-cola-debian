@@ -1,11 +1,18 @@
 prefix	?= $(HOME)
-DESTDIR	?= /
 PYTHON	?= python
 PYTHON_VER	?= $(shell $(PYTHON) -c 'import platform; print platform.python_version()[:3]')
 PYTHON_SITE	?= $(DESTDIR)$(prefix)/lib/python$(PYTHON_VER)/site-packages
-COLA_VER	?= $(shell git describe --abbrev=4 --match='v*.*')
+COLA_VERSION	?= $(shell git describe --match='v*.*' | sed -e s/v//)
 APP	?= git-cola.app
 APPZIP	?= $(shell darwin/name-tarball.py)
+TAR	?= tar
+
+# User customizations
+-include config.mak
+
+ifneq ($(standalone),)
+standalone_args	?= --standalone
+endif
 
 all:
 	$(PYTHON) setup.py build
@@ -20,26 +27,41 @@ $(APP): darwin
 	tar cjf $(APPZIP) $(APP)
 
 install:
-	$(PYTHON) setup.py install \
-		--quiet \
+	$(PYTHON) setup.py --quiet install \
+		$(standalone_args) \
+		--install-scripts=$(DESTDIR)$(prefix)/bin \
 		--prefix=$(DESTDIR)$(prefix) \
 		--force && \
-	rm -f $(PYTHON_SITE)/git_cola* && \
-	(test -d $(PYTHON_SITE) && rmdir -p $(PYTHON_SITE) 2>/dev/null || true) && \
+	rm -f $(PYTHON_SITE)/git_cola*
+	rmdir -p $(PYTHON_SITE) 2>/dev/null || true
 	(cd $(DESTDIR)$(prefix)/bin && \
-	 ((! test -e cola && ln -s git-cola cola) || true))
+	! test -e cola && ln -s git-cola cola) || true
+
+# Maintainer's dist target
+COLA_TARNAME=cola-$(COLA_VERSION)
+dist: all
+	git archive --format=tar \
+		--prefix=$(COLA_TARNAME)/ HEAD^{tree} > $(COLA_TARNAME).tar
+	@mkdir -p $(COLA_TARNAME)/cola
+	@cp cola/builtin_version.py $(COLA_TARNAME)/cola
+	@cp cola/builtin_version.py $(COLA_TARNAME)/version
+	$(TAR) rf $(COLA_TARNAME).tar \
+		$(COLA_TARNAME)/version \
+		$(COLA_TARNAME)/cola/builtin_version.py
+	@$(RM) -r $(COLA_TARNAME)
+	gzip -f -9 $(COLA_TARNAME).tar
 
 doc:
-	$(MAKE) -C share/doc/git-cola all
+	$(MAKE) -C share/doc/git-cola prefix=$(prefix) all
 
 html:
-	$(MAKE) -C share/doc/git-cola html
+	$(MAKE) -C share/doc/git-cola prefix=$(prefix) html
 
 install-doc:
-	$(MAKE) -C share/doc/git-cola install
+	$(MAKE) -C share/doc/git-cola prefix=$(prefix) install
 
 install-html:
-	$(MAKE) -C share/doc/git-cola install-html
+	$(MAKE) -C share/doc/git-cola prefix=$(prefix) install-html
 
 uninstall:
 	rm -rf  $(DESTDIR)$(prefix)/bin/git-cola \
@@ -48,8 +70,11 @@ uninstall:
 		$(DESTDIR)$(prefix)/share/git-cola \
 		$(DESTDIR)$(prefix)/share/doc/git-cola
 
-test_flags	?=
-all_test_flags	?= --with-doctest $(test_flags)
+test_flags	:=
+all_test_flags	?= --with-doctest \
+		   --exclude=jsonpickle \
+		   --exclude=simplejson \
+		   $(test_flags)
 
 test: all
 	@env PYTHONPATH="$(CURDIR)":"$(PYTHONPATH)" \
