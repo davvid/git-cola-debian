@@ -17,16 +17,6 @@ from cola.interaction import Interaction
 from cola.models.selection import State
 
 
-def select_item(tree, item):
-    if not item:
-        return
-    tree.setItemSelected(item, True)
-    parent = item.parent()
-    if parent:
-        tree.scrollToItem(parent)
-    tree.scrollToItem(item)
-
-
 class StatusWidget(QtGui.QWidget):
     """
     Provides a git-status-like repository widget.
@@ -50,6 +40,9 @@ class StatusWidget(QtGui.QWidget):
 
     def restore_size(self):
         self.setMaximumWidth(2 ** 13)
+
+    def refresh(self):
+        self.tree.show_selection()
 
 
 class StatusTreeWidget(QtGui.QTreeWidget):
@@ -85,6 +78,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.old_scroll = None
         self.old_selection = None
         self.old_contents = None
+        self.old_current_item = None
 
         self.expanded_items = set()
 
@@ -118,10 +112,11 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                     cmds.OpenParentDir.SHORTCUT)
             self.open_parent_dir.setIcon(qtutils.open_file_icon())
 
-        self.up = qtutils.add_action(self,
-                N_('Move Up'), self.move_up, Qt.Key_K)
-        self.down = qtutils.add_action(self,
-                N_('Move Down'), self.move_down, Qt.Key_J)
+        self.up = qtutils.add_action(self, N_('Move Up'), self.move_up,
+                                     Qt.Key_K)
+
+        self.down = qtutils.add_action(self, N_('Move Down'), self.move_down,
+                                       Qt.Key_J)
 
         self.copy_path_action = qtutils.add_action(self,
                 N_('Copy Path to Clipboard'),
@@ -172,50 +167,90 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         old_s = self.old_selection
         new_c = self.contents()
 
-        def select_modified(item):
-            idx = new_c.modified.index(item)
-            select_item(self, self.modified_item(idx))
+        def mkselect(lst, widget_getter):
+            def select(item, current=False):
+                idx = lst.index(item)
+                widget = widget_getter(idx)
+                if current:
+                    self.setCurrentItem(widget)
+                self.setItemSelected(widget, True)
+            return select
 
-        def select_unmerged(item):
-            idx = new_c.unmerged.index(item)
-            select_item(self, self.unmerged_item(idx))
+        select_staged = mkselect(new_c.staged, self.staged_item)
+        select_unmerged = mkselect(new_c.unmerged, self.unmerged_item)
+        select_modified = mkselect(new_c.modified, self.modified_item)
+        select_untracked = mkselect(new_c.untracked, self.untracked_item)
 
-        def select_untracked(item):
-            idx = new_c.untracked.index(item)
-            select_item(self, self.untracked_item(idx))
+        saved_selection = [
+        (set(new_c.staged), old_c.staged, set(old_s.staged),
+            select_staged),
 
-        def select_staged(item):
-            idx = new_c.staged.index(item)
-            select_item(self, self.staged_item(idx))
+        (set(new_c.unmerged), old_c.unmerged, set(old_s.unmerged),
+            select_unmerged),
 
-        restore_selection_actions = (
-            (new_c.modified, old_c.modified, old_s.modified, select_modified),
-            (new_c.unmerged, old_c.unmerged, old_s.unmerged, select_unmerged),
-            (new_c.untracked, old_c.untracked, old_s.untracked, select_untracked),
-            (new_c.staged, old_c.staged, old_s.staged, select_staged),
-        )
+        (set(new_c.modified), old_c.modified, set(old_s.modified),
+            select_modified),
 
-        for (new, old, selection, action) in restore_selection_actions:
+        (set(new_c.untracked), old_c.untracked, set(old_s.untracked),
+            select_untracked),
+        ]
+
+        # Restore the current item
+        if self.old_current_item:
+            category, idx = self.old_current_item
+            if category == self.idx_header:
+                item = self.invisibleRootItem().child(idx)
+                self.setCurrentItem(item)
+                self.setItemSelected(item, True)
+                return
+            # Reselect the current item
+            selection_info = saved_selection[category]
+            new = selection_info[0]
+            old = selection_info[1]
+            reselect = selection_info[3]
+            try:
+                item = old[idx]
+            except:
+                return
+            if item in new:
+                reselect(item, current=True)
+
+        # Restore selection
+        # When reselecting we only care that the items are selected;
+        # we do not need to rerun the callbacks which were triggered
+        # above.  Block signals to skip the callbacks.
+        self.blockSignals(True)
+        for (new, old, selection, reselect) in saved_selection:
+            for item in selection:
+                if item in new:
+                    reselect(item, current=False)
+        self.blockSignals(False)
+
+        for (new, old, selection, reselect) in saved_selection:
             # When modified is staged, select the next modified item
             # When unmerged is staged, select the next unmerged item
-            # When untracked is staged, select the next untracked item
-            # When something is unstaged we should select the next staged item
-            new_set = set(new)
-            if len(new) < len(old) and old:
-                for idx, i in enumerate(old):
-                    if i not in new_set:
-                        for j in itertools.chain(old[idx+1:],
-                                                 reversed(old[:idx])):
-                            if j in new_set:
-                                action(j)
-                                return
-
-        for (new, old, selection, action) in restore_selection_actions:
-            # Reselect items when doing partial-staging
-            new_set = set(new)
+            # When unstaging, select the next staged item
+            # When staging untracked files, select the next untracked item
+            if len(new) >= len(old):
+                # The list did not shrink so it is not one of these cases.
+                continue
             for item in selection:
-                if item in new_set:
-                    action(item)
+                # The item still exists so ignore it
+                if item in new or item not in old:
+                    continue
+                # The item no longer exists in this list so search for
+                # its nearest neighbors and select them instead.
+                idx = old.index(item)
+                for j in itertools.chain(old[idx+1:], reversed(old[:idx])):
+                    if j in new:
+                        reselect(j, current=True)
+                        return
+
+    def restore_scrollbar(self):
+        vscroll = self.verticalScrollBar()
+        if vscroll and self.old_scroll is not None:
+            vscroll.setValue(self.old_scroll)
+            self.old_scroll = None
 
     def staged_item(self, itemidx):
         return self._subtree_item(self.idx_staged, itemidx)
@@ -256,13 +291,32 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.emit(SIGNAL('about_to_update'))
 
     def _about_to_update(self):
-        self.old_selection = self.selection()
-        self.old_contents = self.contents()
+        self.save_selection()
+        self.save_scrollbar()
 
-        self.old_scroll = None
+    def save_scrollbar(self):
         vscroll = self.verticalScrollBar()
         if vscroll:
             self.old_scroll = vscroll.value()
+        else:
+            self.old_scroll = None
+
+    def current_item(self):
+        current = self.currentItem()
+        if not current:
+            return None
+        idx = self.indexFromItem(current, 0)
+        if idx.parent().isValid():
+            parent_idx = idx.parent()
+            entry = (parent_idx.row(), idx.row())
+        else:
+            entry = (self.idx_header, idx.row())
+        return entry
+
+    def save_selection(self):
+        self.old_contents = self.contents()
+        self.old_selection = self.selection()
+        self.old_current_item = self.current_item()
 
     def updated(self):
         """Update display from model data."""
@@ -274,12 +328,8 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.set_unmerged(self.m.unmerged)
         self.set_untracked(self.m.untracked)
 
-        vscroll = self.verticalScrollBar()
-        if vscroll and self.old_scroll is not None:
-            vscroll.setValue(self.old_scroll)
-            self.old_scroll = None
-
         self.restore_selection()
+        self.restore_scrollbar()
         self.update_column_widths()
 
     def set_staged(self, items):
@@ -426,6 +476,10 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             menu.addAction(qtutils.icon('undo.svg'),
                            N_('Revert Unstaged Edits...'),
                            lambda: self._revert_unstaged_edits(staged=True))
+            menu.addAction(qtutils.icon('undo.svg'),
+                           N_('Revert Uncommited Edits...'),
+                           lambda: self._revert_uncommitted_edits(
+                                        self.staged()))
         menu.addSeparator()
         menu.addAction(self.copy_path_action)
         return menu
@@ -515,7 +569,8 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                                self._revert_unstaged_edits)
                 menu.addAction(qtutils.icon('undo.svg'),
                                N_('Revert Uncommited Edits...'),
-                               self._revert_uncommitted_edits)
+                               lambda: self._revert_uncommitted_edits(
+                                            self.modified()))
 
         if self.unstaged() and not utils.is_win32():
             menu.addSeparator()
@@ -612,8 +667,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             msg = N_('No files selected for checkout from HEAD.')
             Interaction.log(msg)
 
-    def _revert_uncommitted_edits(self):
-        items_to_undo = self.modified()
+    def _revert_uncommitted_edits(self, items_to_undo):
         if items_to_undo:
             if not qtutils.confirm(
                     N_('Revert Uncommitted Changes?'),
@@ -657,7 +711,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                 parent_idx = idx.parent()
                 entry = (parent_idx.row(), idx.row())
             else:
-                entry = (-1, idx.row())
+                entry = (self.idx_header, idx.row())
             result.append(entry)
         return result
 

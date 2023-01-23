@@ -197,21 +197,28 @@ def tag_list():
     return tags
 
 
+def log(git, *args, **kwargs):
+    return core.decode(git.log(no_color=True,
+                               no_ext_diff=True,
+                               *args, **kwargs))
+
+
 def commit_diff(sha1, git=git):
-    commit = git.show(sha1)
-    first_newline = commit.index('\n')
-    if commit[first_newline+1:].startswith('Merge:'):
-        return (core.decode(commit) + '\n\n' +
-                core.decode(diff_helper(commit=sha1,
-                                        cached=False,
-                                        suppress_header=False)))
-    else:
-        return core.decode(commit)
+    return log(git, '-1', sha1, '--') + '\n\n' + sha1_diff(git, sha1)
+
+
+_diff_overrides = {}
+def update_diff_overrides(space_at_eol, space_change,
+                          all_space, function_context):
+    _diff_overrides['ignore_space_at_eol'] = space_at_eol
+    _diff_overrides['ignore_space_change'] = space_change
+    _diff_overrides['ignore_all_space'] = all_space
+    _diff_overrides['function_context'] = function_context
 
 
 def _common_diff_opts(config=config):
     submodule = version.check('diff-submodule', version.git_version())
-    return {
+    opts = {
         'patience': True,
         'submodule': submodule,
         'no_color': True,
@@ -220,18 +227,19 @@ def _common_diff_opts(config=config):
         'with_stderr': True,
         'unified': config.get('gui.diffcontext', 3),
     }
+    opts.update(_diff_overrides)
+    return opts
 
 
-def sha1_diff(sha1, git=git):
-    return core.decode(git.diff(sha1 + '^!', **_common_diff_opts()))
+def sha1_diff(git, sha1):
+    return core.decode(git.diff(sha1+'~', sha1, **_common_diff_opts()))
 
 
 def diff_info(sha1, git=git):
-    log = git.log('-1', '--pretty=format:%b', sha1)
-    decoded = core.decode(log).strip()
+    decoded = log(git, '-1', sha1, '--', pretty='format:%b').strip()
     if decoded:
         decoded += '\n\n'
-    return decoded + sha1_diff(sha1)
+    return decoded + sha1_diff(git, sha1)
 
 
 def diff_helper(commit=None,
@@ -468,8 +476,8 @@ def diff_index(head, cached=True):
     staged = []
     unmerged = []
 
-    status, output = git.diff_index(head, cached=cached,
-                                    z=True, with_status=True)
+    status, output = git.diff_index(head, '--',
+                                    cached=cached, z=True, with_status=True)
     if status != 0:
         # handle git init
         return all_files(), unmerged, submodules
@@ -599,7 +607,7 @@ def log_helper(all=False, extra_args=None):
     args = []
     if extra_args:
         args = extra_args
-    output = git.log(pretty='oneline', no_color=True, all=all, *args)
+    output = log(git, pretty='oneline', all=all, *args)
     for line in map(core.decode, output.splitlines()):
         match = REV_LIST_REGEX.match(line)
         if match:
@@ -613,6 +621,13 @@ def rev_list_range(start, end):
     revrange = '%s..%s' % (start, end)
     raw_revs = git.rev_list(revrange, pretty='oneline')
     return parse_rev_list(raw_revs)
+
+
+def commit_message_path():
+    """Return the path to .git/GIT_COLA_MSG"""
+    path = git.git_path("GIT_COLA_MSG")
+    if os.path.exists(path):
+        return path
 
 
 def merge_message_path():

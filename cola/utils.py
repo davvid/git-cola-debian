@@ -228,9 +228,11 @@ def slurp(path, size=-1):
 
 def write(path, contents, encoding=None):
     """Writes a raw string to a file."""
-    fh = open(core.encode(path), 'wb')
-    core.write(fh, core.encode(contents, encoding=encoding))
-    fh.close()
+    with open(core.encode(path), 'wb') as fh:
+        try:
+            core.write(fh, core.encode(contents, encoding=encoding))
+        except IOError:
+            fh.close()
 
 
 def strip_prefix(prefix, string):
@@ -292,7 +294,7 @@ def tablength(word, tabwidth):
     return len(word.replace('\t', '')) + word.count('\t') * tabwidth
 
 
-def shell_split(s):
+def _shell_split(s):
     """Split string apart into utf-8 encoded words using shell syntax"""
     try:
         return shlex.split(core.encode(s))
@@ -300,9 +302,9 @@ def shell_split(s):
         return [s]
 
 
-def shell_usplit(s):
+def shell_split(s):
     """Returns a unicode list instead of encoded strings"""
-    return [core.decode(arg) for arg in shell_split(s)]
+    return [core.decode(arg) for arg in _shell_split(s)]
 
 
 def tmp_dir():

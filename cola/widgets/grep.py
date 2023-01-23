@@ -49,7 +49,7 @@ class Grep(Dialog):
         self.input_label.setFont(diff_font())
 
         hint = N_('command-line arguments')
-        self.input_txt = GrepLineEdit(hint, self)
+        self.input_txt = HintedLineEdit(hint, self)
         self.input_txt.enable_hint(True)
 
         hint = N_('grep result...')
@@ -107,9 +107,12 @@ class Grep(Dialog):
         self.connect(self.input_txt, SIGNAL('textChanged(QString)'),
                      self.input_txt_changed)
 
-        self.connect(self.input_txt, SIGNAL('returnPressed()'),
-                     lambda: self.result_txt.setFocus())
+        self.connect(self.result_txt, SIGNAL('leave()'),
+                     lambda: self.input_txt.setFocus())
 
+        qtutils.add_action(self.input_txt, 'FocusResults',
+                           lambda: self.result_txt.setFocus(),
+                           Qt.Key_Down, Qt.Key_Enter, Qt.Key_Return)
         qtutils.connect_button(self.edit_button, self.edit)
         qtutils.connect_button(self.refresh_button, self.search)
         qtutils.connect_button(self.close_button, self.close)
@@ -139,24 +142,19 @@ class Grep(Dialog):
         self.input_txt.set_value(txt)
         self.search()
 
-    def process_result(self, status, out):
-        self.result_txt.set_value(out)
+    def process_result(self, status, output):
+        if status == 0:
+            self.result_txt.set_value(output)
+        elif output:
+            self.result_txt.set_value('git grep: ' + output)
+        else:
+            self.result_txt.set_value('')
+
         self.edit_button.setEnabled(status == 0)
         self.refresh_button.setEnabled(status == 0)
 
     def edit(self):
         goto_grep(self.result_txt.selected_line()),
-
-
-class GrepLineEdit(HintedLineEdit):
-    def __init__(self, hint, parent):
-        HintedLineEdit.__init__(self, hint, parent)
-
-    def keyPressEvent(self, event):
-        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
-            self.emit(SIGNAL('returnPressed()'))
-        else:
-            HintedLineEdit.keyPressEvent(self, event)
 
 
 class GrepTextView(HintedTextView):
@@ -240,6 +238,18 @@ class GrepTextView(HintedTextView):
             rect = self.cursorRect()
             painter = QtGui.QPainter(self.viewport())
             painter.fillRect(rect, Qt.SolidPattern)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Up:
+            cursor = self.textCursor()
+            position = cursor.position()
+            if position == 0 and not cursor.hasSelection():
+                # The cursor is at the beginning of the line.
+                # If we have selection then simply reset the cursor.
+                # Otherwise, emit a signal so that the parent can
+                # change focus.
+                self.emit(SIGNAL('leave()'))
+        return HintedTextView.keyPressEvent(self, event)
 
 
 def goto_grep(line):

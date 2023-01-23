@@ -32,6 +32,7 @@ def create_button(text='', layout=None, tooltip=None, icon=None):
 
 
 class DockTitleBarWidget(QtGui.QWidget):
+
     def __init__(self, parent, title):
         QtGui.QWidget.__init__(self, parent)
         self.label = label = QtGui.QLabel()
@@ -57,17 +58,18 @@ class DockTitleBarWidget(QtGui.QWidget):
         self.toggle_button.setToolTip(N_('Detach'))
 
         self.corner_layout = QtGui.QHBoxLayout()
-        self.corner_layout.setMargin(0)
+        self.corner_layout.setMargin(defs.no_margin)
         self.corner_layout.setSpacing(defs.spacing)
 
-        layout = QtGui.QHBoxLayout()
-        layout.setMargin(2)
-        layout.setSpacing(defs.spacing)
-        layout.addWidget(label)
-        layout.addStretch()
-        layout.addLayout(self.corner_layout)
-        layout.addWidget(self.toggle_button)
-        layout.addWidget(self.close_button)
+        self.main_layout = layout = QtGui.QHBoxLayout()
+        self.main_layout.setMargin(defs.small_margin)
+        self.main_layout.setSpacing(defs.spacing)
+
+        self.main_layout.addWidget(label)
+        self.main_layout.addStretch()
+        self.main_layout.addLayout(self.corner_layout)
+        self.main_layout.addWidget(self.toggle_button)
+        self.main_layout.addWidget(self.close_button)
         self.setLayout(layout)
 
         qtutils.connect_button(self.toggle_button, self.toggle_floating)
@@ -92,7 +94,6 @@ class DockTitleBarWidget(QtGui.QWidget):
         else:
             tooltip = N_('Detach')
         self.toggle_button.setToolTip(tooltip)
-
 
 
 def create_dock(title, parent):
@@ -145,10 +146,11 @@ class QFlowLayoutWidget(QtGui.QWidget):
                                    QtGui.QSizePolicy.Minimum)
         self.setSizePolicy(policy)
         self.setMinimumSize(QtCore.QSize(1, 1))
+        self.aspect_ratio = 0.8
 
     def resizeEvent(self, event):
         size = event.size()
-        if size.width() * 0.8 < size.height():
+        if size.width() * self.aspect_ratio < size.height():
             dxn = self._vertical
         else:
             dxn = self._horizontal
@@ -213,15 +215,17 @@ class ExpandableGroupBox(QtGui.QGroupBox):
             painter.drawPrimitive(style.PE_IndicatorArrowRight, option)
 
 
-class GitRefDialog(QtGui.QDialog):
-    def __init__(self, title, button_text, parent):
+class GitDialog(QtGui.QDialog):
+
+    def __init__(self, lineedit, title, button_text, parent):
         QtGui.QDialog.__init__(self, parent)
         self.setWindowTitle(title)
+        self.setMinimumWidth(333)
 
         self.label = QtGui.QLabel()
         self.label.setText(title)
 
-        self.lineedit = completion.GitRefLineEdit(self)
+        self.lineedit = lineedit(self)
         self.setFocusProxy(self.lineedit)
 
         self.ok_button = QtGui.QPushButton()
@@ -232,7 +236,7 @@ class GitRefDialog(QtGui.QDialog):
         self.close_button.setText(N_('Close'))
 
         self.button_layout = QtGui.QHBoxLayout()
-        self.button_layout.setMargin(0)
+        self.button_layout.setMargin(defs.no_margin)
         self.button_layout.setSpacing(defs.button_spacing)
         self.button_layout.addStretch()
         self.button_layout.addWidget(self.ok_button)
@@ -250,7 +254,7 @@ class GitRefDialog(QtGui.QDialog):
         qtutils.connect_button(self.ok_button, self.accept)
         qtutils.connect_button(self.close_button, self.reject)
 
-        self.connect(self.lineedit, SIGNAL('textChanged(QString)'),
+        self.connect(self.lineedit, SIGNAL('textChanged(const QString&)'),
                      self.text_changed)
 
         self.setWindowModality(Qt.WindowModal)
@@ -265,18 +269,51 @@ class GitRefDialog(QtGui.QDialog):
     def set_text(self, ref):
         self.lineedit.setText(ref)
 
-    @staticmethod
-    def ref(title, button_text, parent, default=None):
-        dlg = GitRefDialog(title, button_text, parent)
+    @classmethod
+    def get(cls, title, button_text, parent, default=None):
+        dlg = cls(title, button_text, parent)
         if default:
             dlg.set_text(default)
+
         dlg.show()
-        dlg.raise_()
-        dlg.setFocus()
-        if dlg.exec_() == GitRefDialog.Accepted:
+
+        def show_popup():
+            x = dlg.lineedit.x()
+            y = dlg.lineedit.y() + dlg.lineedit.height()
+            point = QtCore.QPoint(x, y)
+            mapped = dlg.mapToGlobal(point)
+            dlg.lineedit.popup().move(mapped.x(), mapped.y())
+            dlg.lineedit.popup().show()
+            dlg.lineedit.refresh()
+
+        QtCore.QTimer().singleShot(0, show_popup)
+
+        if dlg.exec_() == cls.Accepted:
             return dlg.text()
         else:
             return None
+
+
+class GitRefDialog(GitDialog):
+
+    def __init__(self, title, button_text, parent):
+        GitDialog.__init__(self, completion.GitRefLineEdit,
+                           title, button_text, parent)
+
+
+class GitBranchDialog(GitDialog):
+
+    def __init__(self, title, button_text, parent):
+        GitDialog.__init__(self, completion.GitBranchLineEdit,
+                           title, button_text, parent)
+
+
+class GitRemoteBranchDialog(GitDialog):
+
+    def __init__(self, title, button_text, parent):
+        GitDialog.__init__(self, completion.GitRemoteBranchLineEdit,
+                           title, button_text, parent)
+
 
 # Syntax highlighting
 

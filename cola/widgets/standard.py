@@ -4,12 +4,13 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 
-def create_widget_class(Base):
-  class Widget(Base):
-    # Mix-in for standard view operations
-    def __init__(self, parent=None):
-        Base.__init__(self, parent)
+class WidgetMixin(object):
 
+    # not exported
+    def __init__(self, QtClass):
+        self.QtClass = QtClass
+
+    # Mix-in for standard view operations
     def show(self):
         """Automatically centers dialogs"""
         if self.parent():
@@ -22,7 +23,7 @@ def create_widget_class(Base):
 
             self.move(x, y)
         # Call the base Qt show()
-        Base.show(self)
+        return self.QtClass.show(self)
 
     def name(self):
         """Returns the name of the view class"""
@@ -38,37 +39,37 @@ def create_widget_class(Base):
             self.move(state['x'], state['y'])
         except:
             pass
+        if state.get('maximized', False):
+            self.showMaximized()
 
     def export_state(self):
         """Exports data for view save/restore"""
+        state = self.windowState()
+        maximized = bool(state & Qt.WindowMaximized)
         return {
             'x': self.x(),
             'y': self.y(),
             'width': self.width(),
             'height': self.height(),
+            'maximized': maximized,
         }
 
-  return Widget
 
+class TreeMixin(object):
 
-def create_tree_class(Base):
-  class Tree(Base):
-    def __init__(self, parent=None):
-        Base.__init__(self, parent)
+    def __init__(self, QtClass):
+        self.QtClass = QtClass
         self.setAlternatingRowColors(True)
         self.setUniformRowHeights(True)
         self.setAllColumnsShowFocus(True)
         self.setAnimated(True)
 
-    def key_pressed(self):
-        pass
-
     def keyPressEvent(self, event):
         """
-        Override keyPressEvent to allow LeftArrow to work on non-directories.
+        Make LeftArrow to work on non-directories.
 
-        When LeftArrow is pressed on a file entry or an unexpanded directory,
-        then move the current index to the parent directory.
+        When LeftArrow is pressed on a file entry or an unexpanded
+        directory, then move the current index to the parent directory.
 
         This simplifies navigation using the keyboard.
         For power-users, we support Vim keybindings ;-P
@@ -109,7 +110,7 @@ def create_tree_class(Base):
         # Re-read the event key to take the remappings into account
         key = event.key()
 
-        result = Base.keyPressEvent(self, event)
+        result = self.QtClass.keyPressEvent(self, event)
 
         # Let others hook in here before we change the indexes
         self.emit(SIGNAL('indexAboutToChange()'))
@@ -138,13 +139,24 @@ def create_tree_class(Base):
                 self.setCurrentIndex(index.parent())
 
         return result
-  # Tree is a closure over "Base"
-  return Tree
 
 
-Widget = create_widget_class(QtGui.QWidget)
-Dialog = create_widget_class(QtGui.QDialog)
-MainWindow = create_widget_class(QtGui.QMainWindow)
+def bind_mixin(Mixin, QtClass):
+    """Construct a class which composes the Mixin over the Qt class"""
 
-TreeView = create_tree_class(QtGui.QTreeView)
-TreeWidget = create_tree_class(QtGui.QTreeWidget)
+    class BoundMixin(Mixin, QtClass):
+        """A concrete class tied to a specific Qt class"""
+
+        def __init__(self, parent=None):
+            QtClass.__init__(self, parent)
+            Mixin.__init__(self, QtClass)
+
+    return BoundMixin
+
+
+Widget = bind_mixin(WidgetMixin, QtGui.QWidget)
+Dialog = bind_mixin(WidgetMixin, QtGui.QDialog)
+MainWindow = bind_mixin(WidgetMixin, QtGui.QMainWindow)
+
+TreeView = bind_mixin(TreeMixin, QtGui.QTreeView)
+TreeWidget = bind_mixin(TreeMixin, QtGui.QTreeWidget)

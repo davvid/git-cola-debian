@@ -30,9 +30,11 @@ from cola.i18n import N_
 from cola.interaction import Interaction
 from cola.qt import create_dock
 from cola.qt import create_menu
+from cola.qt import create_toolbutton
 from cola.qtutils import add_action
 from cola.qtutils import connect_action
 from cola.qtutils import connect_action_bool
+from cola.qtutils import options_icon
 from cola.widgets import action
 from cola.widgets import cfgactions
 from cola.widgets import editremotes
@@ -117,6 +119,43 @@ class MainView(MainWindow):
         self.diffeditor = DiffEditor(self.diffdockwidget)
         self.diffdockwidget.setWidget(self.diffeditor)
 
+        # "Diff Options" tool menu
+        self.diff_ignore_space_at_eol_action = add_action(self,
+                N_('Ignore changes in whitespace at EOL'),
+                self._update_diff_opts)
+        self.diff_ignore_space_at_eol_action.setCheckable(True)
+
+        self.diff_ignore_space_change_action = add_action(self,
+                N_('Ignore changes in amount of whitespace'),
+                self._update_diff_opts)
+        self.diff_ignore_space_change_action.setCheckable(True)
+
+        self.diff_ignore_all_space_action = add_action(self,
+                N_('Ignore all whitespace'),
+                self._update_diff_opts)
+        self.diff_ignore_all_space_action.setCheckable(True)
+
+        self.diff_function_context_action = add_action(self,
+                N_('Show whole surrounding functions of changes'),
+                self._update_diff_opts)
+        self.diff_function_context_action.setCheckable(True)
+
+        self.diffopts_button = create_toolbutton(text=N_('Options'),
+                                                 icon=options_icon(),
+                                                 tooltip=N_('Diff Options'))
+        self.diffopts_menu = create_menu(N_('Diff Options'),
+                                         self.diffopts_button)
+
+        self.diffopts_menu.addAction(self.diff_ignore_space_at_eol_action)
+        self.diffopts_menu.addAction(self.diff_ignore_space_change_action)
+        self.diffopts_menu.addAction(self.diff_ignore_all_space_action)
+        self.diffopts_menu.addAction(self.diff_function_context_action)
+        self.diffopts_button.setMenu(self.diffopts_menu)
+        self.diffopts_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+
+        titlebar = self.diffdockwidget.titleBarWidget()
+        titlebar.add_corner_widget(self.diffopts_button)
+
         # All Actions
         self.menu_unstage_all = add_action(self,
                 N_('Unstage All'), cmds.run(cmds.UnstageAll))
@@ -148,9 +187,9 @@ class MainView(MainWindow):
         self.menu_edit_remotes = add_action(self,
                 N_('Edit Remotes...'), lambda: editremotes.edit().exec_())
         self.menu_rescan = add_action(self,
-                cmds.RescanAndRefresh.name(),
-                cmds.run(cmds.RescanAndRefresh),
-                cmds.RescanAndRefresh.SHORTCUT)
+                cmds.Refresh.name(),
+                cmds.run(cmds.Refresh),
+                cmds.Refresh.SHORTCUT)
         self.menu_rescan.setIcon(qtutils.reload_icon())
 
         self.menu_browse_recent = add_action(self,
@@ -236,7 +275,10 @@ class MainView(MainWindow):
                 N_('Create...'), create_new_branch, 'Ctrl+B')
 
         self.menu_delete_branch = add_action(self,
-                N_('Delete...'), guicmds.branch_delete)
+                N_('Delete...'), guicmds.delete_branch)
+
+        self.menu_delete_remote_branch = add_action(self,
+                N_('Delete Remote Branch...'), guicmds.delete_remote_branch)
 
         self.menu_checkout_branch = add_action(self,
                 N_('Checkout...'), guicmds.checkout_branch, 'Alt+B')
@@ -250,7 +292,7 @@ class MainView(MainWindow):
         self.menu_classic.setIcon(qtutils.git_icon())
 
         self.menu_dag = add_action(self,
-                N_('DAG...'), lambda: git_dag(self.model))
+                N_('DAG...'), lambda: git_dag(self.model).show())
         self.menu_dag.setIcon(qtutils.git_icon())
 
         # Relayed actions
@@ -310,6 +352,7 @@ class MainView(MainWindow):
         self.branch_menu.addAction(self.menu_checkout_branch)
         self.branch_menu.addAction(self.menu_rebase_branch)
         self.branch_menu.addAction(self.menu_delete_branch)
+        self.branch_menu.addAction(self.menu_delete_remote_branch)
         self.branch_menu.addSeparator()
         self.branch_menu.addAction(self.menu_browse_branch)
         self.branch_menu.addAction(self.menu_browse_other_branch)
@@ -425,7 +468,7 @@ class MainView(MainWindow):
         Interaction.log = self.logwidget.log
 
         Interaction.log(version.git_version_str() + '\n' +
-                        N_('git-cola version %s') % version.version())
+                        N_('git cola version %s') % version.version())
 
     def set_initial_size(self):
         self.statuswidget.set_initial_size()
@@ -437,6 +480,10 @@ class MainView(MainWindow):
         s = settings.Settings()
         s.add_recent(core.decode(os.getcwd()))
         qtutils.save_state(self, handler=s)
+
+        commit_msg = self.commitmsgeditor.commit_message(raw=True)
+        self.model.save_commitmsg(commit_msg)
+
         MainWindow.closeEvent(self, event)
 
     def build_recent_menu(self):
@@ -514,7 +561,7 @@ class MainView(MainWindow):
         msg += N_('Branch: %s') % branch
         self.commitdockwidget.setToolTip(msg)
 
-        title = '%s: %s' % (self.model.project, branch)
+        title = '%s: %s (%s)' % (self.model.project, branch, self.model.git.worktree())
         if self.mode == self.model.mode_amend:
             title += ' (%s)' %  N_('Amending')
         self.setWindowTitle(title)
@@ -583,6 +630,18 @@ class MainView(MainWindow):
                     dockwidget.toggleViewAction().trigger()
             self.addAction(toggleview)
             connect_action(toggleview, focusdock)
+
+    def _update_diff_opts(self):
+        space_at_eol = self.diff_ignore_space_at_eol_action.isChecked()
+        space_change = self.diff_ignore_space_change_action.isChecked()
+        all_space = self.diff_ignore_all_space_action.isChecked()
+        function_context = self.diff_function_context_action.isChecked()
+
+        gitcmds.update_diff_overrides(space_at_eol,
+                                      space_change,
+                                      all_space,
+                                      function_context)
+        self.statuswidget.refresh()
 
     def preferences(self):
         return prefs.preferences(model=self.prefs_model, parent=self)
