@@ -853,44 +853,71 @@ class Model(model.Model):
         if amend:
             head = 'HEAD^'
         (staged, unstaged, unmerged, untracked) = ([], [], [], [])
+        try:
+            for name in self.git.diff_index(head).splitlines():
+                rest, name = name.split('\t')
+                status = rest[-1]
+                name = eval_path(name)
+                if status == 'M' or status == 'D':
+                    unstaged.append(name)
+        except:
+            # handle git init
+            for name in (self.git.ls_files(modified=True, z=True)
+                                 .split('\0')):
+                if name:
+                    unstaged.append(name.decode('utf-8'))
 
-        for idx, line in enumerate(self.git.diff_index(head).splitlines()):
-            rest, name = line.split('\t')
-            status = rest[-1]
-            name = eval_path(name)
-            if status == 'M' or status == 'D':
-                unstaged.append(name)
-
-        for idx, line in enumerate(self.git.diff_index(head, cached=True)
-                                                    .splitlines()):
-            rest, name = line.split('\t')
-            status = rest[-1]
-            name = eval_path(name)
-            if status  == 'M':
-                staged.append(name)
-                # is this file partially staged?
-                diff = self.git.diff('--', name, name_only=True, z=True)
-                if not diff.strip():
+        try:
+            for name in (self.git.diff_index(head, cached=True)
+                                 .splitlines()):
+                rest, name = name.split('\t')
+                status = rest[-1]
+                name = eval_path(name)
+                if status  == 'M':
+                    staged.append(name)
+                    # is this file partially staged?
+                    diff = self.git.diff('--', name, name_only=True, z=True)
+                    if not diff.strip():
+                        unstaged.remove(name)
+                    else:
+                        self.partially_staged.add(name)
+                elif status == 'A':
+                    staged.append(name)
+                elif status == 'D':
+                    staged.append(name)
                     unstaged.remove(name)
-                else:
-                    self.partially_staged.add(name)
-            elif status == 'A':
-                staged.append(name)
-            elif status == 'D':
-                staged.append(name)
-                unstaged.remove(name)
-            elif status == 'U':
-                unmerged.append(name)
+                elif status == 'U':
+                    unmerged.append(name)
+        except:
+            # handle git init
+            for name in self.git.ls_files(z=True).strip('\0').split('\0'):
+                if name:
+                    staged.append(name.decode('utf-8'))
 
-        for line in self.git.ls_files(others=True, exclude_standard=True,
+        for name in self.git.ls_files(others=True, exclude_standard=True,
                                       z=True).split('\0'):
-            if line:
-                untracked.append(line.decode('utf-8'))
+            if name:
+                untracked.append(name.decode('utf-8'))
 
         return (staged, unstaged, untracked, unmerged)
 
-    def reset_helper(self, *args, **kwargs):
-        return self.git.reset('--', *args, **kwargs)
+    def reset_helper(self, *args):
+        """Removes files from the index.
+        This handles the git init case, which is why it's not
+        just git.reset(name).
+        For the git init case this fall back to git rm --cached.
+        """
+        output = self.git.reset('--', *args)
+        # handle git init -- we have to rm --cached them
+        state = self.get_workdir_state()
+        staged = state[0]
+        newargs = []
+        for arg in args:
+            if arg in staged:
+                newargs.append(arg)
+        if newargs:
+            output = self.git.rm('--', cached=True, *newargs)
+        return output
 
     def remote_url(self, name):
         return self.git.config('remote.%s.url' % name, get=True)
@@ -975,12 +1002,13 @@ class Model(model.Model):
         return self.git.format_patch("-o", output, revarg, **kwargs)
 
     def current_branch(self):
-        """Parses 'git branch' to find the current branch."""
-        branches = self.git.branch().splitlines()
-        for branch in branches:
-            if branch.startswith('* '):
-                return branch.lstrip('* ')
-        return 'Detached HEAD'
+        """Parses 'git symbolic-ref' to find the current branch."""
+        headref = self.git.symbolic_ref('HEAD')
+        if headref.startswith('refs/heads/'):
+            return headref[11:]
+        elif headref.startswith('fatal: '):
+            return 'Not currently on any branch'
+        return headref
 
     def create_branch(self, name, base, track=False):
         """Creates a branch starting from base.  Pass track=True

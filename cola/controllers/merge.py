@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from PyQt4.Qt import Qt
+
 from cola import utils
 from cola import qtutils
 from cola.qobserver import QObserver
@@ -32,7 +34,8 @@ class MergeController(QObserver):
                            radio_tag = self.radio_callback,
                            revision_list = self.revision_selected,
                            button_viz = self.viz_revision,
-                           button_merge = self.merge_revision)
+                           button_merge = self.merge_revision,
+                           checkbox_squash = self.squash_update)
         self.model.set_revision_list(self.model.get_local_branches())
         self.view.radio_local.setChecked(True)
     
@@ -80,3 +83,18 @@ class MergeController(QObserver):
         revision = self.model.get_revision()
         browser = self.model.get_history_browser()
         utils.fork(browser, revision)
+
+    def squash_update(self):
+        if self.view.checkbox_squash.isChecked():
+            self.old_commit_checkbox_state =\
+                self.view.checkbox_commit.checkState()
+            self.view.checkbox_commit.setCheckState(Qt.Unchecked)
+            self.view.checkbox_commit.setDisabled(True)
+        else:
+            self.view.checkbox_commit.setDisabled(False)
+            try:
+                oldstate = self.old_commit_checkbox_state
+                self.view.checkbox_commit.setCheckState(oldstate)
+            except AttributeError:
+                # no problem
+                pass

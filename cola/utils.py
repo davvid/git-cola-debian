@@ -86,14 +86,15 @@ def get_icon(icon_file):
     return os.path.join(ICONSDIR, icon_file)
 
 def fork(*args):
-    args = [ a.encode('utf-8') for a in args ]
+    args = tuple([ a.encode('utf-8') for a in args ])
     if os.name in ('nt', 'dos'):
         for path in os.environ['PATH'].split(os.pathsep):
-            file = os.path.join(path, args[0]) + ".exe"
-            try:
-                return os.spawnv(os.P_NOWAIT, file, (file,) + args[1:])
-            except os.error:
-                pass
+            filename = os.path.join(path, args[0]) + ".exe"
+            if os.path.exists(filename):
+                try:
+                    return os.spawnv(os.P_NOWAIT, filename, args)
+                except os.error:
+                    pass
         raise IOError('cannot find executable: %s' % program)
     else:
         argv = map(shell_quote, args)
