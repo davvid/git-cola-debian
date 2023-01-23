@@ -1,7 +1,30 @@
-git-cola: 1.3.5.42.gfe01
-bottled-on: Sat Mar 14 16:28:01 PDT 2009
+git-cola: 1.3.5.44.ge024
+bottled-on: Tue Mar 17 22:16:19 PDT 2009
 
-commit fe010d0e298d2e6f989d5fabeffbb4712d41bf4c (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit e02484f060b4ff112e64a51836c14661eec28c9d (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Mar 17 22:00:44 2009 -0700
+
+    json: run dos2unix on cola's pickle module
+    
+    This keeps jsonpickle consistent with the rest of cola.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 61cff60a6970afbed3c3cd3922303b18edb891a8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Mar 17 01:03:41 2009 -0700
+
+    json: make cola's pickle module exception-safe
+    
+    cola.jsonpickle wasn't exception-safe and was breaking
+    help('modules').
+    
+    This fixes Debian bug #519971.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fe010d0e298d2e6f989d5fabeffbb4712d41bf4c
 Author: David Aguilar <davvid@gmail.com>
 Date:   Fri Mar 13 02:21:52 2009 -0700
 
