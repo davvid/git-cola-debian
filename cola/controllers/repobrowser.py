@@ -8,6 +8,18 @@ from cola import defaults
 from cola.views import CommitView
 from cola.qobserver import QObserver
 
+def select_file_from_repo(model, parent):
+    model = model.clone()
+    view = CommitView(parent)
+    controller = RepoBrowserController(model, view,
+                                       title='Select File',
+                                       get_file=True)
+    view.show()
+    if view.exec_() == QDialog.Accepted:
+        return controller.filename
+    else:
+        return None
+
 def browse_git_branch(model, parent, branch):
     if not branch:
         return
@@ -21,15 +33,13 @@ def browse_git_branch(model, parent, branch):
     return view.exec_() == QDialog.Accepted
 
 class RepoBrowserController(QObserver):
-    def init(self, model, view):
-        view.setWindowTitle('File Browser')
+    def init(self, model, view, title='File Browser', get_file=False):
+        self.get_file = get_file
+        self.filename = None
+        view.setWindowTitle(title)
         self.add_signals('itemSelectionChanged()', view.commit_list,)
         self.add_actions(directory = self.action_directory_changed)
         self.add_callbacks(commit_list = self.item_changed)
-        self.connect(view.commit_list,
-                     'itemDoubleClicked(QListWidgetItem*)',
-                     self.item_double_clicked)
-
         # Start at the root of the tree
         model.set_directory('')
 
@@ -56,6 +66,7 @@ class RepoBrowserController(QObserver):
         directory_entries = self.model.get_directory_entries()
         if current < len(directories):
             # This is a directory...
+            self.filename = None
             dirent = directories[current]
             if dirent != '..':
                 # This is a real directory for which
@@ -74,8 +85,15 @@ class RepoBrowserController(QObserver):
             idx = current - len(directories)
             if idx >= len(self.model.get_subtree_sha1s()):
                 # This can happen when changing directories
+                self.filename = None
                 return
             objtype, sha1, name = self.model.get_subtree_node(idx)
+
+            curdir = self.model.get_directory()
+            if curdir:
+                self.filename = os.path.join(curdir, name)
+            else:
+                self.filename = name
 
             catguts = self.model.git.cat_file(objtype, sha1,
                                               with_raw_output=True)
@@ -87,7 +105,8 @@ class RepoBrowserController(QObserver):
             # Copy the sha1 into the clipboard
             qtutils.set_clipboard(sha1)
 
-    def item_double_clicked(self,*rest):
+    # automatically called by qobserver
+    def commit_list_doubleclick(self,*rest):
         """This is called when an entry is double-clicked.
         This callback changes the model's directory when
         invoked on a directory item.  When invoked on a file
@@ -97,19 +116,30 @@ class RepoBrowserController(QObserver):
         directories = self.model.get_directories()
 
         # A file item was double-clicked.
-        # Create a save-as dialog and export the file.
+        # Create a save-as dialog and export the file,
+        # or if in get_file mode, grab the filename and finish the dialog.
         if current >= len(directories):
             idx = current - len(directories)
 
             objtype, sha1, name = self.model.get_subtree_node(idx)
+
+            if self.get_file:
+                if self.model.get_directory():
+                    curdir = self.model.get_directory()
+                    self.filename = os.path.join(curdir, name)
+                else:
+                    self.filename = name
+                self.view.accept()
+                return
+
             nameguess = os.path.join(defaults.DIRECTORY, name)
 
             filename = qtutils.save_dialog(self.view, 'Save', nameguess)
             if not filename:
                 return
             defaults.DIRECTORY = os.path.dirname(filename)
-            contents = self.model.cat_file(objtype, sha1, raw=True)
-
+            contents = self.model.git.cat_file(objtype, sha1,
+                                               with_raw_output=True)
             utils.write(filename, contents)
             return
 

@@ -19,39 +19,51 @@ class GitCola(git.Git):
     We suppress exceptions in favor of return values.
     """
     def __init__(self):
-        self._git_dir = None
+        git.Git.__init__(self)
+        self.load_worktree(os.getcwd())
+
+    def load_worktree(self, path):
+        self._git_dir = path
         self._work_tree = None
-        self._has_worktree = True
-        git_dir = self.get_git_dir()
-        work_tree = self.get_work_tree()
-        if work_tree:
-            os.chdir(work_tree)
-        git.Git.__init__(self, work_tree)
-    def execute(*args, **kwargs):
-        kwargs['with_exceptions'] = False
-        return git.Git.execute(*args, **kwargs)
+        self.get_work_tree()
+
     def get_work_tree(self):
-        if self._work_tree or not self._has_worktree:
+        if self._work_tree:
             return self._work_tree
-        if not self._git_dir:
-            self._git_dir = self.get_git_dir()
-        # Handle bare repositories
-        if (len(os.path.basename(self._git_dir)) > 4
-                and self._git_dir.endswith('.git')):
-            self._has_worktree = False
-            return self._work_tree
-        self._work_tree = os.getenv('GIT_WORK_TREE')
-        if not self._work_tree or not os.path.isdir(self._work_tree):
-            self._work_tree = os.path.abspath(
-                    os.path.join(os.path.abspath(self._git_dir), '..'))
-        return self._work_tree
-    def get_git_dir(self):
+        self.get_git_dir()
         if self._git_dir:
+            curdir = self._git_dir
+        else:
+            curdir = os.getcwd()
+
+        if self._is_git_dir(os.path.join(curdir, '.git')):
+            return curdir
+
+        # Handle bare repositories
+        if (len(os.path.basename(curdir)) > 4
+                and curdir.endswith('.git')):
+            return curdir
+        if 'GIT_WORK_TREE' in os.environ:
+            self._work_tree = os.getenv('GIT_WORK_TREE')
+        if not self._work_tree or not os.path.isdir(self._work_tree):
+            if self._git_dir:
+                gitparent = os.path.join(os.path.abspath(self._git_dir), '..')
+                self._work_tree = os.path.abspath(gitparent)
+                self.set_cwd(self._work_tree)
+        return self._work_tree
+
+    def is_valid(self):
+        return self._git_dir and self._is_git_dir(self._git_dir)
+
+    def get_git_dir(self):
+        if self.is_valid():
             return self._git_dir
-        self._git_dir = os.getenv('GIT_DIR')
-        if self._git_dir and self._is_git_dir(self._git_dir):
-            return self._git_dir
-        curpath = os.path.abspath(os.getcwd())
+        if 'GIT_DIR' in os.environ:
+            self._git_dir = os.getenv('GIT_DIR')
+        if self._git_dir:
+            curpath = os.path.abspath(self._git_dir)
+        else:
+            curpath = os.path.abspath(os.getcwd())
         # Search for a .git directory
         while curpath:
             if self._is_git_dir(curpath):
@@ -64,10 +76,6 @@ class GitCola(git.Git):
             curpath, dummy = os.path.split(curpath)
             if not dummy:
                 break
-        if not self._git_dir:
-            sys.stderr.write("oops, %s is not a git project.\n"
-                            % os.getcwd() )
-            sys.exit(-1)
         return self._git_dir
 
     def _is_git_dir(self, d):
@@ -82,8 +90,28 @@ class GitCola(git.Git):
                     and os.readlink(headref).startswith('refs')))
         return False
 
+def eval_path(path):
+    """handles quoted paths."""
+    if path.startswith('"') and path.endswith('"'):
+        return eval(path).decode('utf-8')
+    else:
+        return path
+
 class Model(model.Model):
     """Provides a friendly wrapper for doing commit git operations."""
+
+    def clone(self):
+        worktree = self.git.get_work_tree()
+        clone = model.Model.clone(self)
+        clone.use_worktree(worktree)
+        return clone
+
+    def use_worktree(self, worktree):
+        self.git.load_worktree(worktree)
+        is_valid = self.git.is_valid()
+        if is_valid:
+            self.__init_config_data()
+        return is_valid
 
     def init(self):
         """Reads git repository settings and sets several methods
@@ -92,9 +120,11 @@ class Model(model.Model):
 
         # Initialize the git command object
         self.git = GitCola()
+        self.partially_staged = set()
 
-        # Read git config
-        self.__init_config_data()
+        self.fetch_helper = self.gen_remote_helper(self.git.fetch)
+        self.push_helper = self.gen_remote_helper(self.git.push)
+        self.pull_helper = self.gen_remote_helper(self.git.pull)
 
         self.create(
             #####################################################
@@ -105,18 +135,16 @@ class Model(model.Model):
             local_branch = '',
             remote_branch = '',
             search_text = '',
-            git_version = self.git.version(),
 
             #####################################################
             # Used primarily by the main UI
-            project = os.path.basename(os.getcwd()),
             commitmsg = '',
             modified = [],
             staged = [],
             unstaged = [],
             untracked = [],
             unmerged = [],
-            window_geom = utils.parse_geom(self.get_cola_config('geometry')),
+            show_untracked = True,
 
             #####################################################
             # Used by the create branch dialog
@@ -172,7 +200,7 @@ class Model(model.Model):
             'cola_fontdiff': '',
             'cola_fontdiffsize': 12,
             'cola_savewindowsettings': False,
-            'merge_keepBackup': True,
+            'merge_keepbackup': True,
             'merge_tool': os.getenv('MERGETOOL', 'xxdiff'),
             'gui_editor': os.getenv('EDITOR', 'gvim'),
             'gui_historybrowser': 'gitk',
@@ -226,6 +254,31 @@ class Model(model.Model):
 
     def get_gui_config(self, key):
         return getattr(self, 'global_gui_'+key)
+
+    def get_default_remote(self):
+        branch = self.get_currentbranch()
+        branchconfig = 'local_branch_%s_remote' % branch
+        if branchconfig in self.get_param_names():
+            remote = self.get_param(branchconfig)
+        else:
+            remote = 'origin'
+        return remote
+
+    def get_corresponding_remote_ref(self):
+        remote = self.get_default_remote()
+        branch = self.get_currentbranch()
+        best_match = '%s/%s' % (remote, branch)
+        remote_branches = self.get_remote_branches()
+        if not remote_branches:
+            return remote
+        for rb in remote_branches:
+            if rb == best_match:
+                return rb
+        return remote_branches[0]
+
+    def get_diff_filenames(self, arg):
+        diff_zstr = self.git.diff(arg, name_only=True, z=True).rstrip('\0')
+        return [ f.decode('utf-8') for f in diff_zstr.split('\0') if f ]
 
     def branch_list(self, remote=False):
         branches = map(lambda x: x.lstrip('* '),
@@ -337,10 +390,14 @@ class Model(model.Model):
         to_remove = []
 
         for filename in to_process:
-            if os.path.exists(filename):
+            encfilename = filename.encode('utf-8')
+            if os.path.exists(encfilename):
                 to_add.append(filename)
 
-        output = self.git.add(v=True, *to_add)
+        if to_add:
+            output = self.git.add(v=True, *to_add)
+        else:
+            output = ''
 
         if len(to_add) == len(to_process):
             # to_process only contained unremoved files --
@@ -390,7 +447,6 @@ class Model(model.Model):
     def add_signoff(self,*rest):
         """Adds a standard Signed-off by: tag to the end
         of the current commit message."""
-
         msg = self.get_commitmsg()
         signoff =('\n\nSigned-off-by: %s <%s>\n'
                   % (self.get_local_user_name(), self.get_local_user_email()))
@@ -405,7 +461,7 @@ class Model(model.Model):
 
     def load_commitmsg(self, path):
         file = open(path, 'r')
-        contents = file.read()
+        contents = file.read().decode('utf-8')
         file.close()
         self.set_commitmsg(contents)
 
@@ -413,15 +469,23 @@ class Model(model.Model):
         """Queries git for the latest commit message and sets it in
         self.commitmsg."""
         commit_msg = []
-        commit_lines = self.git.show('HEAD').split('\n')
+        commit_lines = self.git.show('HEAD').decode('utf-8').split('\n')
         for idx, msg in enumerate(commit_lines):
-            if idx < 4: continue
+            if idx < 4:
+                continue
             msg = msg.lstrip()
             if msg.startswith('diff --git'):
                 commit_msg.pop()
                 break
             commit_msg.append(msg)
         self.set_commitmsg('\n'.join(commit_msg).rstrip())
+
+    def load_commitmsg_template(self):
+        try:
+            template = self.get_global_config('commit.template')
+        except AttributeError:
+            return
+        self.load_commitmsg(template)
 
     def update_status(self, amend=False):
         # This allows us to defer notification until the
@@ -440,7 +504,7 @@ class Model(model.Model):
         (staged_items,
          modified_items,
          untracked_items,
-         unmerged_items) = self.parse_status(amend=amend)
+         unmerged_items) = self.get_workdir_state(amend=amend)
 
         # Gather items to be committed
         for staged in staged_items:
@@ -463,7 +527,11 @@ class Model(model.Model):
                 self.add_unmerged(unmerged)
 
         self.set_currentbranch(self.current_branch())
-        self.set_unstaged(self.get_modified() + self.get_untracked() + self.get_unmerged())
+        if self.get_show_untracked():
+            self.set_unstaged(self.get_modified() + self.get_unmerged() +
+                              self.get_untracked())
+        else:
+            self.set_unstaged(self.get_modified() + self.get_unmerged())
         self.set_remotes(self.git.remote().splitlines())
         self.set_remote_branches(self.branch_list(remote=True))
         self.set_local_branches(self.branch_list(remote=False))
@@ -516,8 +584,9 @@ class Model(model.Model):
         filename = self.get_filename(idx, staged=staged)
         if not filename:
             return (None, None, None)
+        encfilename = filename.encode('utf-8')
         if staged:
-            if os.path.exists(filename):
+            if os.path.exists(encfilename):
                 status = 'Staged for commit'
             else:
                 status = 'Staged for removal'
@@ -525,13 +594,17 @@ class Model(model.Model):
                                     ref=ref,
                                     cached=True)
         else:
-            if os.path.isdir(filename):
+            if os.path.isdir(encfilename):
                 status = 'Untracked directory'
                 diff = '\n'.join(os.listdir(filename))
 
             elif filename in self.get_unmerged():
                 status = 'Unmerged'
-                diff = self.diff_helper(filename=filename,
+                diff = ('@@@+-+-+-+-+-+-+-+-+-+-+  UNMERGED  +-+-+-+-+-+-+-+-+-+-+@@@\n\n'
+                        '>>> %s is unmerged.\n' % filename +
+                        'Right-click on the filename '
+                        'to launch "git mergetool".\n\n\n')
+                diff += self.diff_helper(filename=filename,
                                         cached=False,
                                         patch_with_raw=False)
             elif filename in self.get_modified():
@@ -544,7 +617,7 @@ class Model(model.Model):
         return diff, status, filename
 
     def stage_modified(self):
-        output = self.git.add(self.get_modified())
+        output = self.git.add(v=True, *self.get_modified())
         self.update_status()
         return output
 
@@ -568,7 +641,7 @@ class Model(model.Model):
     def config_set(self, key=None, value=None, local=True):
         if key and value is not None:
             # git config category.key value
-            strval = str(value)
+            strval = unicode(value)
             if type(value) is bool:
                 # git uses "true" and "false"
                 strval = strval.lower()
@@ -586,12 +659,13 @@ class Model(model.Model):
 
         kwargs = {
             'list': True,
-            'global': not local,
+            'global': not local, # global is a python keyword
         }
         config_lines = self.git.config(**kwargs).splitlines()
         newdict = {}
         for line in config_lines:
             k, v = line.split('=', 1)
+            v = v.decode('utf-8')
             k = k.replace('.','_') # git -> model
             if v == 'true' or v == 'false':
                 v = bool(eval(v.title()))
@@ -613,13 +687,13 @@ class Model(model.Model):
         tmpfile = self.get_tmp_filename()
 
         # Create the commit message file
-        file = open(tmpfile, 'w')
-        file.write(msg)
-        file.close()
+        fh = open(tmpfile, 'w')
+        fh.write(msg)
+        fh.close()
 
         # Run 'git commit'
-        (status, stdout, stderr) = self.git.commit(v=True,
-                                                   F=tmpfile,
+        (status, stdout, stderr) = self.git.commit(F=tmpfile,
+                                                   v=True,
                                                    amend=amend,
                                                    with_extended_output=True)
         os.unlink(tmpfile)
@@ -633,16 +707,19 @@ class Model(model.Model):
                              cached=True)
 
     def get_tmp_dir(self):
+        # Allow TMPDIR/TMP with a fallback to /tmp
         return os.environ.get('TMP', os.environ.get('TMPDIR', '/tmp'))
 
     def get_tmp_file_pattern(self):
-        return os.path.join(self.get_tmp_dir(), '*.git.%s.*' % os.getpid())
+        return os.path.join(self.get_tmp_dir(), '*.git-cola.%s.*' % os.getpid())
 
     def get_tmp_filename(self, prefix=''):
-        # Allow TMPDIR/TMP with a fallback to /tmp
-        basename = (prefix+'.git.%s.%s'
-                    % (os.getpid(), time.time())).replace(os.sep, '-')
-        return os.path.join(self.get_tmp_dir(), basename)
+        basename = ((prefix+'.git-cola.%s.%s'
+                    % (os.getpid(), time.time())))
+        basename = basename.replace('/', '-')
+        basename = basename.replace('\\', '-')
+        tmpdir = self.get_tmp_dir()
+        return os.path.join(tmpdir, basename)
 
     def log_helper(self, all=False):
         """
@@ -681,7 +758,6 @@ class Model(model.Model):
                     ref = None,
                     endref = None,
                     filename=None,
-                    color=False,
                     cached=True,
                     with_diff_header=False,
                     suppress_header=True,
@@ -705,33 +781,35 @@ class Model(model.Model):
             else:
                 argv.append(filename)
 
+        output = StringIO()
+        start = False
+        del_tag = 'deleted file mode '
+
+        headers = []
+        deleted = cached and not os.path.exists(filename.encode('utf-8'))
+
         diffoutput = self.git.diff(R=reverse,
-                                   color=color,
                                    cached=cached,
                                    patch_with_raw=patch_with_raw,
                                    unified=self.diff_context,
                                    with_raw_output=True,
                                    *argv)
         diff = diffoutput.splitlines()
-
-        output = StringIO()
-        start = False
-        del_tag = 'deleted file mode '
-
-        headers = []
-        deleted = cached and not os.path.exists(filename)
         for line in diff:
-            if not start and '@@ ' == line[:3] and ' @@' in line:
+            line = unicode(line.decode('utf-8'))
+            if not start and '@@' == line[:2] and '@@' in line[2:]:
                 start = True
             if start or(deleted and del_tag in line):
-                output.write(line + '\n')
+                output.write(line.encode('utf-8') + '\n')
             else:
                 if with_diff_header:
                     headers.append(line)
                 elif not suppress_header:
-                    output.write(line + '\n')
-        result = output.getvalue()
+                    output.write(line.encode('utf-8') + '\n')
+
+        result = output.getvalue().decode('utf-8')
         output.close()
+
         if with_diff_header:
             return('\n'.join(headers), result)
         else:
@@ -766,74 +844,50 @@ class Model(model.Model):
             os.unlink(merge_msg_path)
             merge_msg_path = self.get_merge_message_path()
 
-    def parse_status(self, amend=False):
-        """RETURNS: A tuple of staged, unstaged and untracked file lists.
+    def get_workdir_state(self, amend=False):
+        """RETURNS: A tuple of staged, unstaged untracked, and unmerged
+        file lists.
         """
-        def eval_path(path):
-            """handles quoted paths."""
-            if path.startswith('"') and path.endswith('"'):
-                return eval(path)
-            else:
-                return path
+        self.partially_staged = set()
+        head = 'HEAD'
+        if amend:
+            head = 'HEAD^'
+        (staged, unstaged, unmerged, untracked) = ([], [], [], [])
 
-        MODIFIED_TAG = '# Changed but not updated:'
-        UNTRACKED_TAG = '# Untracked files:'
-        RGX_RENAMED = re.compile('(#\trenamed:\s+|#\tcopied:\s+)'
-                                 '(.*?)\s->\s(.*)')
-        RGX_MODIFIED = re.compile('(#\tmodified:\s+'
-                                  '|#\tnew file:\s+'
-                                  '|#\tdeleted:\s+)')
-        RGX_UNMERGED = re.compile('(#\tunmerged:\s+)')
+        for idx, line in enumerate(self.git.diff_index(head).splitlines()):
+            rest, name = line.split('\t')
+            status = rest[-1]
+            name = eval_path(name)
+            if status == 'M' or status == 'D':
+                unstaged.append(name)
 
-        staged = []
-        unstaged = []
-        untracked = []
-        unmerged = []
+        for idx, line in enumerate(self.git.diff_index(head, cached=True)
+                                                    .splitlines()):
+            rest, name = line.split('\t')
+            status = rest[-1]
+            name = eval_path(name)
+            if status  == 'M':
+                staged.append(name)
+                # is this file partially staged?
+                diff = self.git.diff('--', name, name_only=True, z=True)
+                if not diff.strip():
+                    unstaged.remove(name)
+                else:
+                    self.partially_staged.add(name)
+            elif status == 'A':
+                staged.append(name)
+            elif status == 'D':
+                staged.append(name)
+                unstaged.remove(name)
+            elif status == 'U':
+                unmerged.append(name)
 
-        STAGED_MODE = 0
-        UNSTAGED_MODE = 1
-        UNTRACKED_MODE = 2
+        for line in self.git.ls_files(others=True, exclude_standard=True,
+                                      z=True).split('\0'):
+            if line:
+                untracked.append(line.decode('utf-8'))
 
-        current_dest = staged
-        mode = STAGED_MODE
-
-        for status_line in self.git.status(amend=amend).splitlines():
-            if status_line == MODIFIED_TAG:
-                mode = UNSTAGED_MODE
-                current_dest = unstaged
-                continue
-            elif status_line == UNTRACKED_TAG:
-                mode = UNTRACKED_MODE
-                current_dest = untracked
-                continue
-            # Staged/unstaged modified/renamed/deleted files
-            if mode is STAGED_MODE or mode is UNSTAGED_MODE:
-                match = RGX_MODIFIED.match(status_line)
-                if match:
-                    tag = match.group(0)
-                    filename = status_line.replace(tag, '')
-                    current_dest.append(eval_path(filename))
-                    continue
-                match = RGX_RENAMED.match(status_line)
-                if match:
-                    oldname = match.group(2)
-                    newname = match.group(3)
-                    current_dest.append(eval_path(oldname))
-                    current_dest.append(eval_path(newname))
-                    continue
-                match = RGX_UNMERGED.match(status_line)
-                if match:
-                    tag = match.group(0)
-                    filename = status_line.replace(tag, '')
-                    unmerged.append(eval_path(filename))
-                    unstaged.append(eval_path(filename))
-                    continue
-            # Untracked files
-            elif mode is UNTRACKED_MODE:
-                if status_line.startswith('#\t'):
-                    current_dest.append(eval_path(status_line[2:]))
-
-        return(staged, unstaged, untracked, unmerged)
+        return (staged, unstaged, untracked, unmerged)
 
     def reset_helper(self, *args, **kwargs):
         return self.git.reset('--', *args, **kwargs)
@@ -842,8 +896,8 @@ class Model(model.Model):
         return self.git.config('remote.%s.url' % name, get=True)
 
     def get_remote_args(self, remote,
-            local_branch='', remote_branch='',
-            ffwd=True, tags=False):
+                        local_branch='', remote_branch='',
+                        ffwd=True, tags=False):
         if ffwd:
             branch_arg = '%s:%s' % ( remote_branch, local_branch )
         else:
@@ -852,43 +906,18 @@ class Model(model.Model):
         if local_branch and remote_branch:
             args.append(branch_arg)
         kwargs = {
-            "with_extended_output": True,
-            "tags": tags
+            'verbose': True,
+            'tags': tags,
         }
         return (args, kwargs)
 
-    def fetch_helper(self, *args, **kwargs):
+    def gen_remote_helper(self, gitaction):
+        """Generates a closure that calls git fetch, push or pull
         """
-        Fetches remote_branch to local_branch only if
-        remote_branch and local_branch are both supplied.
-        If either is ommitted, "git fetch <remote>" is performed instead.
-        Returns (status,output)
-        """
-        args, kwargs = self.get_remote_args(*args, **kwargs)
-        (status, stdout, stderr) = self.git.fetch(v=True, *args, **kwargs)
-        return (status, stdout + stderr)
-
-    def push_helper(self, *args, **kwargs):
-        """
-        Pushes local_branch to remote's remote_branch only if
-        remote_branch and local_branch both are supplied.
-        If either is ommitted, "git push <remote>" is performed instead.
-        Returns (status,output)
-        """
-        args, kwargs = self.get_remote_args(*args, **kwargs)
-        (status, stdout, stderr) = self.git.push(*args, **kwargs)
-        return (status, stdout + stderr)
-
-    def pull_helper(self, *args, **kwargs):
-        """
-        Pushes branches.  If local_branch or remote_branch is ommitted,
-        "git pull <remote>" is performed instead of
-        "git pull <remote> <remote_branch>:<local_branch>
-        Returns (status,output)
-        """
-        args, kwargs = self.get_remote_args(*args, **kwargs)
-        (status, stdout, stderr) = self.git.pull(v=True, *args, **kwargs)
-        return (status, stdout + stderr)
+        def remote_helper(remote, **kwargs):
+            args, kwargs = self.get_remote_args(remote, **kwargs)
+            return gitaction(*args, **kwargs)
+        return remote_helper
 
     def parse_ls_tree(self, rev):
         """Returns a list of(mode, type, sha1, path) tuples."""
@@ -981,3 +1010,54 @@ class Model(model.Model):
                 'HEAD^',
                 unified=self.diff_context,
                 stat=True)
+
+    def pad(self, pstr, num=22):
+        topad = num-len(pstr)
+        if topad > 0:
+            return pstr + ' '*topad
+        else:
+            return pstr
+
+    def describe(self, revid, descr):
+        version = self.git.describe(revid, tags=True, always=True,
+                                    abbrev=4)
+        return version + ' - ' + descr
+
+    def update_revision_lists(self, filename=None, show_versions=False):
+        num_results = self.get_num_results()
+        if filename:
+            rev_list = self.git.log('--', filename,
+                                    max_count=num_results,
+                                    pretty='oneline')
+        else:
+            rev_list = self.git.log(max_count=num_results,
+                                    pretty='oneline', all=True)
+
+        commit_list = self.parse_rev_list(rev_list)
+        commit_list.reverse()
+        commits = map(lambda x: x[0], commit_list)
+        descriptions = map(lambda x: x[1].decode('utf-8'), commit_list)
+        if show_versions:
+            fancy_descr_list = map(lambda x: self.describe(*x), commit_list)
+            self.set_descriptions_start(fancy_descr_list)
+            self.set_descriptions_end(fancy_descr_list)
+        else:
+            self.set_descriptions_start(descriptions)
+            self.set_descriptions_end(descriptions)
+
+        self.set_revisions_start(commits)
+        self.set_revisions_end(commits)
+
+        return commits
+
+    def get_changed_files(self, start, end):
+        zfiles_str = self.git.diff('%s..%s' % (start, end),
+                                   name_only=True, z=True).strip('\0')
+        return [ enc.decode('utf-8')
+                    for enc in zfiles_str.split('\0') if enc ]
+
+    def get_renamed_files(self, start, end):
+        files = []
+        difflines = self.git.diff('%s..%s' % (start, end), M=True).splitlines()
+        return [ eval_path(r[12:].rstrip())
+                    for r in difflines if r.startswith('rename from ') ]
