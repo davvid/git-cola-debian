@@ -55,6 +55,7 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.commit_action = qtutils.add_action(self,
                                                 N_('Commit@@verb'),
                                                 self.commit, hotkeys.COMMIT)
+        self.commit_action.setIcon(icons.download())
         self.commit_action.setToolTip(N_('Commit staged changes'))
         self.clear_action = qtutils.add_action(self, N_('Clear...'), self.clear)
 
@@ -65,33 +66,27 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.move_up = actions.move_up(self)
         self.move_down = actions.move_down(self)
 
+        # Menu acctions
+        self.menu_actions = menu_actions = [
+            None,
+            self.signoff_action,
+            self.commit_action,
+            None,
+            self.launch_editor,
+            self.launch_difftool,
+            self.stage_or_unstage,
+            None,
+            self.move_up,
+            self.move_down,
+        ]
+
         # Widgets
         self.summary = CommitSummaryLineEdit()
         self.summary.setMinimumHeight(defs.tool_button_height)
-        self.summary.extra_actions.append(self.clear_action)
-        self.summary.extra_actions.append(None)
-        self.summary.extra_actions.append(self.signoff_action)
-        self.summary.extra_actions.append(self.commit_action)
-        self.summary.extra_actions.append(None)
-        self.summary.extra_actions.append(self.launch_editor)
-        self.summary.extra_actions.append(self.launch_difftool)
-        self.summary.extra_actions.append(self.stage_or_unstage)
-        self.summary.extra_actions.append(None)
-        self.summary.extra_actions.append(self.move_up)
-        self.summary.extra_actions.append(self.move_down)
+        self.summary.menu_actions.extend(menu_actions)
 
         self.description = CommitMessageTextEdit()
-        self.description.extra_actions.append(self.clear_action)
-        self.description.extra_actions.append(None)
-        self.description.extra_actions.append(self.signoff_action)
-        self.description.extra_actions.append(self.commit_action)
-        self.description.extra_actions.append(None)
-        self.description.extra_actions.append(self.launch_editor)
-        self.description.extra_actions.append(self.launch_difftool)
-        self.description.extra_actions.append(self.stage_or_unstage)
-        self.description.extra_actions.append(None)
-        self.description.extra_actions.append(self.move_up)
-        self.description.extra_actions.append(self.move_down)
+        self.description.menu_actions.extend(menu_actions)
 
         commit_button_tooltip = N_('Commit staged changes\n'
                                    'Shortcut: Ctrl+Enter')
@@ -218,9 +213,9 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.setFont(qtutils.diff_font())
         self.setFocusProxy(self.summary)
 
-        gitcfg.current().add_observer(gitcfg.current().message_user_config_changed, self.on_user_setting_changed)
+        cfg.add_observer(cfg.message_user_config_changed, self.config_changed)
 
-    def on_user_setting_changed(self, key, value):
+    def config_changed(self, key, value):
         if key != prefs.SPELL_CHECK:
             return
         if self.check_spelling_action.isChecked() == value:
@@ -464,14 +459,8 @@ class CommitMessageEditor(QtWidgets.QWidget):
             return
         no_verify = self.bypass_commit_hooks_action.isChecked()
         sign = self.sign_action.isChecked()
-        status, out, err = cmds.do(cmds.Commit, amend, msg, sign,
-                                   no_verify=no_verify)
+        cmds.do(cmds.Commit, amend, msg, sign, no_verify=no_verify)
         self.bypass_commit_hooks_action.setChecked(False)
-        if status != 0:
-            Interaction.critical(N_('Commit failed'),
-                                 N_('"git commit" returned exit code %s') %
-                                 (status,),
-                                 out + err)
 
     def build_fixup_menu(self):
         self.build_commits_menu(cmds.LoadFixupMessage,
@@ -519,13 +508,13 @@ class CommitMessageEditor(QtWidgets.QWidget):
 
     def toggle_check_spelling(self, enabled):
         spellcheck = self.description.spellcheck
+        cfg = gitcfg.current()
 
-        if gitcfg.current().get_user(prefs.SPELL_CHECK) != enabled:
-            gitcfg.current().set_user(prefs.SPELL_CHECK, enabled)
+        if cfg.get_user(prefs.SPELL_CHECK) != enabled:
+            cfg.set_user(prefs.SPELL_CHECK, enabled)
         if enabled and not self.spellcheck_initialized:
             # Add our name to the dictionary
             self.spellcheck_initialized = True
-            cfg = gitcfg.current()
             user_name = cfg.get('user.name')
             if user_name:
                 for part in user_name.split():
@@ -554,7 +543,7 @@ class CommitSummaryLineEdit(HintedLineEdit):
     def __init__(self, parent=None):
         hint = N_('Commit summary')
         HintedLineEdit.__init__(self, hint, parent=parent)
-        self.extra_actions = []
+        self.menu_actions = []
 
         comment_char = prefs.comment_char()
         re_comment_char = re.escape(comment_char)
@@ -562,15 +551,13 @@ class CommitSummaryLineEdit(HintedLineEdit):
         self._validator = QtGui.QRegExpValidator(regex, self)
         self.setValidator(self._validator)
 
-    def contextMenuEvent(self, event):
+    def build_menu(self):
         menu = self.createStandardContextMenu()
-        if self.extra_actions:
-            menu.addSeparator()
-        for action in self.extra_actions:
-            if action is None:
-                menu.addSeparator()
-            else:
-                menu.addAction(action)
+        add_menu_actions(menu, self.menu_actions)
+        return menu
+
+    def contextMenuEvent(self, event):
+        menu = self.build_menu()
         menu.exec_(self.mapToGlobal(event.pos()))
 
 
@@ -580,20 +567,18 @@ class CommitMessageTextEdit(SpellCheckTextEdit):
     def __init__(self, parent=None):
         hint = N_('Extended description...')
         SpellCheckTextEdit.__init__(self, hint, parent)
-        self.extra_actions = []
+        self.menu_actions = []
 
         self.action_emit_leave = qtutils.add_action(
                 self, 'Shift Tab', self.leave.emit, hotkeys.LEAVE)
 
-    def contextMenuEvent(self, event):
+    def build_menu(self):
         menu, spell_menu = self.context_menu()
-        if self.extra_actions:
-            menu.addSeparator()
-        for action in self.extra_actions:
-            if action is None:
-                menu.addSeparator()
-            else:
-                menu.addAction(action)
+        add_menu_actions(menu, self.menu_actions)
+        return menu
+
+    def contextMenuEvent(self, event):
+        menu = self.build_menu()
         menu.exec_(self.mapToGlobal(event.pos()))
 
     def keyPressEvent(self, event):
@@ -647,3 +632,12 @@ class CommitMessageTextEdit(SpellCheckTextEdit):
         SpellCheckTextEdit.setFont(self, font)
         fm = self.fontMetrics()
         self.setMinimumSize(QtCore.QSize(1, fm.height() * 2))
+
+
+def add_menu_actions(menu, menu_actions):
+    """Add actions to a menu, treating None as a separator"""
+    for action in menu_actions:
+        if action is None:
+            menu.addSeparator()
+        else:
+            menu.addAction(action)

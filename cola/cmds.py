@@ -74,21 +74,13 @@ class ConfirmAction(BaseCommand):
     def action(self):
         return (-1, '', '')
 
-    def ok(self, status):
-        return status == 0
-
     def success(self):
         pass
 
-    def fail(self, status, out, err):
-        title = msg = self.error_message()
-        details = self.error_details() or out + err
-        Interaction.critical(title, message=msg, details=details)
+    def command(self):
+        return 'git'
 
     def error_message(self):
-        return ''
-
-    def error_details(self):
         return ''
 
     def do(self):
@@ -97,10 +89,11 @@ class ConfirmAction(BaseCommand):
         ok = self.ok_to_run() and self.confirm()
         if ok:
             status, out, err = self.action()
-            if self.ok(status):
+            if status == 0:
                 self.success()
-            else:
-                self.fail(status, out, err)
+            title = self.error_message()
+            cmd = self.command()
+            Interaction.command(title, cmd, status, out, err)
 
         return ok, status, out, err
 
@@ -143,6 +136,37 @@ class Command(ModelCommand):
         self.model.set_diff_text(self.old_diff_text)
         self.model.set_filename(self.old_filename)
         self.model.set_mode(self.old_mode)
+
+
+class AbortMerge(ConfirmAction):
+    """Reset an in-progress merge back to HEAD"""
+
+    def __init__(self):
+        ConfirmAction.__init__(self, model=main.model())
+
+    def confirm(self):
+        title = N_('Abort Merge...')
+        question = N_('Aborting the current merge?')
+        info = N_('Aborting the current merge will cause '
+                     '*ALL* uncommitted changes to be lost.\n'
+                     'Recovering uncommitted changes is not possible.')
+        ok_txt = N_('Abort Merge')
+        return Interaction.confirm(title, question, info, ok_txt,
+                                   default=False, icon=icons.undo())
+
+    def action(self):
+        status, out, err = gitcmds.abort_merge()
+        self.model.update_file_status()
+        return status, out, err
+
+    def success(self):
+        self.model.set_commitmsg('')
+
+    def error_message(self):
+        return N_('Error')
+
+    def command(self):
+        return 'git merge'
 
 
 class AmendMode(Command):
@@ -215,7 +239,9 @@ class ApplyDiffSelection(Command):
         self.apply_to_worktree = apply_to_worktree
 
     def do(self):
-        parser = DiffParser(self.model.filename, self.model.diff_text)
+        diff_text = self.model.diff_text
+
+        parser = DiffParser(self.model.filename, diff_text)
         if self.has_selection:
             patch = parser.generate_patch(self.first_line_idx,
                                           self.last_line_idx,
@@ -226,8 +252,13 @@ class ApplyDiffSelection(Command):
         if patch is None:
             return
 
-        cfg = gitcfg.current()
-        encoding = cfg.file_encoding(self.model.filename)
+        if isinstance(diff_text, core.UStr):
+            # original encoding must prevail
+            encoding = diff_text.encoding
+        else:
+            cfg = gitcfg.current()
+            encoding = cfg.file_encoding(self.model.filename)
+
         tmp_file = utils.tmp_filename('patch')
         try:
             core.write(tmp_file, patch, encoding=encoding)
@@ -318,11 +349,11 @@ class Checkout(Command):
 
     def do(self):
         status, out, err = self.model.git.checkout(*self.argv)
-        Interaction.log_status(status, out, err)
         if self.checkout_branch:
             self.model.update_status()
         else:
             self.model.update_file_status()
+        Interaction.command(N_('Error'), 'git checkout', status, out, err)
 
 
 class BlamePaths(Command):
@@ -383,9 +414,13 @@ class ResetCommand(ConfirmAction):
         ConfirmAction.__init__(self, model=main.model(), ref=ref)
 
     def action(self):
-        status, out, err = self.reset()
-        Interaction.log_status(status, out, err)
-        return status, out, err
+        return self.reset()
+
+    def command(self):
+        return 'git reset'
+
+    def error_message(self):
+        return N_('Error')
 
     def success(self):
         self.model.update_file_status()
@@ -403,9 +438,9 @@ class ResetBranchHead(ResetCommand):
         title = N_('Reset Branch')
         question = N_('Point the current branch head to a new commit?')
         info = N_('The branch will be reset using "git reset --mixed %s"')
-        ok_btn = N_('Reset Branch')
+        ok_text = N_('Reset Branch')
         info = info % self.ref
-        return Interaction.confirm(title, question, info, ok_btn)
+        return Interaction.confirm(title, question, info, ok_text)
 
     def reset(self):
         git = self.model.git
@@ -418,9 +453,9 @@ class ResetWorktree(ResetCommand):
         title = N_('Reset Worktree')
         question = N_('Reset worktree?')
         info = N_('The worktree will be reset using "git reset --merge %s"')
-        ok_btn = N_('Reset Worktree')
+        ok_text = N_('Reset Worktree')
         info = info % self.ref
-        return Interaction.confirm(title, question, info, ok_btn)
+        return Interaction.confirm(title, question, info, ok_text)
 
     def reset(self):
         return self.model.git.reset(self.ref, '--', merge=True)
@@ -454,14 +489,12 @@ class Commit(ResetMode):
                                                      no_verify=self.no_verify)
         finally:
             core.unlink(tmp_file)
-
         if status == 0:
             ResetMode.do(self)
             self.model.set_commitmsg(self.new_commitmsg)
-            msg = N_('Created commit: %s') % out
-        else:
-            msg = N_('Commit failed: %s') % out
-        Interaction.log_status(status, msg, err)
+
+        title = N_('Commit failed')
+        Interaction.command(title, 'git commit', status, out, err)
 
         return status, out, err
 
@@ -535,8 +568,8 @@ class RemoteRemove(RemoteCommand):
         title = N_('Delete Remote')
         question = N_('Delete remote?')
         info = N_('Delete remote "%s"') % self.remote
-        ok_btn = N_('Delete')
-        return Interaction.confirm(title, question, info, ok_btn)
+        ok_text = N_('Delete')
+        return Interaction.confirm(title, question, info, ok_text)
 
     def action(self):
         git = self.model.git
@@ -557,8 +590,8 @@ class RemoteRename(RemoteCommand):
         question = N_('Rename remote?')
         info = (N_('Rename remote "%(current)s" to "%(new)s"?') %
                 dict(current=self.remote, new=self.new_remote))
-        ok_btn = N_('Rename')
-        return Interaction.confirm(title, question, info, ok_btn)
+        ok_text = N_('Rename')
+        return Interaction.confirm(title, question, info, ok_text)
 
     def action(self):
         git = self.model.git
@@ -713,21 +746,15 @@ class DeleteRemoteBranch(Command):
     def do(self):
         status, out, err = self.model.git.push(self.remote, self.branch,
                                                delete=True)
-        Interaction.log_status(status, out, err)
         self.model.update_status()
 
+        title = N_('Error Deleting Remote Branch')
+        Interaction.command(title, 'git push', status, out, err)
         if status == 0:
             Interaction.information(
                 N_('Remote Branch Deleted'),
                 N_('"%(branch)s" has been deleted from "%(remote)s".')
                 % dict(branch=self.branch, remote=self.remote))
-        else:
-            command = 'git push'
-            message = (N_('"%(command)s" returned exit status %(status)d') %
-                       dict(command=command, status=status))
-
-            Interaction.critical(N_('Error Deleting Remote Branch'),
-                                 message, out + err)
 
 
 class Diff(Command):
@@ -847,13 +874,15 @@ class Edit(Command):
 class FormatPatch(Command):
     """Output a patch series given all revisions and a selected subset."""
 
-    def __init__(self, to_export, revs):
+    def __init__(self, to_export, revs, output='patches'):
         Command.__init__(self)
         self.to_export = list(to_export)
         self.revs = list(revs)
+        self.output = output
 
     def do(self):
-        status, out, err = gitcmds.format_patchsets(self.to_export, self.revs)
+        status, out, err = gitcmds.format_patchsets(self.to_export, self.revs,
+                                                    self.output)
         Interaction.log_status(status, out, err)
 
 
@@ -997,13 +1026,7 @@ class PrepareCommitMessageHook(Command):
                 result = core.read(filename)
             else:
                 result = self.old_commitmsg
-                details = out or ''
-                if err:
-                    if details and not details.endswith('\n'):
-                        details += '\n'
-                    details += err
-                message = N_('"%s" returned exit status %d') % (hook, status)
-                Interaction.critical(title, message=message, details=details)
+                Interaction.command_error(title, hook, status, out, err)
         else:
             message = N_('A hook must be provided at "%s"') % hook
             Interaction.critical(title, message=message)
@@ -1051,8 +1074,11 @@ class Merge(Command):
                                                 no_ff=no_ff,
                                                 no_commit=no_commit,
                                                 squash=squash)
-        Interaction.log_status(status, out, err)
         self.model.update_status()
+        title = N_('Merge failed.  Conflict resolution is required.')
+        Interaction.command(title, 'git merge', status, out, err)
+
+        return status, out, err
 
 
 class OpenDefaultApp(BaseCommand):
@@ -1113,6 +1139,9 @@ class OpenRepo(Command):
     def __init__(self, repo_path):
         Command.__init__(self)
         self.repo_path = repo_path
+        self.new_mode = self.model.mode_none
+        self.new_diff_text = ''
+        self.new_commitmsg = ''
 
     def do(self):
         git = self.model.git
@@ -1121,6 +1150,7 @@ class OpenRepo(Command):
             fsmonitor.current().stop()
             fsmonitor.current().start()
             self.model.update_status()
+            self.model.set_commitmsg(self.new_commitmsg)
         else:
             self.model.set_worktree(old_repo)
 
@@ -1133,25 +1163,18 @@ class Clone(Command):
         self.url = url
         self.new_directory = new_directory
         self.spawn = spawn
-
-        self.ok = False
-        self.error_message = ''
-        self.error_details = ''
+        self.status = -1
+        self.out = ''
+        self.err = ''
 
     def do(self):
         status, out, err = self.model.git.clone(self.url, self.new_directory)
-        self.ok = status == 0
-
-        if self.ok:
-            if self.spawn:
-                core.fork([sys.executable, sys.argv[0],
-                           '--repo', self.new_directory])
-        else:
-            self.error_message = N_('Error: could not clone "%s"') % self.url
-            self.error_details = (
-                    (N_('git clone returned exit code %s') % status) +
-                    ((out+err) and ('\n\n' + out + err) or ''))
-
+        self.status = status
+        self.out = out
+        self.err = err
+        if status == 0 and self.spawn:
+            executable = sys.executable
+            core.fork([executable, sys.argv[0], '--repo', self.new_directory])
         return self
 
 
@@ -1189,13 +1212,11 @@ class GitXBaseContext(object):
 
 class Rebase(Command):
 
-    def __init__(self,
-                 upstream=None, branch=None, capture_output=True, **kwargs):
+    def __init__(self, upstream=None, branch=None, **kwargs):
         """Start an interactive rebase session
 
         :param upstream: upstream branch
         :param branch: optional branch to checkout
-        :param capture_output: whether to capture stdout and stderr
         :param kwargs: forwarded directly to `git.rebase()`
 
         """
@@ -1203,16 +1224,11 @@ class Rebase(Command):
 
         self.upstream = upstream
         self.branch = branch
-        self.capture_output = capture_output
         self.kwargs = kwargs
 
     def prepare_arguments(self):
         args = []
         kwargs = {}
-
-        if self.capture_output:
-            kwargs['_stderr'] = None
-            kwargs['_stdout'] = None
 
         # Rebase actions must be the only option specified
         for action in ('continue', 'abort', 'skip', 'edit_todo'):
@@ -1244,8 +1260,10 @@ class Rebase(Command):
                 # could hide the main window while rebasing. that doesn't require
                 # as much effort.
                 status, out, err = self.model.git.rebase(*args, _no_win32_startupinfo=True, **kwargs)
-        Interaction.log_status(status, out, err)
         self.model.update_status()
+        title = N_('Rebase stopped')
+        Interaction.command(title, 'git rebase', status, out, err)
+
         return status, out, err
 
 
@@ -1465,12 +1483,12 @@ class RunConfigAction(Command):
         else:
             status, out, err = Interaction.run_command(title, cmd)
 
-        Interaction.log_status(status,
-                               out and (N_('Output: %s') % out) or '',
-                               err and (N_('Errors: %s') % err) or '')
-
         if not opts.get('background') and not opts.get('norescan'):
             self.model.update_status()
+
+        title = N_('Error')
+        Interaction.command(title, cmd, status, out, err)
+
         return status
 
 
@@ -1711,8 +1729,16 @@ class Tag(Command):
         self._sign = sign
 
     def do(self):
-        log_msg = (N_('Tagging "%(revision)s" as "%(name)s"') %
-                   dict(revision=self._revision, name=self._name))
+        title = N_('Missing Tag Message')
+        message = N_('Tag-signing was requested but the tag message is empty.')
+        info = N_('An unsigned, lightweight tag will be created instead.\n'
+                  'Create an unsigned tag?')
+        ok_text = N_('Create Unsigned Tag')
+        if (self._sign
+            and not self._message
+            and not Interaction.confirm(title, message, info, ok_text,
+                                        default=False, icon=icons.save())):
+            return
         opts = {}
         tmp_file = None
         try:
@@ -1722,23 +1748,22 @@ class Tag(Command):
                 core.write(tmp_file, self._message)
 
             if self._sign:
-                log_msg += ' (%s)' % N_('GPG-signed')
                 opts['s'] = True
             else:
                 opts['a'] = bool(self._message)
-            status, output, err = self.model.git.tag(self._name,
-                                                     self._revision, **opts)
+            status, out, err = self.model.git.tag(self._name,
+                                                  self._revision, **opts)
         finally:
             if tmp_file:
                 core.unlink(tmp_file)
 
-        if output:
-            log_msg += '\n' + (N_('Output: %s') % output)
-
-        Interaction.log_status(status, log_msg, err)
         if status == 0:
             self.model.update_status()
-        return (status, output, err)
+
+        title = N_('Error: could not create tag "%s"') % self._name
+        Interaction.command(title, 'git tag', status, out, err)
+
+        return (status, out, err)
 
 
 class Unstage(Command):
@@ -1825,7 +1850,7 @@ class VisualizeCurrent(Command):
 
     def do(self):
         browser = utils.shell_split(prefs.history_browser())
-        launch_history_browser(browser + [self.model.currentbranch])
+        launch_history_browser(browser + [self.model.currentbranch] + ['--'])
 
 
 class VisualizePaths(Command):
@@ -1835,7 +1860,7 @@ class VisualizePaths(Command):
         Command.__init__(self)
         browser = utils.shell_split(prefs.history_browser())
         if paths:
-            self.argv = browser + list(paths)
+            self.argv = browser + ['--'] + list(paths)
         else:
             self.argv = browser
 
@@ -1990,3 +2015,19 @@ def difftool_launch(left=None, right=None, paths=None,
         difftool_args.extend(paths)
 
     core.fork(difftool_args)
+
+
+def rebase_edit_todo():
+    do(RebaseEditTodo)
+
+
+def rebase_continue():
+    do(RebaseContinue)
+
+
+def rebase_skip():
+    do(RebaseSkip)
+
+
+def rebase_abort():
+    do(RebaseAbort)

@@ -79,7 +79,7 @@ def add_cola_command(subparser):
 
 
 def add_about_command(parent):
-    parser = add_command(parent, 'about', 'about git-cola', cmd_about)
+    add_command(parent, 'about', 'about git-cola', cmd_about)
 
 def add_am_command(parent):
     parser = add_command(parent, 'am', 'apply patches using "git am"', cmd_am)
@@ -138,7 +138,9 @@ def add_grep_command(subparser):
 
 
 def add_merge_command(subparser):
-    add_command(subparser, 'merge', 'merge branches', cmd_merge)
+    parser = add_command(subparser, 'merge', 'merge branches', cmd_merge)
+    parser.add_argument('ref', nargs='?', metavar='<ref>',
+                        help='branch, tag, or commit to merge')
 
 
 def add_pull_command(subparser):
@@ -379,7 +381,7 @@ def cmd_grep(args):
 def cmd_merge(args):
     context = application_init(args, update=True)
     from .widgets.merge import Merge
-    view = Merge(context.cfg, context.model, parent=None)
+    view = Merge(context.cfg, context.model, parent=None, ref=args.ref)
     return application_start(context, view)
 
 
@@ -437,13 +439,8 @@ def cmd_rebase(args):
             'edit_todo': args.edit_todo,
             'upstream': args.upstream,
             'branch': args.branch,
-            'capture_output': False,
     }
     status, out, err = cmds.do(cmds.Rebase, **kwargs)
-    if out:
-        core.stdout(out)
-    if err:
-        core.stderr(err)
     return status
 
 

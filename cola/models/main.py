@@ -245,8 +245,10 @@ class MainModel(Observable):
         self.tags = tags
 
     def _update_merge_rebase_status(self):
-        self.is_merging = core.exists(self.git.git_path('MERGE_HEAD'))
-        self.is_rebasing = core.exists(self.git.git_path('rebase-merge'))
+        merge_head = self.git.git_path('MERGE_HEAD')
+        rebase_merge = self.git.git_path('rebase-merge')
+        self.is_merging = merge_head and core.exists(merge_head)
+        self.is_rebasing = rebase_merge and core.exists(rebase_merge)
         if self.is_merging and self.mode == self.mode_amend:
             self.set_mode(self.mode_none)
 
@@ -466,7 +468,9 @@ class MainModel(Observable):
         remove = []
 
         for path in set(paths):
-            if core.exists(path):
+            if core.exists(path) or core.islink(path):
+                if path.endswith('/'):
+                    path = path.rstrip('/')
                 add.append(path)
             else:
                 remove.append(path)

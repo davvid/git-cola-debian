@@ -15,6 +15,7 @@ BLAME = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_B)
 BRANCH = hotkey(Qt.CTRL + Qt.Key_B)
 CHECKOUT = hotkey(Qt.ALT + Qt.Key_B)
 CHERRY_PICK = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_C)
+COPY_SHA1 = hotkey(Qt.CTRL + Qt.ALT + Qt.Key_C)
 DIFFSTAT = hotkey(Qt.ALT + Qt.Key_D)
 DIFF = hotkey(Qt.CTRL + Qt.Key_D)
 DIFF_SECONDARY = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_D)
@@ -61,7 +62,6 @@ TERMINAL = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_T)
 STAGE_UNTRACKED = hotkey(Qt.ALT + Qt.Key_U)
 REVERT = hotkey(Qt.CTRL + Qt.Key_U)
 WORD_RIGHT = hotkey(Qt.Key_W)
-UNDO = hotkey(Qt.CTRL + Qt.Key_Z)
 
 # Numbers
 START_OF_LINE = hotkey(Qt.Key_0)
@@ -85,6 +85,7 @@ QUESTION = hotkey(Qt.Key_Question)
 RETURN = hotkey(Qt.Key_Return)
 ACCEPT = (ENTER, RETURN)
 COMMIT = hotkey(Qt.CTRL + Qt.Key_Return)
+PREPARE_COMMIT_MESSAGE = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_Return)
 PRIMARY_ACTION = hotkey(hotkey(Qt.Key_Space))
 SECONDARY_ACTION = hotkey(Qt.SHIFT + Qt.Key_Space)
 LEAVE = hotkey(Qt.SHIFT + Qt.Key_Tab)
@@ -100,10 +101,14 @@ REBASE_EDIT = (hotkey(Qt.Key_3), hotkey(Qt.Key_E))
 REBASE_FIXUP = (hotkey(Qt.Key_4), hotkey(Qt.Key_F))
 REBASE_SQUASH = (hotkey(Qt.Key_5), hotkey(Qt.Key_S))
 
+UNDO = hotkey(Qt.CTRL + Qt.Key_Z)
+REDO = hotkey(Qt.SHIFT + Qt.CTRL + Qt.Key_Z)
+
 # Key Sequences
 COPY = QKeySequence.Copy
 CLOSE = QKeySequence.Close
 CUT = QKeySequence.Cut
+PASTE = QKeySequence.Paste
 DELETE = QKeySequence.Delete
 NEW = QKeySequence.New
 OPEN = QKeySequence.Open

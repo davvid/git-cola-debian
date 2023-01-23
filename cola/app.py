@@ -6,7 +6,7 @@ import signal
 import sys
 
 __copyright__ = """
-Copyright (C) 2009-2016 David Aguilar and contributors
+Copyright (C) 2009-2017 David Aguilar and contributors
 """
 
 from . import core
@@ -24,7 +24,6 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 
 # Import cola modules
-from .decorators import memoize
 from .i18n import N_
 from .interaction import Interaction
 from .models import main
@@ -152,10 +151,8 @@ class ColaApplication(object):
         qtutils.install()
         icons.install(icon_themes or get_icon_themes())
 
-        fsmonitor.current().files_changed.connect(self._update_files)
-
         if gui:
-            self._app = current(tuple(argv))
+            self._app = ColaQApplication(list(argv))
             self._app.setWindowIcon(icons.cola())
             self._install_style()
         else:
@@ -237,22 +234,37 @@ class ColaApplication(object):
     def desktop(self):
         return self._app.desktop()
 
-    def exec_(self):
-        """Wrap exec_()"""
+    def start(self):
+        """Wrap exec_() and start the application"""
+        # Defer connection so that local cola.inotify is honored
+        fsmonitor.current().files_changed.connect(self._update_files)
+        # Start the filesystem monitor thread
+        fsmonitor.current().start()
         return self._app.exec_()
+
+    def stop(self):
+        """Finalize the application"""
+        fsmonitor.current().stop()
+        # Workaround QTBUG-52988 by deleting the app manually to prevent a
+        # crash during app shutdown.
+        # https://bugreports.qt.io/browse/QTBUG-52988
+        try:
+            del self._app
+        except:
+            pass
+        self._app = None
 
     def set_view(self, view):
         if hasattr(self._app, 'view'):
             self._app.view = view
 
+    def set_context(self, context):
+        if hasattr(self._app, 'context'):
+            self._app.context = context
+
     def _update_files(self):
         # Respond to file system updates
         cmds.do(cmds.Refresh)
-
-
-@memoize
-def current(argv):
-    return ColaQApplication(list(argv))
 
 
 class ColaQApplication(QtWidgets.QApplication):
@@ -260,11 +272,13 @@ class ColaQApplication(QtWidgets.QApplication):
     def __init__(self, argv):
         super(ColaQApplication, self).__init__(argv)
         self.view = None  # injected by application_start()
+        self.context = None  # injected by application_start()
 
     def event(self, e):
         if e.type() == QtCore.QEvent.ApplicationActivate:
             cfg = gitcfg.current()
-            if cfg.get('cola.refreshonfocus', False):
+            if (self.context and self.context.model.git.is_valid()
+                    and cfg.get('cola.refreshonfocus', False)):
                 cmds.do(cmds.Refresh)
         return super(ColaQApplication, self).event(e)
 
@@ -328,32 +342,47 @@ def application_init(args, update=False):
     return ApplicationContext(args, app, cfg, model)
 
 
-def application_start(context, view):
-    """Show the GUI and start the main event loop"""
-    # Store the view for session management
+def context_init(context, view):
+    """Store the view for session management"""
     context.app.set_view(view)
-
+    context.app.set_context(context)
     # Make sure that we start out on top
     view.show()
     view.raise_()
 
-    # Scan for the first time
-    runtask = qtutils.RunTask(parent=view)
-    init_update_task(view, runtask, context.model)
 
-    # Start the filesystem monitor thread
-    fsmonitor.current().start()
-
-    QtCore.QTimer.singleShot(0, _send_msg)
-
+def application_run(context, view, start=None, stop=None):
+    """Run the application main loop"""
+    # Initialize and run startup callbacks
+    context_init(context, view)
+    if start:
+        start(context, view)
     # Start the event loop
-    result = context.app.exec_()
-
-    # All done, cleanup
-    fsmonitor.current().stop()
-    QtCore.QThreadPool.globalInstance().waitForDone()
+    result = context.app.start()
+    # Finish
+    if stop:
+        stop(context, view)
+    context.app.stop()
 
     return result
+
+
+def application_start(context, view):
+    """Show the GUI and start the main event loop"""
+    # Store the view for session management
+    return application_run(context, view, start=start, stop=stop)
+
+
+def start(context, view):
+    """Scan for the first time"""
+    runtask = qtutils.RunTask(parent=view)
+    init_update_task(view, runtask, context.model)
+    QtCore.QTimer.singleShot(0, _send_msg)
+
+
+def stop(context, view):
+    """All done, cleanup"""
+    QtCore.QThreadPool.globalInstance().waitForDone()
 
 
 def add_common_arguments(parser):

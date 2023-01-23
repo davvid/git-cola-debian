@@ -146,6 +146,7 @@ class DiffTextEdit(VimHintedPlainTextEdit):
             self.numbers.hide()
         else:
             self.numbers = None
+        self.scrollvalue = None
 
         self.cursorPositionChanged.connect(self._cursor_changed)
 
@@ -160,15 +161,40 @@ class DiffTextEdit(VimHintedPlainTextEdit):
         if self.numbers:
             self.numbers.refresh_size()
 
+    def save_scrollbar(self):
+        """Save the scrollbar value, but only on the first call"""
+        if self.scrollvalue is None:
+            scrollbar = self.verticalScrollBar()
+            if scrollbar:
+                scrollvalue = scrollbar.value()
+            else:
+                scrollvalue = None
+            self.scrollvalue = scrollvalue
+
+    def restore_scrollbar(self):
+        """Restore the scrollbar and clear state"""
+        scrollbar = self.verticalScrollBar()
+        scrollvalue = self.scrollvalue
+        if scrollbar and scrollvalue is not None:
+            scrollbar.setValue(scrollvalue)
+        self.scrollvalue = None
+
+
     def set_loading_message(self):
         self.hint.set_value('+++ ' + N_('Loading...'))
         self.set_value('')
 
     def set_diff(self, diff):
+        """Set the diff text, but save the scrollbar"""
+        self.save_scrollbar()
+
         self.hint.set_value('')
         if self.numbers:
             self.numbers.set_diff(diff)
         self.set_value(diff)
+
+        self.restore_scrollbar()
+
 
 
 class DiffLineNumbers(TextDecorator):
@@ -514,45 +540,10 @@ class DiffEditor(DiffTextEdit):
         if text is None:
             return
 
-        offset, selection_text = self.offset_and_selection()
-        old_text = self.toPlainText()
-
         DiffTextEdit.setPlainText(self, text)
-
-        if selection_text and selection_text in text:
-            # If the old selection exists in the new text then re-select it.
-            idx = text.index(selection_text)
-            cursor = self.textCursor()
-            cursor.setPosition(idx)
-            cursor.setPosition(idx + len(selection_text),
-                               QtGui.QTextCursor.KeepAnchor)
-            self.setTextCursor(cursor)
-
-        elif text == old_text:
-            # Otherwise, if the text is identical and there is no selection
-            # then restore the cursor position.
-            cursor = self.textCursor()
-            cursor.setPosition(offset)
-            self.setTextCursor(cursor)
-        else:
-            # If none of the above applied then restore the cursor position.
-            position = max(0, min(offset, len(text) - 1))
-            cursor = self.textCursor()
-            cursor.setPosition(position)
-            cursor.movePosition(QtGui.QTextCursor.StartOfLine)
-            self.setTextCursor(cursor)
 
         if scrollbar and scrollvalue is not None:
             scrollbar.setValue(scrollvalue)
-
-    def has_selection(self):
-        return self.textCursor().hasSelection()
-
-    def offset_and_selection(self):
-        cursor = self.textCursor()
-        offset = cursor.selectionStart()
-        selection_text = cursor.selection().toPlainText()
-        return offset, selection_text
 
     def selected_lines(self):
         cursor = self.textCursor()
@@ -671,9 +662,10 @@ class DiffWidget(QtWidgets.QWidget):
         notifier.add_observer(FILES_SELECTED, self.files_selected)
 
     def set_diff_oid(self, oid, filename=None):
+        self.diff.save_scrollbar()
         self.diff.set_loading_message()
         task = DiffInfoTask(oid, filename, self)
-        task.connect(self.diff.set_value)
+        task.connect(self.diff.set_diff)
         self.runtask.start(task)
 
     def commits_selected(self, commits):

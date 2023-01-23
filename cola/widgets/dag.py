@@ -1,7 +1,8 @@
 from __future__ import division, absolute_import, unicode_literals
 import collections
+import itertools
 import math
-from itertools import count
+import re
 
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
@@ -15,11 +16,13 @@ from ..models import dag
 from .. import core
 from .. import cmds
 from .. import difftool
+from .. import gitcmds
 from .. import hotkeys
 from .. import icons
 from .. import observable
 from .. import qtcompat
 from .. import qtutils
+from .. import utils
 from . import archive
 from . import browse
 from . import completion
@@ -147,6 +150,9 @@ class ViewerMixin(object):
     def reset_worktree(self):
         self.with_oid(lambda oid: cmds.do(cmds.ResetWorktree, ref=oid))
 
+    def checkout_detached(self):
+        self.with_oid(lambda oid: cmds.do(cmds.Checkout, [oid]))
+
     def save_blob_dialog(self):
         self.with_oid(lambda oid: browse.BrowseBranch.browse(oid))
 
@@ -173,6 +179,7 @@ class ViewerMixin(object):
         self.menu_actions['diff_commit'].setEnabled(has_single_selection)
         self.menu_actions['diff_commit_all'].setEnabled(has_single_selection)
 
+        self.menu_actions['checkout_detached'].setEnabled(has_single_selection)
         self.menu_actions['cherry_pick'].setEnabled(has_single_selection)
         self.menu_actions['copy'].setEnabled(has_single_selection)
         self.menu_actions['create_branch'].setEnabled(has_single_selection)
@@ -201,6 +208,7 @@ class ViewerMixin(object):
         reset_menu = menu.addMenu(N_('Reset'))
         reset_menu.addAction(self.menu_actions['reset_branch_head'])
         reset_menu.addAction(self.menu_actions['reset_worktree'])
+        menu.addAction(self.menu_actions['checkout_detached'])
         menu.addSeparator()
         menu.addAction(self.menu_actions['save_blob'])
         menu.addAction(self.menu_actions['copy'])
@@ -236,6 +244,9 @@ def viewer_actions(widget):
         'diff_commit_all':
         qtutils.add_action(widget, N_('Launch Directory Diff Tool'),
                            widget.proxy.show_dir_diff, hotkeys.DIFF_SECONDARY),
+        'checkout_detached':
+        qtutils.add_action(widget, N_('Checkout Detached HEAD'),
+                           widget.proxy.checkout_detached),
         'reset_branch_head':
         qtutils.add_action(widget, N_('Reset Branch Head'),
                            widget.proxy.reset_branch_head),
@@ -248,7 +259,7 @@ def viewer_actions(widget):
         'copy':
         qtutils.add_action(widget, N_('Copy SHA-1'),
                            widget.proxy.copy_to_clipboard,
-                           QtGui.QKeySequence.Copy),
+                           hotkeys.COPY_SHA1),
     }
 
 
@@ -441,6 +452,9 @@ class GitDAG(standard.MainWindow):
         self.commits = {}
         self.commit_list = []
         self.selection = []
+        self.last_oids = None
+        self.last_count = 0
+        self.force_refresh = False
 
         self.thread = None
         self.revtext = completion.GitLogLineEdit()
@@ -515,20 +529,17 @@ class GitDAG(standard.MainWindow):
 
         # Create the application menu
         self.menubar = QtWidgets.QMenuBar(self)
+        self.setMenuBar(self.menubar)
 
         # View Menu
-        self.view_menu = qtutils.create_menu(N_('View'), self.menubar)
+        self.view_menu = qtutils.add_menu(N_('View'), self.menubar)
         self.view_menu.addAction(self.refresh_action)
-
         self.view_menu.addAction(self.log_dock.toggleViewAction())
         self.view_menu.addAction(self.graphview_dock.toggleViewAction())
         self.view_menu.addAction(self.diff_dock.toggleViewAction())
         self.view_menu.addAction(self.file_dock.toggleViewAction())
         self.view_menu.addSeparator()
         self.view_menu.addAction(self.lock_layout_action)
-
-        self.menubar.addAction(self.view_menu.menuAction())
-        self.setMenuBar(self.menubar)
 
         left = Qt.LeftDockWidgetArea
         right = Qt.RightDockWidgetArea
@@ -634,16 +645,38 @@ class GitDAG(standard.MainWindow):
         self.display()
 
     def refresh(self):
+        """Unconditionally refresh the DAG"""
+        # self.force_refresh triggers an Unconditional redraw
+        self.force_refresh = True
         cmds.do(cmds.Refresh)
+        self.force_refresh = False
 
     def display(self):
+        """Update the view when the Git refs change"""
         new_ref = self.revtext.value()
         new_count = self.maxresults.value()
 
-        self.thread.stop()
-        self.ctx.set_ref(new_ref)
-        self.ctx.set_count(new_count)
-        self.thread.start()
+        # The DAG tries to avoid updating when the object IDs have not
+        # changed.  Without doing this the DAG constantly redraws itself
+        # whenever inotify sends update events, which hurts usability.
+        #
+        # To minimize redraws we leverage `git rev-parse`.  The strategy is to
+        # use `git rev-parse` on the input line, which converts each argument
+        # into object IDs.  From there it's a simple matter of detecting when
+        # the object IDs changed.
+        argv = utils.shell_split(new_ref or 'HEAD')
+        oids = gitcmds.parse_refs(argv)
+        update = (self.force_refresh or
+                    new_count != self.last_count or
+                    oids != self.last_oids)
+        if update:
+            self.thread.stop()
+            self.ctx.set_ref(new_ref)
+            self.ctx.set_count(new_count)
+            self.thread.start()
+
+        self.last_oids = oids
+        self.last_count = new_count
 
     def commits_selected(self, commits):
         if commits:
@@ -1716,7 +1749,7 @@ step 2. Hence, it must be propagated for children on side columns.
             # This is heuristic that mostly affects roots. Note that the
             # frontier values for fork children will be overridden in course of
             # propagate_frontier.
-            for offset in count(1):
+            for offset in itertools.count(1):
                 for c in [column + offset, column - offset]:
                     if not c in self.columns:
                         # Column 'c' is not occupied.
@@ -1726,7 +1759,17 @@ step 2. Hence, it must be propagated for children on side columns.
                     except KeyError:
                         # Column 'c' was never allocated.
                         continue
-                    self.frontier[column] = frontier - 1
+
+                    frontier -= 1
+                    # The frontier of the column may be higher because of
+                    # tag overlapping prevention performed for previous head.
+                    try:
+                        if self.frontier[column] >= frontier:
+                            break
+                    except KeyError:
+                        pass
+
+                    self.frontier[column] = frontier
                     break
                 else:
                     continue
@@ -1750,7 +1793,7 @@ step 2. Hence, it must be propagated for children on side columns.
             # If no free column was found between graph center and desired
             # column then look for free one by moving from center along both
             # directions simultaneously.
-            for c in count(0):
+            for c in itertools.count(0):
                 if c not in columns:
                     if c > self.max_column:
                         self.max_column = c
@@ -1784,7 +1827,7 @@ step 2. Hence, it must be propagated for children on side columns.
             can_overlap = list(range(self.min_column, column))
         else:
             can_overlap = list(range(self.max_column, column, -1))
-        for cell_row in count(cell_row):
+        for cell_row in itertools.count(cell_row):
             for c in can_overlap:
                 if (c, cell_row) in self.tagged_cells:
                     # Overlapping. Try next row.

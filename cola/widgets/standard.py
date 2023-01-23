@@ -9,7 +9,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QDockWidget
 
-from ..settings import Settings
+from ..settings import Settings, mklist
 from .. import core
 from .. import gitcfg
 from .. import qtcompat
@@ -165,8 +165,7 @@ class WidgetMixin(object):
             width = defs.dialog_w
         if not height:
             height = defs.dialog_h
-        self.init_state(settings,
-                        self.resize_to_parent, parent, width, height)
+        self.init_state(settings, self.resize_to_parent, parent, width, height)
 
     def init_state(self, settings, callback, *args, **kwargs):
         """Restore saved settings or set the initial location"""
@@ -345,6 +344,14 @@ class TreeMixin(object):
 
         return result
 
+    def item_from_index(self, item):
+        """Return a QModelIndex from the provided item"""
+        if hasattr(self, 'itemFromIndex'):
+            index = self.itemFromIndex(item)
+        else:
+            index = self.model().itemFromIndex()
+        return index
+
     def items(self):
         root = self.widget.invisibleRootItem()
         child = root.child
@@ -357,7 +364,10 @@ class TreeMixin(object):
         if hasattr(widget, 'selectedItems'):
             return widget.selectedItems()
         else:
-            item_from_index = widget.model().itemFromIndex
+            if hasattr(widget, 'itemFromIndex'):
+                item_from_index = widget.itemFromIndex
+            else:
+                item_from_index = widget.model().itemFromIndex
             return [item_from_index(i) for i in widget.selectedIndexes()]
 
     def selected_item(self):
@@ -672,3 +682,26 @@ class SpinBox(QtWidgets.QSpinBox):
         self.setMaximum(99999)
         self.setPrefix('')
         self.setSuffix('')
+
+
+def export_header_columns(widget, state):
+    """Save QHeaderView column sizes"""
+    columns = []
+    header = widget.horizontalHeader()
+    for idx in range(header.count()):
+        columns.append(header.sectionSize(idx))
+
+    state['columns'] = columns
+
+
+def apply_header_columns(widget, state):
+    """Apply QHeaderView column sizes"""
+    columns = mklist(state.get('columns', []))
+    header = widget.horizontalHeader()
+    if header.stretchLastSection():
+        # Setting the size will make the section wider than necessary, which
+        # defeats the purpose of the stretch flag.  Skip the last column when
+        # it's stretchy so that it retains the stretchy behavior.
+        columns = columns[:-1]
+    for idx, size in enumerate(columns):
+        header.resizeSection(idx, size)

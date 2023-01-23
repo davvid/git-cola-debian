@@ -13,7 +13,9 @@ from .git import STDOUT
 from .i18n import N_
 
 
+# Object ID / SHA1-related constants
 EMPTY_TREE_OID = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+OID_LENGTH = 40
 
 
 class InvalidRepositoryError(Exception):
@@ -378,13 +380,14 @@ def diff_helper(commit=None,
         else:
             return ''
 
-    return extract_diff_header(status, deleted,
-                               with_diff_header, suppress_header, out)
+    result = extract_diff_header(status, deleted,
+                                 with_diff_header, suppress_header, out)
+    return core.UStr(result, out.encoding)
 
 
 def extract_diff_header(status, deleted,
                         with_diff_header, suppress_header, diffoutput):
-    headers = []
+    """Split a diff into a header section and payload section"""
 
     if diffoutput.startswith('Submodule'):
         if with_diff_header:
@@ -394,26 +397,31 @@ def extract_diff_header(status, deleted,
 
     start = False
     del_tag = 'deleted file mode '
-    output = StringIO()
 
-    for line in diffoutput.splitlines():
+    output = StringIO()
+    headers = StringIO()
+
+    for line in diffoutput.split('\n'):
         if not start and '@@' == line[:2] and '@@' in line[2:]:
             start = True
         if start or (deleted and del_tag in line):
             output.write(line + '\n')
         else:
             if with_diff_header:
-                headers.append(line)
+                headers.write(line + '\n')
             elif not suppress_header:
                 output.write(line + '\n')
 
-    result = output.getvalue().rstrip('\n')
+    output_text = output.getvalue()
     output.close()
 
+    headers_text = headers.getvalue()
+    headers.close()
+
     if with_diff_header:
-        return('\n'.join(headers), result)
+        return(headers_text, output_text)
     else:
-        return result
+        return output_text
 
 
 def format_patchsets(to_export, revs, output='patches'):
@@ -458,7 +466,7 @@ def format_patchsets(to_export, revs, output='patches'):
     for patchset in patches_to_export:
         stat, out, err = export_patchset(patchset[0],
                                          patchset[-1],
-                                         output='patches',
+                                         output=output,
                                          n=len(patchset) > 1,
                                          thread=True,
                                          patch_with_stat=True)
@@ -721,7 +729,7 @@ def prepare_commit_message_hook(config=None):
 def abort_merge():
     """Abort a merge by reading the tree at HEAD."""
     # Reset the worktree
-    git.read_tree('HEAD', reset=True, u=True, v=True)
+    status, out, err = git.read_tree('HEAD', reset=True, u=True, v=True)
     # remove MERGE_HEAD
     merge_head = git.git_path('MERGE_HEAD')
     if core.exists(merge_head):
@@ -731,6 +739,7 @@ def abort_merge():
     while merge_msg_path:
         core.unlink(merge_msg_path)
         merge_msg_path = merge_message_path()
+    return status, out, err
 
 
 def strip_remote(remotes, remote_branch):
@@ -739,3 +748,13 @@ def strip_remote(remotes, remote_branch):
         if remote_branch.startswith(prefix):
             return remote_branch[len(prefix):]
     return remote_branch.split('/', 1)[-1]
+
+
+def parse_refs(argv):
+    """Parse command-line arguments into object IDs"""
+    status, out, err = git.rev_parse(*argv)
+    if status == 0:
+        oids = [oid for oid in out.splitlines() if oid]
+    else:
+        oids = argv
+    return oids
