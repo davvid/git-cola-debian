@@ -31,6 +31,7 @@ from . import about
 from . import action
 from . import archive
 from . import bookmarks
+from . import branch
 from . import browse
 from . import cfgactions
 from . import commitmsg
@@ -81,7 +82,8 @@ class MainView(standard.MainWindow):
                                  cfg.get('cola.classicdockable'))
         if self.browser_dockable:
             self.browserdockwidget = create_dock(N_('Browser'), self)
-            self.browserwidget = browse.worktree_browser_widget(self)
+            self.browserwidget = (
+                    browse.worktree_browser(parent=self, update=False))
             self.browserdockwidget.setWidget(self.browserwidget)
 
         # "Actions" widget
@@ -110,6 +112,11 @@ class MainView(standard.MainWindow):
         self.recentdockwidget.setWidget(self.recentwidget)
         self.recentdockwidget.hide()
         self.bookmarkswidget.connect_to(self.recentwidget)
+
+        # "Branch" widgets
+        self.branchdockwidget = create_dock(N_('Branches'), self)
+        self.branchwidget = branch.BranchesWidget(parent=self.branchdockwidget)
+        self.branchdockwidget.setWidget(self.branchwidget)
 
         # "Commit Message Editor" widget
         self.position_label = QtWidgets.QLabel()
@@ -145,6 +152,13 @@ class MainView(standard.MainWindow):
 
         # All Actions
         add_action = qtutils.add_action
+        add_action_bool = qtutils.add_action_bool
+
+        self.commit_amend_action = add_action_bool(
+            self, N_('Amend Last Commit'), cmds.run(cmds.AmendMode), False)
+        self.commit_amend_action.setShortcut(hotkeys.AMEND)
+        self.commit_amend_action.setShortcutContext(Qt.WidgetShortcut)
+
         self.unstage_all_action = add_action(
             self, N_('Unstage All'), cmds.run(cmds.UnstageAll))
         self.unstage_all_action.setIcon(icons.remove())
@@ -309,7 +323,8 @@ class MainView(standard.MainWindow):
             self, N_('Review...'), guicmds.review_branch)
 
         self.browse_action = add_action(
-            self, N_('File Browser...'), browse.worktree_browser)
+            self, N_('File Browser...'),
+            lambda: browse.worktree_browser(show=True))
         self.browse_action.setIcon(icons.cola())
 
         self.dag_action = add_action(self, N_('DAG...'), self.git_dag)
@@ -343,7 +358,7 @@ class MainView(standard.MainWindow):
                                         self.rebase_skip_action,
                                         self.rebase_abort_action)
 
-        self.lock_layout_action = qtutils.add_action_bool(
+        self.lock_layout_action = add_action_bool(
             self, N_('Lock Layout'), self.set_lock_layout, False)
 
         # Create the application menu
@@ -395,6 +410,8 @@ class MainView(standard.MainWindow):
         # Commit Menu
         self.commit_menu = create_menu(N_('Commit@@verb'), self.menubar)
         self.commit_menu.setTitle(N_('Commit@@verb'))
+        self.commit_menu.addAction(self.commit_amend_action)
+        self.commit_menu.addSeparator()
         self.commit_menu.addAction(self.stage_modified_action)
         self.commit_menu.addAction(self.stage_untracked_action)
         self.commit_menu.addSeparator()
@@ -477,6 +494,7 @@ class MainView(standard.MainWindow):
         self.addDockWidget(left, self.diffdockwidget)
         self.addDockWidget(right, self.statusdockwidget)
         self.addDockWidget(right, self.bookmarksdockwidget)
+        self.addDockWidget(right, self.branchdockwidget)
         self.addDockWidget(right, self.recentdockwidget)
         self.addDockWidget(bottom, self.actionsdockwidget)
         self.addDockWidget(bottom, self.logdockwidget)
@@ -625,6 +643,9 @@ class MainView(standard.MainWindow):
 
         if self.mode == self.model.mode_amend:
             alerts.append(N_('Amending'))
+            self.commit_amend_action.setChecked(True)
+        else:
+            self.commit_amend_action.setChecked(False)
 
         l = unichr(0xab)
         r = unichr(0xbb)
@@ -657,6 +678,7 @@ class MainView(standard.MainWindow):
         state = standard.MainWindow.export_state(self)
         show_status_filter = self.statuswidget.filter_widget.isVisible()
         state['show_status_filter'] = show_status_filter
+        state['show_diff_line_numbers'] = self.diffeditor.show_line_numbers()
         return state
 
     def apply_state(self, state):
@@ -666,6 +688,10 @@ class MainView(standard.MainWindow):
 
         show_status_filter = state.get('show_status_filter', False)
         self.statuswidget.filter_widget.setVisible(show_status_filter)
+
+        diff_numbers = state.get('show_diff_line_numbers', False)
+        self.diffeditor.enable_line_numbers(diff_numbers)
+
         return result
 
     def setup_dockwidget_view_menu(self):
@@ -682,6 +708,7 @@ class MainView(standard.MainWindow):
             (optkey + '+4', self.actionsdockwidget),
             (optkey + '+5', self.bookmarksdockwidget),
             (optkey + '+6', self.recentdockwidget),
+            (optkey + '+7', self.branchdockwidget),
         )
         for shortcut, dockwidget in dockwidgets:
             # Associate the action with the shortcut
