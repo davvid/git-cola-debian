@@ -18,14 +18,6 @@ endif
 all:
 	$(PYTHON) setup.py build
 
-git-cola.app:
-	mkdir -p $(APP)/Contents/MacOS
-	cp darwin/git-cola $(APP)/Contents/MacOS
-	cp darwin/Info.plist darwin/PkgInfo $(APP)/Contents
-	$(MAKE) prefix=$(APP)/Contents/Resources install
-	cp darwin/git-cola.icns $(APP)/Contents/Resources
-	$(TAR) czf $(APP)-$(COLA_VERSION).tar.gz $(APP)
-
 install: all
 	$(PYTHON) setup.py --quiet install \
 		$(standalone_args) \
@@ -97,4 +89,15 @@ pot:
 mo:
 	$(PYTHON) setup.py build_mo -f
 
-.PHONY: all install doc install-doc install-html test clean tags git-cola.app
+git-cola.app:
+	mkdir -p $(APP)/Contents/MacOS
+	cp darwin/git-cola $(APP)/Contents/MacOS
+	cp darwin/Info.plist darwin/PkgInfo $(APP)/Contents
+	$(MAKE) prefix=$(APP)/Contents/Resources install
+	cp darwin/git-cola.icns $(APP)/Contents/Resources
+
+app-tarball: git-cola.app
+	$(TAR) czf git-cola-$(COLA_VERSION).app.tar.gz $(APP)
+
+.PHONY: all install doc install-doc install-html test clean tags
+.PHONY: git-cola.app app-tarball

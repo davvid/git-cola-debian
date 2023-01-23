@@ -25,13 +25,12 @@ from cola.views.syntax import DiffSyntaxHighlighter
 from cola.views.mainwindow import MainWindow
 from cola.controllers import classic
 from cola.controllers import compare
-from cola.controllers import search as smod
 from cola.controllers import createtag
+from cola.controllers import merge
+from cola.controllers import search as smod
 from cola.controllers.bookmark import manage_bookmarks
 from cola.controllers.bookmark import save_bookmark
 from cola.controllers.createbranch import create_new_branch
-from cola.controllers.merge import local_merge
-from cola.controllers.merge import abort_merge
 from cola.controllers.options import update_options
 from cola.controllers.stash import stash
 
@@ -49,6 +48,8 @@ class MainView(MainWindow):
         # Qt does not support noun/verbs
         self.commit_button.setText(qtutils.tr('Commit@@verb'))
         self.commit_menu.setTitle(qtutils.tr('Commit@@verb'))
+
+        self._has_threadpool = hasattr(QtCore, 'QThreadPool')
 
         # Diff/patch syntax highlighter
         self.syntax = DiffSyntaxHighlighter(self.display_text.document())
@@ -78,7 +79,6 @@ class MainView(MainWindow):
         # Listen for text and amend messages
         cola.notifier().connect(signals.diff_text, self.set_display)
         cola.notifier().connect(signals.mode, self._mode_changed)
-        cola.notifier().connect(signals.inotify, self._inotify_enabled)
         cola.notifier().connect(signals.amend, self.amend_checkbox.setChecked)
 
         # Broadcast the amend mode
@@ -88,8 +88,8 @@ class MainView(MainWindow):
         # Add button callbacks
         self._relay_button(self.alt_button, signals.reset_mode)
         self._relay_button(self.rescan_button, signals.rescan)
-        self._relay_button(self.signoff_button, signals.add_signoff)
 
+        self._connect_button(self.signoff_button, self.signoff)
         self._connect_button(self.stage_button, self.stage)
         self._connect_button(self.unstage_button, self.unstage)
         self._connect_button(self.commit_button, self.commit)
@@ -127,8 +127,8 @@ class MainView(MainWindow):
                 SLOT(signals.load_commit_template)),
             (self.menu_manage_bookmarks, manage_bookmarks),
             (self.menu_save_bookmark, save_bookmark),
-            (self.menu_merge_local, local_merge),
-            (self.menu_merge_abort, abort_merge),
+            (self.menu_merge_local, merge.local_merge),
+            (self.menu_merge_abort, merge.abort_merge),
             (self.menu_fetch, guicmds.fetch_slot(self)),
             (self.menu_push, guicmds.push_slot(self)),
             (self.menu_pull, guicmds.pull_slot(self)),
@@ -182,15 +182,53 @@ class MainView(MainWindow):
         actionsmod.install_command_wrapper(self)
         guicmds.install_command_wrapper(self)
 
-        # Install .gitconfig-defined actions
-        actionsmod.install_config_actions(self.actions_menu)
-
         # Install diff shortcut keys for stage/unstage
         self.display_text.keyPressEvent = self.diff_key_press_event
         self.display_text.contextMenuEvent = self.diff_context_menu_event
 
+        self.connect(self, SIGNAL('update'), self._update_callback)
+        self.connect(self, SIGNAL('import_state'), self.import_state)
+        self.connect(self, SIGNAL('install_config_actions'),
+                     self._install_config_actions)
+
+        # Install .git-config-defined actions
+        self._config_task = None
+        self.install_config_actions()
+
         # Restore saved settings
+        self._gui_state_task = None
         self._load_gui_state()
+
+    def install_config_actions(self):
+        """Install .gitconfig-defined actions"""
+        if self._has_threadpool:
+            self._config_task = self._start_config_actions_task()
+        else:
+            names = actionsmod.get_config_actions()
+            self._install_config_actions(names)
+
+    def _start_config_actions_task(self):
+        """Do the expensive "get_config_actions()" call in the background"""
+        class ConfigActionsTask(QtCore.QRunnable):
+            def __init__(self, sender):
+                QtCore.QRunnable.__init__(self)
+                self._sender = sender
+            def run(self):
+                names = actionsmod.get_config_actions()
+                self._sender.emit(SIGNAL('install_config_actions'), names)
+
+        task = ConfigActionsTask(self)
+        QtCore.QThreadPool.globalInstance().start(task)
+        return task
+
+    def _install_config_actions(self, names):
+        """Install .gitconfig-defined actions"""
+        if not names:
+            return
+        menu = self.actions_menu
+        menu.addSeparator()
+        for name in names:
+            menu.addAction(name, SLOT(signals.run_config_action, name))
 
     def _relay_button(self, button, signal):
         callback = SLOT(signal)
@@ -199,14 +237,10 @@ class MainView(MainWindow):
     def _connect_button(self, button, callback):
         self.connect(button, SIGNAL('clicked()'), callback)
 
-    def _inotify_enabled(self, enabled):
-        """Hide the rescan button when inotify is enabled."""
-        if enabled:
-            self.rescan_button.hide()
-        else:
-            self.rescan_button.show()
-
     def _update_view(self):
+        self.emit(SIGNAL('update'))
+
+    def _update_callback(self):
         """Update the title with the current branch and directory name."""
         branch = self.model.currentbranch
         curdir = os.getcwd()
@@ -337,13 +371,32 @@ class MainView(MainWindow):
 
     def _load_gui_state(self):
         """Restores the gui from the preferences file."""
-        state = settings.SettingsManager.gui_state(self)
-        self.import_state(state)
+        if self._has_threadpool:
+            self._gui_state_task = self._start_gui_state_loading_thread()
+        else:
+            state = settings.SettingsManager.gui_state(self)
+            self.import_state(state)
+
+    def _start_gui_state_loading_thread(self):
+        """Do expensive file reading and json decoding in the background"""
+        class LoadGUIStateTask(QtCore.QRunnable):
+            def __init__(self, sender):
+                QtCore.QRunnable.__init__(self)
+                self._sender = sender
+            def run(self):
+                state = settings.SettingsManager.gui_state(self._sender)
+                self._sender.emit(SIGNAL('import_state'), state)
+
+        task = LoadGUIStateTask(self)
+        QtCore.QThreadPool.globalInstance().start(task)
+
+        return task
 
     def diff_key_press_event(self, event):
         """Handle shortcut keys in the diff view."""
+        result = QtGui.QTextEdit.keyPressEvent(self.display_text, event)
         if event.key() != QtCore.Qt.Key_H and event.key() != QtCore.Qt.Key_S:
-            return QtGui.QTextEdit.keyPressEvent(self.display_text, event)
+            return result
 
         staged, modified, unmerged, untracked = cola.single_selection()
         if event.key() == QtCore.Qt.Key_H:
@@ -356,6 +409,7 @@ class MainView(MainWindow):
                 self.stage_hunk_selection()
             elif self.mode == self.model.mode_index:
                 self.unstage_hunk_selection()
+        return result
 
     def process_diff_selection(self, selected=False,
                                staged=True, apply_to_worktree=False,
@@ -481,10 +535,17 @@ class MainView(MainWindow):
         menu.addAction(self.tr('Copy'), self.copy_display)
         return menu
 
+    def signoff(self):
+        """Add standard 'Signed-off-by:' line to the commit message"""
+        msg = unicode(self.commitmsg.toPlainText())
+        signoff = ('\nSigned-off-by: %s <%s>' %
+                    (self.model.local_user_name, self.model.local_user_email))
+        if signoff not in msg:
+            self.commitmsg.append(signoff)
+
     def commit(self):
         """Attempt to create a commit from the index and commit message."""
-        #self.reset_mode()
-        msg = self.model.commitmsg
+        msg = unicode(self.commitmsg.toPlainText())
         if not msg:
             # Describe a good commit message
             error_msg = self.tr(''
