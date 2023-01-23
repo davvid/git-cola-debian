@@ -3,12 +3,11 @@ import json
 
 from .. import core
 from .. import utils
-from ..git import git
 from ..observable import Observable
 
 # put summary at the end b/c it can contain
 # any number of funky characters, including the separator
-logfmt = 'format:%H%x01%P%x01%d%x01%an%x01%ad%x01%ae%x01%s'
+logfmt = r'format:%H%x01%P%x01%d%x01%an%x01%ad%x01%ae%x01%s'
 logsep = chr(0x01)
 
 
@@ -126,10 +125,10 @@ class Commit(object):
         details = after_oid.split(sep, 5)
         (parents, tags, author, authdate, email, summary) = details
 
-        self.summary = summary and summary or ''
-        self.author = author and author or ''
-        self.authdate = authdate or ''
-        self.email = email and email or ''
+        self.summary = summary if summary else ''
+        self.author = author if author else ''
+        self.authdate = authdate if authdate else ''
+        self.email = email if email else ''
 
         if parents:
             generation = None
@@ -172,18 +171,18 @@ class Commit(object):
         # Porcelain commands. These are not meant to be parsed by scripts, but
         # the users still may want to be aware of the changes:
         #
-        #  * Output from "git log --decorate" (and "%d" format specifier used in
-        #    the userformat "--format=<string>" parameter "git log" family of
-        #    command takes) used to list "HEAD" just like other tips of branch
-        #    names, separated with a comma in between.  E.g.
+        # * Output from "git log --decorate" (and "%d" format specifier used in
+        #   the userformat "--format=<string>" parameter "git log" family of
+        #   command takes) used to list "HEAD" just like other tips of branch
+        #   names, separated with a comma in between.  E.g.
         #
         #      $ git log --decorate -1 master
         #      commit bdb0f6788fa5e3cacc4315e9ff318a27b2676ff4 (HEAD, master)
         #      ...
         #
-        #    This release updates the output slightly when HEAD refers to the tip
-        #    of a branch whose name is also shown in the output.  The above is
-        #    shown as:
+        # This release updates the output slightly when HEAD refers to the tip
+        # of a branch whose name is also shown in the output.  The above is
+        # shown as:
         #
         #      $ git log --decorate -1 master
         #      commit bdb0f6788fa5e3cacc4315e9ff318a27b2676ff4 (HEAD -> master)
@@ -212,7 +211,7 @@ class Commit(object):
         }
 
     def __repr__(self):
-        return json.dumps(self.data(), sort_keys=True, indent=4)
+        return json.dumps(self.data(), sort_keys=True, indent=4, default=list)
 
     def is_fork(self):
         ''' Returns True if the node is a fork'''
@@ -225,20 +224,23 @@ class Commit(object):
 
 class RepoReader(object):
 
-    def __init__(self, params, git=git):
+    def __init__(self, context, params):
+        self.context = context
         self.params = params
-        self.git = git
+        self.git = context.git
+        self.returncode = 0
         self._proc = None
         self._objects = {}
-        self._cmd = ['git', 'log',
+        self._cmd = ['git',
+                     '-c', 'log.abbrevCommit=false',
+                     '-c', 'log.showSignature=false',
+                     'log',
                      '--topo-order',
                      '--reverse',
                      '--decorate=full',
                      '--pretty='+logfmt]
         self._cached = False
         """Indicates that all data has been read"""
-        self._idx = -1
-        """Index into the cached commits"""
         self._topo_list = []
         """List of commits objects in topological order"""
 
@@ -251,53 +253,45 @@ class RepoReader(object):
     def reset(self):
         CommitFactory.reset()
         if self._proc:
-            self._topo_list = []
             self._proc.kill()
         self._proc = None
         self._cached = False
+        self._topo_list = []
 
-    def __iter__(self):
+    def get(self):
+        """Generator function returns Commit objects found by the params"""
         if self._cached:
-            return self
+            idx = 0
+            while True:
+                try:
+                    yield self._topo_list[idx]
+                except IndexError:
+                    break
+                idx += 1
+            return
+
         self.reset()
-        return self
+        ref_args = utils.shell_split(self.params.ref)
+        cmd = self._cmd + ['-%d' % self.params.count] + ref_args
+        self._proc = core.start_command(cmd)
 
-    def __next__(self):
-        if self._cached:
+        while True:
+            log_entry = core.readline(self._proc.stdout).rstrip()
+            if not log_entry:
+                self._cached = True
+                self._proc.wait()
+                self.returncode = self._proc.returncode
+                self._proc = None
+                break
+            oid = log_entry[:40]
             try:
-                self._idx += 1
-                return self._topo_list[self._idx]
-            except IndexError:
-                self._idx = -1
-                raise StopIteration
-
-        if self._proc is None:
-            ref_args = utils.shell_split(self.params.ref)
-            cmd = self._cmd + ['-%d' % self.params.count] + ref_args
-            self._proc = core.start_command(cmd)
-            self._topo_list = []
-
-        log_entry = core.readline(self._proc.stdout).rstrip()
-        if not log_entry:
-            self._cached = True
-            self._proc.wait()
-            self.returncode = self._proc.returncode
-            self._proc = None
-            raise StopIteration
-
-        oid = log_entry[:40]
-        try:
-            return self._objects[oid]
-        except KeyError:
-            c = CommitFactory.new(log_entry=log_entry)
-            self._objects[c.oid] = c
-            self._topo_list.append(c)
-            return c
-
-    next = __next__  # python2
-
-    def __iter__(self):
-        return self
+                yield self._objects[oid]
+            except KeyError:
+                commit = CommitFactory.new(log_entry=log_entry)
+                self._objects[commit.oid] = commit
+                self._topo_list.append(commit)
+                yield commit
+        return
 
     def __getitem__(self, oid):
         return self._objects[oid]

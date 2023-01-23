@@ -19,9 +19,9 @@ from .. import version
 from . import defs
 
 
-def about_dialog():
+def about_dialog(context):
     """Launches the Help -> About dialog"""
-    view = AboutView(qtutils.active_window())
+    view = AboutView(context, qtutils.active_window())
     view.show()
     return view
 
@@ -61,9 +61,10 @@ class ExpandingTabWidget(QtWidgets.QTabWidget):
 class AboutView(QtWidgets.QDialog):
     """Provides the git-cola 'About' dialog"""
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
+        self.context = context
         self.setWindowTitle(N_('About git-cola'))
         self.setWindowModality(Qt.WindowModal)
 
@@ -83,7 +84,7 @@ class AboutView(QtWidgets.QDialog):
         self.logo_text_label.setFont(font)
 
         self.text = qtutils.textbrowser(text=copyright_text())
-        self.version = qtutils.textbrowser(text=version_text())
+        self.version = qtutils.textbrowser(text=version_text(context))
         self.authors = qtutils.textbrowser(text=authors_text())
         self.translators = qtutils.textbrowser(text=translators_text())
 
@@ -138,8 +139,8 @@ If not, see http://www.gnu.org/licenses/.
 """
 
 
-def version_text():
-    git_version = version.git_version()
+def version_text(context):
+    git_version = version.git_version(context)
     cola_version = version.version()
     build_version = version.build_version()
     python_path = sys.executable
@@ -162,6 +163,18 @@ def version_text():
     else:
         build_version = ''
 
+    scope = dict(
+        cola_version=cola_version,
+        build_version=build_version,
+        git_version=git_version,
+        platform_version=platform_version,
+        pyqt_api_name=pyqt_api_name,
+        pyqt_api_version=pyqt_api_version,
+        python_path=python_path,
+        python_version=python_version,
+        qt_version=qt_version,
+        qtpy_version=qtpy_version)
+
     return N_("""
         <br>
             Git Cola version %(cola_version)s %(build_version)s
@@ -173,7 +186,7 @@ def version_text():
             <li> QtPy %(qtpy_version)s
             <li> %(pyqt_api_name)s %(pyqt_api_version)s
         </ul>
-    """) % locals()
+    """) % scope
 
 
 def link(url, text, palette=None):
@@ -182,13 +195,15 @@ def link(url, text, palette=None):
 
     color = palette.color(QtGui.QPalette.Foreground)
     rgb = 'rgb(%s, %s, %s)' % (color.red(), color.green(), color.blue())
+    scope = dict(rgb=rgb, text=text, url=url)
 
-    return ("""
+    return """
         <a style="font-style: italic; text-decoration: none; color: %(rgb)s;"
             href="%(url)s">
             %(text)s
         </a>
-    """ % locals())
+    """ % scope
+
 
 def mailto(email, text, palette):
     return link('mailto:%s' % email, text, palette) + '<br>'
@@ -212,12 +227,13 @@ def render_authors(authors):
 
 def contributors_text(authors, prelude='', epilogue=''):
     author_text = render_authors(authors)
+    scope = dict(author_text=author_text, epilogue=epilogue, prelude=prelude)
 
-    return '''
+    return """
         %(prelude)s
         %(author_text)s
         %(epilogue)s
-    ''' % locals()
+    """ % scope
 
 
 def authors_text():
@@ -238,23 +254,24 @@ def authors_text():
              email=mailto('Vdragon.Taiwan@gmail.com', contact, palette)),
         dict(name='Efimov Vasily', title=N_('Developer')),
         dict(name='Guillaume de Bure', title=N_('Developer')),
-        dict(name='Alex Chernetz', title=N_('Developer')),
         dict(name='Uri Okrent', title=N_('Developer')),
+        dict(name='Alex Chernetz', title=N_('Developer')),
         dict(name='Andreas Sommer', title=N_('Developer')),
         dict(name='Thomas Kluyver', title=N_('Developer')),
         dict(name='Javier Rodriguez Cuevas', title=N_('Developer')),
         dict(name='Minarto Margoliono', title=N_('Developer')),
         dict(name='Szymon Judasz', title=N_('Developer')),
+        dict(name='Ville Skyttä', title=N_('Developer')),
         dict(name='Igor Galarraga', title=N_('Developer')),
         dict(name='Stanislaw Halik', title=N_('Developer')),
         dict(name='Virgil Dupras', title=N_('Developer')),
         dict(name='Barry Roberts', title=N_('Developer')),
         dict(name='wsdfhjxc', title=N_('Developer')),
-        dict(name='Ville Skyttä', title=N_('Developer')),
-        dict(name='Stefan Naewe', title=N_('Developer')),
         dict(name='xhl', title=N_('Developer')),
+        dict(name='Stefan Naewe', title=N_('Developer')),
         dict(name='Benedict Lee', title=N_('Developer')),
         dict(name='Filip Danilović', title=N_('Developer')),
+        dict(name='Pavel Rehak', title=N_('Developer')),
         dict(name='Steffen Prohaska', title=N_('Developer')),
         dict(name='Michael Geddes', title=N_('Developer')),
         dict(name='Rustam Safin', title=N_('Developer')),
@@ -269,6 +286,7 @@ def authors_text():
         dict(name='Sven Claussner', title=N_('Developer')),
         dict(name='real', title=N_('Developer')),
         dict(name='v.paritskiy', title=N_('Developer')),
+        dict(name='林博仁(Buo-ren Lin)', title=N_('Developer')),
         dict(name='AJ Bagwell', title=N_('Developer')),
         dict(name='Adrien be', title=N_('Developer')),
         dict(name='Andrej', title=N_('Developer')),
@@ -286,6 +304,7 @@ def authors_text():
         dict(name='Ilya Tumaykin', title=N_('Developer')),
         dict(name='Iulian Udrea', title=N_('Developer')),
         dict(name='Jake Biesinger', title=N_('Developer')),
+        dict(name='Jakub Szymański', title=N_('Developer')),
         dict(name='Jamie Pate', title=N_('Developer')),
         dict(name='Jean-Francois Dagenais', title=N_('Developer')),
         dict(name='Karthik Manamcheri', title=N_('Developer')),
@@ -301,6 +320,7 @@ def authors_text():
         dict(name='Paul Hildebrandt', title=N_('Developer')),
         dict(name='Paul Weingardt', title=N_('Developer')),
         dict(name='Paulo Fidalgo', title=N_('Developer')),
+        dict(name='Petr Gladkikh', title=N_('Developer')),
         dict(name='Philip Stark', title=N_('Developer')),
         dict(name='Radek Postołowicz', title=N_('Developer')),
         dict(name='Rainer Müller', title=N_('Developer')),
@@ -318,11 +338,12 @@ def authors_text():
     )
     bug_url = 'https://github.com/git-cola/git-cola/issues'
     bug_link = link(bug_url, bug_url)
-    prelude = N_('''
+    scope = dict(bug_link=bug_link)
+    prelude = N_("""
         <br>
         Please use %(bug_link)s to report issues.
         <br>
-    ''') % locals()
+    """) % scope
 
     return contributors_text(authors, prelude=prelude)
 
@@ -330,7 +351,6 @@ def authors_text():
 def translators_text():
     palette = QtGui.QPalette()
     contact = N_('Email contributor')
-    email = lambda addr: mailto(addr, contact, palette)
 
     translators = (
         # See the `generate-about` script in the "todo" branch.
@@ -350,10 +370,14 @@ def translators_text():
              title=N_('Turkish translation')),
         dict(name='Minarto Margoliono',
              title=N_('Indonesian translation')),
+        dict(name='Rafael Nascimento',
+             title=N_('Brazilian translation')),
         dict(name='Sven Claussner',
              title=N_('German translation')),
         dict(name='Vaiz',
              title=N_('Russian translation')),
+        dict(name='Victorhck',
+             title=N_('Spanish translation')),
         dict(name='Guo Yunhe',
              title=N_('Simplified Chinese translation')),
         dict(name='Kai Krakow',
@@ -372,14 +396,17 @@ def translators_text():
              title=N_('Spanish translation')),
         dict(name='balping',
              title=N_('Hungarian translation')),
+        dict(name='p-bo',
+             title=N_('Czech translation')),
         dict(name='Łukasz Wojniłowicz',
              title=N_('Polish translation')),
     )
 
     bug_url = 'https://github.com/git-cola/git-cola/issues'
     bug_link = link(bug_url, bug_url)
+    scope = dict(bug_link=bug_link)
 
-    prelude = N_('''
+    prelude = N_("""
         <br>
             Git Cola has been translated into different languages thanks
             to the help of the individuals listed below.
@@ -402,7 +429,7 @@ def translators_text():
 
         <br>
 
-    ''') % locals()
+    """) % scope
     return contributors_text(translators, prelude=prelude)
 
 

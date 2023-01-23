@@ -5,10 +5,8 @@ from qtpy.QtCore import Qt
 
 from ..i18n import N_
 from ..interaction import Interaction
-from ..models import main
+from ..qtutils import get
 from .. import cmds
-from .. import gitcfg
-from .. import gitcmds
 from .. import icons
 from .. import qtutils
 from . import completion
@@ -16,11 +14,9 @@ from . import standard
 from . import defs
 
 
-def local_merge():
+def local_merge(context):
     """Provides a dialog for merging branches"""
-    model = main.model()
-    cfg = gitcfg.current()
-    view = Merge(cfg, model, qtutils.active_window())
+    view = Merge(context, qtutils.active_window())
     view.show()
     view.raise_()
     return view
@@ -29,10 +25,11 @@ def local_merge():
 class Merge(standard.Dialog):
     """Provides a dialog for merging branches."""
 
-    def __init__(self, cfg, model, parent=None, ref=None):
+    def __init__(self, context, parent=None, ref=None):
         standard.Dialog.__init__(self, parent=parent)
-        self.cfg = cfg
-        self.model = model
+        self.context = context
+        self.cfg = cfg = context.cfg
+        self.model = model = context.model
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
 
@@ -41,7 +38,7 @@ class Merge(standard.Dialog):
         self.revision_label = QtWidgets.QLabel()
         self.revision_label.setText(N_('Revision to Merge'))
 
-        self.revision = completion.GitRefLineEdit()
+        self.revision = completion.GitRefLineEdit(context)
         self.revision.setToolTip(N_('Revision to Merge'))
         if ref:
             self.revision.set_value(ref)
@@ -128,7 +125,7 @@ class Merge(standard.Dialog):
         self.update_title()
         self.update_revisions()
 
-    def update_title(self, dummy_txt=None):
+    def update_title(self, _txt=None):
         branch = self.model.currentbranch
         revision = self.revision.text()
         if revision:
@@ -142,7 +139,7 @@ class Merge(standard.Dialog):
 
     def toggle_squash(self):
         """Toggles the commit checkbox based on the squash checkbox."""
-        if self.checkbox_squash.isChecked():
+        if get(self.checkbox_squash):
             self.checkbox_commit_state = self.checkbox_commit.checkState()
             self.checkbox_commit.setCheckState(Qt.Unchecked)
             self.checkbox_commit.setDisabled(True)
@@ -172,11 +169,11 @@ class Merge(standard.Dialog):
 
     def current_revisions(self):
         """Retrieve candidate items to merge"""
-        if self.radio_local.isChecked():
+        if get(self.radio_local):
             return self.model.local_branches
-        elif self.radio_remote.isChecked():
+        elif get(self.radio_remote):
             return self.model.remote_branches
-        elif self.radio_tag.isChecked():
+        elif get(self.radio_tag):
             return self.model.tags
         return []
 
@@ -188,7 +185,7 @@ class Merge(standard.Dialog):
                 N_('No Revision Specified'),
                 N_('You must specify a revision to view.'))
             return
-        cmds.do(cmds.VisualizeRevision, revision)
+        cmds.do(cmds.VisualizeRevision, self.context, revision)
 
     def merge_revision(self):
         """Merge the selected revision/branch"""
@@ -199,19 +196,20 @@ class Merge(standard.Dialog):
                 N_('You must specify a revision to merge.'))
             return
 
-        noff = self.checkbox_noff.isChecked()
-        no_commit = not self.checkbox_commit.isChecked()
-        squash = self.checkbox_squash.isChecked()
-        sign = self.checkbox_sign.isChecked()
-        cmds.do(cmds.Merge, revision, no_commit, squash, noff, sign)
+        noff = get(self.checkbox_noff)
+        no_commit = not get(self.checkbox_commit)
+        squash = get(self.checkbox_squash)
+        sign = get(self.checkbox_sign)
+        context = self.context
+        cmds.do(cmds.Merge, context, revision, no_commit, squash, noff, sign)
         self.accept()
 
     def export_state(self):
         """Export persistent settings"""
         state = super(Merge, self).export_state()
-        state['no-ff'] = self.checkbox_noff.isChecked()
-        state['sign'] = self.checkbox_sign.isChecked()
-        state['commit'] = self.checkbox_commit.isChecked()
+        state['no-ff'] = get(self.checkbox_noff)
+        state['sign'] = get(self.checkbox_sign)
+        state['commit'] = get(self.checkbox_commit)
         return state
 
     def apply_state(self, state):

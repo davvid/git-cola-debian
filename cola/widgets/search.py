@@ -8,10 +8,10 @@ from qtpy.QtCore import Qt
 
 from ..i18n import N_
 from ..interaction import Interaction
-from ..git import git
 from ..git import STDOUT
 from ..qtutils import connect_button
 from ..qtutils import create_toolbutton
+from ..qtutils import get
 from .. import core
 from .. import gitcmds
 from .. import icons
@@ -37,8 +37,10 @@ class SearchOptions(object):
 
 class SearchWidget(standard.Dialog):
 
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         standard.Dialog.__init__(self, parent)
+
+        self.context = context
         self.setWindowTitle(N_('Search'))
 
         self.mode_combo = QtWidgets.QComboBox()
@@ -67,7 +69,7 @@ class SearchWidget(standard.Dialog):
         selection_mode = QtWidgets.QAbstractItemView.SingleSelection
         self.commit_list.setSelectionMode(selection_mode)
 
-        self.commit_text = diff.DiffTextEdit(self, whitespace=False)
+        self.commit_text = diff.DiffTextEdit(context, self, whitespace=False)
 
         self.button_export = qtutils.create_button(text=N_('Export Patches'),
                                                    icon=icons.diff())
@@ -99,13 +101,14 @@ class SearchWidget(standard.Dialog):
         self.init_size(parent=parent)
 
 
-def search():
+def search(context):
     """Return a callback to handle various search actions."""
-    return search_commits(qtutils.active_window())
+    return search_commits(context, qtutils.active_window())
 
 
 class SearchEngine(object):
-    def __init__(self, model):
+    def __init__(self, context, model):
+        self.context = context
         self.model = model
 
     def rev_args(self):
@@ -120,14 +123,15 @@ class SearchEngine(object):
         return (self.model.query, self.rev_args())
 
     def search(self):
-        if not self.validate():
-            return
-        return self.results()
+        if self.validate():
+            return self.results()
+        return []
 
     def validate(self):
         return len(self.model.query) > 1
 
     def revisions(self, *args, **kwargs):
+        git = self.context.git
         revlist = git.log(*args, **kwargs)[STDOUT]
         return gitcmds.parse_rev_list(revlist)
 
@@ -140,7 +144,7 @@ class RevisionSearch(SearchEngine):
     def results(self):
         query, opts = self.common_args()
         args = utils.shell_split(query)
-        return self.revisions(all=True, *args, **opts)
+        return self.revisions(*args, **opts)
 
 
 class PathSearch(SearchEngine):
@@ -175,6 +179,7 @@ class CommitterSearch(SearchEngine):
 class DiffSearch(SearchEngine):
 
     def results(self):
+        git = self.context.git
         query, kwargs = self.common_args()
         return gitcmds.parse_rev_list(
             git.log('-S'+query, all=True, **kwargs)[STDOUT])
@@ -198,8 +203,14 @@ class DateRangeSearch(SearchEngine):
 
 class Search(SearchWidget):
 
-    def __init__(self, model, parent):
-        SearchWidget.__init__(self, parent)
+    def __init__(self, context, model, parent):
+        """
+        Search diffs and commit logs
+
+        :param model: SearchOptions instance
+
+        """
+        SearchWidget.__init__(self, context, parent)
         self.model = model
 
         self.EXPR = N_('Search by Expression')
@@ -209,6 +220,7 @@ class Search(SearchWidget):
         self.AUTHOR = N_('Search Authors')
         self.COMMITTER = N_('Search Committers')
         self.DATE_RANGE = N_('Search Date Range')
+        self.results = []
 
         # Each search type is handled by a distinct SearchEngine subclass
         self.engines = {
@@ -231,7 +243,7 @@ class Search(SearchWidget):
         connect_button(self.button_cherrypick, self.cherry_pick)
         connect_button(self.button_close, self.accept)
 
-        self.mode_combo.currentIndexChanged[int].connect(self.mode_changed)
+        self.mode_combo.currentIndexChanged.connect(self.mode_changed)
         self.commit_list.itemSelectionChanged.connect(self.display)
 
         self.set_start_date(mkdate(time.time()-(87640*31)))
@@ -240,7 +252,7 @@ class Search(SearchWidget):
 
         self.query.setFocus()
 
-    def mode_changed(self, idx):
+    def mode_changed(self, _idx):
         mode = self.mode()
         self.update_shown_widgets(mode)
         if mode == self.PATH:
@@ -279,16 +291,16 @@ class Search(SearchWidget):
     def mode(self):
         return self.mode_combo.currentText()
 
+    # pylint: disable=unused-argument
     def search_callback(self, *args):
         engineclass = self.engines[self.mode()]
-        self.model.query = self.query.text()
-        self.model.max_count = self.max_count.value()
+        self.model.query = get(self.query)
+        self.model.max_count = get(self.max_count)
 
-        fmt = Qt.ISODate
-        self.model.start_date = self.start_date.date().toString(fmt)
-        self.model.end_date = self.end_date.date().toString(fmt)
+        self.model.start_date = get(self.start_date)
+        self.model.end_date = get(self.end_date)
 
-        self.results = engineclass(self.model).search()
+        self.results = engineclass(self.context, self.model).search()
         if self.results:
             self.display_results()
         else:
@@ -320,41 +332,35 @@ class Search(SearchWidget):
 
     def selected_revision(self):
         result = qtutils.selected_item(self.commit_list, self.results)
-        if result is None:
-            return None
-        else:
-            return result[0]
+        return result[0] if result else None
 
+    # pylint: disable=unused-argument
     def display(self, *args):
+        context = self.context
         revision = self.selected_revision()
         if revision is None:
             self.commit_text.setText('')
         else:
             qtutils.set_clipboard(revision)
-            diff_text = gitcmds.commit_diff(revision)
+            diff_text = gitcmds.commit_diff(context, revision)
             self.commit_text.setText(diff_text)
 
     def export_patch(self):
+        context = self.context
         revision = self.selected_revision()
         if revision is not None:
-            Interaction.log_status(*gitcmds.export_patchset(revision,
-                                                            revision))
+            Interaction.log_status(*gitcmds.export_patchset(
+                context, revision, revision))
 
     def cherry_pick(self):
+        git = self.context.git
         revision = self.selected_revision()
         if revision is not None:
             Interaction.log_status(*git.cherry_pick(revision))
 
 
-def search_commits(parent):
+def search_commits(context, parent):
     opts = SearchOptions()
-    widget = Search(opts, parent)
+    widget = Search(context, opts, parent)
     widget.show()
     return widget
-
-
-if __name__ == '__main__':
-    app = QtWidgets.QApplication([])
-    widget = Search()
-    widget.show()
-    app.exec_()

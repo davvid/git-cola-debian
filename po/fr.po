@@ -189,6 +189,9 @@ msgstr ""
 msgid " - DAG"
 msgstr " - DAG"
 
+msgid " commits ago"
+msgstr " commits avant"
+
 #, python-format
 msgid "\"%(branch)s\" has been deleted from \"%(remote)s\"."
 msgstr "« %(branch)s » a été supprimé de « %(remote)s »."
@@ -479,6 +482,10 @@ msgstr "Appliquer les patchs"
 
 msgid "Apply Patches..."
 msgstr "Appliquer les patchs..."
+
+#, fuzzy
+msgid "Apply and drop the selected stash (git stash pop)"
+msgstr "Appliquer la remise actuelle"
 
 msgid "Apply the selected stash"
 msgstr "Appliquer la remise actuelle"
@@ -1221,6 +1228,9 @@ msgstr "Aide - Trouver des fichiers"
 msgid "Help - git-xbase"
 msgstr ""
 
+msgid "Hide Details.."
+msgstr ""
+
 msgid "History Browser"
 msgstr "Navigateur de l'historique"
 
@@ -1571,6 +1581,9 @@ msgstr "Pointer la tête de branche actuelle vers un nouveau commit ?"
 msgid "Polish translation"
 msgstr "Traduction polonaise"
 
+msgid "Pop"
+msgstr ""
+
 msgid "Preferences"
 msgstr "Préférences"
 
@@ -1686,6 +1699,9 @@ msgstr "Supprimer %s de la liste des dépôts récents ?"
 msgid "Remove Element"
 msgstr "Supprimer"
 
+msgid "Remove remote-tracking branches that no longer exist on the remote"
+msgstr ""
+
 msgid "Remove selected (Delete)"
 msgstr "Supprimer la sélection"
 
@@ -1720,9 +1736,6 @@ msgstr "Renommer branche..."
 msgid "Rename remote \"%(current)s\" to \"%(new)s\"?"
 msgstr "Renommage de la branche distante « %(current)s » en « %(new)s » ?"
 
-msgid "Rename remote?"
-msgstr "Renommer la branche distante ?"
-
 #, fuzzy
 msgid "Rename selected paths"
 msgstr "Éditer les chemins sélectionnés"
@@ -1747,8 +1760,32 @@ msgstr "Supprimer la branche principale"
 msgid "Reset Branch?"
 msgstr "Réinitialiser la branche ?"
 
+#, fuzzy
+msgid "Reset Hard"
+msgstr "Supprimer la branche principale"
+
+#, fuzzy
+msgid "Reset Merge"
+msgstr "Révision à fusionner"
+
+#, fuzzy
+msgid "Reset Soft"
+msgstr "Réinitialiser l'arbre de travail"
+
 msgid "Reset Worktree"
 msgstr "Réinitialiser l'arbre de travail"
+
+#, fuzzy
+msgid "Reset hard?"
+msgstr "Réinitialiser la branche ?"
+
+#, fuzzy
+msgid "Reset merge?"
+msgstr "Réinitialiser l'arbre de travail ?"
+
+#, fuzzy
+msgid "Reset soft?"
+msgstr "Réinitialiser '%s' ?"
 
 msgid "Reset worktree?"
 msgstr "Réinitialiser l'arbre de travail ?"
@@ -1756,6 +1793,9 @@ msgstr "Réinitialiser l'arbre de travail ?"
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Réinitialiser « %s » à « %s » va faire perdre les commits."
+
+msgid "Revert"
+msgstr ""
 
 msgid "Revert Diff Hunk"
 msgstr "Rétablir section de différences"
@@ -1933,9 +1973,6 @@ msgstr "Sélectionner commit"
 msgid "Select Directory..."
 msgstr "Sélectionner le dépôt"
 
-msgid "Select File"
-msgstr "Sélectionner le fichier"
-
 msgid "Select New Upstream"
 msgstr "Sélectionner une nouvelle source"
 
@@ -1956,10 +1993,6 @@ msgstr "Sélectionner le dépôt"
 
 msgid "Select a parent directory for the new clone"
 msgstr "Sélectionner un répertoire parent pour le nouveau clonage"
-
-#, python-format
-msgid "Select file from \"%s\""
-msgstr "Sélectionner le fichier à partir de « %s »"
 
 msgid "Select manually..."
 msgstr "Sélectionner manuellement"
@@ -2004,6 +2037,10 @@ msgstr ""
 
 msgid "Shortcuts"
 msgstr "Raccourcis"
+
+#, fuzzy
+msgid "Show Details..."
+msgstr "Supprimer les fichiers..."
 
 msgid "Show Diffstat After Merge"
 msgstr "Montrer statistiques de diff après fusion"
@@ -2197,8 +2234,20 @@ msgstr "Largeur du texte"
 msgid "The branch will be no longer available."
 msgstr ""
 
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --hard %s\""
+msgstr "La branche sera réinitialisée en utilisant « git reset --mixed %s »"
+
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --merge %s\""
+msgstr "La branche sera réinitialisée en utilisant « git reset --mixed %s »"
+
 #, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
+msgstr "La branche sera réinitialisée en utilisant « git reset --mixed %s »"
+
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --soft %s\""
 msgstr "La branche sera réinitialisée en utilisant « git reset --mixed %s »"
 
 msgid "The commit message will be cleared."
@@ -2214,8 +2263,8 @@ msgstr "Les fichiers suivants seront effacés :"
 msgid "The revision expression cannot be empty."
 msgstr "L'expression de révision est vide."
 
-#, python-format
-msgid "The worktree will be reset using \"git reset --merge %s\""
+#, fuzzy, python-format
+msgid "The worktree will be reset using \"git reset --keep %s\""
 msgstr "Cet arbre de travail sera réinitialisé en utilisant « git reset --merge %s »"
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2388,6 +2437,9 @@ msgstr "Voulez-vous pré-commiter et commiter tous les fichiers modifiés ?"
 msgid "XOR"
 msgstr ""
 
+msgid "Yes"
+msgstr ""
+
 msgid ""
 "You are in the middle of a merge.\n"
 "Cannot amend while merging."
@@ -2415,6 +2467,9 @@ msgstr "Ajuster à la largeur"
 
 msgid "command-line arguments"
 msgstr "Arguments en ligne de commande"
+
+msgid "error: unable to execute git"
+msgstr ""
 
 #, python-format
 msgid "exit code %s"
@@ -2472,9 +2527,6 @@ msgstr "dd/MM/yyyy"
 #~ "\n"
 #~ "Ceci est du à un problème connu avec\n"
 #~ "le binaire Tcl distribué par Cygwin."
-
-#~ msgid " commits ago"
-#~ msgstr " commits avant"
 
 #, fuzzy
 #~ msgid "\"%s\" returned exit status %d"
@@ -3130,6 +3182,9 @@ msgstr "dd/MM/yyyy"
 #~ msgid "Remote:"
 #~ msgstr "Branche distante :"
 
+#~ msgid "Rename remote?"
+#~ msgstr "Renommer la branche distante ?"
+
 #~ msgid "Repository"
 #~ msgstr "Référentiel"
 
@@ -3138,9 +3193,6 @@ msgstr "dd/MM/yyyy"
 
 #~ msgid "Rescan"
 #~ msgstr "Resynchroniser"
-
-#~ msgid "Reset '%s'?"
-#~ msgstr "Réinitialiser '%s' ?"
 
 #~ msgid ""
 #~ "Reset changes?\n"
@@ -3160,6 +3212,12 @@ msgstr "dd/MM/yyyy"
 
 #~ msgid "Revert changes in these %i files?"
 #~ msgstr "Inverser les modifications dans ces %i fichiers ?"
+
+#~ msgid "Select File"
+#~ msgstr "Sélectionner le fichier"
+
+#~ msgid "Select file from \"%s\""
+#~ msgstr "Sélectionner le fichier à partir de « %s »"
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "Partagé (le plus rapide, non recommandé, pas de sauvegarde)"

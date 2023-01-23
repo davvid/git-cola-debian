@@ -7,7 +7,7 @@ from qtpy.QtCore import Signal
 
 from ..i18n import N_
 from ..interaction import Interaction
-from ..models import main
+from ..qtutils import get
 from .. import gitcmds
 from .. import icons
 from .. import qtutils
@@ -17,11 +17,9 @@ from . import defs
 from . import completion
 
 
-def create_new_branch(revision='', settings=None):
+def create_new_branch(context, revision='', settings=None):
     """Launches a dialog for creating a new branch"""
-    model = main.MainModel()
-    model.update_status()
-    view = CreateBranchDialog(model, settings=settings,
+    view = CreateBranchDialog(context, settings=settings,
                               parent=qtutils.active_window())
     if revision:
         view.set_revision(revision)
@@ -30,8 +28,8 @@ def create_new_branch(revision='', settings=None):
 
 
 class CreateOpts(object):
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, context):
+        self.context = context
         self.reset = False
         self.track = False
         self.fetch = True
@@ -54,43 +52,45 @@ class CreateThread(QtCore.QThread):
         reset = self.opts.reset
         checkout = self.opts.checkout
         track = self.opts.track
-        model = self.opts.model
+        context = self.opts.context
+        git = context.git
+        model = context.model
         results = []
         status = 0
 
         if track and '/' in revision:
             remote = revision.split('/', 1)[0]
-            status, out, err = model.git.fetch(remote)
+            status, out, err = git.fetch(remote)
             self.command.emit(status, out, err)
             results.append(('fetch', status, out, err))
 
         if status == 0:
-            status, out, err = model.create_branch(branch, revision,
-                                                   force=reset,
-                                                   track=track)
+            status, out, err = model.create_branch(
+                branch, revision, force=reset, track=track)
             self.command.emit(status, out, err)
 
         results.append(('branch', status, out, err))
         if status == 0 and checkout:
-            status, out, err = model.git.checkout(branch)
+            status, out, err = git.checkout(branch)
             self.command.emit(status, out, err)
             results.append(('checkout', status, out, err))
 
-        main.model().update_status()
+        model.update_status()
         self.result.emit(results)
 
 
 class CreateBranchDialog(Dialog):
     """A dialog for creating branches."""
 
-    def __init__(self, model, settings=None, parent=None):
+    def __init__(self, context, settings=None, parent=None):
         Dialog.__init__(self, parent=parent)
         self.setWindowTitle(N_('Create Branch'))
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
 
-        self.model = model
-        self.opts = CreateOpts(model)
+        self.context = context
+        self.model = context.model
+        self.opts = CreateOpts(context)
         self.thread = CreateThread(self.opts, self)
 
         self.progress = None
@@ -98,16 +98,16 @@ class CreateBranchDialog(Dialog):
         self.branch_name_label = QtWidgets.QLabel()
         self.branch_name_label.setText(N_('Branch Name'))
 
-        self.branch_name = completion.GitCreateBranchLineEdit()
+        self.branch_name = completion.GitCreateBranchLineEdit(context)
         self.branch_validator = completion.BranchValidator(
-            model.git, parent=self.branch_name)
+            context.git, parent=self.branch_name)
         self.branch_name.setValidator(self.branch_validator)
 
         self.rev_label = QtWidgets.QLabel()
         self.rev_label.setText(N_('Starting Revision'))
 
-        self.revision = completion.GitRefLineEdit()
-        current = gitcmds.current_branch()
+        self.revision = completion.GitRefLineEdit(context)
+        current = gitcmds.current_branch(context)
         if current:
             self.revision.setText(current)
 
@@ -212,21 +212,22 @@ class CreateBranchDialog(Dialog):
         self.revision.setText(revision)
 
     def getopts(self):
-        self.opts.revision = self.revision.value()
-        self.opts.branch = self.branch_name.value()
-        self.opts.checkout = self.checkout_checkbox.isChecked()
-        self.opts.reset = self.reset_radio.isChecked()
-        self.opts.fetch = self.fetch_checkbox.isChecked()
-        self.opts.track = self.remote_radio.isChecked()
+        self.opts.revision = get(self.revision)
+        self.opts.branch = get(self.branch_name)
+        self.opts.checkout = get(self.checkout_checkbox)
+        self.opts.reset = get(self.reset_radio)
+        self.opts.fetch = get(self.fetch_checkbox)
+        self.opts.track = get(self.remote_radio)
 
     def create_branch(self):
         """Creates a branch; called by the "Create Branch" button"""
+        context = self.context
         self.getopts()
         revision = self.opts.revision
         branch = self.opts.branch
-        no_update = self.no_update_radio.isChecked()
-        ffwd_only = self.ffwd_only_radio.isChecked()
-        existing_branches = gitcmds.branch_list()
+        no_update = get(self.no_update_radio)
+        ffwd_only = get(self.ffwd_only_radio)
+        existing_branches = gitcmds.branch_list(context)
         check_branch = False
 
         if not branch or not revision:
@@ -241,7 +242,7 @@ class CreateBranchDialog(Dialog):
                 Interaction.critical(N_('Branch Exists'), msg)
                 return
             # Whether we should prompt the user for lost commits
-            commits = gitcmds.rev_list_range(revision, branch)
+            commits = gitcmds.rev_list_range(context, revision, branch)
             check_branch = bool(commits)
 
         if check_branch:
@@ -285,16 +286,17 @@ class CreateBranchDialog(Dialog):
         self.progress.hide()
         del self.progress
 
-        for (cmd, status, out, err) in results:
+        for (cmd, status, _, _) in results:
             if status != 0:
                 Interaction.critical(
-                        N_('Error Creating Branch'),
-                        (N_('"%(command)s" returned exit status "%(status)d"') %
-                         dict(command='git '+cmd, status=status)))
+                    N_('Error Creating Branch'),
+                    (N_('"%(command)s" returned exit status "%(status)d"')
+                     % dict(command='git '+cmd, status=status)))
                 return
 
         self.accept()
 
+    # pylint: disable=unused-argument
     def branch_item_changed(self, *rest):
         """This callback is called when the branch selection changes"""
         # When the branch selection changes then we should update
@@ -307,7 +309,7 @@ class CreateBranchDialog(Dialog):
         self.revision.setText(remote_branch)
 
         # Set the branch field if we're branching from a remote branch.
-        if not self.remote_radio.isChecked():
+        if not get(self.remote_radio):
             return
         branch = gitcmds.strip_remote(self.model.remotes, remote_branch)
         if branch == 'HEAD':
@@ -324,9 +326,12 @@ class CreateBranchDialog(Dialog):
     def branch_sources(self):
         """Get the list of items for populating the branch root list.
         """
-        if self.local_radio.isChecked():
-            return self.model.local_branches
-        elif self.remote_radio.isChecked():
-            return self.model.remote_branches
-        elif self.tag_radio.isChecked():
-            return self.model.tags
+        if get(self.local_radio):
+            value = self.model.local_branches
+        elif get(self.remote_radio):
+            value = self.model.remote_branches
+        elif get(self.tag_radio):
+            value = self.model.tags
+        else:
+            value = []
+        return value

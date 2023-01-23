@@ -260,6 +260,9 @@ msgstr ""
 msgid " - DAG"
 msgstr " - Verlauf"
 
+msgid " commits ago"
+msgstr " Versionen davor"
+
 #, python-format
 msgid "\"%(branch)s\" has been deleted from \"%(remote)s\"."
 msgstr "\"%(branch)s\" wurde von \"%(remote)s\" gelöscht."
@@ -547,6 +550,10 @@ msgstr "Patches anwenden"
 
 msgid "Apply Patches..."
 msgstr "Patches anwenden..."
+
+#, fuzzy
+msgid "Apply and drop the selected stash (git stash pop)"
+msgstr "Die ausgewählte Ablage in den Arbeitsbereich zurück übernehmen"
 
 msgid "Apply the selected stash"
 msgstr "Die ausgewählte Ablage in den Arbeitsbereich zurück übernehmen"
@@ -1269,6 +1276,9 @@ msgstr "Hilfe - Dateien suchen"
 msgid "Help - git-xbase"
 msgstr "Hilfe - git-xbase"
 
+msgid "Hide Details.."
+msgstr ""
+
 msgid "History Browser"
 msgstr "Werkzeug für die Verlaufsansicht"
 
@@ -1612,6 +1622,9 @@ msgstr "Soll der Branch-Head auf einen neuen Commit zeigen?"
 msgid "Polish translation"
 msgstr "Polnische Übersetzung"
 
+msgid "Pop"
+msgstr ""
+
 msgid "Preferences"
 msgstr "Einstellungen"
 
@@ -1722,6 +1735,9 @@ msgstr "%s aus dem Verlauf entfernen?"
 msgid "Remove Element"
 msgstr "Element entfernen"
 
+msgid "Remove remote-tracking branches that no longer exist on the remote"
+msgstr ""
+
 msgid "Remove selected (Delete)"
 msgstr "Auswahl entfernen (löschen)"
 
@@ -1754,9 +1770,6 @@ msgstr "Branch umbenennen"
 msgid "Rename remote \"%(current)s\" to \"%(new)s\"?"
 msgstr "Externe Referenz \"%(current)s\" umbenennen zu \"%(new)s\"?"
 
-msgid "Rename remote?"
-msgstr "Möchten Sie die externe Referenz umbenennen?"
-
 msgid "Rename selected paths"
 msgstr "Ausgewählten Pfad umbenennen"
 
@@ -1780,8 +1793,32 @@ msgstr "Branch-Head zurücksetzen"
 msgid "Reset Branch?"
 msgstr "Branch zurücksetzen?"
 
+#, fuzzy
+msgid "Reset Hard"
+msgstr "Branch-Head zurücksetzen"
+
+#, fuzzy
+msgid "Reset Merge"
+msgstr "Zusammenzuführende Revision"
+
+#, fuzzy
+msgid "Reset Soft"
+msgstr "Arbeitsbaum zurücksetzen"
+
 msgid "Reset Worktree"
 msgstr "Arbeitsbaum zurücksetzen"
+
+#, fuzzy
+msgid "Reset hard?"
+msgstr "Branch zurücksetzen?"
+
+#, fuzzy
+msgid "Reset merge?"
+msgstr "Arbeitsbaum zurücksetzen?"
+
+#, fuzzy
+msgid "Reset soft?"
+msgstr "»%s« zurücksetzen?"
 
 msgid "Reset worktree?"
 msgstr "Arbeitsbaum zurücksetzen?"
@@ -1789,6 +1826,9 @@ msgstr "Arbeitsbaum zurücksetzen?"
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Das Zurücksetzen von \"%(branch)s\" nach \"%(revision)s\" verwirft Commits."
+
+msgid "Revert"
+msgstr ""
 
 msgid "Revert Diff Hunk"
 msgstr "Abschnitt verwerfen"
@@ -1963,9 +2003,6 @@ msgstr "Wählen Sie einen Commit aus"
 msgid "Select Directory..."
 msgstr "Verzeichnis wählen..."
 
-msgid "Select File"
-msgstr "Wähle Datei aus"
-
 msgid "Select New Upstream"
 msgstr "Neuen Upstream auswählen"
 
@@ -1986,10 +2023,6 @@ msgstr "Repository wählen..."
 
 msgid "Select a parent directory for the new clone"
 msgstr "Wählen Sie das übergeordnete Verzeichnis für den Klon"
-
-#, python-format
-msgid "Select file from \"%s\""
-msgstr "Datei von \"%s\" auswählen"
 
 msgid "Select manually..."
 msgstr "Selbst auswählen..."
@@ -2029,6 +2062,10 @@ msgstr "Nach oben schieben"
 
 msgid "Shortcuts"
 msgstr "Tastenkürzel"
+
+#, fuzzy
+msgid "Show Details..."
+msgstr "Lösche Datei(en)..."
 
 msgid "Show Diffstat After Merge"
 msgstr "Vergleichsstatistik nach Zusammenführen anzeigen"
@@ -2218,8 +2255,20 @@ msgstr "Textbreite"
 msgid "The branch will be no longer available."
 msgstr "Der Branch wird nicht mehr verfügbar sein."
 
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --hard %s\""
+msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
+
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --merge %s\""
+msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
+
 #, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
+msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
+
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --soft %s\""
 msgstr "Der Branch wird zurückgesetzt mit \"git reset --mixed %s\""
 
 msgid "The commit message will be cleared."
@@ -2235,8 +2284,8 @@ msgstr "Die folgenden Zeilen werden gleich gelöscht:"
 msgid "The revision expression cannot be empty."
 msgstr "Der Ausdruck darf nicht leer sein."
 
-#, python-format
-msgid "The worktree will be reset using \"git reset --merge %s\""
+#, fuzzy, python-format
+msgid "The worktree will be reset using \"git reset --keep %s\""
 msgstr "Der Arbeitsbaum wird zurückgesetzt mit \"git reset --merge %s\""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2406,6 +2455,9 @@ msgstr "Möchten Sie alle veränderten Dateien vormerken und aufnehmen?"
 msgid "XOR"
 msgstr "XOR"
 
+msgid "Yes"
+msgstr ""
+
 msgid ""
 "You are in the middle of a merge.\n"
 "Cannot amend while merging."
@@ -2431,6 +2483,9 @@ msgstr "In Ansicht einpassen"
 
 msgid "command-line arguments"
 msgstr "Kommandozeilenargumente"
+
+msgid "error: unable to execute git"
+msgstr ""
 
 #, python-format
 msgid "exit code %s"
@@ -2487,9 +2542,6 @@ msgstr "dd.MM.yyyy"
 #~ "\n"
 #~ "Dies ist ein bekanntes Problem der Tcl-Version, die\n"
 #~ "in Cygwin mitgeliefert wird."
-
-#~ msgid " commits ago"
-#~ msgstr " Versionen davor"
 
 #, fuzzy
 #~ msgid "\"%s\" returned exit status %d"
@@ -3170,6 +3222,9 @@ msgstr "dd.MM.yyyy"
 #~ msgid "Remove selected paths from the staging area"
 #~ msgstr "Änderungen am ausgewählten Pfad nicht mehr vormerken"
 
+#~ msgid "Rename remote?"
+#~ msgstr "Möchten Sie die externe Referenz umbenennen?"
+
 #~ msgid "Repository"
 #~ msgstr "Projektarchiv"
 
@@ -3178,9 +3233,6 @@ msgstr "dd.MM.yyyy"
 
 #~ msgid "Rescan"
 #~ msgstr "Ansicht aktualisieren"
-
-#~ msgid "Reset '%s'?"
-#~ msgstr "»%s« zurücksetzen?"
 
 #~ msgid ""
 #~ "Reset changes?\n"
@@ -3203,6 +3255,12 @@ msgstr "dd.MM.yyyy"
 
 #~ msgid "Revert changes in these %i files?"
 #~ msgstr "Änderungen in den gewählten %i Dateien verwerfen?"
+
+#~ msgid "Select File"
+#~ msgstr "Wähle Datei aus"
+
+#~ msgid "Select file from \"%s\""
+#~ msgstr "Datei von \"%s\" auswählen"
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "Verknüpft (schnell, nicht empfohlen, kein Backup)"

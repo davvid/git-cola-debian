@@ -1,12 +1,10 @@
 from __future__ import division, absolute_import, unicode_literals
-
-import functools
+from functools import partial
 import errno
 import os
-import sys
+from os.path import join
 import subprocess
 import threading
-from os.path import join
 
 from . import core
 from .compat import int_types
@@ -16,11 +14,25 @@ from .decorators import memoize
 from .interaction import Interaction
 
 
-INDEX_LOCK = threading.Lock()
 GIT_COLA_TRACE = core.getenv('GIT_COLA_TRACE', '')
+GIT = core.getenv('GIT_COLA_GIT', 'git')
 STATUS = 0
 STDOUT = 1
 STDERR = 2
+
+# Object ID / SHA1-related constants
+# Git's empty tree is a built-in constant object name.
+EMPTY_TREE_OID = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+# Git's diff machinery returns zeroes for modified files whose content exists
+# in the worktree only.
+MISSING_BLOB_OID = '0000000000000000000000000000000000000000'
+# Git's SHA-1 object IDs are 40 characters  long.
+# This will need to change when Git moves away from SHA-1.
+# When that happens we'll have to detect and update this at runtime in
+# order to support both old and new git.
+OID_LENGTH = 40
+
+_index_lock = threading.Lock()
 
 
 def dashify(s):
@@ -35,9 +47,9 @@ def is_git_dir(git_dir):
 
         if (core.isdir(git_dir) and
                 (core.isdir(join(git_dir, 'objects')) and
-                    core.isdir(join(git_dir, 'refs'))) or
+                 core.isdir(join(git_dir, 'refs'))) or
                 (core.isfile(join(git_dir, 'gitdir')) and
-                    core.isfile(join(git_dir, 'commondir')))):
+                 core.isfile(join(git_dir, 'commondir')))):
 
             result = (core.isfile(headref) or
                       (core.islink(headref) and
@@ -49,11 +61,15 @@ def is_git_dir(git_dir):
 
 
 def is_git_file(f):
-    return core.isfile(f) and '.git' == os.path.basename(f)
+    return core.isfile(f) and os.path.basename(f) == '.git'
 
 
 def is_git_worktree(d):
     return is_git_dir(join(d, '.git'))
+
+
+def is_git_repository(path):
+    return is_git_worktree(path) or is_git_dir(path)
 
 
 def read_git_file(path):
@@ -70,7 +86,7 @@ def read_git_file(path):
             result = data[len(header):]
             if result and not os.path.isabs(result):
                 path_folder = os.path.dirname(path)
-                repo_relative = os.path.join(path_folder, result)
+                repo_relative = join(path_folder, result)
                 result = os.path.normpath(repo_relative)
     return result
 
@@ -93,7 +109,10 @@ def find_git_directory(curpath):
     paths = Paths(git_dir=core.getenv('GIT_DIR'),
                   worktree=core.getenv('GIT_WORK_TREE'),
                   git_file=None)
+    return find_git_paths(curpath, paths)
 
+
+def find_git_paths(curpath, paths):
     ceiling_dirs = set()
     ceiling = core.getenv('GIT_CEILING_DIRECTORIES')
     if ceiling:
@@ -133,7 +152,7 @@ def find_git_directory(curpath):
                     if os.path.isabs(common_path):
                         common_dir = common_path
                     else:
-                        common_dir = os.path.join(git_dir_path, common_path)
+                        common_dir = join(git_dir_path, common_path)
                         common_dir = os.path.normpath(common_dir)
                     paths.common_dir = common_dir
 
@@ -150,6 +169,9 @@ class Git(object):
         self._git_cwd = None  #: The working directory used by execute()
         self._valid = {}  #: Store the result of is_git_dir() for performance
         self.set_worktree(core.getcwd())
+
+    def is_git_repository(self, path):
+        return is_git_repository(path)
 
     def getcwd(self):
         return self._git_cwd
@@ -206,7 +228,7 @@ class Git(object):
         return self.paths.git_dir
 
     def __getattr__(self, name):
-        git_cmd = functools.partial(self.git, name)
+        git_cmd = partial(self.git, name)
         setattr(self, name, git_cmd)
         return git_cmd
 
@@ -249,16 +271,16 @@ class Git(object):
         # Start the process
         # Guard against thread-unsafe .git/index.lock files
         if not _readonly:
-            INDEX_LOCK.acquire()
+            _index_lock.acquire()
         try:
             status, out, err = core.run_command(
-                    command, cwd=_cwd, encoding=_encoding,
-                    stdin=_stdin, stdout=_stdout, stderr=_stderr,
-                    no_win32_startupinfo=_no_win32_startupinfo, **extra)
+                command, cwd=_cwd, encoding=_encoding,
+                stdin=_stdin, stdout=_stdout, stderr=_stderr,
+                no_win32_startupinfo=_no_win32_startupinfo, **extra)
         finally:
             # Let the next thread in
             if not _readonly:
-                INDEX_LOCK.release()
+                _index_lock.release()
 
         if not _raw and out is not None:
             out = core.UStr(out.rstrip('\n'), out.encoding)
@@ -269,12 +291,13 @@ class Git(object):
             Interaction.log_status(status, msg, '')
         elif cola_trace == 'full':
             if out or err:
-                core.stderr("%s -> %d: '%s' '%s'" %
-                            (' '.join(command), status, out, err))
+                core.print_stderr(
+                    "%s -> %d: '%s' '%s'"
+                    % (' '.join(command), status, out, err))
             else:
-                core.stderr("%s -> %d" % (' '.join(command), status))
+                core.print_stderr("%s -> %d" % (' '.join(command), status))
         elif cola_trace:
-            core.stderr(' '.join(command))
+            core.print_stderr(' '.join(command))
 
         # Allow access to the command's status code
         return (status, out, err)
@@ -284,51 +307,53 @@ class Git(object):
         # otherwise they'll end up in args, which is bad.
         _kwargs = dict(_cwd=self._git_cwd)
         execute_kwargs = (
-                '_cwd',
-                '_decode',
-                '_encoding',
-                '_stdin',
-                '_stdout',
-                '_stderr',
-                '_raw',
-                '_readonly',
-                '_no_win32_startupinfo',
-                )
+            '_cwd',
+            '_decode',
+            '_encoding',
+            '_stdin',
+            '_stdout',
+            '_stderr',
+            '_raw',
+            '_readonly',
+            '_no_win32_startupinfo',
+        )
 
         for kwarg in execute_kwargs:
             if kwarg in kwargs:
                 _kwargs[kwarg] = kwargs.pop(kwarg)
 
         # Prepare the argument list
-        git_args = ['git', '-c', 'diff.suppressBlankEmpty=false', dashify(cmd)]
+        git_args = [GIT, '-c', 'diff.suppressBlankEmpty=false', dashify(cmd)]
         opt_args = transform_kwargs(**kwargs)
         call = git_args + opt_args
         call.extend(args)
         try:
-            return self.execute(call, **_kwargs)
+            result = self.execute(call, **_kwargs)
         except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise e
-
-            if WIN32:
+            if WIN32 and e.errno == errno.ENOENT:
                 # see if git exists at all. on win32 it can fail with ENOENT in
                 # case of argv overflow. we should be safe from that but use
-                # defensive coding for the worst-case scenario. on other OS-en
-                # we have ENAMETOOLONG which doesn't exist in with32 API.
-                try:
-                    status, out, err = self.execute(['git', '--version'])
-                except OSError:
-                    pass # git command is not available
-                else:
-                    if status == 0:
-                        # git is ok, there is something else...
-                        raise e
-
-            core.stderr("error: unable to execute 'git'\n"
-                        "error: please ensure that 'git' is in your $PATH")
-            if sys.platform == 'win32':
+                # defensive coding for the worst-case scenario. On UNIX
+                # we have ENAMETOOLONG but that doesn't exist on Windows.
+                if _git_is_installed():
+                    raise e
                 _print_win32_git_hint()
-            sys.exit(1)
+            result = (1, '', "error: unable to execute '%s'" % GIT)
+        return result
+
+
+def _git_is_installed():
+    """Return True if git is installed"""
+    # On win32 Git commands can fail with ENOENT in case of argv overflow. we
+    # should be safe from that but use defensive coding for the worst-case
+    # scenario. On UNIX we have ENAMETOOLONG but that doesn't exist on
+    # Windows.
+    try:
+        status, _, _ = Git.execute([GIT, '--version'])
+        result = status == 0
+    except OSError:
+        result = False
+    return result
 
 
 def transform_kwargs(**kwargs):
@@ -352,46 +377,46 @@ def transform_kwargs(**kwargs):
     for k, v in kwargs.items():
         if len(k) == 1:
             dashes = '-'
-            join = ''
+            eq = ''
         else:
             dashes = '--'
-            join = '='
+            eq = '='
         # isinstance(False, int) is True, so we have to check bool first
         if isinstance(v, bool):
             if v:
                 args.append('%s%s' % (dashes, dashify(k)))
             # else: pass  # False is ignored; flag=False inhibits --flag
         elif isinstance(v, types_to_stringify):
-            args.append('%s%s%s%s' % (dashes, dashify(k), join, v))
+            args.append('%s%s%s%s' % (dashes, dashify(k), eq, v))
 
     return args
 
 
-def _print_win32_git_hint():
-    hint = (
+def win32_git_error_hint():
+    return (
         '\n'
-        'hint: If you have Git installed in a custom location, e.g.\n'
-        'hint: C:\\Tools\\Git, then you can create a file at\n'
-        'hint: ~/.config/git-cola/git-bindir with following text\n'
-        'hint: and git-cola will add the specified location to your $PATH\n'
-        'hint: automatically when starting cola:\n'
-        'hint:\n'
-        'hint: C:\\Tools\\Git\\bin\n')
-    core.stderr(hint)
+        'NOTE: If you have Git installed in a custom location, e.g.\n'
+        'C:\\Tools\\Git, then you can create a file at\n'
+        '~/.config/git-cola/git-bindir with following text\n'
+        'and git-cola will add the specified location to your $PATH\n'
+        'automatically when starting cola:\n'
+        '\n'
+        r'C:\Tools\Git\bin')
 
 
 @memoize
-def current():
-    """Return the Git singleton"""
+def _print_win32_git_hint():
+    hint = '\n' + win32_git_error_hint() + '\n'
+    core.print_stderr("error: unable to execute 'git'" + hint)
+
+
+def create():
+    """Create Git instances
+
+    >>> git = create()
+    >>> status, out, err = git.version()
+    >>> 'git' == out[:3].lower()
+    True
+
+    """
     return Git()
-
-
-git = current()
-"""
-Git command singleton
-
->>> git = current()
->>> 'git' == git.version()[0][:3].lower()
-True
-
-"""

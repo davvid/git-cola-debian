@@ -6,7 +6,6 @@ e.g. when python raises an IOError or OSError with errno == EINTR.
 """
 from __future__ import division, absolute_import, unicode_literals
 import os
-import distutils.spawn as spawn
 import functools
 import sys
 import itertools
@@ -20,8 +19,8 @@ from .compat import PY3
 from .compat import WIN32
 
 # /usr/include/stdlib.h
-#define EXIT_SUCCESS    0   /* Successful exit status.  */
-#define EXIT_FAILURE    1   /* Failing exit status.  */
+# #define EXIT_SUCCESS    0   /* Successful exit status.  */
+# #define EXIT_FAILURE    1   /* Failing exit status.  */
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 
@@ -85,16 +84,15 @@ def decode(value, encoding=None, errors='strict'):
         else:
             encoding_tests = itertools.chain([encoding], _encoding_tests)
 
-        for encoding in encoding_tests:
+        for enc in encoding_tests:
             try:
-                decoded = value.decode(encoding, errors)
-                result = UStr(decoded, encoding)
+                decoded = value.decode(enc, errors)
+                result = UStr(decoded, enc)
                 break
             except ValueError:
                 pass
 
         if result is None:
-            encoding = ENCODING
             decoded = value.decode(ENCODING, errors='ignore')
             result = UStr(decoded, ENCODING)
 
@@ -104,7 +102,7 @@ def decode(value, encoding=None, errors='strict'):
 def encode(string, encoding=None):
     """encode(unencoded_string) returns a string encoded in utf-8
     """
-    if type(string) is not ustr:
+    if not isinstance(string, ustr):
         return string
     return string.encode(encoding or ENCODING, 'replace')
 
@@ -235,7 +233,7 @@ def communicate(proc):
     return proc.communicate()
 
 
-def run_command(cmd, encoding=None, *args, **kwargs):
+def run_command(cmd, *args, **kwargs):
     """Run the given command to completion, and return its results.
 
     This provides a simpler interface to the subprocess module.
@@ -243,6 +241,7 @@ def run_command(cmd, encoding=None, *args, **kwargs):
     The other arguments are passed on to start_command().
 
     """
+    encoding = kwargs.pop('encoding', None)
     process = start_command(cmd, *args, **kwargs)
     (output, errors) = communicate(process)
     output = decode(output, encoding=encoding)
@@ -353,14 +352,14 @@ def xopen(path, mode='r', encoding=None):
     return open(mkpath(path, encoding=encoding), mode)
 
 
-def stdout(msg, linesep='\n'):
+def print_stdout(msg, linesep='\n'):
     msg = msg + linesep
     if PY2:
         msg = encode(msg, encoding=ENCODING)
     sys.stdout.write(msg)
 
 
-def stderr(msg, linesep='\n'):
+def print_stderr(msg, linesep='\n'):
     msg = msg + linesep
     if PY2:
         msg = encode(msg, encoding=ENCODING)
@@ -368,7 +367,7 @@ def stderr(msg, linesep='\n'):
 
 
 def error(msg, status=EXIT_FAILURE, linesep='\n'):
-    stderr(msg, linesep=linesep)
+    print_stderr(msg, linesep=linesep)
     sys.exit(status)
 
 
@@ -388,10 +387,40 @@ if PY2:
         getcwd = decorate(decode, os.getcwd)
 else:
     getcwd = os.getcwd
+
+
+# NOTE: find_executable() is originally from the stdlib, but starting with
+# python3.7 the stdlib no longer bundles distutils.
+def _find_executable(executable, path=None):
+    """Tries to find 'executable' in the directories listed in 'path'.
+
+    A string listing directories separated by 'os.pathsep'; defaults to
+    os.environ['PATH'].  Returns the complete filename or None if not found.
+    """
+    if path is None:
+        path = os.environ['PATH']
+
+    paths = path.split(os.pathsep)
+    _, ext = os.path.splitext(executable)
+
+    if (sys.platform == 'win32') and (ext != '.exe'):
+        executable = executable + '.exe'
+
+    if not os.path.isfile(executable):
+        for p in paths:
+            f = os.path.join(p, executable)
+            if os.path.isfile(f):
+                # the file exists, we have a shot at spawn working
+                return f
+        return None
+
+    return executable
+
+
 if PY2:
-    find_executable = wrap(mkpath, spawn.find_executable, decorator=decode)
+    find_executable = wrap(mkpath, _find_executable, decorator=decode)
 else:
-    find_executable = wrap(decode, spawn.find_executable, decorator=decode)
+    find_executable = wrap(decode, _find_executable, decorator=decode)
 isdir = wrap(mkpath, os.path.isdir)
 isfile = wrap(mkpath, os.path.isfile)
 islink = wrap(mkpath, os.path.islink)

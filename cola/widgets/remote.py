@@ -10,6 +10,7 @@ from ..i18n import N_
 from ..interaction import Interaction
 from ..models import main
 from ..qtutils import connect_button
+from ..qtutils import get
 from .. import gitcmds
 from .. import icons
 from .. import qtutils
@@ -24,33 +25,33 @@ PUSH = 'PUSH'
 PULL = 'PULL'
 
 
-def fetch():
+def fetch(context):
     """Fetch from remote repositories"""
-    return run(Fetch)
+    return run(context, Fetch)
 
 
-def push():
+def push(context):
     """Push to remote repositories"""
-    return run(Push)
+    return run(context, Push)
 
 
-def pull():
+def pull(context):
     """Pull from remote repositories"""
-    return run(Pull)
+    return run(context, Pull)
 
 
-def run(RemoteDialog):
+def run(context, RemoteDialog):
     """Launches fetch/push/pull dialogs."""
     # Copy global stuff over to speedup startup
-    model = main.MainModel()
-    global_model = main.model()
+    model = main.MainModel(context)
+    global_model = context.model
     model.currentbranch = global_model.currentbranch
     model.local_branches = global_model.local_branches
     model.remote_branches = global_model.remote_branches
     model.tags = global_model.tags
     model.remotes = global_model.remotes
     parent = qtutils.active_window()
-    view = RemoteDialog(model, parent=parent)
+    view = RemoteDialog(context, model, parent=parent)
     view.show()
     return view
 
@@ -113,10 +114,11 @@ class ActionTask(qtutils.Task):
 class RemoteActionDialog(standard.Dialog):
     """Interface for performing remote operations"""
 
-    def __init__(self, model, action, title, parent=None, icon=None):
+    def __init__(self, context, model, action, title, parent=None, icon=None):
         """Customize the dialog based on the remote action"""
-
         standard.Dialog.__init__(self, parent=parent)
+
+        self.context = context
         self.model = model
         self.action = action
         self.filtered_remote_branches = []
@@ -186,7 +188,11 @@ class RemoteActionDialog(standard.Dialog):
                                                tooltip=tooltip)
 
         self.tags_checkbox = qtutils.checkbox(text=N_('Include tags '))
-        self.prune_checkbox = qtutils.checkbox(text=N_('Prune '))
+
+        tooltip = N_('Remove remote-tracking branches that no longer '
+                     'exist on the remote')
+        self.prune_checkbox = qtutils.checkbox(text=N_('Prune '),
+                                               tooltip=tooltip)
 
         tooltip = N_('Rebase the current branch instead of merging')
         self.rebase_checkbox = qtutils.checkbox(text=N_('Rebase'),
@@ -262,7 +268,7 @@ class RemoteActionDialog(standard.Dialog):
             self.top_layout, self.options_layout)
         self.setLayout(self.main_layout)
 
-        default_remote = gitcmds.upstream_remote() or 'origin'
+        default_remote = gitcmds.upstream_remote(context) or 'origin'
 
         remotes = self.model.remotes
         if default_remote in remotes:
@@ -421,13 +427,13 @@ class RemoteActionDialog(standard.Dialog):
                                                        self.model.remotes)
         self.set_remote_to(selection, self.selected_remotes)
 
-    def set_remote_to(self, remote, selected_remotes):
-        all_branches = gitcmds.branch_list(remote=True)
+    def set_remote_to(self, _remote, selected_remotes):
+        context = self.context
+        all_branches = gitcmds.branch_list(context, remote=True)
         branches = []
         patterns = []
-        for remote in selected_remotes:
-            pat = remote + '/*'
-            patterns.append(pat)
+        for remote_name in selected_remotes:
+            patterns.append(remote_name + '/*')
 
         for branch in all_branches:
             for pat in patterns:
@@ -473,13 +479,13 @@ class RemoteActionDialog(standard.Dialog):
         local_branch = self.local_branch.text()
         remote_branch = self.remote_branch.text()
 
-        ff_only = self.ff_only_checkbox.isChecked()
-        force = self.force_checkbox.isChecked()
-        no_ff = self.no_ff_checkbox.isChecked()
-        rebase = self.rebase_checkbox.isChecked()
-        set_upstream = self.upstream_checkbox.isChecked()
-        tags = self.tags_checkbox.isChecked()
-        prune = self.prune_checkbox.isChecked()
+        ff_only = get(self.ff_only_checkbox)
+        force = get(self.force_checkbox)
+        no_ff = get(self.no_ff_checkbox)
+        rebase = get(self.rebase_checkbox)
+        set_upstream = get(self.upstream_checkbox)
+        tags = get(self.tags_checkbox)
+        prune = get(self.prune_checkbox)
 
         return (remote_name,
                 {
@@ -496,7 +502,7 @@ class RemoteActionDialog(standard.Dialog):
 
     # Actions
 
-    def push_to_all(self, dummy_remote, *args, **kwargs):
+    def push_to_all(self, _remote, *args, **kwargs):
         """Push to all selected remotes"""
         selected_remotes = self.selected_remotes
         all_results = None
@@ -531,7 +537,7 @@ class RemoteActionDialog(standard.Dialog):
         if action == PUSH and not remote_branch:
             branch = local_branch
             candidate = '%s/%s' % (remote, branch)
-            prompt = self.prompt_checkbox.isChecked()
+            prompt = get(self.prompt_checkbox)
 
             if prompt and candidate not in self.model.remote_branches:
                 title = N_('Push')
@@ -544,7 +550,7 @@ class RemoteActionDialog(standard.Dialog):
                                            icon=icons.cola()):
                     return
 
-        if self.force_checkbox.isChecked():
+        if get(self.force_checkbox):
             if action == FETCH:
                 title = N_('Force Fetch?')
                 msg = N_('Non-fast-forward fetch overwrites local history!')
@@ -601,15 +607,16 @@ class RemoteActionDialog(standard.Dialog):
 class Fetch(RemoteActionDialog):
     """Fetch from remote repositories"""
 
-    def __init__(self, model, parent=None):
-        RemoteActionDialog.__init__(self, model, FETCH, N_('Fetch'),
-                                    parent=parent, icon=icons.repo())
+    def __init__(self, context, model, parent=None):
+        super(Fetch, self).__init__(
+            context, model, FETCH, N_('Fetch'),
+            parent=parent, icon=icons.repo())
 
     def export_state(self):
         """Export persistent settings"""
         state = RemoteActionDialog.export_state(self)
-        state['tags'] = self.tags_checkbox.isChecked()
-        state['prune'] = self.prune_checkbox.isChecked()
+        state['tags'] = get(self.tags_checkbox)
+        state['prune'] = get(self.prune_checkbox)
         return state
 
     def apply_state(self, state):
@@ -625,15 +632,15 @@ class Fetch(RemoteActionDialog):
 class Push(RemoteActionDialog):
     """Push to remote repositories"""
 
-    def __init__(self, model, parent=None):
-        RemoteActionDialog.__init__(self, model, PUSH, N_('Push'),
-                                    parent=parent, icon=icons.push())
+    def __init__(self, context, model, parent=None):
+        super(Push, self).__init__(
+            context, model, PUSH, N_('Push'), parent=parent, icon=icons.push())
 
     def export_state(self):
         """Export persistent settings"""
         state = RemoteActionDialog.export_state(self)
-        state['tags'] = self.tags_checkbox.isChecked()
-        state['prompt'] = self.prompt_checkbox.isChecked()
+        state['tags'] = get(self.tags_checkbox)
+        state['prompt'] = get(self.prompt_checkbox)
         return state
 
     def apply_state(self, state):
@@ -651,9 +658,9 @@ class Push(RemoteActionDialog):
 class Pull(RemoteActionDialog):
     """Pull from remote repositories"""
 
-    def __init__(self, model, parent=None):
-        RemoteActionDialog.__init__(self, model, PULL, N_('Pull'),
-                                    parent=parent, icon=icons.pull())
+    def __init__(self, context, model, parent=None):
+        super(Pull, self).__init__(
+            context, model, PULL, N_('Pull'), parent=parent, icon=icons.pull())
 
     def apply_state(self, state):
         """Apply persistent settings"""
@@ -678,8 +685,8 @@ class Pull(RemoteActionDialog):
         """Export persistent settings"""
         state = RemoteActionDialog.export_state(self)
 
-        state['ff_only'] = self.ff_only_checkbox.isChecked()
-        state['no_ff'] = self.no_ff_checkbox.isChecked()
-        state['rebase'] = self.rebase_checkbox.isChecked()
+        state['ff_only'] = get(self.ff_only_checkbox)
+        state['no_ff'] = get(self.no_ff_checkbox)
+        state['rebase'] = get(self.rebase_checkbox)
 
         return state

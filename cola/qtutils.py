@@ -11,7 +11,6 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
 from . import core
-from . import gitcfg
 from . import hotkeys
 from . import icons
 from . import utils
@@ -26,12 +25,9 @@ STRETCH = object()
 SKIPPED = object()
 
 
-def disconnect(signal):
-    """Disconnect signal from all slots"""
-    try:
-        signal.disconnect()
-    except TypeError:  # allow unconnected slots
-        pass
+def active_window():
+    """Return the active window for the current application"""
+    return QtWidgets.QApplication.activeWindow()
 
 
 def connect_action(action, fn):
@@ -51,9 +47,9 @@ def connect_button(button, fn):
     button.clicked.connect(lambda *args, **kwargs: fn())
 
 
-def connect_checkbox(checkbox, fn):
+def connect_checkbox(widget, fn):
     """Connect a checkbox to a function taking bool"""
-    checkbox.clicked.connect(lambda *args, **kwargs: fn(checkbox.isChecked()))
+    widget.clicked.connect(lambda *args, **kwargs: fn(get(checkbox)))
 
 
 def connect_released(button, fn):
@@ -71,9 +67,31 @@ def connect_toggle(toggle, fn):
     toggle.toggled.connect(fn)
 
 
-def active_window():
-    """Return the active window for the current application"""
-    return QtWidgets.QApplication.activeWindow()
+def disconnect(signal):
+    """Disconnect signal from all slots"""
+    try:
+        signal.disconnect()
+    except TypeError:  # allow unconnected slots
+        pass
+
+
+def get(widget):
+    """Query a widget for its python value"""
+    if hasattr(widget, 'isChecked'):
+        value = widget.isChecked()
+    elif hasattr(widget, 'value'):
+        value = widget.value()
+    elif hasattr(widget, 'text'):
+        value = widget.text()
+    elif hasattr(widget, 'toPlainText'):
+        value = widget.toPlainText()
+    elif hasattr(widget, 'sizes'):
+        value = widget.sizes()
+    elif hasattr(widget, 'date'):
+        value = widget.date().toString(Qt.ISODate)
+    else:
+        value = None
+    return value
 
 
 def hbox(margin, spacing, *items):
@@ -236,8 +254,7 @@ def prompt(msg, title=None, text='', parent=None):
     if parent is None:
         parent = active_window()
     result = QtWidgets.QInputDialog.getText(
-            parent, title, msg,
-            QtWidgets.QLineEdit.Normal, text)
+        parent, title, msg, QtWidgets.QLineEdit.Normal, text)
     return (result[0], result[1])
 
 
@@ -270,7 +287,7 @@ def prompt_n(msg, inputs):
         lineedit = QtWidgets.QLineEdit()
         # Enable the OK button only when all fields have been populated
         lineedit.textChanged.connect(
-                lambda x: ok_b.setEnabled(all(get_values())))
+            lambda x: ok_b.setEnabled(all(get_values())))
         if value:
             lineedit.setText(value)
         form_widgets.append((name, lineedit))
@@ -316,7 +333,7 @@ def paths_from_indexes(model, indexes,
     return paths_from_items(items, item_type=item_type, item_filter=item_filter)
 
 
-def _true_filter(x):
+def _true_filter(_x):
     return True
 
 
@@ -362,9 +379,10 @@ def selected_item(list_widget, items):
     widget_item = widget_items[0]
     row = list_widget.row(widget_item)
     if row < len(items):
-        return items[row]
+        item = items[row]
     else:
-        return None
+        item = None
+    return item
 
 
 def selected_items(list_widget, items):
@@ -434,6 +452,7 @@ def set_clipboard(text):
     persist_clipboard()
 
 
+# pylint: disable=line-too-long
 def persist_clipboard():
     """Persist the clipboard
 
@@ -444,7 +463,7 @@ def persist_clipboard():
 
     C.f. https://stackoverflow.com/questions/2007103/how-can-i-disable-clear-of-clipboard-on-exit-of-pyqt4-application
 
-    """
+    """  # noqa
     clipboard = QtWidgets.QApplication.clipboard()
     event = QtCore.QEvent(QtCore.QEvent.Clipboard)
     QtWidgets.QApplication.sendEvent(clipboard, event)
@@ -485,7 +504,7 @@ def _add_action(widget, text, tip, fn, connect, *shortcuts):
 
 def set_selected_item(widget, idx):
     """Sets a the currently selected item to the item at index idx."""
-    if type(widget) is QtWidgets.QTreeWidget:
+    if isinstance(widget, QtWidgets.QTreeWidget):
         item = widget.topLevelItem(idx)
         if item:
             item.setSelected(True)
@@ -557,29 +576,31 @@ def default_size(parent, width, height, use_parent_height=True):
 
 
 def default_monospace_font():
-    font = QtGui.QFont()
-    family = 'Monospace'
     if utils.is_darwin():
         family = 'Monaco'
-    font.setFamily(family)
-    return font
+    else:
+        family = 'Monospace'
+    mfont = QtGui.QFont()
+    mfont.setFamily(family)
+    return mfont
 
 
-def diff_font_str():
-    font_str = gitcfg.current().get(prefs.FONTDIFF)
-    if font_str is None:
+def diff_font_str(context):
+    cfg = context.cfg
+    font_str = cfg.get(prefs.FONTDIFF)
+    if not font_str:
         font_str = default_monospace_font().toString()
     return font_str
 
 
-def diff_font():
-    return font(diff_font_str())
+def diff_font(context):
+    return font(diff_font_str(context))
 
 
 def font(string):
-    font = QtGui.QFont()
-    font.fromString(string)
-    return font
+    qfont = QtGui.QFont()
+    qfont.fromString(string)
+    return qfont
 
 
 def create_button(text='', layout=None, tooltip=None, icon=None,
@@ -623,8 +644,10 @@ def ok_button(text, default=True, enabled=True, icon=None):
     return create_button(text=text, icon=icon, default=default, enabled=enabled)
 
 
-def close_button():
-    return create_button(text=N_('Close'), icon=icons.close())
+def close_button(text=None, icon=None):
+    text = text or N_('Close')
+    icon = icons.mkicon(icon, icons.close)
+    return create_button(text=text, icon=icon)
 
 
 def edit_button(enabled=True, default=False):
@@ -683,9 +706,9 @@ class DockTitleBarWidget(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent)
         self.setAutoFillBackground(True)
         self.label = qlabel = QtWidgets.QLabel(title, self)
-        font = qlabel.font()
-        font.setBold(True)
-        qlabel.setFont(font)
+        qfont = qlabel.font()
+        qfont.setBold(True)
+        qlabel.setFont(qfont)
         qlabel.setCursor(Qt.OpenHandCursor)
 
         self.close_button = create_action_button(
@@ -747,6 +770,11 @@ def create_dock(title, parent, stretch=True, widget=None, fn=None):
     return dock
 
 
+def hide_dock(widget):
+    widget.toggleViewAction().setChecked(False)
+    widget.hide()
+
+
 def create_menu(title, parent):
     """Create a menu and set its title."""
     qmenu = DebouncingMenu(title, parent)
@@ -769,7 +797,8 @@ class DebouncingMenu(QtWidgets.QMenu):
         self.created_at = utils.epoch_millis()
 
     def mouseReleaseEvent(self, event):
-        if (utils.epoch_millis() - self.created_at) > DebouncingMenu.threshold_ms:
+        threshold = DebouncingMenu.threshold_ms
+        if (utils.epoch_millis() - self.created_at) > threshold:
             QtWidgets.QMenu.mouseReleaseEvent(self, event)
 
 
@@ -799,24 +828,28 @@ def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
     return button
 
 
-def mimedata_from_paths(paths):
-    """Return mimedata with a list of absolute path URLs"""
+# pylint: disable=line-too-long
+def mimedata_from_paths(context, paths):
+    """Return mimedata with a list of absolute path URLs
 
+    The text/x-moz-list format is always included by Qt, and doing
+    mimedata.removeFormat('text/x-moz-url') has no effect.
+    C.f. http://www.qtcentre.org/threads/44643-Dragging-text-uri-list-Qt-inserts-garbage
+
+    gnome-terminal expects utf-16 encoded text, but other terminals,
+    e.g. terminator, prefer utf-8, so allow cola.dragencoding
+    to override the default.
+
+    """  # noqa
+    cfg = context.cfg
     abspaths = [core.abspath(path) for path in paths]
     urls = [QtCore.QUrl.fromLocalFile(path) for path in abspaths]
 
     mimedata = QtCore.QMimeData()
     mimedata.setUrls(urls)
 
-    # The text/x-moz-list format is always included by Qt, and doing
-    # mimedata.removeFormat('text/x-moz-url') has no effect.
-    # C.f. http://www.qtcentre.org/threads/44643-Dragging-text-uri-list-Qt-inserts-garbage
-    #
-    # gnome-terminal expects utf-16 encoded text, but other terminals,
-    # e.g. terminator, prefer utf-8, so allow cola.dragencoding
-    # to override the default.
     paths_text = core.list2cmdline(abspaths)
-    encoding = gitcfg.current().get('cola.dragencoding', 'utf-16')
+    encoding = cfg.get('cola.dragencoding', 'utf-16')
     moz_text = core.encode(paths_text, encoding=encoding)
     mimedata.setData('text/x-moz-url', moz_text)
 
@@ -860,7 +893,7 @@ class Task(QtCore.QRunnable):
     def __init__(self, parent):
         QtCore.QRunnable.__init__(self)
 
-        self.channel = Channel()
+        self.channel = Channel(parent)
         self.result = None
         self.setAutoDelete(False)
 
@@ -916,7 +949,7 @@ class RunTask(QtCore.QObject):
         task_id = id(task)
         try:
             self.tasks.remove(task)
-        except:
+        except ValueError:
             pass
         try:
             progress, finish, result = self.task_details[task_id]

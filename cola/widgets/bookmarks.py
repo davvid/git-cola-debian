@@ -10,7 +10,6 @@ from qtpy.QtCore import Signal
 from .. import cmds
 from .. import core
 from .. import git
-from .. import gitcfg
 from .. import hotkeys
 from .. import icons
 from .. import qtutils
@@ -27,23 +26,32 @@ BOOKMARKS = 0
 RECENT_REPOS = 1
 
 
+def bookmark(context, parent):
+    return BookmarksWidget(context, BOOKMARKS, parent=parent)
+
+
+def recent(context, parent):
+    return BookmarksWidget(context, RECENT_REPOS, parent=parent)
+
+
 class BookmarksWidget(QtWidgets.QWidget):
 
-    def __init__(self, style=BOOKMARKS, parent=None):
+    def __init__(self, context, style=BOOKMARKS, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
         self.style = style
         self.settings = Settings()
-        self.tree = BookmarksTreeWidget(style, self.settings, parent=self)
+        self.tree = BookmarksTreeWidget(
+            context, style, self.settings, parent=self)
 
         self.add_button = qtutils.create_action_button(
-                tooltip=N_('Add'), icon=icons.add())
+            tooltip=N_('Add'), icon=icons.add())
 
-        self.delete_button = qtutils.create_action_button(tooltip=N_('Delete'),
-                                                          icon=icons.remove())
+        self.delete_button = qtutils.create_action_button(
+            tooltip=N_('Delete'), icon=icons.remove())
 
-        self.open_button = qtutils.create_action_button(tooltip=N_('Open'),
-                                                        icon=icons.repo())
+        self.open_button = qtutils.create_action_button(
+            tooltip=N_('Open'), icon=icons.repo())
 
         self.button_group = utils.Group(self.delete_button, self.open_button)
         self.button_group.setEnabled(False)
@@ -90,11 +98,16 @@ class BookmarksWidget(QtWidgets.QWidget):
         other.tree.default_changed.connect(self.tree.refresh)
 
 
+def disable_rename(_path, _name, _new_name):
+    return False
+
+
 class BookmarksTreeWidget(standard.TreeWidget):
     default_changed = Signal()
 
-    def __init__(self, style, settings, parent=None):
+    def __init__(self, context, style, settings, parent=None):
         standard.TreeWidget.__init__(self, parent=parent)
+        self.context = context
         self.style = style
         self.settings = settings
 
@@ -106,36 +119,36 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.setEditTriggers(self.SelectedClicked)
 
         self.open_action = qtutils.add_action(
-                self, N_('Open'), self.open_repo, hotkeys.OPEN)
+            self, N_('Open'), self.open_repo, hotkeys.OPEN)
 
         self.accept_action = qtutils.add_action(
-                self, N_('Accept'), self.accept_repo, *hotkeys.ACCEPT)
+            self, N_('Accept'), self.accept_repo, *hotkeys.ACCEPT)
 
         self.open_new_action = qtutils.add_action(
-                self, N_('Open in New Window'), self.open_new_repo, hotkeys.NEW)
+            self, N_('Open in New Window'), self.open_new_repo, hotkeys.NEW)
 
         self.set_default_repo_action = qtutils.add_action(
-                self, N_('Set Default Repository'), self.set_default_repo)
+            self, N_('Set Default Repository'), self.set_default_repo)
 
         self.clear_default_repo_action = qtutils.add_action(
-                self, N_('Clear Default Repository'), self.clear_default_repo)
+            self, N_('Clear Default Repository'), self.clear_default_repo)
 
         self.rename_repo_action = qtutils.add_action(
-                self, N_('Rename Repository'), self.rename_repo)
+            self, N_('Rename Repository'), self.rename_repo)
 
         self.open_default_action = qtutils.add_action(
-                self, cmds.OpenDefaultApp.name(), self.open_default,
-                hotkeys.PRIMARY_ACTION)
+            self, cmds.OpenDefaultApp.name(), self.open_default,
+            hotkeys.PRIMARY_ACTION)
 
         self.launch_editor_action = qtutils.add_action(
-                self, cmds.Edit.name(), self.launch_editor, hotkeys.EDIT)
+            self, cmds.Edit.name(), self.launch_editor, hotkeys.EDIT)
 
         self.launch_terminal_action = qtutils.add_action(
-                self, cmds.LaunchTerminal.name(), self.launch_terminal,
-                hotkeys.TERMINAL)
+            self, cmds.LaunchTerminal.name(), self.launch_terminal,
+            hotkeys.TERMINAL)
 
         self.copy_action = qtutils.add_action(
-                self, N_('Copy'), self.copy, hotkeys.COPY)
+            self, N_('Copy'), self.copy, hotkeys.COPY)
 
         self.itemChanged.connect(self.item_changed)
         self.itemSelectionChanged.connect(self.item_selection_changed)
@@ -153,8 +166,9 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.clear_default_repo_action.setEnabled(False)
 
     def refresh(self):
+        context = self.context
         settings = self.settings
-        builder = BuildItem()
+        builder = BuildItem(context)
 
         # bookmarks
         if self.style == BOOKMARKS:
@@ -164,7 +178,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
             entries = settings.recent
 
         items = [builder.get(entry['path'], entry['name']) for entry in entries]
-        if self.style == BOOKMARKS and prefs.sort_bookmarks():
+        if self.style == BOOKMARKS and prefs.sort_bookmarks(context):
             items.sort(key=lambda x: x.name)
 
         self.clear()
@@ -189,7 +203,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
         menu.addAction(self.rename_repo_action)
         menu.exec_(self.mapToGlobal(event.pos()))
 
-    def item_changed(self, item, index):
+    def item_changed(self, item, _index):
         self.rename_entry(item, item.text(0))
 
     def rename_entry(self, item, new_name):
@@ -198,7 +212,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
         elif self.style == RECENT_REPOS:
             rename = self.settings.rename_recent
         else:
-            rename = lambda *args: False
+            rename = disable_rename
         if rename(item.path, item.name, new_name):
             self.settings.save()
             item.name = new_name
@@ -214,13 +228,16 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.apply_fn(lambda item: qtutils.set_clipboard(item.path))
 
     def open_default(self):
-        self.apply_fn(lambda item: cmds.do(cmds.OpenDefaultApp, [item.path]))
+        context = self.context
+        self.apply_fn(
+            lambda item: cmds.do(cmds.OpenDefaultApp, context, [item.path]))
 
     def set_default_repo(self):
         self.apply_fn(self.set_default_item)
 
     def set_default_item(self, item):
-        cmds.do(cmds.SetDefaultRepo, item.path)
+        context = self.context
+        cmds.do(cmds.SetDefaultRepo, context, item.path)
         self.refresh()
         self.default_changed.emit()
 
@@ -228,15 +245,16 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.apply_fn(self.clear_default_item)
         self.default_changed.emit()
 
-    def clear_default_item(self, item):
-        cmds.do(cmds.SetDefaultRepo, None)
+    def clear_default_item(self, _item):
+        context = self.context
+        cmds.do(cmds.SetDefaultRepo, context, None)
         self.refresh()
 
     def rename_repo(self):
         self.apply_fn(lambda item: self.editItem(item, 0))
 
     def accept_repo(self):
-        self.apply_fn(lambda item: self.accept_item(item))
+        self.apply_fn(self.accept_item)
 
     def accept_item(self, item):
         if self.state() & self.EditingState:
@@ -248,16 +266,22 @@ class BookmarksTreeWidget(standard.TreeWidget):
             self.open_repo()
 
     def open_repo(self):
-        self.apply_fn(lambda item: cmds.do(cmds.OpenRepo, item.path))
+        context = self.context
+        self.apply_fn(lambda item: cmds.do(cmds.OpenRepo, context, item.path))
 
     def open_new_repo(self):
-        self.apply_fn(lambda item: cmds.do(cmds.OpenNewRepo, item.path))
+        context = self.context
+        self.apply_fn(
+            lambda item: cmds.do(cmds.OpenNewRepo, context, item.path))
 
     def launch_editor(self):
-        self.apply_fn(lambda item: cmds.do(cmds.Edit, [item.path]))
+        context = self.context
+        self.apply_fn(lambda item: cmds.do(cmds.Edit, context, [item.path]))
 
     def launch_terminal(self):
-        self.apply_fn(lambda item: cmds.do(cmds.LaunchTerminal, item.path))
+        context = self.context
+        self.apply_fn(
+            lambda item: cmds.do(cmds.LaunchTerminal, context, item.path))
 
     def item_selection_changed(self):
         item = self.selected_item()
@@ -268,8 +292,9 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.set_default_repo_action.setEnabled(not is_default)
         self.clear_default_repo_action.setEnabled(is_default)
 
-    def tree_double_clicked(self, item, column):
-        cmds.do(cmds.OpenRepo, item.path)
+    def tree_double_clicked(self, item, _column):
+        context = self.context
+        cmds.do(cmds.OpenRepo, context, item.path)
 
     def add_bookmark(self):
         normpath = utils.expandpath(core.getcwd())
@@ -294,6 +319,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
     def delete_bookmark(self):
         """Removes a bookmark from the bookmarks list"""
         item = self.selected_item()
+        context = self.context
         if not item:
             return
         if self.style == BOOKMARKS:
@@ -302,18 +328,19 @@ class BookmarksTreeWidget(standard.TreeWidget):
             cmd = cmds.RemoveRecent
         else:
             return
-        ok, status, out, err = cmds.do(cmd, self.settings, item.path,
-                                       item.name, icon=icons.discard())
+        ok, _, _, _ = cmds.do(
+            cmd, context, self.settings, item.path, item.name,
+            icon=icons.discard())
         if ok:
             self.refresh()
 
 
 class BuildItem(object):
 
-    def __init__(self):
+    def __init__(self, context):
         self.star_icon = icons.star()
         self.folder_icon = icons.folder()
-        cfg = gitcfg.current()
+        cfg = context.cfg
         self.default_repo = cfg.get('cola.defaultrepo')
 
     def get(self, path, name):

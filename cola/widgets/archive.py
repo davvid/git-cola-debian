@@ -7,7 +7,6 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
-from ..git import git
 from ..git import STDOUT
 from ..i18n import N_
 from ..interaction import Interaction
@@ -58,7 +57,7 @@ class ExpandableGroupBox(QtWidgets.QGroupBox):
             self.set_expanded(not self.is_expanded)
         QtWidgets.QGroupBox.mouseReleaseEvent(self, event)
 
-    def paintEvent(self, event):
+    def paintEvent(self, _event):
         painter = QtWidgets.QStylePainter(self)
         option = QtWidgets.QStyleOptionGroupBox()
         self.initStyleOption(option)
@@ -77,11 +76,15 @@ class ExpandableGroupBox(QtWidgets.QGroupBox):
             painter.drawPrimitive(style.PE_IndicatorArrowRight, option)
 
 
-def show_save_dialog(oid, parent=None):
+def save_archive(context):
+    oid = context.git.rev_parse('HEAD')[STDOUT]
+    show_save_dialog(context, oid, parent=qtutils.active_window())
+
+
+def show_save_dialog(context, oid, parent=None):
     shortoid = oid[:7]
-    dlg = Archive(oid, shortoid, parent=parent)
+    dlg = Archive(context, oid, shortoid, parent=parent)
     dlg.show()
-    dlg.raise_()
     if dlg.exec_() != dlg.Accepted:
         return None
     return dlg
@@ -89,8 +92,9 @@ def show_save_dialog(oid, parent=None):
 
 class Archive(Dialog):
 
-    def __init__(self, ref, shortref=None, parent=None):
+    def __init__(self, context, ref, shortref=None, parent=None):
         Dialog.__init__(self, parent=parent)
+        self.context = context
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
 
@@ -114,7 +118,7 @@ class Archive(Dialog):
 
         self.browse = qtutils.create_toolbutton(icon=icons.file_zip())
 
-        stdout = git.archive('--list')[STDOUT]
+        stdout = context.git.archive('--list')[STDOUT]
         self.format_strings = stdout.rstrip().splitlines()
         self.format_combo = qtutils.combo(self.format_strings)
 
@@ -163,7 +167,7 @@ class Archive(Dialog):
         # connections
         self.filetext.textChanged.connect(self.filetext_changed)
         self.prefix_text.textChanged.connect(self.prefix_text_changed)
-        self.format_combo.currentIndexChanged[int].connect(self.update_format)
+        self.format_combo.currentIndexChanged.connect(self.update_format)
         self.prefix_group.expanded.connect(self.prefix_group_expanded)
         self.accepted.connect(self.archive_saved)
 
@@ -174,7 +178,13 @@ class Archive(Dialog):
         self.init_size(parent=parent)
 
     def archive_saved(self):
-        cmds.do(cmds.Archive, self.ref, self.fmt, self.prefix, self.filename)
+        context = self.context
+        ref = self.ref
+        fmt = self.fmt
+        prefix = self.prefix
+        filename = self.filename
+
+        cmds.do(cmds.Archive, context, ref, fmt, prefix, filename)
         Interaction.information(
             N_('File Saved'), N_('File saved to "%s"') % self.filename)
 

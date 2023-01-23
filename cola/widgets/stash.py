@@ -1,4 +1,4 @@
-"""Provides the StashView dialog."""
+"""Widgets for manipulating git stashes"""
 from __future__ import division, absolute_import, unicode_literals
 
 from qtpy import QtCore
@@ -7,6 +7,7 @@ from qtpy.QtCore import Qt
 from ..i18n import N_
 from ..interaction import Interaction
 from ..models import stash
+from ..qtutils import get
 from .. import cmds
 from .. import icons
 from .. import qtutils
@@ -16,11 +17,11 @@ from . import diff
 from . import standard
 
 
-def view(show=True):
+def view(context, show=True):
     """Launches a stash dialog using the provided model + view
     """
-    model = stash.StashModel()
-    stash_view = StashView(model, qtutils.active_window())
+    model = stash.StashModel(context)
+    stash_view = StashView(context, model, parent=qtutils.active_window())
     if show:
         stash_view.show()
         stash_view.raise_()
@@ -29,8 +30,9 @@ def view(show=True):
 
 class StashView(standard.Dialog):
 
-    def __init__(self, model, parent=None):
+    def __init__(self, context, model, parent=None):
         standard.Dialog.__init__(self, parent=parent)
+        self.context = context
         self.model = model
         self.stashes = []
         self.revids = []
@@ -41,7 +43,7 @@ class StashView(standard.Dialog):
             self.setWindowModality(Qt.WindowModal)
 
         self.stash_list = standard.ListWidget(parent=self)
-        self.stash_text = diff.DiffTextEdit(self)
+        self.stash_text = diff.DiffTextEdit(context, self)
 
         self.button_apply = qtutils.create_button(
             text=N_('Apply'),
@@ -58,13 +60,19 @@ class StashView(standard.Dialog):
             tooltip=N_('Drop the selected stash'),
             icon=icons.discard())
 
+        self.button_pop = qtutils.create_button(
+            text=N_('Pop'),
+            tooltip=N_('Apply and drop the selected stash (git stash pop)'),
+            icon=icons.discard())
+
         self.button_close = qtutils.close_button()
 
-        self.keep_index = qtutils.checkbox(text=N_('Keep Index'), checked=True,
+        self.keep_index = qtutils.checkbox(
+            text=N_('Keep Index'), checked=True,
             tooltip=N_('Stash unstaged changes only, keeping staged changes'))
 
-        self.stash_index = qtutils.checkbox(text=N_('Stash Index'),
-            tooltip=N_('Stash staged changes only'))
+        self.stash_index = qtutils.checkbox(
+            text=N_('Stash Index'), tooltip=N_('Stash staged changes only'))
 
         # Arrange layouts
         self.splitter = qtutils.splitter(Qt.Horizontal,
@@ -77,25 +85,21 @@ class StashView(standard.Dialog):
             qtutils.STRETCH,
             self.stash_index,
             self.keep_index,
-            self.button_drop,
+            self.button_save,
             self.button_apply,
-            self.button_save)
+            self.button_pop,
+            self.button_drop)
 
         self.main_layt = qtutils.vbox(defs.margin, defs.spacing,
                                       self.splitter, self.btn_layt)
         self.setLayout(self.main_layt)
-
         self.splitter.setSizes([self.width()//3, self.width()*2//3])
-
-        self.setTabOrder(self.button_save, self.button_apply)
-        self.setTabOrder(self.button_apply, self.button_drop)
-        self.setTabOrder(self.button_drop, self.keep_index)
-        self.setTabOrder(self.keep_index, self.button_close)
 
         self.stash_list.itemSelectionChanged.connect(self.item_selected)
 
-        qtutils.connect_button(self.button_apply, self.stash_apply)
         qtutils.connect_button(self.button_save, self.stash_save)
+        qtutils.connect_button(self.button_apply, self.stash_apply)
+        qtutils.connect_button(self.button_pop, self.stash_pop)
         qtutils.connect_button(self.button_drop, self.stash_drop)
         qtutils.connect_button(self.button_close, self.close_and_rescan)
 
@@ -108,10 +112,10 @@ class StashView(standard.Dialog):
         self.update_actions()
 
     def close_and_rescan(self):
-        cmds.do(cmds.Rescan)
+        cmds.do(cmds.Rescan, self.context)
         self.reject()
 
-    # "stash" and "keep" index should mutually disable, but we don't
+    # "stash" and "keep" index are mutually disable, but we don't
     # want a radio button because we'd have to add a 3rd "default" option.
     def stash_index_clicked(self, clicked):
         if clicked:
@@ -147,9 +151,11 @@ class StashView(standard.Dialog):
         is_changed = self.model.is_changed()
         is_selected = bool(self.selected_stash())
         self.stash_index.setEnabled(is_staged)
+        self.keep_index.setEnabled(is_changed)
         self.button_save.setEnabled(is_changed)
         self.button_apply.setEnabled(is_selected)
         self.button_drop.setEnabled(is_selected)
+        self.button_pop.setEnabled(is_selected)
 
     def update_from_model(self):
         """Initiates git queries on the model and updates the view
@@ -168,19 +174,22 @@ class StashView(standard.Dialog):
         # "Stash Index" depends on staged changes, so disable this option
         # if there are no staged changes.
         is_staged = self.model.is_staged()
-        if self.stash_index.isChecked() and not is_staged:
+        if get(self.stash_index) and not is_staged:
             self.stash_index.setChecked(False)
 
-    def stash_apply(self):
+    def stash_pop(self):
+        self.stash_apply(pop=True)
+
+    def stash_apply(self, pop=False):
         """Applies the currently selected stash
         """
         selection = self.selected_stash()
         if not selection:
             return
-        index = self.keep_index.isChecked()
-        cmds.do(stash.ApplyStash, selection, index)
-        cmds.do(cmds.Rescan)
-        QtCore.QTimer.singleShot(1, lambda: self.accept())
+        context = self.context
+        index = get(self.keep_index)
+        cmds.do(stash.ApplyStash, context, selection, index, pop)
+        QtCore.QTimer.singleShot(1, self.accept)
 
     def stash_save(self):
         """Saves the worktree in a stash
@@ -201,15 +210,14 @@ class StashView(standard.Dialog):
                 N_('Error: Stash exists'),
                 N_('A stash named "%s" already exists') % stash_name)
             return
-
-        keep_index = self.keep_index.isChecked()
-        stash_index = self.stash_index.isChecked()
+        context = self.context
+        keep_index = get(self.keep_index)
+        stash_index = get(self.stash_index)
         if stash_index:
-            cmds.do(stash.StashIndex, stash_name)
+            cmds.do(stash.StashIndex, context, stash_name)
         else:
-            cmds.do(stash.SaveStash, stash_name, keep_index)
-        cmds.do(cmds.Rescan)
-        QtCore.QTimer.singleShot(1, lambda: self.accept())
+            cmds.do(stash.SaveStash, context, stash_name, keep_index)
+        QtCore.QTimer.singleShot(1, self.accept)
 
     def stash_drop(self):
         """Drops the currently selected stash
@@ -225,16 +233,16 @@ class StashView(standard.Dialog):
                 N_('Drop Stash'),
                 default=True, icon=icons.discard()):
             return
-        cmds.do(stash.DropStash, selection)
+        cmds.do(stash.DropStash, self.context, selection)
         self.update_from_model()
         self.stash_text.setPlainText('')
 
     def export_state(self):
         """Export persistent settings"""
         state = super(StashView, self).export_state()
-        state['keep_index'] = self.keep_index.isChecked()
-        state['stash_index'] = self.stash_index.isChecked()
-        state['sizes'] = self.splitter.sizes()
+        state['keep_index'] = get(self.keep_index)
+        state['stash_index'] = get(self.stash_index)
+        state['sizes'] = get(self.splitter)
         return state
 
     def apply_state(self, state):
@@ -246,6 +254,6 @@ class StashView(standard.Dialog):
         self.stash_index.setChecked(stash_index)
         try:
             self.splitter.setSizes(state['sizes'])
-        except:
+        except (KeyError, ValueError, AttributeError):
             pass
         return result

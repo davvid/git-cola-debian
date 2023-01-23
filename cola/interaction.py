@@ -1,5 +1,4 @@
 from __future__ import division, absolute_import, unicode_literals
-
 import os
 import sys
 
@@ -7,6 +6,10 @@ from . import core
 from .i18n import N_
 
 
+# The dependency injection calls to install() in ColaApplication's constructor
+# triggers method-already-defined pylint warnings.  Silence that warning.
+#
+# pylint: disable=function-redefined
 class Interaction(object):
     """Prompts the user and answers questions"""
 
@@ -22,14 +25,14 @@ class Interaction(object):
     @classmethod
     def command_error(cls, title, cmd, status, out, err):
         """Display an error message for a failed command"""
-        core.stderr(title)
-        core.stderr('-' * len(title))
-        core.stderr(cls.format_command_status(cmd, status))
-        core.stdout('')
+        core.print_stderr(title)
+        core.print_stderr('-' * len(title))
+        core.print_stderr(cls.format_command_status(cmd, status))
+        core.print_stdout('')
         if out:
-            core.stdout(out)
+            core.print_stdout(out)
         if err:
-            core.stderr(err)
+            core.print_stderr(err)
 
     @staticmethod
     def format_command_status(cmd, status):
@@ -55,13 +58,13 @@ class Interaction(object):
         scope['title'] = title
         scope['title_dashes'] = '-' * len(title)
         scope['message'] = message
-        scope['details'] = details and '\n'+details or ''
+        scope['details'] = ('\n' + details) if details else ''
         scope['informative_text'] = (
-                informative_text and ('\n' + informative_text) or '')
+            ('\n' + informative_text) if informative_text else '')
         sys.stdout.write("""
 %(title)s
 %(title_dashes)s
-%(message)s%(details)s%(informative_text)s\n""" % scope)
+%(message)s%(informative_text)s%(details)s\n""" % scope)
 
     @classmethod
     def critical(cls, title, message=None, details=None):
@@ -70,7 +73,10 @@ class Interaction(object):
 
     @classmethod
     def confirm(cls, title, text, informative_text, ok_text,
-                icon=None, default=True):
+                icon=None, default=True, cancel_text=None):
+
+        cancel_text = cancel_text or 'Cancel'
+        icon = icon or '?'
 
         cls.information(title, message=text,
                         informative_text=informative_text)
@@ -93,29 +99,30 @@ class Interaction(object):
 
     @classmethod
     def run_command(cls, title, cmd):
+        cls.log('# ' + title)
         cls.log('$ ' + core.list2cmdline(cmd))
         status, out, err = core.run_command(cmd)
         cls.log_status(status, out, err)
         return status, out, err
 
     @classmethod
-    def confirm_config_action(cls, name, opts):
-        return cls.confirm(N_('Run %s?') % name,
-                           N_('Run the "%s" command?') % name,
-                           '',
-                           ok_text=N_('Run'))
+    def confirm_config_action(cls, _context, name, _opts):
+        return cls.confirm(
+            N_('Run %s?') % name,
+            N_('Run the "%s" command?') % name, '',
+            ok_text=N_('Run'))
 
     @classmethod
     def log_status(cls, status, out, err=None):
-        msg = (
-           (out and (out + '\n') or '') +
-           (err and (err + '\n') or ''))
+        msg = (((out + '\n') if out else '') +
+               ((err + '\n') if err else ''))
         cls.log(msg)
+        cls.log('exit status %s' % status)
 
     @classmethod
     def log(cls, message):
         if cls.VERBOSE:
-            core.stdout(message)
+            core.print_stdout(message)
 
     @classmethod
     def save_as(cls, filename, title):
@@ -126,3 +133,9 @@ class Interaction(object):
     @staticmethod
     def async_command(title, command, runtask):
         pass
+
+    @classmethod
+    def choose_ref(cls, _context, title, button_text, default=None, icon=None):
+        icon = icon or '?'
+        cls.information(title, button_text)
+        return sys.stdin.readline().strip() or default

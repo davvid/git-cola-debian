@@ -1,6 +1,5 @@
 from __future__ import division, absolute_import, unicode_literals
 import argparse
-import os
 import sys
 
 from cola import app
@@ -14,6 +13,7 @@ def main(argv=None):
 
 
 def winmain():
+    """Windows git-dag entrypoint"""
     return app.winmain(main)
 
 
@@ -46,5 +46,5 @@ def parse_args(argv=None):
 def cmd_dag(args):
     """Run git-dag via the `git cola dag` sub-command"""
     context = app.application_init(args)
-    view = git_dag(context, args=args, settings=args.settings)
+    view = git_dag(context, args=args, settings=args.settings, show=False)
     return app.application_start(context, view)

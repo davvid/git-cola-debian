@@ -6,6 +6,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
 from ..i18n import N_
+from ..qtutils import get
 from .. import cmds
 from .. import gitcmds
 from .. import hotkeys
@@ -17,8 +18,8 @@ from . import defs
 from . import standard
 
 
-def browse_recent_files():
-    dialog = RecentFiles(parent=qtutils.active_window())
+def browse_recent_files(context):
+    dialog = RecentFiles(context, parent=qtutils.active_window())
     dialog.show()
     return dialog
 
@@ -26,26 +27,29 @@ def browse_recent_files():
 class UpdateFileListThread(QtCore.QThread):
     result = Signal(object)
 
-    def __init__(self, count):
+    def __init__(self, context, count):
         QtCore.QThread.__init__(self)
+        self.context = context
         self.count = count
 
     def run(self):
+        context = self.context
         ref = 'HEAD~%d' % self.count
-        filenames = gitcmds.diff_index_filenames(ref)
+        filenames = gitcmds.diff_index_filenames(context, ref)
         self.result.emit(filenames)
 
 
 class RecentFiles(standard.Dialog):
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         standard.Dialog.__init__(self, parent=parent)
+        self.context = context
         self.setWindowTitle(N_('Recently Modified Files'))
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
 
         count = 8
-        self.update_thread = UpdateFileListThread(count)
+        self.update_thread = UpdateFileListThread(context, count)
 
         self.count = standard.SpinBox(value=count, maxi=10000,
                                       suffix=N_(' commits ago'))
@@ -110,7 +114,7 @@ class RecentFiles(standard.Dialog):
         self.edit_files(filenames)
 
     def edit_files(self, filenames):
-        cmds.do(cmds.Edit, filenames)
+        cmds.do(cmds.Edit, self.context, filenames)
 
     def edit_file(self, filename):
         self.edit_files([filename])
@@ -121,10 +125,10 @@ class RecentFiles(standard.Dialog):
         self.tree_model.clear()
         self.tree.setEnabled(False)
 
-        self.update_thread.count = self.count.value()
+        self.update_thread.count = get(self.count)
         self.update_thread.start()
 
-    def count_changed(self, value):
+    def count_changed(self, _value):
         self.refresh_button.setEnabled(True)
 
     def tree_selection_changed(self):

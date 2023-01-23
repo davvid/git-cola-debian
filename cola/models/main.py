@@ -6,23 +6,15 @@ from __future__ import division, absolute_import, unicode_literals
 import os
 
 from .. import core
-from .. import git
 from .. import gitcmds
-from .. import gitcfg
-from ..compat import ustr
-from ..decorators import memoize
 from ..git import STDOUT
-from ..interaction import Interaction
-from ..i18n import N_
 from ..observable import Observable
-from .selection import selection_model
 from . import prefs
 
 
-@memoize
-def model():
-    """Returns the main model singleton"""
-    return MainModel()
+def create(context):
+    """Create the repository status model"""
+    return MainModel(context)
 
 
 class MainModel(Observable):
@@ -34,6 +26,7 @@ class MainModel(Observable):
     message_about_to_update = 'about_to_update'
     message_commit_message_changed = 'commit_message_changed'
     message_diff_text_changed = 'diff_text_changed'
+    message_diff_text_updated = 'diff_text_updated'
     message_diff_type_changed = 'diff_type_changed'
     message_filename_changed = 'filename_changed'
     message_images_changed = 'images_changed'
@@ -59,20 +52,17 @@ class MainModel(Observable):
     modes_unstageable = set((mode_amend, mode_index))
 
     unstaged = property(
-            lambda self: self.modified + self.unmerged + self.untracked)
+        lambda self: self.modified + self.unmerged + self.untracked)
     """An aggregate of the modified, unmerged, and untracked file lists."""
 
-    def __init__(self, cwd=None, context=None):
-        """Reads git repository settings and sets several methods
-        so that they refer to the git module.  This object
-        encapsulates cola's interaction with git."""
+    def __init__(self, context, cwd=None):
+        """Interface to the main repository status"""
         Observable.__init__(self)
 
-        # Initialize the git command object
-        self.git = context and context.git or git.current()
-        self.cfg = context and context.cfg or gitcfg.current()
-        self.selection = context and context.selection or selection_model()
-        # TODO make context required
+        self.context = context
+        self.git = context.git
+        self.cfg = context.cfg
+        self.selection = context.selection
 
         self.initialized = False
         self.annex = False
@@ -125,7 +115,7 @@ class MainModel(Observable):
         return self.mode in self.modes_stageable
 
     def all_branches(self):
-        return (self.local_branches + self.remote_branches)
+        return self.local_branches + self.remote_branches
 
     def set_worktree(self, worktree):
         self.git.set_worktree(worktree)
@@ -135,11 +125,23 @@ class MainModel(Observable):
             self.project = os.path.basename(cwd)
             self.set_directory(cwd)
             core.chdir(cwd)
-            self.cfg.reset()
-            self.annex = self.cfg.is_annex()
-            lfs = self.git.git_path('lfs')
-            self.lfs = bool(lfs and core.exists(lfs))
+            self.update_config(reset=True)
         return is_valid
+
+    def is_git_lfs_enabled(self):
+        """Return True if `git lfs install` has been run
+
+        We check for the existence of the "lfs" object-storea, and one of the
+        "git lfs install"-provided hooks.  This allows us to detect when
+        "git lfs uninstall" has been run.
+
+        """
+        lfs_filter = self.cfg.get('filter.lfs.clean', default=False)
+        lfs_dir = lfs_filter and self.git.git_path('lfs')
+        lfs_hook = lfs_filter and self.git.git_path('hooks', 'post-merge')
+        return (lfs_filter
+                and lfs_dir and core.exists(lfs_dir)
+                and lfs_hook and core.exists(lfs_hook))
 
     def set_commitmsg(self, msg, notify=True):
         self.commitmsg = msg
@@ -154,14 +156,17 @@ class MainModel(Observable):
             if not msg.endswith('\n'):
                 msg += '\n'
             core.write(path, msg)
-        except:
+        except (OSError, IOError):
             pass
         return path
 
     def set_diff_text(self, txt):
         """Update the text displayed in the diff editor"""
+        changed = txt != self.diff_text
         self.diff_text = txt
-        self.notify_observers(self.message_diff_text_changed, txt)
+        self.notify_observers(self.message_diff_text_updated, txt)
+        if changed:
+            self.notify_observers(self.message_diff_text_changed)
 
     def set_diff_type(self, diff_type):  # text, image
         """Set the diff type to either text or image"""
@@ -219,7 +224,16 @@ class MainModel(Observable):
         self._update_branches_and_tags()
         self._update_branch_heads()
         self._update_commitmsg()
+        self.update_config()
         self.emit_updated()
+
+    def update_config(self, emit=False, reset=False):
+        if reset:
+            self.cfg.reset()
+        self.annex = self.cfg.is_annex()
+        self.lfs = self.is_git_lfs_enabled()
+        if emit:
+            self.emit_updated()
 
     def update_files(self, update_index=False, emit=False):
         self._update_files(update_index=update_index)
@@ -227,11 +241,11 @@ class MainModel(Observable):
             self.emit_updated()
 
     def _update_files(self, update_index=False):
-        display_untracked = prefs.display_untracked()
-        state = gitcmds.worktree_state(head=self.head,
-                                       update_index=update_index,
-                                       display_untracked=display_untracked,
-                                       paths=self.filter_paths)
+        context = self.context
+        display_untracked = prefs.display_untracked(context)
+        state = gitcmds.worktree_state(
+            context, head=self.head, update_index=update_index,
+            display_untracked=display_untracked, paths=self.filter_paths)
         self.staged = state.get('staged', [])
         self.modified = state.get('modified', [])
         self.unmerged = state.get('unmerged', [])
@@ -261,10 +275,12 @@ class MainModel(Observable):
 
     def _update_branch_heads(self):
         # Set these early since they are used to calculate 'upstream_changed'.
-        self.currentbranch = gitcmds.current_branch()
+        self.currentbranch = gitcmds.current_branch(self.context)
 
     def _update_branches_and_tags(self):
-        local_branches, remote_branches, tags = gitcmds.all_refs(split=True)
+        context = self.context
+        local_branches, remote_branches, tags = gitcmds.all_refs(
+            context, split=True)
         self.local_branches = local_branches
         self.remote_branches = remote_branches
         self.tags = tags
@@ -286,7 +302,8 @@ class MainModel(Observable):
         if self.amending():
             return
         # Check if there's a message file in .git/
-        merge_msg_path = gitcmds.merge_message_path()
+        context = self.context
+        merge_msg_path = gitcmds.merge_message_path(context)
         if merge_msg_path:
             msg = core.read(merge_msg_path)
             if msg != self._auto_commitmsg:
@@ -317,7 +334,7 @@ class MainModel(Observable):
 
     def remote_url(self, name, action):
         push = action == 'push'
-        return gitcmds.remote_url(name, push=push)
+        return gitcmds.remote_url(self.context, name, push=push)
 
     def fetch(self, remote, **opts):
         return run_remote_action(self.git.fetch, remote, **opts)
@@ -338,7 +355,7 @@ class MainModel(Observable):
         """
         return self.git.branch(name, base, track=track, force=force)
 
-    def cherry_pick_list(self, revs, **kwargs):
+    def cherry_pick_list(self, revs):
         """Cherry-picks each revision into the current branch.
         Returns a list of command output strings (1 per cherry pick)"""
         if not revs:
@@ -357,15 +374,15 @@ class MainModel(Observable):
         topad = num-len(pstr)
         if topad > 0:
             return pstr + ' '*topad
-        else:
-            return pstr
+        return pstr
 
     def is_commit_published(self):
         """Return True if the latest commit exists in any remote branch"""
         return bool(self.git.branch(r=True, contains='HEAD')[STDOUT])
 
     def untrack_paths(self, paths):
-        status, out, err = gitcmds.untrack_paths(paths, head=self.head)
+        context = self.context
+        status, out, err = gitcmds.untrack_paths(context, paths)
         self.update_file_status()
         return status, out, err
 

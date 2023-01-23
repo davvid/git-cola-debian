@@ -22,26 +22,31 @@ class FileItem(QtWidgets.QTreeWidgetItem):
         self.setIcon(0, icon)
 
 
-def compare_branches():
+def compare_branches(context):
     """Launches a dialog for comparing a pair of branches"""
-    view = CompareBranchesDialog(qtutils.active_window())
+    view = CompareBranchesDialog(context, qtutils.active_window())
     view.show()
     return view
 
 
 class CompareBranchesDialog(standard.Dialog):
 
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         standard.Dialog.__init__(self, parent=parent)
 
+        self.context = context
         self.BRANCH_POINT = N_('*** Branch Point ***')
         self.SANDBOX = N_('*** Sandbox ***')
         self.LOCAL = N_('Local')
+        self.diff_arg = ()
+        self.use_sandbox = False
+        self.start = None
+        self.end = None
 
         self.setWindowTitle(N_('Branch Diff Viewer'))
 
-        self.remote_branches = gitcmds.branch_list(remote=True)
-        self.local_branches = gitcmds.branch_list(remote=False)
+        self.remote_branches = gitcmds.branch_list(context, remote=True)
+        self.local_branches = gitcmds.branch_list(context, remote=False)
 
         self.top_widget = QtWidgets.QWidget()
         self.bottom_widget = QtWidgets.QWidget()
@@ -71,19 +76,19 @@ class CompareBranchesDialog(standard.Dialog):
         self.diff_files.headerItem().setText(0, N_('File Differences'))
 
         self.top_grid_layout = qtutils.grid(
-                defs.no_margin, defs.spacing,
-                (self.left_combo, 0, 0, 1, 1),
-                (self.left_list, 1, 0, 1, 1),
-                (self.right_combo, 0, 1, 1, 1),
-                (self.right_list, 1, 1, 1, 1))
+            defs.no_margin, defs.spacing,
+            (self.left_combo, 0, 0, 1, 1),
+            (self.left_list, 1, 0, 1, 1),
+            (self.right_combo, 0, 1, 1, 1),
+            (self.right_list, 1, 1, 1, 1))
         self.top_widget.setLayout(self.top_grid_layout)
 
         self.bottom_grid_layout = qtutils.grid(
-                defs.no_margin, defs.button_spacing,
-                (self.diff_files, 0, 0, 1, 4),
-                (self.button_spacer, 1, 1, 1, 1),
-                (self.button_close, 1, 0, 1, 1),
-                (self.button_compare, 1, 3, 1, 1))
+            defs.no_margin, defs.button_spacing,
+            (self.diff_files, 0, 0, 1, 4),
+            (self.button_spacer, 1, 1, 1, 1),
+            (self.button_close, 1, 0, 1, 1),
+            (self.button_compare, 1, 3, 1, 1))
         self.bottom_widget.setLayout(self.bottom_grid_layout)
 
         self.splitter = qtutils.splitter(Qt.Vertical,
@@ -98,9 +103,9 @@ class CompareBranchesDialog(standard.Dialog):
 
         self.diff_files.itemDoubleClicked.connect(self.compare)
         self.left_combo.currentIndexChanged.connect(
-                lambda x: self.update_combo_boxes(left=True))
+            lambda x: self.update_combo_boxes(left=True))
         self.right_combo.currentIndexChanged.connect(
-                lambda x: self.update_combo_boxes(left=False))
+            lambda x: self.update_combo_boxes(left=False))
 
         self.left_list.itemSelectionChanged.connect(self.update_diff_files)
         self.right_list.itemSelectionChanged.connect(self.update_diff_files)
@@ -134,7 +139,7 @@ class CompareBranchesDialog(standard.Dialog):
             right_item = None
         return (left_item, right_item)
 
-    def update_diff_files(self, *rest):
+    def update_diff_files(self, *dummy_rest):
         """Updates the list of files whenever the selection changes"""
         # Left and Right refer to the comparison pair (l,r)
         left_item, right_item = self.selection()
@@ -162,10 +167,11 @@ class CompareBranchesDialog(standard.Dialog):
         self.start = left_item
         self.end = right_item
 
+        context = self.context
         if len(self.diff_arg) == 1:
-            files = gitcmds.diff_index_filenames(self.diff_arg[0])
+            files = gitcmds.diff_index_filenames(context, self.diff_arg[0])
         else:
-            files = gitcmds.diff_filenames(*self.diff_arg)
+            files = gitcmds.diff_filenames(context, *self.diff_arg)
 
         self.set_diff_files(files)
 
@@ -178,22 +184,23 @@ class CompareBranchesDialog(standard.Dialog):
     def remote_ref(self, branch):
         """Returns the remote ref for 'git diff [local] [remote]'
         """
+        context = self.context
         if branch == self.BRANCH_POINT:
             # Compare against the branch point so find the merge-base
-            branch = gitcmds.current_branch()
-            tracked_branch = gitcmds.tracked_branch()
+            branch = gitcmds.current_branch(context)
+            tracked_branch = gitcmds.tracked_branch(context)
             if tracked_branch:
-                return gitcmds.merge_base(branch, tracked_branch)
+                return gitcmds.merge_base(context, branch, tracked_branch)
             else:
-                remote_branches = gitcmds.branch_list(remote=True)
+                remote_branches = gitcmds.branch_list(context, remote=True)
                 remote_branch = 'origin/%s' % branch
                 if remote_branch in remote_branches:
-                    return gitcmds.merge_base(branch, remote_branch)
+                    return gitcmds.merge_base(context, branch, remote_branch)
 
-                elif 'origin/master' in remote_branches:
-                    return gitcmds.merge_base(branch, 'origin/master')
-                else:
-                    return 'HEAD'
+                if 'origin/master' in remote_branches:
+                    return gitcmds.merge_base(context, branch, 'origin/master')
+
+                return 'HEAD'
         else:
             # Compare against the remote branch
             return branch
@@ -227,7 +234,7 @@ class CompareBranchesDialog(standard.Dialog):
             widget.setCurrentItem(item)
             item.setSelected(True)
 
-    def compare(self, *args):
+    def compare(self, *dummy_args):
         """Shows the diff for a specific file
         """
         tree_widget = self.diff_files
@@ -245,4 +252,5 @@ class CompareBranchesDialog(standard.Dialog):
                 right = None
         else:
             left, right = self.start, self.end
-        cmds.difftool_launch(left=left, right=right, paths=[filename])
+        context = self.context
+        cmds.difftool_launch(context, left=left, right=right, paths=[filename])

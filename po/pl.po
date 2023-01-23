@@ -166,6 +166,9 @@ msgstr ""
 msgid " - DAG"
 msgstr " - DAG"
 
+msgid " commits ago"
+msgstr " wdrożeń temu"
+
 #, python-format
 msgid "\"%(branch)s\" has been deleted from \"%(remote)s\"."
 msgstr "\"%(branch)s\" została usunięta z \"%(remote)s\"."
@@ -457,6 +460,10 @@ msgstr "Stosowanie łat"
 
 msgid "Apply Patches..."
 msgstr "Zastosuj łaty..."
+
+#, fuzzy
+msgid "Apply and drop the selected stash (git stash pop)"
+msgstr "Zastosuj wybraną przechowalnię"
 
 msgid "Apply the selected stash"
 msgstr "Zastosuj wybraną przechowalnię"
@@ -1202,6 +1209,9 @@ msgstr "Pomoc - Znajdź pliki"
 msgid "Help - git-xbase"
 msgstr ""
 
+msgid "Hide Details.."
+msgstr ""
+
 msgid "History Browser"
 msgstr "Przeglądarka historii"
 
@@ -1551,6 +1561,9 @@ msgstr "Ustawić HEAD bieżącej gałęzi na nowe wdrożenie?"
 msgid "Polish translation"
 msgstr ""
 
+msgid "Pop"
+msgstr ""
+
 msgid "Preferences"
 msgstr "Ustawienia"
 
@@ -1667,6 +1680,9 @@ msgstr "Usunąć %s z listy ostatnich?"
 msgid "Remove Element"
 msgstr "Usuń"
 
+msgid "Remove remote-tracking branches that no longer exist on the remote"
+msgstr ""
+
 msgid "Remove selected (Delete)"
 msgstr "Usuń wybrane (Usuń)"
 
@@ -1702,9 +1718,6 @@ msgstr "Zmień nazwę gałęzi..."
 msgid "Rename remote \"%(current)s\" to \"%(new)s\"?"
 msgstr "Zmień nazwę zdalnego repozytorium z \"%(current)s\" na \"%(new)s\"?"
 
-msgid "Rename remote?"
-msgstr "Zmienić nazwę zdalnego repozytorium?"
-
 #, fuzzy
 msgid "Rename selected paths"
 msgstr "Edytuj wybraną ścieżkę/ścieżki"
@@ -1729,8 +1742,32 @@ msgstr "Wyzeruj HEAD gałęzi"
 msgid "Reset Branch?"
 msgstr "Wyzerować gałąź?"
 
+#, fuzzy
+msgid "Reset Hard"
+msgstr "Wyzeruj HEAD gałęzi"
+
+#, fuzzy
+msgid "Reset Merge"
+msgstr "Wydanie do scalenia"
+
+#, fuzzy
+msgid "Reset Soft"
+msgstr "Wyzeruj drzewo robocze"
+
 msgid "Reset Worktree"
 msgstr "Wyzeruj drzewo robocze"
+
+#, fuzzy
+msgid "Reset hard?"
+msgstr "Wyzerować gałąź?"
+
+#, fuzzy
+msgid "Reset merge?"
+msgstr "Wyzerować drzewo robocze?"
+
+#, fuzzy
+msgid "Reset soft?"
+msgstr "Wyzerować drzewo robocze?"
 
 msgid "Reset worktree?"
 msgstr "Wyzerować drzewo robocze?"
@@ -1738,6 +1775,9 @@ msgstr "Wyzerować drzewo robocze?"
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Wyzerowanie \"%(branch)s\" do \"%(revision)s\" spowoduje utratę wdrożeń."
+
+msgid "Revert"
+msgstr ""
 
 msgid "Revert Diff Hunk"
 msgstr "Wycofaj kawałek różnicy"
@@ -1917,9 +1957,6 @@ msgstr "Wybierz wdrożenie"
 msgid "Select Directory..."
 msgstr "Wybierz repozytorium..."
 
-msgid "Select File"
-msgstr "Wybierz plik"
-
 msgid "Select New Upstream"
 msgstr "Wybierz nowe źródło odgórne"
 
@@ -1940,10 +1977,6 @@ msgstr "Wybierz repozytorium..."
 
 msgid "Select a parent directory for the new clone"
 msgstr "Wybierz katalog nadrzędny do sklonowania"
-
-#, python-format
-msgid "Select file from \"%s\""
-msgstr "Wybierz plik z \"%s\""
 
 msgid "Select manually..."
 msgstr "Wybierz ręcznie..."
@@ -1988,6 +2021,10 @@ msgstr ""
 
 msgid "Shortcuts"
 msgstr "Skróty"
+
+#, fuzzy
+msgid "Show Details..."
+msgstr "Usuń plik(i)..."
 
 msgid "Show Diffstat After Merge"
 msgstr "Pokaż statystykę różnicy po scaleniu"
@@ -2180,8 +2217,20 @@ msgstr "Szerokość tekstu"
 msgid "The branch will be no longer available."
 msgstr ""
 
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --hard %s\""
+msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --mixed %s\""
+
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --merge %s\""
+msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --mixed %s\""
+
 #, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
+msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --mixed %s\""
+
+#, fuzzy, python-format
+msgid "The branch will be reset using \"git reset --soft %s\""
 msgstr "Gałąź zostanie wyzerowana przy użyciu \"git reset --mixed %s\""
 
 msgid "The commit message will be cleared."
@@ -2197,8 +2246,8 @@ msgstr "Zostaną usunięte następujące pliki:"
 msgid "The revision expression cannot be empty."
 msgstr "Wyrażenie wydania nie może być puste."
 
-#, python-format
-msgid "The worktree will be reset using \"git reset --merge %s\""
+#, fuzzy, python-format
+msgid "The worktree will be reset using \"git reset --keep %s\""
 msgstr "Drzewo robocze zostanie wyzerowane przy użyciu \"git reset --merge %s\""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2371,6 +2420,9 @@ msgstr "Czy chcesz zebrać i wdrożyć wszystkie zmienione pliki?"
 msgid "XOR"
 msgstr ""
 
+msgid "Yes"
+msgstr ""
+
 msgid ""
 "You are in the middle of a merge.\n"
 "Cannot amend while merging."
@@ -2398,6 +2450,9 @@ msgstr "Dopasuj"
 
 msgid "command-line arguments"
 msgstr "argumenty wiersza poleceń"
+
+msgid "error: unable to execute git"
+msgstr ""
 
 #, python-format
 msgid "exit code %s"
@@ -2431,9 +2486,6 @@ msgstr "vX.Y.Z"
 
 msgid "yyyy-MM-dd"
 msgstr "yyyy-MM-dd"
-
-#~ msgid " commits ago"
-#~ msgstr " wdrożeń temu"
 
 #, fuzzy
 #~ msgid "\"%s\" returned exit status %d"
@@ -2490,6 +2542,15 @@ msgstr "yyyy-MM-dd"
 #, fuzzy
 #~ msgid "Remote Branches"
 #~ msgstr "Zdalna gałąź"
+
+#~ msgid "Rename remote?"
+#~ msgstr "Zmienić nazwę zdalnego repozytorium?"
+
+#~ msgid "Select File"
+#~ msgstr "Wybierz plik"
+
+#~ msgid "Select file from \"%s\""
+#~ msgstr "Wybierz plik z \"%s\""
 
 #~ msgid "Staging Area"
 #~ msgstr "Punkt zbiorczy"

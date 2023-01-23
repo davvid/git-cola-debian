@@ -1,6 +1,7 @@
 """File finder widgets"""
 from __future__ import division, absolute_import, unicode_literals
 import os
+from functools import partial
 
 from qtpy import QtCore
 from qtpy import QtWidgets
@@ -8,6 +9,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
 from ..i18n import N_
+from ..qtutils import get
 from ..utils import Group
 from .. import cmds
 from .. import core
@@ -23,17 +25,18 @@ from . import standard
 from . import text
 
 
-def finder(paths=None):
+def finder(context, paths=None):
     """Prompt and use 'git grep' to find the content."""
-    widget = new_finder(paths=paths, parent=qtutils.active_window())
+    parent = qtutils.active_window()
+    widget = new_finder(context, paths=paths, parent=parent)
     widget.show()
     widget.raise_()
     return widget
 
 
-def new_finder(paths=None, parent=None):
+def new_finder(context, paths=None, parent=None):
     """Create a finder widget"""
-    widget = Finder(parent=parent)
+    widget = Finder(context, parent=parent)
     widget.search_for(paths or '')
     return widget
 
@@ -56,7 +59,7 @@ def add_wildcards(arg):
     return arg
 
 
-def show_help():
+def show_help(context):
     """Show the help page"""
     help_text = N_("""
 Keyboard Shortcuts
@@ -72,7 +75,7 @@ The up and down arrows change focus between the text entry field
 and the results.
 """)
     title = N_('Help - Find Files')
-    return text.text_dialog(help_text, title)
+    return text.text_dialog(context, help_text, title)
 
 
 class FindFilesThread(QtCore.QThread):
@@ -80,17 +83,19 @@ class FindFilesThread(QtCore.QThread):
 
     result = Signal(object)
 
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         QtCore.QThread.__init__(self, parent)
+        self.context = context
         self.query = None
 
     def run(self):
+        context = self.context
         query = self.query
         if query is None:
             args = []
         else:
             args = [add_wildcards(arg) for arg in utils.shell_split(query)]
-        filenames = gitcmds.tracked_files(*args)
+        filenames = gitcmds.tracked_files(context, *args)
         if query == self.query:
             self.result.emit(filenames)
         else:
@@ -100,15 +105,17 @@ class FindFilesThread(QtCore.QThread):
 class Finder(standard.Dialog):
     """File Finder dialog"""
 
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         standard.Dialog.__init__(self, parent)
+        self.context = context
         self.setWindowTitle(N_('Find Files'))
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
 
         label = os.path.basename(core.getcwd()) + '/'
         self.input_label = QtWidgets.QLabel(label)
-        self.input_txt = completion.GitTrackedLineEdit(hint=N_('<path> ...'))
+        self.input_txt = completion.GitTrackedLineEdit(
+            context, hint=N_('<path> ...'))
 
         self.tree = filetree.FileTree(parent=self)
 
@@ -150,7 +157,7 @@ class Finder(standard.Dialog):
         self.setLayout(self.main_layout)
         self.setFocusProxy(self.input_txt)
 
-        thread = self.worker_thread = FindFilesThread(self)
+        thread = self.worker_thread = FindFilesThread(context, self)
         thread.result.connect(self.process_result, type=Qt.QueuedConnection)
 
         self.input_txt.textChanged.connect(lambda s: self.search())
@@ -167,7 +174,8 @@ class Finder(standard.Dialog):
                            hotkeys.FOCUS, hotkeys.FINDER)
 
         self.show_help_action = qtutils.add_action(
-                self, N_('Show Help'), show_help, hotkeys.QUESTION)
+            self, N_('Show Help'), partial(show_help, context),
+            hotkeys.QUESTION)
 
         qtutils.connect_button(self.edit_button, self.edit)
         qtutils.connect_button(self.open_default_button, self.open_default)
@@ -187,7 +195,7 @@ class Finder(standard.Dialog):
     def search(self):
         self.button_group.setEnabled(False)
         self.refresh_button.setEnabled(False)
-        query = self.input_txt.value()
+        query = get(self.input_txt)
         self.worker_thread.query = query
         self.worker_thread.start()
 
@@ -200,12 +208,14 @@ class Finder(standard.Dialog):
         self.refresh_button.setEnabled(True)
 
     def edit(self):
+        context = self.context
         paths = self.tree.selected_filenames()
-        cmds.do(cmds.Edit, paths, background_editor=True)
+        cmds.do(cmds.Edit, context, paths, background_editor=True)
 
     def open_default(self):
+        context = self.context
         paths = self.tree.selected_filenames()
-        cmds.do(cmds.OpenDefaultApp, paths)
+        cmds.do(cmds.OpenDefaultApp, context, paths)
 
     def tree_item_selection_changed(self):
         enabled = bool(self.tree.selected_item())

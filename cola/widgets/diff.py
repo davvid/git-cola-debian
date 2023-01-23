@@ -10,13 +10,11 @@ from qtpy.QtCore import Signal
 
 from ..i18n import N_
 from ..interaction import Interaction
-from ..models import main
-from ..models import selection
+from ..qtutils import get
 from .. import actions
 from .. import cmds
 from .. import core
 from .. import diffparse
-from .. import gitcfg
 from .. import gitcmds
 from .. import gravatar
 from .. import hotkeys
@@ -48,14 +46,14 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
                                       r'(?:@@@ (?:-[0-9,]+ ){2}\+[0-9,]+ @@@)')
     BAD_WHITESPACE_RGX = re.compile(r'\s+$')
 
-    def __init__(self, doc, whitespace=True, is_commit=False):
+    def __init__(self, context, doc, whitespace=True, is_commit=False):
         QtGui.QSyntaxHighlighter.__init__(self, doc)
         self.whitespace = whitespace
         self.enabled = True
         self.is_commit = is_commit
 
         QPalette = QtGui.QPalette
-        cfg = gitcfg.current()
+        cfg = context.cfg
         palette = QPalette()
         disabled = palette.color(QPalette.Disabled, QPalette.Text)
         header = qtutils.rgb_hex(disabled)
@@ -135,15 +133,15 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
 
 class DiffTextEdit(VimHintedPlainTextEdit):
 
-    def __init__(self, parent,
+    def __init__(self, context, parent,
                  is_commit=False, whitespace=True, numbers=False):
-        VimHintedPlainTextEdit.__init__(self, '', parent=parent)
+        VimHintedPlainTextEdit.__init__(self, context, '', parent=parent)
         # Diff/patch syntax highlighter
-        self.highlighter = DiffSyntaxHighlighter(self.document(),
-                                                 is_commit=is_commit,
-                                                 whitespace=whitespace)
+        self.highlighter = DiffSyntaxHighlighter(
+            context, self.document(),
+            is_commit=is_commit, whitespace=whitespace)
         if numbers:
-            self.numbers = DiffLineNumbers(self)
+            self.numbers = DiffLineNumbers(context, self)
             self.numbers.hide()
         else:
             self.numbers = None
@@ -167,7 +165,7 @@ class DiffTextEdit(VimHintedPlainTextEdit):
         if self.scrollvalue is None:
             scrollbar = self.verticalScrollBar()
             if scrollbar:
-                scrollvalue = scrollbar.value()
+                scrollvalue = get(scrollbar)
             else:
                 scrollvalue = None
             self.scrollvalue = scrollvalue
@@ -179,7 +177,6 @@ class DiffTextEdit(VimHintedPlainTextEdit):
         if scrollbar and scrollvalue is not None:
             scrollbar.setValue(scrollvalue)
         self.scrollvalue = None
-
 
     def set_loading_message(self):
         self.hint.set_value('+++ ' + N_('Loading...'))
@@ -198,17 +195,16 @@ class DiffTextEdit(VimHintedPlainTextEdit):
         self.restore_scrollbar()
 
 
-
 class DiffLineNumbers(TextDecorator):
 
-    def __init__(self, parent):
+    def __init__(self, context, parent):
         TextDecorator.__init__(self, parent)
         self.highlight_line = -1
         self.lines = None
         self.parser = diffparse.DiffLines()
         self.formatter = diffparse.FormatDigits()
 
-        self.setFont(qtutils.diff_font())
+        self.setFont(qtutils.diff_font(context))
         self._char_width = self.fontMetrics().width('0')
 
         QPalette = QtGui.QPalette
@@ -265,13 +261,11 @@ class DiffLineNumbers(TextDecorator):
         editor = self.editor
         content_offset = editor.contentOffset()
         block = editor.firstVisibleBlock()
-        current_block_number = max(0, editor.textCursor().blockNumber())
         width = self.width()
         event_rect_bottom = event.rect().bottom()
 
         highlight = self._highlight
         highlight_text = self._highlight_text
-        window = self._window
         disabled = self._disabled
 
         fmt = self.formatter
@@ -291,13 +285,11 @@ class DiffLineNumbers(TextDecorator):
 
             rect = block_geom.translated(content_offset).toRect()
             if block_number == self.highlight_line:
-                painter.setPen(highlight_text)
                 painter.fillRect(rect.x(), rect.y(),
                                  width, rect.height(), highlight)
+                painter.setPen(highlight_text)
+            else:
                 painter.setPen(disabled)
-            elif block_number == current_block_number:
-                painter.fillRect(rect.x(), rect.y(),
-                                 width, rect.height(), window)
 
             line = lines[block_number]
             if len(line) == 2:
@@ -324,13 +316,13 @@ class Viewer(QtWidgets.QWidget):
         super(Viewer, self).__init__(parent)
 
         self.context = context
+        self.model = model = context.model
         self.images = []
         self.pixmaps = []
         self.options = options = Options(self)
-        self.text = DiffEditor(options, self, context)
+        self.text = DiffEditor(context, options, self)
         self.image = imageview.ImageView(parent=self)
         self.image.setFocusPolicy(Qt.NoFocus)
-        self.model = model = main.model()
 
         stack = self.stack = QtWidgets.QStackedWidget(self)
         stack.addWidget(self.text)
@@ -381,6 +373,9 @@ class Viewer(QtWidgets.QWidget):
             self.render()
         else:
             self.stack.setCurrentWidget(self.text)
+
+    def update_options(self):
+        self.text.update_options()
 
     def reset(self):
         self.image.pixmap = QtGui.QPixmap()
@@ -490,7 +485,7 @@ class Viewer(QtWidgets.QWidget):
 
 def create_image(width, height):
     size = QtCore.QSize(width, height)
-    image =  QtGui.QImage(size, QtGui.QImage.Format_ARGB32_Premultiplied)
+    image = QtGui.QImage(size, QtGui.QImage.Format_ARGB32_Premultiplied)
     image.fill(Qt.transparent)
     return image
 
@@ -536,7 +531,7 @@ class Options(QtWidgets.QWidget):
             tooltip=N_('Diff Options'), icon=icons.configure())
         qtutils.hide_button_menu_indicator(options)
 
-        self.image_mode = mode = qtutils.combo([
+        self.image_mode = qtutils.combo([
             N_('Side by side'),
             N_('Diff'),
             N_('XOR'),
@@ -564,7 +559,8 @@ class Options(QtWidgets.QWidget):
         menu.addAction(self.show_line_numbers)
         menu.addAction(self.function_context)
 
-        layout = qtutils.hbox(defs.no_margin, defs.no_spacing,
+        layout = qtutils.hbox(
+            defs.no_margin, defs.no_spacing,
             self.image_mode, defs.button_spacing, self.zoom_mode, options)
         self.setLayout(layout)
 
@@ -586,14 +582,12 @@ class Options(QtWidgets.QWidget):
         return action
 
     def update_options(self):
-        space_at_eol = self.ignore_space_at_eol.isChecked()
-        space_change = self.ignore_space_change.isChecked()
-        all_space = self.ignore_all_space.isChecked()
-        function_context = self.function_context.isChecked()
-        gitcmds.update_diff_overrides(space_at_eol,
-                                      space_change,
-                                      all_space,
-                                      function_context)
+        space_at_eol = get(self.ignore_space_at_eol)
+        space_change = get(self.ignore_space_change)
+        all_space = get(self.ignore_all_space)
+        function_context = get(self.function_context)
+        gitcmds.update_diff_overrides(
+            space_at_eol, space_change, all_space, function_context)
         self.widget.update_options()
 
 
@@ -603,12 +597,13 @@ class DiffEditor(DiffTextEdit):
     down = Signal()
     options_changed = Signal()
     updated = Signal()
-    diff_text_changed = Signal(object)
+    diff_text_updated = Signal(object)
 
-    def __init__(self, options, parent, context):
-        DiffTextEdit.__init__(self, parent, numbers=True)
-        self.model = model = main.model()
+    def __init__(self, context, options, parent):
+        DiffTextEdit.__init__(self, context, parent, numbers=True)
         self.context = context
+        self.model = model = context.model
+        self.selection_model = selection_model = context.selection
 
         # "Diff Options" tool menu
         self.options = options
@@ -619,30 +614,31 @@ class DiffEditor(DiffTextEdit):
             self, 'Revert', self.revert_selection, hotkeys.REVERT)
         self.action_revert_selection.setIcon(icons.undo())
 
-        self.launch_editor = actions.launch_editor(self, *hotkeys.ACCEPT)
-        self.launch_difftool = actions.launch_difftool(self, self.context)
-        self.stage_or_unstage = actions.stage_or_unstage(self)
+        self.launch_editor = actions.launch_editor(context, self,
+                                                   *hotkeys.ACCEPT)
+        self.launch_difftool = actions.launch_difftool(context, self)
+        self.stage_or_unstage = actions.stage_or_unstage(context, self)
 
         # Emit up/down signals so that they can be routed by the main widget
         self.move_up = actions.move_up(self)
         self.move_down = actions.move_down(self)
 
-        diff_text_changed = model.message_diff_text_changed
-        model.add_observer(diff_text_changed, self.diff_text_changed.emit)
-        self.diff_text_changed.connect(self.set_diff, type=Qt.QueuedConnection)
+        diff_text_updated = model.message_diff_text_updated
+        model.add_observer(diff_text_updated, self.diff_text_updated.emit)
+        self.diff_text_updated.connect(self.set_diff, type=Qt.QueuedConnection)
 
-        self.selection_model = selection_model = selection.selection_model()
-        selection_model.add_observer(selection_model.message_selection_changed,
-                                     self.updated.emit)
+        selection_model.add_observer(
+            selection_model.message_selection_changed, self.updated.emit)
         self.updated.connect(self.refresh, type=Qt.QueuedConnection)
 
     def refresh(self):
         enabled = False
         s = self.selection_model.selection()
-        if s.modified and self.model.stageable():
-            if s.modified[0] in self.model.submodules:
+        model = self.model
+        if s.modified and model.stageable():
+            if s.modified[0] in model.submodules:
                 pass
-            elif s.modified[0] not in main.model().unstaged_deleted:
+            elif s.modified[0] not in model.unstaged_deleted:
                 enabled = True
         self.action_revert_selection.setEnabled(enabled)
 
@@ -653,7 +649,7 @@ class DiffEditor(DiffTextEdit):
 
     def show_line_numbers(self):
         """Return True if we should show line numbers"""
-        return self.options.show_line_numbers.isChecked()
+        return get(self.options.show_line_numbers)
 
     def update_options(self):
         self.numbers.setVisible(self.show_line_numbers())
@@ -663,25 +659,29 @@ class DiffEditor(DiffTextEdit):
     def contextMenuEvent(self, event):
         """Create the context menu for the diff display."""
         menu = qtutils.create_menu(N_('Actions'), self)
-        s = selection.selection()
-        filename = selection.filename()
+        context = self.context
+        model = self.model
+        s = self.selection_model.selection()
+        filename = self.selection_model.filename()
 
-        if self.model.stageable() or self.model.unstageable():
-            if self.model.stageable():
+        if model.stageable() or model.unstageable():
+            if model.stageable():
                 self.stage_or_unstage.setText(N_('Stage'))
             else:
                 self.stage_or_unstage.setText(N_('Unstage'))
             menu.addAction(self.stage_or_unstage)
 
-        if s.modified and self.model.stageable():
-            if s.modified[0] in main.model().submodules:
-                action = menu.addAction(icons.add(), cmds.Stage.name(),
-                                        cmds.run(cmds.Stage, s.modified))
+        if s.modified and model.stageable():
+            item = s.modified[0]
+            if item in model.submodules:
+                path = core.abspath(item)
+                action = menu.addAction(
+                    icons.add(), cmds.Stage.name(),
+                    cmds.run(cmds.Stage, context, s.modified))
                 action.setShortcut(hotkeys.STAGE_SELECTION)
                 menu.addAction(icons.cola(), N_('Launch git-cola'),
-                               cmds.run(cmds.OpenRepo,
-                                        core.abspath(s.modified[0])))
-            elif s.modified[0] not in main.model().unstaged_deleted:
+                               cmds.run(cmds.OpenRepo, context, path))
+            elif item not in model.unstaged_deleted:
                 if self.has_selection():
                     apply_text = N_('Stage Selected Lines')
                     revert_text = N_('Revert Selected Lines...')
@@ -697,15 +697,17 @@ class DiffEditor(DiffTextEdit):
                 menu.addAction(self.action_apply_selection)
                 menu.addAction(self.action_revert_selection)
 
-        if s.staged and self.model.unstageable():
-            if s.staged[0] in main.model().submodules:
-                action = menu.addAction(icons.remove(), cmds.Unstage.name(),
-                                        cmds.do(cmds.Unstage, s.staged))
+        if s.staged and model.unstageable():
+            item = s.staged[0]
+            if item in model.submodules:
+                path = core.abspath(item)
+                action = menu.addAction(
+                    icons.remove(), cmds.Unstage.name(),
+                    cmds.run(cmds.Unstage, context, s.staged))
                 action.setShortcut(hotkeys.STAGE_SELECTION)
                 menu.addAction(icons.cola(), N_('Launch git-cola'),
-                               cmds.do(cmds.OpenRepo,
-                                       core.abspath(s.staged[0])))
-            elif s.staged[0] not in main.model().staged_deleted:
+                               cmds.run(cmds.OpenRepo, context, path))
+            elif item not in model.staged_deleted:
                 if self.has_selection():
                     apply_text = N_('Unstage Selected Lines')
                 else:
@@ -715,7 +717,7 @@ class DiffEditor(DiffTextEdit):
                 self.action_apply_selection.setIcon(icons.remove())
                 menu.addAction(self.action_apply_selection)
 
-        if self.model.stageable() or self.model.unstageable():
+        if model.stageable() or model.unstageable():
             # Do not show the "edit" action when the file does not exist.
             # Untracked files exist by definition.
             if filename and core.exists(filename):
@@ -749,18 +751,19 @@ class DiffEditor(DiffTextEdit):
                 cursor = self.cursorForPosition(event.pos())
                 self.setTextCursor(cursor)
 
-        return DiffTextEdit.mousePressEvent(self, event)
+        return super(DiffEditor, self).mousePressEvent(event)
 
     def setPlainText(self, text):
         """setPlainText(str) while retaining scrollbar positions"""
-        mode = self.model.mode
-        highlight = (mode != self.model.mode_none and
-                     mode != self.model.mode_untracked)
+        model = self.model
+        mode = model.mode
+        highlight = (mode != model.mode_none and
+                     mode != model.mode_untracked)
         self.highlighter.set_enabled(highlight)
 
         scrollbar = self.verticalScrollBar()
         if scrollbar:
-            scrollvalue = scrollbar.value()
+            scrollvalue = get(scrollbar)
         else:
             scrollvalue = None
 
@@ -782,7 +785,7 @@ class DiffEditor(DiffTextEdit):
         line_idx = 0
         line_start = 0
 
-        for line_idx, line in enumerate(self.value().splitlines()):
+        for line_idx, line in enumerate(get(self).splitlines()):
             line_end = line_start + len(line)
             if line_start <= selection_start <= line_end:
                 first_line_idx = line_idx
@@ -800,10 +803,11 @@ class DiffEditor(DiffTextEdit):
         return first_line_idx, last_line_idx
 
     def apply_selection(self):
-        s = selection.single_selection()
-        if self.model.stageable() and s.modified:
+        model = self.model
+        s = self.selection_model.single_selection()
+        if model.stageable() and s.modified:
             self.process_diff_selection()
-        elif self.model.unstageable():
+        elif model.unstageable():
             self.process_diff_selection(reverse=True)
 
     def revert_selection(self):
@@ -827,19 +831,22 @@ class DiffEditor(DiffTextEdit):
 
     def process_diff_selection(self, reverse=False, apply_to_worktree=False):
         """Implement un/staging of the selected line(s) or hunk."""
-        if selection.selection_model().is_empty():
+        if self.selection_model.is_empty():
             return
+        context = self.context
         first_line_idx, last_line_idx = self.selected_lines()
-        cmds.do(cmds.ApplyDiffSelection, first_line_idx, last_line_idx,
+        cmds.do(cmds.ApplyDiffSelection, context,
+                first_line_idx, last_line_idx,
                 self.has_selection(), reverse, apply_to_worktree)
 
 
 class DiffWidget(QtWidgets.QWidget):
 
-    def __init__(self, notifier, context, parent, is_commit=False):
+    def __init__(self, context, notifier, parent, is_commit=False):
         QtWidgets.QWidget.__init__(self, parent)
 
         self.context = context
+        self.oid = 'HEAD'
 
         author_font = QtGui.QFont(self.font())
         author_font.setPointSize(int(author_font.pointSize() * 1.1))
@@ -872,7 +879,8 @@ class DiffWidget(QtWidgets.QWidget):
         self.oid_label.setAlignment(Qt.AlignTop)
         self.oid_label.elide()
 
-        self.diff = DiffTextEdit(self, is_commit=is_commit, whitespace=False)
+        self.diff = DiffTextEdit(
+            context, self, is_commit=is_commit, whitespace=False)
 
         self.info_layout = qtutils.vbox(defs.no_margin, defs.no_spacing,
                                         self.author_label, self.summary_label,
@@ -889,10 +897,14 @@ class DiffWidget(QtWidgets.QWidget):
         notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
         notifier.add_observer(FILES_SELECTED, self.files_selected)
 
+    def set_tabwidth(self, width):
+        self.diff.set_tabwidth(width)
+
     def set_diff_oid(self, oid, filename=None):
+        context = self.context
         self.diff.save_scrollbar()
         self.diff.set_loading_message()
-        task = DiffInfoTask(oid, filename, self)
+        task = DiffInfoTask(context, oid, filename, self)
         self.context.runtask.start(task, result=self.diff.set_diff)
 
     def commits_selected(self, commits):
@@ -906,9 +918,9 @@ class DiffWidget(QtWidgets.QWidget):
         author = commit.author or ''
 
         template_args = {
-                'author': author,
-                'email': email,
-                'summary': summary
+            'author': author,
+            'email': email,
+            'summary': summary
         }
 
         author_text = ("""%(author)s &lt;"""
@@ -981,10 +993,13 @@ class TextLabel(QtWidgets.QLabel):
 
 class DiffInfoTask(qtutils.Task):
 
-    def __init__(self, oid, filename, parent):
+    def __init__(self, context, oid, filename, parent):
         qtutils.Task.__init__(self, parent)
+        self.context = context
         self.oid = oid
         self.filename = filename
 
     def task(self):
-        return gitcmds.diff_info(self.oid, filename=self.filename)
+        context = self.context
+        oid = self.oid
+        return gitcmds.diff_info(context, oid, filename=self.filename)

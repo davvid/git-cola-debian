@@ -1,12 +1,10 @@
 """Launcher and command line interface to git-cola"""
 from __future__ import absolute_import, division, unicode_literals
 import argparse
-import os
 import sys
 
 from . import app
 from . import cmds
-from . import compat
 from . import core
 
 
@@ -18,11 +16,12 @@ def main(argv=None):
     # when none has been specified.  We fake it by injecting
     # 'cola' into the command-line so that parse_args()
     # routes them to the 'cola' parser by default.
+    help_commands = core.encode('--help-commands')
+    args = [core.encode(arg) for arg in argv]
     if (len(argv) < 1 or
-            argv[0].startswith('-') and
-            '--help-commands' not in argv):
+            argv[0].startswith('-') and help_commands not in args):
         argv.insert(0, 'cola')
-    elif '--help-commands' in argv:
+    elif help_commands in argv:
         argv.append('--help')
     args = parse_args(argv)
     return args.func(args)
@@ -82,6 +81,7 @@ def add_cola_command(subparser):
 
 def add_about_command(parent):
     add_command(parent, 'about', 'about git-cola', cmd_about)
+
 
 def add_am_command(parent):
     parser = add_command(parent, 'am', 'apply patches using "git am"', cmd_am)
@@ -250,6 +250,7 @@ def add_rebase_command(subparser):
                              '"git checkout <branch>" before doing anything '
                              'else when <branch> is specified')
 
+
 def add_recent_command(subparser):
     add_command(subparser, 'recent', 'edit recent files', cmd_recent)
 
@@ -295,9 +296,9 @@ def cmd_cola(args):
     context = app.application_init(args)
 
     context.timer.start('view')
-    view = MainView(context.model, settings=args.settings, context=context)
+    view = MainView(context, settings=args.settings)
     if args.amend:
-        cmds.do(cmds.AmendMode, True)
+        cmds.do(cmds.AmendMode, context, amend=True)
 
     if status_filter:
         view.set_filter(core.relpath(status_filter))
@@ -306,8 +307,8 @@ def cmd_cola(args):
     if args.perf:
         context.timer.display('view')
 
-    return app.application_run(context, view,
-        start=start_cola, stop=app.default_stop)
+    return app.application_run(
+        context, view, start=start_cola, stop=app.default_stop)
 
 
 def start_cola(context, view):
@@ -318,105 +319,109 @@ def start_cola(context, view):
 def cmd_about(args):
     from .widgets import about
     context = app.application_init(args)
-    view = about.about_dialog()
+    view = about.about_dialog(context)
     return app.application_start(context, view)
 
 
 def cmd_am(args):
     from .widgets.patch import new_apply_patches
     context = app.application_init(args)
-    view = new_apply_patches(patches=args.patches)
+    view = new_apply_patches(context, patches=args.patches)
     return app.application_start(context, view)
 
 
 def cmd_archive(args):
-    from .widgets.archive import Archive
+    from .widgets import archive
     context = app.application_init(args, update=True)
     if args.ref is None:
         args.ref = context.model.currentbranch
-    view = Archive(args.ref)
+    view = archive.Archive(context, args.ref)
     return app.application_start(context, view)
 
 
 def cmd_branch(args):
     from .widgets.createbranch import create_new_branch
     context = app.application_init(args, update=True)
-    view = create_new_branch(settings=args.settings)
+    view = create_new_branch(context, settings=args.settings)
     return app.application_start(context, view)
 
 
 def cmd_browse(args):
     from .widgets.browse import worktree_browser
     context = app.application_init(args)
-    view = worktree_browser(update=False, settings=args.settings)
+    view = worktree_browser(
+        context, show=False, update=False, settings=args.settings)
     return app.application_start(context, view)
 
 
 def cmd_clone(args):
     from .widgets import clone
     context = app.application_init(args)
-    view = clone.prompt_for_clone(show=False, settings=args.settings)
-    return app.application_start(context, view)
+    view = clone.clone(context, settings=args.settings)
+    context.set_view(view)
+    result = 0 if view.exec_() == view.Accepted else 1
+    app.default_stop(context, view)
+    return result
 
 
 def cmd_config(args):
     from .widgets.prefs import preferences
     context = app.application_init(args)
-    view = preferences()
+    view = preferences(context)
     return app.application_start(context, view)
 
 
 def cmd_dag(args):
-    context = app.application_init(args)
     from .widgets import dag
+    context = app.application_init(args)
     # cola.main() uses parse_args(), unlike dag.main() which uses
     # parse_known_args(), thus we aren't able to automatically forward
     # all unknown arguments.  Special-case support for "--all" since it's
     # used by the history viewer command on Windows.
     if args.show_all:
         args.args.insert(0, '--all')
-    view = dag.git_dag(context, args=args, settings=args.settings)
+    view = dag.git_dag(context, args=args, settings=args.settings, show=False)
     return app.application_start(context, view)
 
 
 def cmd_diff(args):
-    context = app.application_init(args)
     from .difftool import diff_expression
+    context = app.application_init(args)
     expr = core.list2cmdline(args.args)
-    view = diff_expression(None, expr, create_widget=True, context=context)
+    view = diff_expression(context, None, expr, create_widget=True)
     return app.application_start(context, view)
 
 
 def cmd_fetch(args):
     # TODO: the calls to update_status() can be done asynchronously
     # by hooking into the message_updated notification.
-    context = app.application_init(args)
     from .widgets import remote
+    context = app.application_init(args)
     context.model.update_status()
-    view = remote.fetch()
+    view = remote.fetch(context)
     return app.application_start(context, view)
 
 
 def cmd_find(args):
-    context = app.application_init(args)
     from .widgets import finder
+    context = app.application_init(args)
     paths = core.list2cmdline(args.paths)
-    view = finder.finder(paths=paths)
+    view = finder.finder(context, paths=paths)
     return app.application_start(context, view)
 
 
 def cmd_grep(args):
-    context = app.application_init(args)
     from .widgets import grep
+    context = app.application_init(args)
     text = core.list2cmdline(args.args)
-    view = grep.new_grep(text=text, parent=None)
+    view = grep.new_grep(context, text=text, parent=None)
     return app.application_start(context, view)
 
 
 def cmd_merge(args):
-    context = app.application_init(args, update=True)
     from .widgets.merge import Merge
-    view = Merge(context.cfg, context.model, parent=None, ref=args.ref)
+    context = app.application_init(args, update=True)
+    view = Merge(context, parent=None, ref=args.ref)
     return app.application_start(context, view)
 
 
@@ -429,7 +434,7 @@ def cmd_version(args):
 def cmd_pull(args):
     from .widgets import remote
     context = app.application_init(args, update=True)
-    view = remote.pull()
+    view = remote.pull(context)
     if args.rebase:
         view.set_rebase(True)
     return app.application_start(context, view)
@@ -438,80 +443,82 @@ def cmd_pull(args):
 def cmd_push(args):
     from .widgets import remote
     context = app.application_init(args, update=True)
-    view = remote.push()
+    view = remote.push(context)
     return app.application_start(context, view)
 
 
 def cmd_rebase(args):
     kwargs = {
-            'verbose': args.verbose,
-            'quiet': args.quiet,
-            'autostash': args.autostash,
-            'fork_point': args.fork_point,
-            'onto': args.onto,
-            'preserve_merges': args.preserve_merges,
-            'strategy': args.strategy,
-            'no_ff': args.no_ff,
-            'merge': args.merge,
-            'exec': getattr(args, 'exec', None),  # python keyword
-            'keep_empty': args.keep_empty,
-            'force_rebase': args.force_rebase,
-            'strategy_option': args.strategy_option,
-            'stat': args.stat,
-            'no_stat': args.no_stat,
-            'verify': args.verify,
-            'rerere_autoupdate': args.rerere_autoupdate,
-            'root': args.root,
-            'autosquash': args.autosquash,
-            'committer_date_is_author_date': args.committer_date_is_author_date,
-            'ignore_date': args.ignore_date,
-            'whitespace': args.whitespace,
-            'ignore_whitespace': args.ignore_whitespace,
-            'C': args.context_lines,
-            'continue': getattr(args, 'continue', False),  # python keyword
-            'abort': args.abort,
-            'skip': args.skip,
-            'edit_todo': args.edit_todo,
-            'upstream': args.upstream,
-            'branch': args.branch,
+        'verbose': args.verbose,
+        'quiet': args.quiet,
+        'autostash': args.autostash,
+        'fork_point': args.fork_point,
+        'onto': args.onto,
+        'preserve_merges': args.preserve_merges,
+        'strategy': args.strategy,
+        'no_ff': args.no_ff,
+        'merge': args.merge,
+        'exec': getattr(args, 'exec', None),  # python keyword
+        'keep_empty': args.keep_empty,
+        'force_rebase': args.force_rebase,
+        'strategy_option': args.strategy_option,
+        'stat': args.stat,
+        'no_stat': args.no_stat,
+        'verify': args.verify,
+        'rerere_autoupdate': args.rerere_autoupdate,
+        'root': args.root,
+        'autosquash': args.autosquash,
+        'committer_date_is_author_date': args.committer_date_is_author_date,
+        'ignore_date': args.ignore_date,
+        'whitespace': args.whitespace,
+        'ignore_whitespace': args.ignore_whitespace,
+        'C': args.context_lines,
+        'continue': getattr(args, 'continue', False),  # python keyword
+        'abort': args.abort,
+        'skip': args.skip,
+        'edit_todo': args.edit_todo,
+        'upstream': args.upstream,
+        'branch': args.branch,
     }
-    status, out, err = cmds.do(cmds.Rebase, **kwargs)
+    context = app.application_init(args)
+    status, _, _ = cmds.do(cmds.Rebase, context, **kwargs)
     return status
 
 
 def cmd_recent(args):
     from .widgets import recent
     context = app.application_init(args)
-    view = recent.browse_recent_files()
+    view = recent.browse_recent_files(context)
     return app.application_start(context, view)
 
 
 def cmd_remote(args):
     from .widgets import editremotes
     context = app.application_init(args)
-    view = editremotes.editor(run=False)
+    view = editremotes.editor(context, run=False)
     return app.application_start(context, view)
 
 
 def cmd_search(args):
     from .widgets.search import search
     context = app.application_init(args)
-    view = search()
+    view = search(context)
     return app.application_start(context, view)
 
 
 def cmd_stash(args):
     from .widgets import stash
     context = app.application_init(args)
-    view = stash.view(show=False)
+    view = stash.view(context, show=False)
     return app.application_start(context, view)
 
 
 def cmd_tag(args):
     from .widgets.createtag import new_create_tag
     context = app.application_init(args)
-    view = new_create_tag(name=args.name, ref=args.ref, sign=args.sign,
-                          settings=args.settings)
+    view = new_create_tag(
+        context, name=args.name, ref=args.ref, sign=args.sign,
+        settings=args.settings)
     return app.application_start(context, view)
 
 

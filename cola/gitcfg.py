@@ -1,18 +1,15 @@
 from __future__ import division, absolute_import, unicode_literals
-
+from binascii import unhexlify
 import copy
 import fnmatch
 import os
+from os.path import join
 import re
 import struct
-from binascii import unhexlify
-from os.path import join
 
 from . import core
-from . import git
 from . import observable
 from .compat import int_types
-from .decorators import memoize
 from .git import STDOUT
 from .compat import ustr
 
@@ -20,22 +17,21 @@ BUILTIN_READER = os.environ.get('GIT_COLA_BUILTIN_CONFIG_READER', False)
 
 _USER_CONFIG = core.expanduser(join('~', '.gitconfig'))
 _USER_XDG_CONFIG = core.expanduser(
-        join(core.getenv('XDG_CONFIG_HOME', join('~', '.config')),
-             'git', 'config'))
+    join(core.getenv('XDG_CONFIG_HOME', join('~', '.config')),
+         'git', 'config'))
 
 
-@memoize
-def current():
-    """Return the GitConfig singleton."""
-    return GitConfig()
+def create(context):
+    """Create GitConfig instances"""
+    return GitConfig(context)
 
 
-def _stat_info():
+def _stat_info(git):
     # Try /etc/gitconfig as a fallback for the system config
     paths = [('system', '/etc/gitconfig'),
              ('user', _USER_XDG_CONFIG),
              ('user', _USER_CONFIG)]
-    config = git.current().git_path('config')
+    config = git.git_path('config')
     if config:
         paths.append(('repo', config))
 
@@ -48,12 +44,14 @@ def _stat_info():
     return statinfo
 
 
-def _cache_key():
+def _cache_key(git):
     # Try /etc/gitconfig as a fallback for the system config
-    paths = ['/etc/gitconfig',
-             _USER_XDG_CONFIG,
-             _USER_CONFIG]
-    config = git.current().git_path('config')
+    paths = [
+        '/etc/gitconfig',
+        _USER_XDG_CONFIG,
+        _USER_CONFIG,
+    ]
+    config = git.git_path('config')
     if config:
         paths.append(config)
 
@@ -81,13 +79,22 @@ def _config_to_python(v):
     return v
 
 
+def unhex(value):
+    """Convert a value (int or hex string) into bytes"""
+    if isinstance(value, int_types):
+        # If the value is an integer then it's a value that was converted
+        # by the config reader.  Zero-pad it into a 6-digit hex number.
+        value = '%06d' % value
+    return unhexlify(core.encode(value.lstrip('#')))
+
+
 def _config_key_value(line, splitchar):
     """Split a config line into a (key, value) pair"""
 
     try:
         k, v = line.split(splitchar, 1)
     except ValueError:
-        # the user has a emptyentry in their git config,
+        # the user has an empty entry in their git config,
         # which Git interprets as meaning "true"
         k = line
         v = 'true'
@@ -101,9 +108,9 @@ class GitConfig(observable.Observable):
     message_repo_config_changed = 'repo_config_changed'
     message_updated = 'updated'
 
-    def __init__(self):
+    def __init__(self, context):
         observable.Observable.__init__(self)
-        self.git = git.current()
+        self.git = context.git
         self._map = {}
         self._system = {}
         self._user = {}
@@ -151,10 +158,10 @@ class GitConfig(observable.Observable):
 
         """
         # Try the git config in git's installation prefix
-        statinfo = _stat_info()
+        statinfo = _stat_info(self.git)
         self._configs = [x[1] for x in statinfo]
         self._config_files = {}
-        for (cat, path, mtime) in statinfo:
+        for (cat, path, _) in statinfo:
             self._config_files[cat] = path
 
     def _cached(self):
@@ -164,7 +171,7 @@ class GitConfig(observable.Observable):
         Updates the cache and returns False when the cache does not match.
 
         """
-        cache_key = _cache_key()
+        cache_key = _cache_key(self.git)
         if self._cache_key is None or cache_key != self._cache_key:
             self._cache_key = cache_key
             return False
@@ -179,15 +186,15 @@ class GitConfig(observable.Observable):
 
         if 'system' in self._config_files:
             self._system.update(
-                    self.read_config(self._config_files['system']))
+                self.read_config(self._config_files['system']))
 
         if 'user' in self._config_files:
             self._user.update(
-                    self.read_config(self._config_files['user']))
+                self.read_config(self._config_files['user']))
 
         if 'repo' in self._config_files:
             self._repo.update(
-                    self.read_config(self._config_files['repo']))
+                self.read_config(self._config_files['repo']))
 
         for dct in (self._system, self._user):
             self._user_or_system.update(dct)
@@ -303,8 +310,8 @@ class GitConfig(observable.Observable):
 
         """
         result = []
-        status, out, err = self.git.config(key, z=True, get_all=True,
-                                           show_origin=True)
+        status, out, _ = self.git.config(
+            key, z=True, get_all=True, show_origin=True)
         if status == 0:
             current_source = ''
             current_result = []
@@ -335,11 +342,8 @@ class GitConfig(observable.Observable):
         return self._get(self._user_or_system, key, default)
 
     def python_to_git(self, value):
-        if type(value) is bool:
-            if value:
-                return 'true'
-            else:
-                return 'false'
+        if isinstance(value, bool):
+            return 'true' if value else 'false'
         if isinstance(value, int_types):
             return ustr(value)
         return value
@@ -397,7 +401,7 @@ class GitConfig(observable.Observable):
 
     def _file_encoding(self, path):
         """Return the file encoding for a path"""
-        status, out, err = self.git.check_attr('encoding', '--', path)
+        status, out, _ = self.git.check_attr('encoding', '--', path)
         if status != 0:
             return None
         header = '%s: encoding: ' % path
@@ -426,7 +430,7 @@ class GitConfig(observable.Observable):
         prefix = len('guitool.')
         suffix = len('.cmd')
         return sorted([name[prefix:-suffix]
-                       for (name, cmd) in guitools.items()])
+                       for (name, _) in guitools.items()])
 
     def get_guitool_names_and_shortcuts(self):
         """Return guitool names and their configured shortcut"""
@@ -450,12 +454,10 @@ class GitConfig(observable.Observable):
         return term
 
     def color(self, key, default):
-        string = self.get('cola.color.%s' % key, default=default)
-        string = core.encode(string)
-        default = core.encode(default)
+        value = self.get('cola.color.%s' % key, default=default)
         struct_layout = core.encode('BBB')
         try:
-            r, g, b = struct.unpack(struct_layout, unhexlify(string))
-        except Exception:
-            r, g, b = struct.unpack(struct_layout, unhexlify(default))
+            r, g, b = struct.unpack(struct_layout, unhex(value))
+        except (struct.error, TypeError):
+            r, g, b = struct.unpack(struct_layout, unhex(default))
         return (r, g, b)

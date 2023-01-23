@@ -1,13 +1,13 @@
-# encoding: utf-8
 from __future__ import absolute_import, division, unicode_literals
 
 from .. import cmds
 from .. import guicmds
-from ..widgets import action
+# from ..widgets import archive
 from ..widgets import browse
 from ..widgets import compare
 from ..widgets import createbranch
 from ..widgets import createtag
+from ..widgets import dag
 from ..widgets import editremotes
 from ..widgets import finder
 from ..widgets import grep
@@ -31,22 +31,22 @@ COMMANDS = {
     },
     'File::NewRepo': {
         'title': 'New Repository...',
-        'action': lambda: guicmds.open_new_repo(),
+        'action': guicmds.open_new_repo,
         'icon': 'new'
     },
     'File::OpenRepo': {
         'title': 'Open...',
-        'action': lambda: guicmds.open_repo(),
+        'action': guicmds.open_repo,
         'icon': 'folder'
     },
     'File::OpenRepoNewWindow': {
         'title': 'Open in New Window...',
-        'action': lambda: guicmds.open_repo_in_new_window(),
+        'action': guicmds.open_repo_in_new_window,
         'icon': 'folder'
     },
     # 'File::CloneRepo': {
     #     'title': 'Clone...',
-    #     'action': lambda: app().activeWindow().clone_repo(),
+    #     'action': guicmds.spawn_clone,
     #     'icon': 'repo'
     # },
     'File::Refresh': {
@@ -56,7 +56,7 @@ COMMANDS = {
     },
     'File::FindFiles': {
         'title': 'Find Files',
-        'action': lambda: finder.finder(),
+        'action': finder.finder,
         'icon': 'zoom_in'
     },
     'File::EditRemotes': {
@@ -66,98 +66,97 @@ COMMANDS = {
     },
     'File::RecentModified': {
         'title': 'Recently Modified Files...',
-        'action': lambda: recent.browse_recent_files(),
+        'action': recent.browse_recent_files,
         'icon': None
     },
     'File::ApplyPatches': {
         'title': 'Apply Patches...',
-        'action': lambda: patch.apply_patches(),
+        'action': patch.apply_patches,
         'icon': None
     },
     'File::ExportPatches': {
         'title': 'Export Patches...',
-        'action': lambda: guicmds.export_patches(),
+        'action': guicmds.export_patches,
         'icon': None
     },
     # 'File::SaveAsTarZip': {
     #     'title': 'Save As Tarball/Zip...',
-    #     'action': lambda: app().activeWindow().save_archive(),
+    #     'action': archive.save_archive,
     #     'icon': 'file_zip'
     # },
     # 'File::Preferences': {
     #     'title': 'Preferences',
-    #     'action': lambda: app().activeWindow().preferences(),
+    #     'action': prefs.preferences,
     #     'icon': 'configure'
     # },
     'Actions::Fetch': {
         'title': 'Fetch...',
-        'action': lambda: remote.fetch(),
+        'action': remote.fetch,
         'icon': None
     },
     'Actions::Pull': {
         'title': 'Pull...',
-        'action': lambda: remote.pull(),
+        'action': remote.pull,
         'icon': 'pull'
     },
     'Actions::Push': {
         'title': 'Push...',
-        'action': lambda: remote.push(),
+        'action': remote.push,
         'icon': 'push'
     },
     'Actions::Stash': {
         'title': 'Stash...',
-        'action': lambda: stash.view(),
+        'action': stash.view,
         'icon': None
     },
     'Actions::CreateTag': {
         'title': 'Create Tag...',
-        'action': lambda: createtag.create_tag(),
+        'action': createtag.create_tag,
         'icon': 'tag'
     },
     'Actions::CherryPick': {
         'title': 'Cherry-Pick...',
-        'action': lambda: guicmds.cherry_pick(),
+        'action': guicmds.cherry_pick,
         'icon': None
     },
     'Actions::Merge': {
         'title': 'Merge...',
-        'action': lambda: merge.local_merge(),
+        'action': merge.local_merge,
         'icon': 'merge'
     },
     'Actions::AbortMerge': {
         'title': 'Abort Merge...',
-        'action': lambda: cmds.run(cmds.AbortMerge),
+        'action': cmds.run(cmds.AbortMerge),
         'icon': None
     },
-    'Actions::ResetBrachHead': {
+    'Actions::ResetBranchHead': {
         'title': 'Reset Branch Head',
-        'action': lambda: guicmds.reset_branch_head(),
+        'action': guicmds.reset_branch_head,
         'icon': None
     },
     'Actions::ResetWorktree': {
         'title': 'Reset Worktree',
-        'action': lambda: guicmds.reset_worktree(),
+        'action': guicmds.reset_worktree,
         'icon': None
     },
     'Actions::Grep': {
         'title': 'Grep',
-        'action': lambda: grep.grep(),
+        'action': grep.grep,
         'icon': None
     },
     'Actions::Search': {
         'title': 'Search...',
-        'action': lambda: search.search(),
+        'action': search.search,
         'icon': 'search'
     },
     'Commit::Stage': {
         'title': 'Stage',
-        'action': cmds.run(cmds.AmendMode, True),
+        'action': cmds.run(cmds.StageOrUnstage),
         'icon': 'add'
     },
     'Commit::AmendLast': {
         'title': 'Amend Last Commit',
-        'action': lambda: action.ActionButtons.stage(
-            action.ActionButtons()),
+        'action': cmds.run(cmds.AmendMode),
         'icon': None
     },
     'Commit::StageAll': {
@@ -165,20 +164,19 @@ COMMANDS = {
         'action': cmds.run(cmds.StageUntracked),
         'icon': None
     },
-    'Commit::UnsageAll': {
+    'Commit::UnstageAll': {
         'title': 'Unstage All',
         'action': cmds.run(cmds.UnstageAll),
         'icon': None
     },
     'Commit::Unstage': {
         'title': 'Unstage',
-        'action': lambda: action.ActionButtons.unstage(
-            action.ActionButtons()),
+        'action': cmds.run(cmds.UnstageSelected),
         'icon': 'remove'
     },
     'Commit::LoadCommitMessage': {
         'title': 'Load Commit Message...',
-        'action': lambda: guicmds.load_commitmsg(),
+        'action': guicmds.load_commitmsg,
         'icon': None
     },
     'Commit::GetCommitMessageTemplate': {
@@ -193,12 +191,12 @@ COMMANDS = {
     },
     'Diff::Expression': {
         'title': 'Expression...',
-        'action': lambda: guicmds.diff_expression(),
+        'action': guicmds.diff_expression,
         'icon': None
     },
     'Diff::Branches': {
         'title': 'Branches...',
-        'action': lambda: compare.compare_branches(),
+        'action': compare.compare_branches,
         'icon': None
     },
     'Diff::Diffstat': {
@@ -208,42 +206,42 @@ COMMANDS = {
     },
     'Branch::Review': {
         'title': 'Review...',
-        'action': lambda: guicmds.review_branch(),
+        'action': guicmds.review_branch,
         'icon': None
     },
     'Branch::Create': {
         'title': 'Create...',
-        'action': lambda: createbranch.create_new_branch(),
+        'action': createbranch.create_new_branch,
         'icon': None
     },
     'Branch::Checkout': {
         'title': 'Checkout...',
-        'action': lambda: guicmds.checkout_branch(),
+        'action': guicmds.checkout_branch,
         'icon': None
     },
     'Branch::Delete': {
         'title': 'Delete...',
-        'action': lambda: guicmds.delete_branch(),
+        'action': guicmds.delete_branch,
         'icon': None
     },
     'Branch::DeleteRemote': {
         'title': 'Delete Remote Branch...',
-        'action': lambda: guicmds.delete_remote_branch(),
+        'action': guicmds.delete_remote_branch,
         'icon': None
     },
     'Branch::Rename': {
         'title': 'Rename Branch...',
-        'action': lambda: guicmds.rename_branch(),
+        'action': guicmds.rename_branch,
         'icon': None
     },
     'Branch::BrowseCurrent': {
         'title': 'Browse Current Branch...',
-        'action': lambda: guicmds.browse_current(),
+        'action': guicmds.browse_current,
         'icon': None
     },
     'Branch::BrowseOther': {
         'title': 'Browse Other Branch...',
-        'action': lambda: guicmds.browse_other(),
+        'action': guicmds.browse_other,
         'icon': None
     },
     'Branch::VisualizeCurrent': {
@@ -258,14 +256,14 @@ COMMANDS = {
     },
     'View::FileBrowser': {
         'title': 'File Browser...',
-        'action': lambda: browse.worktree_browser(show=True),
+        'action': browse.worktree_browser,
         'icon': 'cola'
     },
-    # 'View::DAG': {
-    #     'title': 'DAG...',
-    #     'action': lambda: app().activeWindow().git_dag(),
-    #     'icon': 'cola'
-    # }
+    'View::DAG': {
+        'title': 'DAG...',
+        'action': dag.git_dag,
+        'icon': 'cola'
+    },
 }
 #     'Rebase::StartInteractive': {
 #         'title': 'Start Interactive Rebase...',

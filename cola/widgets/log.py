@@ -17,10 +17,10 @@ class LogWidget(QtWidgets.QWidget):
     """A simple dialog to display command logs."""
     channel = Signal(object)
 
-    def __init__(self, parent=None, output=None):
+    def __init__(self, context, parent=None, output=None):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.output_text = VimTextEdit(parent=self)
+        self.output_text = VimTextEdit(context, parent=self)
         self.highlighter = LogSyntaxHighlighter(self.output_text.document())
         if output:
             self.set_output(output)
@@ -52,8 +52,8 @@ class LogWidget(QtWidgets.QWidget):
         cursor = self.output_text.textCursor()
         cursor.movePosition(cursor.End)
         text = self.output_text
-        # NOTE: the ':  ' colon-SP-SP suffix in used by the syntax highlighter
-        prefix = core.decode(time.strftime('%x %X:  '))
+        # NOTE: the ':  ' colon-SP-SP suffix is for the syntax highlighter
+        prefix = core.decode(time.strftime('%Y-%m-%d %H:%M:%S:  '))  # ISO-8601
         for line in msg.splitlines():
             cursor.insertText(prefix + line + '\n')
         cursor.movePosition(cursor.End)
