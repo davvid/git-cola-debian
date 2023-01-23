@@ -1,7 +1,1282 @@
-git-cola: 1.4.0.4
-bottled-on: Sat Nov 14 11:00:41 PST 2009
+git-cola: 1.4.1
+bottled-on: Fri Dec  4 17:14:11 PST 2009
 
-commit a4abb434f60f023ff39a4d47bca0d14f9708b91c (HEAD, tag: v1.4.0.4, maint-1.4.0)
+commit 8b08a4dea6e786425e563bd15ef7d13d588e7ff2 (tag: refs/tags/v1.4.1, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 4 16:03:08 2009 -0800
+
+    qtutils: Do not re-translate strings
+    
+    This avoids calling QApplication.translate()
+    on a string that has already been translated.
+    
+    Closes #34
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 320df6bd0a9c5fe8c3f8ef4bd2d787336d866271
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 4 03:28:26 2009 -0800
+
+    cola.app: Guard against QString for PyQt4.3 compatibility
+    
+    Older versions of PyQt4 do not accept QStrings in calls
+    to QApplication.translate().  Guard against this situation
+    by wrapping text to translate in str().
+    
+    Closes #34
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 99d0bb064e45585844b276b027c708d6027b2647
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 3 22:19:02 2009 -0800
+
+    doc: Mention push behavior in the release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 74c2ee97384cf5a820ee0645d1110ab530342282
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 3 22:12:59 2009 -0800
+
+    controllers.remote: Warn when creating a new branch
+    
+    Closes #35
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4dfbf66e83e53956ad4318dd6d057890522cea99
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 3 21:27:40 2009 -0800
+
+    INSTALL: Update download urls
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 57850301f94d03ee2b3c7c54ee943d511c51ea58
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Dec 3 19:53:16 2009 -0800
+
+    gitcmds: Fix invalid signature for merge_message()
+    
+    We forgot to remove the 'self' argument when this got
+    factored out into the gitcmds module.
+    
+    Closes #36
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit de32d16dc71860bf005176a3a45a0c9e7c3d3fd3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 2 23:29:22 2009 -0800
+
+    models.main: Save window settings by default
+    
+    It's the user-friendly thing to do.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e2cf5f0a53dc1f7c568c823451c7fe31f1d152ed
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 2 23:18:55 2009 -0800
+
+    views.mainwindow: Use a nicer default dock arrangement
+    
+    This adds the missing statusdockwidget and moves things
+    around so that the diff is on the bottom and the top
+    has an arrangement of [commit, status, actions].
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 53870294b60b68244c6153c90eb09cc828d62f20
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 2 23:17:18 2009 -0800
+
+    views.mainwindow: Use a larger default window size
+    
+    The Fibonacci ratio is quite nice.
+
+commit cc0b70bfa32b694968c441a3a88e7012101cf90d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 2 23:12:50 2009 -0800
+
+    doc: Do not mention unused cola.geometry variable
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 188bba9f0bbecbd74287d2c8ee1f03755dc2775f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Dec 2 23:11:51 2009 -0800
+
+    doc: Document the 'git cola --classic' option
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c6d6c32edf3fc9d6b4daad24c01db0c8dc3402d5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Nov 30 01:33:47 2009 -0800
+
+    views.main: Use the clone callback from gitcmds
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 73d784605a477952b5312005e24e116de4921f56
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Nov 30 01:33:02 2009 -0800
+
+    views.main: Remove unused class attributes
+    
+    The widget refactor eliminated these.  Less is more.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 43a3379bb95ea775671831b5baaebc7ed10ccfb6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 21:09:15 2009 -0800
+
+    views.main: Use gitcmds in the 'browse branch' callbacks
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 596a587847c470e44c04e0c2ea83edb33ab86c00
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 21:08:18 2009 -0800
+
+    gitcmds: Add a 'split' parameter to all_refs()
+    
+    Passing split=True causes all_refs() to return three separate
+    local_branches, remote_branches, and tags lists.
+    
+    all_refs() now returns a single concatenated list by default.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 848623ca909e0dc35d02cb71cf4b8a6fd4d8d5bd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 21:05:41 2009 -0800
+
+    models.main: Use the config object for gui.diffcontext.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d35f6087a28810380638ac01d0c5fe75060c068a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 21:02:03 2009 -0800
+
+    models.main: Remove unused commit message methods
+    
+    These live in the commands module now.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c84566c7bf70f6362c57ebb9a1af2a686c6d9052
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 20:49:11 2009 -0800
+
+    views.main: Simplify load_template()
+    
+    It simply signals.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d33c10a3b4783291f60dfee26f85fca28a7e7a16
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 20:35:21 2009 -0800
+
+    qtutils: Death to whitespace
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 889b1dd559ab7019fd08493de0a060cd9a35d3d3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 20:34:38 2009 -0800
+
+    gitcmds: Use rstrip() when reading .git/HEAD
+    
+    Every little bit helps.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c78a04f37d24c10aef8579596ab7860dd2e9fc07
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 20:34:03 2009 -0800
+
+    commands: Add LoadCommitTemplate
+    
+    LoadCommitTempate loads the commit message specified in commit.template.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b3b84194b2c46f11ec11e36e95aae2c8eb48174b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 25 15:26:53 2009 -0800
+
+    gitcfg: Fix git-config usage for git 1.6.2
+    
+    Certain versions of git are sensitive to the order of options
+    passed to the git-config command.  This ensures that --list
+    is passed last.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a39ba8d9afb719781590d8a9cf59dff959751f08
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 22 15:31:46 2009 -0800
+
+    doc: Mention startup optimizations in the release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 52dbb4e3bf4a8ac9236a7fdab259dc689ec9ce48
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 22 15:30:05 2009 -0800
+
+    doc: Use backticks and rephrase release notes where appropriate
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f6869a59c072238b8395978a36ca56b8985684c9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 20:43:03 2009 -0800
+
+    gitcmds: Simplify cache usage in current_branch()
+    
+    current_branch() used a stat cache which was not very reliable.
+    We now use the raw content of .git/HEAD as the cache key.
+    This is simpler and more robust than a stat() cache.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 599750b4ff9ff41c82810c82bcfb74e0dcb8d4e0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 20:41:51 2009 -0800
+
+    gitcfg: Simplify cache usage
+    
+    The stat cache is probably not very portable and doesn't lend
+    itself well to testing so bail on it.  We now use the raw
+    content of each config file as its cache key.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1b8e0e9b7d7e87eae5bab06edd500edf4d56a165
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 20:39:22 2009 -0800
+
+    cola: Make static factory functions consistent in implementation
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9d11d1f5454e935afad3c4f48881e5eea47a91e1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 18:55:02 2009 -0800
+
+    test: Chain shell() commands
+    
+    This ensures that all git commands run to completion.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0607bce4395c2a1b7ab55d3adfcd11198425e254
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 18:52:57 2009 -0800
+
+    gitcmds: Optimize startup time by adding all_refs()
+    
+    all_refs() finds tags and branches in one shot.
+    This avoids two calls to the git command.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 087498ac49831367320f9483714939e5d519861b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 05:04:31 2009 -0800
+
+    models.main: Remove redundant calls to git-config during startup
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6e8f4ab6ffe0a753f37e7c46fa58fa0528e4a0de
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 04:58:57 2009 -0800
+
+    gitcmds: Use st_mtime as the cache key
+    
+    Otherwise simply reading .git/HEAD invalidates the
+    current_branch() cache.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 17477a2609ee74f4dff120d6fcbb1a7eeb0b17d9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 04:56:25 2009 -0800
+
+    gitcfg: Use st_mtime as the cache key
+    
+    Otherwise the act of reading the configs makes the
+    stat cache invalid.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6e97c7f2e049093a60a886f094540c18c54998be
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 21 04:13:38 2009 -0800
+
+    cola: Defer loading the classic view
+    
+    This removes the classic dock widget.  There's a few reasons
+    why it's nice to have the classic view in its own window.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 49bf148b5351c797b7c223f0d49fd8964ce691a8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 21:10:16 2009 -0800
+
+    commands: Make model access consistent by using self.model
+    
+    This is a trivial style cleanup to make the command module
+    consistent in how it accesses the model object.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 171dd0c62a02832f7bd77be2a19d7f8e4a84e65c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 21:08:13 2009 -0800
+
+    models.main: Remove git_repo_path()
+    
+    This removes the model's git_repo_path().
+    Callers now use git.git_path() instead.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e3d861df3f94b4ebcde1d1d8bb1a591bd3a4366b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 20:58:54 2009 -0800
+
+    gitcmds: Update docstring for untracked_files()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1f1420ab6d62a305355f4183a7d4ece6b212e18c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 20:52:37 2009 -0800
+
+    doc: Update git-cola-1.4.1 release notes
+    
+    Added portability and developer topics to the upcoming
+    release notes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6cc9b54f546de784523f6d980c774734764865a3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 20:45:45 2009 -0800
+
+    test: Add a testcase for gitcmds.merge_message_path()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 039267c57498897530afd4a28dcda6f5411445b8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 20:06:11 2009 -0800
+
+    gitcmds: Factor out abort_merge() and related funcitons
+    
+    This moves abort_merge(), merge_message_path(), and
+    merge_message() into the gitcmds module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2af18c87428ce602a8dbaacf29d299fcca586128
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 19:15:49 2009 -0800
+
+    gitcmds: Use git.git_path() to find refs/heads
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 942b59fe5b58221dd2780f73054605ad0f1532be
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 19:13:24 2009 -0800
+
+    gitcmds: Remove unused reset_helper()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 20bd747b5114ef5a82b4d2967433f422c4454c11
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 18:42:35 2009 -0800
+
+    test: Add a testcase for gitcmds.tag_list()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 27042f7061806161df2e986696f7ab13d09a8404
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 17:17:47 2009 -0800
+
+    test: Add a testcase for gitcmds.untracked_files()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 545cc79f54c91914993e2f9d69836ee613fd1c27
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:56:05 2009 -0800
+
+    gitcmds: Remove unused 'cola' import
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1deadb4bd8b84ae7a2ca77ebe069d1a657646573
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:48:14 2009 -0800
+
+    gitcmds: Simplify default_remote()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 14ce205c7f564288127266c7444f3110d6e4bfce
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:47:53 2009 -0800
+
+    gitcmds: Remove unused corresponding_remote_ref()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 47303810edcf06c055669d08ef7696b09a9c2cd4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:47:26 2009 -0800
+
+    gitcmds: Use the GitConfig object for diff.context
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4a205d6a98a5094f50458599406a10c1abb38329
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:47:02 2009 -0800
+
+    controllers.compare: Handle tracked_branch() returning None
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3a4f350444d32d90457cf3023d8426650a98ca9c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:46:22 2009 -0800
+
+    commands: Use the GitConfig object for diff.context
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ffdb24164ccc713b6a137c1b912542760b69f1df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:45:44 2009 -0800
+
+    gitcmds: Test and simplify tracked_branch()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bd0d3efc441add41ec3865cb87e404cf025b565d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:09:30 2009 -0800
+
+    test: Add a testcase for default values from GitConfig.get()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fe53a54d7f5ff2005d7cd56bc775c8d52be6d6c8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:07:28 2009 -0800
+
+    test: Add a testcase for bool values from GitConfig.get()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8485311a4f0675e36db5f94a686e8bd99d700d6e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:05:57 2009 -0800
+
+    test: Add a testcase for int values from GitConfig.get()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f85b184043125ce2d4ecac28f25368898261a6a5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:04:02 2009 -0800
+
+    doc: Document the gitcfg module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9296c491e89ea8def8181e48303d990cf46c0f31
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:01:45 2009 -0800
+
+    test: Add a test module for the gitcfg module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 39d7157abe2c99213ca4ec6d8917f35422fdbeb4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 16:01:31 2009 -0800
+
+    gitcfg: Simplify get() by looping over candidate dictionaries
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b5856d7e024113d4da71bb1e2d0a907845ad088b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 15:55:42 2009 -0800
+
+    gitcmds: Use the static GitConfig instance in default_remote()
+    
+    This modifies default_remote() to use the static GitConfig instance.
+    The old version did not always return the right value so this also
+    adds a test case to ensure correctness.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 870f240873080c2962f563c417cb54b93c3c7440
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 15:49:59 2009 -0800
+
+    test: Reset the gitcfg instance in GitRepositoryTestCase.setUp()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b20e3e6f4cdf463db8ba53e0de43586f50be8f5d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 15:48:50 2009 -0800
+
+    gitcmds: Use git.git_path() in current_branch()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9b15b1a083e917ac13bc2583bcce98450ad17497
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 15:48:27 2009 -0800
+
+    cola: Add a gitcfg module for interacting with git-config files
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 36af28aff6f23f31474d91179c52652fd727202c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 15:44:17 2009 -0800
+
+    test: Reset the gitcmd instance in GitRepositoryTestCase.setUp()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 83748ea84a1815929f9082f50bd6b6eec192d5f1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 15:43:10 2009 -0800
+
+    gitcmd: Add a git_path() method for finding .git-relative paths
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 465005278be4df0721eca38d1d57cf4bde778499
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 11:03:51 2009 -0800
+
+    test: Add a test case for gitcmd.branch_list(remote=True)
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 446a0bdb470096ea3eadfeb6504b540bfb82d266
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 11:00:37 2009 -0800
+
+    test: Add a test case for gitcmds.branch_list(remote=False)
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c4cc7474aa8ad4c90c14d3f8c3dd12179d27526c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 10:59:29 2009 -0800
+
+    test: Add a test for the model's 'tags' attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 95b976dd4c5850a50505f89465e7c3643356893f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 10:59:13 2009 -0800
+
+    gitcmd: Use the entire stat object as the cache key in current_branch()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e3911974884cc744221e14a9fd69b756a15c1947
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 10:58:31 2009 -0800
+
+    models.main: Remove unused 'filename' method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8dbcb131854624525968aaf701d8e7f7a87111f9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 10:57:32 2009 -0800
+
+    test: Default 'commit' to True in GitRepositoryTestCase
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d48857d8e8a2f6401c082fc2af9c172f8c4b0d29
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 01:57:08 2009 -0800
+
+    views.status: Avoid setHeaderHidden() altogether
+    
+    We could use it, but the old way of doing it works too.
+    This simplifies PyQt 4.3 compatibility.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 923349b5f15589bde61fe656f97af90c44091b56
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 01:52:02 2009 -0800
+
+    cola: Support PyQt 4.3
+    
+    git-cola originally support PyQt 4.3.x.
+    We lost compatibility with the recent UI rework.
+    This makes git-cola work on PyQt 4.3.x again by simply
+    avoiding some of the newer feature.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7f97d2fe7427bbb0fb35c44096a3bf324d8b7000
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 01:37:23 2009 -0800
+
+    models.gitrepo: Use a compatibility check for PyQt 4.3.x
+    
+    This makes the tests pass on older versions of PyQt.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c374442e83039d0812393df9d52a61a9857b55a6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 01:30:00 2009 -0800
+
+    gitcmds: Fix for-each-ref usage for git-1.5.x
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a82bb01e79fa5563850b5c347f4dc2272db0e2aa
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 01:11:59 2009 -0800
+
+    test: Add a test_path() helper for use in git repository tests
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 04a5337b1d36885acf112374e5518d528bfd2753
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 01:11:19 2009 -0800
+
+    test: Skip the ColaApplication test when PyQt4 < 4.4
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9567ded3d09ca4a0d9b56f93d7df3f70aae1703a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 00:59:00 2009 -0800
+
+    test: Remove embedded utf-8 characters in test_cola_app
+    
+    Use unichr() instead.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c9dee3d3f1f8783eeb5c6df4f8468830e0a69a50
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Nov 20 00:56:54 2009 -0800
+
+    app: Add an instance() function to return the global QApplication
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8ad47e16a5e57d0fbd28ab22d6bbe400a10fd6c7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:58:35 2009 -0800
+
+    test: Test the model's 'remotes' attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit da680f12316b113a5dcdb314549bb8a77354b0ea
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:58:23 2009 -0800
+
+    test: Test the model's 'untracked' attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c2d466b355f736926b7ff08fb6e4b29f86111ffb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:58:08 2009 -0800
+
+    test: Test the model's 'unstaged' attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 01647f232aedc25790a0f922493829c475310115
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:57:50 2009 -0800
+
+    test: Add more docstrings to test_cola_models_main
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 48f93bd93eb627ecf43498b245744fa8afa1d168
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:51:08 2009 -0800
+
+    test: Add a test case for the model's 'modified' attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d6c423f67c51f8cec1004b51d8a6d3e110f99ce7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:50:08 2009 -0800
+
+    test: Add a test case for the model's 'remote_branches' attribute
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1a674917a36c5c97a5b0bc7ce152b24ef6ed1abb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:45:59 2009 -0800
+
+    test: Use GitRepositoryTestCase's setup in all tests
+    
+    This removes redundant repository initialization code in the tests.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b0c8e06ff61166217313ef0dff2abe41221a12ef
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 21:22:35 2009 -0800
+
+    test: Simplify and rename helper.TestCase to helper.GitRepositoryTestCase
+    
+    The test helper module is now simpler.  We no longer import
+    join, dirname and basename directly.  Several global variables
+    were removed.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 58e8c86553dde67d3515a8da4c8a11d4831097c4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 14:39:34 2009 -0800
+
+    test: Use local classes in the serialization test suite
+    
+    There's no reason to have local test classes in the main test helper.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 04de42d4f783d21c225adf793564ea2c42e910fb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 14:11:36 2009 -0800
+
+    models.compare: Derive from ObservableModel
+    
+    This modifies the CompareModel and BranchCompareModel classes
+    to not derive from the main model.  They now derive from
+    observable model instead.  The update_revision_lists() method
+    is now part of the CompareModel where it is more appropriate.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6ed329a70941421d1541b4b5b3c51a02b4335106
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 14:08:54 2009 -0800
+
+    views.main: Use gitcmds.log_helper()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0bc7d6bd1e1a731f2fb01a0a1df880204d5d3656
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 14:07:57 2009 -0800
+
+    gitcmds: Factor out parse_rev_list() and friends
+    
+    log_helper(), parse_rev_list(), and rev_list_range()
+    are now part of the gitcmds module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e6a4610c446fe54d75da744f30857c894a4ad3f7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 14:07:08 2009 -0800
+
+    gitcmds: Add log_helper() and parse_rev_list()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1bb2483039fe73976a657392a8a6a8c524837805
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 13:58:30 2009 -0800
+
+    gitcmds: Remove unused upstream_changed_set in worktree_state()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 55b453a896656dbafec2d7ee2faaeacbc563719b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 13:12:57 2009 -0800
+
+    test: Use assertEqual() in the git ops test
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 57f48dcb64de32e882020b42946697b57b4a1e9f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 13:12:00 2009 -0800
+
+    test: Add unit tests for gitcmds.unstage_paths()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6169bb004da00168c00608659960ec5e7e45bccc
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 12:10:55 2009 -0800
+
+    doc: Add git-cola-1.4.1 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit da1aedd51510e3ff5d84cceef0e28e4e84070943
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 12:10:27 2009 -0800
+
+    doc: Add github and debian issue URLs to release notes
+    
+    The release notes now link directly to the respective github and
+    debian issues closed in each release.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fff8c628a5d4813c7949113b868c899d9c2b69d5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 02:15:34 2009 -0800
+
+    doc: Document cola.models.browser
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 993eb06c6e74121aa88f1165fe7c0c3520fdaf05
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 02:10:48 2009 -0800
+
+    repobrowser: Use the BrowserModel
+    
+    This removes all repobrowser data from the main model.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 04e1db4b94a9e17ee70e1f70d9e4e500e24bb410
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 02:09:03 2009 -0800
+
+    models: Add a BrowserModel for use by the repobrowser
+    
+    This factors out the data used by the repobrowser.
+    This should allow us to slim down the main model even further.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 00f48f852e2cadadc0bd018323d9590db45e55da
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 01:38:38 2009 -0800
+
+    commands: Fix a bug in the amend interaction
+    
+    If we had diffed a staged file then cola wouldn't allow the amend
+    checkbox to take effect.  This was fixed by restricting the cases
+    where the Diff command is allowed to change modes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 97e4c094915ac4ae1ac754deff8946045492ee88
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 01:34:16 2009 -0800
+
+    gitcmds: Factor out worktree_state() and friends
+    
+    This finally brings the main model down to a manageable size.
+    The next step is to break out the browser data which is used
+    by the repobrowser only.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d96358fbff5ea22e4e7a9f6bb201998edae6e129
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 01:00:16 2009 -0800
+
+    commands: Log format-patch output
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 62a0ac9aed7fa792d98d410786eb122f0ac4a74e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 00:53:43 2009 -0800
+
+    models.main: Remove unused revert_paths() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 47fc0ac96198e54c7763035f4c9222595f98b5bb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 00:51:18 2009 -0800
+
+    views.main: Remove the amend_is_checked() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 05b803b9d63c78bb551fedf83c9f6dd3f56e55b4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 19 00:50:52 2009 -0800
+
+    commands: Fix mistyped 'commit'
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d31feba27aee647aa47c63e8b7f153746d5bcdf0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 23:51:17 2009 -0800
+
+    gitcmds: Factor out format_patchsets()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a88d2fcd7c14f80d854452504db296f6d00ed7d1
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 22:07:11 2009 -0800
+
+    gitcmds: Factory out diff_helper() and commit_diff()
+    
+    This continues the work of splitting apart the models.main module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 80578687ff5192f17a13ba48f559fea26c146781
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 22:01:54 2009 -0800
+
+    cola.diffparse: Prefix utils.write() with the module name
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 88c11a401d9f046ad58e58c3d798554807c20a53
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:56:29 2009 -0800
+
+    models.main: Remove unused diff_details() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit daf633418a4b411676580993fc8c15895182dde7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:44:37 2009 -0800
+
+    models.main: Remove unused add_or_remove() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1806dbad74c8bca89856a8e20ca7cb7e53d1edd8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:38:38 2009 -0800
+
+    gitcmds: Use the static git command instance
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dd13071bd35c8a30fd7ab528973cf1455718efde
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:37:30 2009 -0800
+
+    cola: Add a gitcmd module
+    
+    The gitcmd module provides access to the static git command object.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 659b8d80325138bf465eaf73d3438c35d4b8e4e5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:20:47 2009 -0800
+
+    models.main: Trivial whitespace fixup when notifying observers
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ca528f7b089f07f7cea3b1faeaf335d2d4e77bb5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:20:22 2009 -0800
+
+    gitcmds: Use git-for-each-ref when finding tag names
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1c687fb56ee9f3077e9c5e9f3b49cb097cfb9d5b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:04:58 2009 -0800
+
+    gitcmds: Factor out untracked_files()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 64533fc958a3dbf62e0e1b5438f0167771f9b7ab
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:03:52 2009 -0800
+
+    gitcmds: Factor out tracked_branch()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a33a6cc23e91f665d9859e407d320563c233758d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 21:03:06 2009 -0800
+
+    gitcmds: Use current_branch() instead of depending on the model
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 42f9da1f6c03d2222915d5299ff6ff9e92dad89e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:59:25 2009 -0800
+
+    gitcmds: Factor out branch_list()
+    
+    branch_list() no longer lives within the model.
+    This version also uses git-for-each-ref, which is preferred over
+    screen-scraping git-branch.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit cc6be1306c98d40d295789f114254a45a6793e45
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:37:46 2009 -0800
+
+    gitcmds: Factor out and optimize current_branch()
+    
+    This factors current_branch() out of the main model.
+    This version is faster than the original in that it no longer
+    calls out to git.  Instead, we read .git/HEAD directly and
+    cache the result behind a stat() cache.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fd1c14c8fdd3c1b78f2c10531d5c9c2980830b14
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:31:07 2009 -0800
+
+    gitcmds: Factor all_files() out from the main model class
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 95e1de309eb8e6713b3eab31e3b07f8f33b9d7ea
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:29:46 2009 -0800
+
+    gitcmds: Add more docstrings
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 84e05c1ecd7656ce85463778156131a1722e8b26
+Merge: 23a1516 b0a5a9a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:28:22 2009 -0800
+
+    Merge branch 'maint'
+    
+    * maint:
+      views.compare: Add missing button text when comparing commits
+      controllers.compare: Fix clashing module and function name
+
+commit b0a5a9a5a22ae8029cf25ffee2a30832d795f1f6 (refs/heads/maint)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:27:20 2009 -0800
+
+    views.compare: Add missing button text when comparing commits
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a71eb88f68d5fe86f1a0699bead330eaf573a864
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 20:26:54 2009 -0800
+
+    controllers.compare: Fix clashing module and function name
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 23a15165fab75ffc85ba27768cf3c1e7573d1b44
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 18 19:45:55 2009 -0800
+
+    Makefile: Add git-cola.app
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c2f2d3daaa342eca11c488a4e35ba207c66204ae
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 17 23:22:16 2009 -0800
+
+    cola.main: Allow cloning when run outside of a git repository
+    
+    An open dialog was originally used when cola was run outside of
+    a git repository.  We now allow cloning a repository as well.
+    
+    Closes #22
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7d28ffb92f59328c2e3630ba9e996f7a7b36a30a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 17 23:18:49 2009 -0800
+
+    cola.views: Add a StartupDialog for use during application startup
+    
+    We should give the option of either opening or cloning a repo
+    when cola is run outside of a git repo.  The StartupDialog
+    provides the GUI interaction for doing so.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e552f0c49cfc4f39ab28a399eae075641c2078df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 17 23:16:50 2009 -0800
+
+    cola: Add a guicmds module for clone_repo()
+    
+    This factors out the GUI logic for cloning from the main view.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 95e2280c665da126e3f7622405989069c3dc6287
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 17 23:15:11 2009 -0800
+
+    commands: Make spawning optional in the Clone command
+    
+    We want to be able to initiate a cola session with a clone so
+    add the ability to clone without spawning a new session.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 362586ce16fcabd44861992e19462565b4765cc5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 17 23:12:09 2009 -0800
+
+    MANIFEST.in: Add cola/*.py
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 540b4226f02d28e2ee3f24be05dc18e78d733ff3
+Merge: 21b3b0e 77e65d7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 15 21:29:48 2009 -0800
+
+    Merge branch 'maint-1.4.0'
+    
+    * maint-1.4.0:
+      doc: Add git-cola-1.4.0.5 release notes
+      doc: Consolidate release notes onto a single page
+      cola.commands: Update status tree when amending commits
+      views.main: Ensure that the 'amend' checkbox gets unchecked
+      cola.utils: Properly launch external apps on win32
+    
+    Conflicts:
+    	share/doc/git-cola/relnotes/releases.rst
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 77e65d7ca20c584def377047106ea80f1a9bdde5 (tag: refs/tags/v1.4.0.5)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 15 21:26:36 2009 -0800
+
+    doc: Add git-cola-1.4.0.5 release notes
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c7cad30c28f4e6788154d60370ad375e9b693b1b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 14 10:58:45 2009 -0800
+
+    doc: Consolidate release notes onto a single page
+    
+    This makes it simpler to maintain release notes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b7ebc165b058be376c3abc0f8d4ff2e890349f27
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 15 21:23:40 2009 -0800
+
+    cola.commands: Update status tree when amending commits
+    
+    The status tree was not getting updated when commits were
+    amended.  This was because the Commit command was not resetting
+    the model's 'head' attribute.
+    
+    We now derive Commit from ResetMode so that this and other
+    duplicate actions are handled.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3873ececd3727ded0f8839fa676fdd4f9998065a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 15 21:02:37 2009 -0800
+
+    views.main: Ensure that the 'amend' checkbox gets unchecked
+    
+    The 'amend' checkbox was not always unchecking itself when
+    mode were switched by clicking on the empty area in the status
+    tree.  We now handle this condition correctly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 31c6e7342c5c5fe1306a428d5ad9edb0255e3163
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 15 20:48:17 2009 -0800
+
+    cola.utils: Properly launch external apps on win32
+    
+    Windows requires an amazing number of hacks to do something
+    as simple as running a command in the background.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 21b3b0efd0d5efb39e4e7d1126e0b2ed87ccf690
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 14 10:58:45 2009 -0800
+
+    doc: Consolidate release notes onto a single page
+    
+    This makes it simpler to maintain release notes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 211e3ccb8606247f1067c0913d8d2e98ee992ec8
+Merge: 8eb1ce6 a4abb43
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 14 04:05:51 2009 -0800
+
+    Merge branch 'maint-1.4.0'
+    
+    * maint-1.4.0:
+      doc: Add git-cola-1.4.0.4 release notes
+      Move SSH_ASKPASS scripts to share/git-cola/bin
+
+commit a4abb434f60f023ff39a4d47bca0d14f9708b91c (tag: refs/tags/v1.4.0.4)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Fri Nov 13 23:52:54 2009 -0800
 
@@ -20,7 +1295,18 @@ Date:   Fri Nov 13 22:35:37 2009 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit c922a3390c6e4a4512d688681cafc6a933f2ee2d (tag: v1.4.0.3)
+commit 8eb1ce6f739e728a241fc4a4fcdcd381cb350b1a
+Merge: 50b82b1 c922a33
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Nov 9 16:04:41 2009 -0800
+
+    Merge branch 'maint-1.4.0'
+    
+    * maint-1.4.0:
+      doc: Add git-cola-1.4.0.3 release notes
+      views.status: Eliminate X11 warnings
+
+commit c922a3390c6e4a4512d688681cafc6a933f2ee2d (tag: refs/tags/v1.4.0.3)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Nov 9 16:03:47 2009 -0800
 
@@ -42,7 +1328,25 @@ Date:   Mon Nov 9 14:57:25 2009 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 7ad83e82d0ede867131550253cf7b4d1565a249c (tag: v1.4.0.2)
+commit 50b82b127ecbc14ea668b0c64882d723bb08ca78
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 5 20:16:53 2009 -0800
+
+    docs: Use 'Git GUI' consistently
+    
+    There were several places where we were using the phrase 'git gui'
+    instead of 'Git GUI'.  The latter is preferred.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 003e3081d38d0a18c2ef89c5b8225ef810d9286f
+Merge: fd851a6 7ad83e8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 5 18:45:24 2009 -0800
+
+    Merge branch 'maint-1.4.0'
+
+commit 7ad83e82d0ede867131550253cf7b4d1565a249c (tag: refs/tags/v1.4.0.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Nov 5 18:39:54 2009 -0800
 
@@ -77,7 +1381,55 @@ Date:   Thu Nov 5 09:20:29 2009 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 22355e51d3d52826166269e70a8bf3710c590f59 (tag: v1.4.0.1)
+commit fd851a6bc9f5887bb9d3ed90f65543a19f2866df
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:35:46 2009 -0700
+
+    views.main: Add a dropEvent handler for drag+drop access to git-am
+    
+    It is now possible to apply patches by dropping them onto cola.
+    cola also allows you to drop directories in which case cola
+    walks the directory structure gathering a list of patches, sorts
+    them alphanumerically, and applies them in order.
+    
+    Closes #3
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d52775e800b2716e8cd4de70a08e2101a3238542
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:31:48 2009 -0700
+
+    commands: Add an ApplyPatches command
+    
+    This will be used to implement drag+drop access to git-am.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c1ac1474edb73309169c8f7e10361fa600c4ecae
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 14:31:00 2009 -0700
+
+    cola.signals: Do not depend on QtCore
+    
+    The signal names are plain strings now and thus there's no
+    reason to pass them through QtCore.SIGNAL().  This simplifies
+    the signals module by making it contain nothing more than a
+    collection of constants.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ad3437453c746f42fdfc8bb73c574f475e668679
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Oct 31 15:34:03 2009 -0700
+
+    Makefile: 'test' should depend on 'all'
+    
+    This ensures that the translation files have been built.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 22355e51d3d52826166269e70a8bf3710c590f59 (tag: refs/tags/v1.4.0.1)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sat Oct 31 15:17:07 2009 -0700
 
@@ -177,7 +1529,7 @@ Date:   Tue Oct 27 11:19:54 2009 -0700
     
     Signed-off-by: David Aguilar <david.aguilar@disneyanimation.com>
 
-commit 8c9dffa5250d5bc738c492b2e735f174011716f6 (tag: v1.4.0)
+commit 8c9dffa5250d5bc738c492b2e735f174011716f6 (tag: refs/tags/v1.4.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sat Oct 24 12:34:55 2009 -0700
 
@@ -3294,7 +4646,7 @@ Date:   Thu Aug 13 19:28:38 2009 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 8221f8b4dbcd78354bd8c646e930055f231240a3 (tag: v1.3.9)
+commit 8221f8b4dbcd78354bd8c646e930055f231240a3 (tag: refs/tags/v1.3.9)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sat Jul 18 23:47:17 2009 -0700
 
@@ -4114,7 +5466,7 @@ Date:   Thu Jun 18 13:49:48 2009 -1000
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 3353ba1aadf96cf51574e40f1da71119bda85a94 (drag-drop-patches)
+commit 3353ba1aadf96cf51574e40f1da71119bda85a94
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Jun 18 02:44:47 2009 -0700
 
@@ -4270,7 +5622,7 @@ Date:   Sun Jun 14 03:48:44 2009 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 9751d6c8ee0811f40eb7727e8503c4a723a92810 (tag: v1.3.8)
+commit 9751d6c8ee0811f40eb7727e8503c4a723a92810 (tag: refs/tags/v1.3.8)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sun Jun 14 02:53:10 2009 -0700
 
@@ -4412,7 +5764,7 @@ Date:   Sun May 24 20:04:30 2009 -0700
     
     Signed-off-by: Uri Okrent <uokrent@gmail.com>
 
-commit b341236095f6895ecddd57c4d9c0ec9e9f0a936d (roots/master)
+commit b341236095f6895ecddd57c4d9c0ec9e9f0a936d (refs/remotes/roots/master)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Fri May 15 02:21:35 2009 -0700
 
@@ -5027,7 +6379,7 @@ Date:   Mon Apr 20 01:27:23 2009 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit e492cd9eb1c1c0a7e696bf13a3359a384e404bba (tag: v1.3.7)
+commit e492cd9eb1c1c0a7e696bf13a3359a384e404bba (tag: refs/tags/v1.3.7)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Apr 20 01:15:00 2009 -0700
 
@@ -5491,7 +6843,7 @@ Date:   Thu Mar 26 03:00:06 2009 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit a3a86efe2db2ad029fdbfbacac24abde716f00fe (tag: v1.3.6)
+commit a3a86efe2db2ad029fdbfbacac24abde716f00fe (tag: refs/tags/v1.3.6)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Mar 19 01:44:10 2009 -0700
 
@@ -6068,7 +7420,7 @@ Date:   Sun Jan 25 16:27:24 2009 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: v1.3.5)
+commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: refs/tags/v1.3.5)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jan 19 19:09:46 2009 -0800
 
@@ -6580,7 +7932,7 @@ Date:   Thu Dec 25 17:20:46 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit fd3a43bef15b51350256e31d6ae2a1df996a3497 (tag: v1.3.4)
+commit fd3a43bef15b51350256e31d6ae2a1df996a3497 (tag: refs/tags/v1.3.4)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Dec 25 14:05:12 2008 -0800
 
@@ -6781,7 +8133,7 @@ Date:   Sun Dec 7 22:02:38 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit c8c4838f488be76751457275ae32eac2fe603d8f (tag: v1.3.3)
+commit c8c4838f488be76751457275ae32eac2fe603d8f (tag: refs/tags/v1.3.3)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Dec 4 23:13:36 2008 -0800
 
@@ -6957,7 +8309,7 @@ Date:   Wed Nov 19 16:36:02 2008 -0700
     
     Signed-off-by: Barry Roberts <blr@robertsr.us>
 
-commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: v1.3.2)
+commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: refs/tags/v1.3.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Nov 18 03:35:25 2008 -0800
 
@@ -7165,7 +8517,7 @@ Date:   Thu Nov 13 00:07:49 2008 -0700
     
     Signed-off-by: Barry Roberts <blr@robertsr.us>
 
-commit 2e5c32841cb8a450f1dfe3b60c718228f289ff51 (tag: v1.3.1)
+commit 2e5c32841cb8a450f1dfe3b60c718228f289ff51 (tag: refs/tags/v1.3.1)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Nov 12 02:47:53 2008 -0800
 
@@ -7230,7 +8582,7 @@ Date:   Fri Nov 7 22:16:52 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit b251185f1d896eb169f96556d573cc58a16c9211 (tag: v1.3.0)
+commit b251185f1d896eb169f96556d573cc58a16c9211 (tag: refs/tags/v1.3.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Thu Nov 6 21:15:54 2008 -0800
 
@@ -8038,7 +9390,7 @@ Date:   Sat Sep 20 15:52:40 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 642d42d23f68acf6e53a9d6bd020f57f0c10c261 (tag: v1.2)
+commit 642d42d23f68acf6e53a9d6bd020f57f0c10c261 (tag: refs/tags/v1.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sat Sep 20 05:05:47 2008 -0700
 
@@ -8290,7 +9642,7 @@ Date:   Sun Sep 7 21:48:16 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit ac1a2bd17b2426f01f6ecf338608db55aa1e47a6 (tag: v1.1.4)
+commit ac1a2bd17b2426f01f6ecf338608db55aa1e47a6 (tag: refs/tags/v1.1.4)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Sun Sep 7 21:27:06 2008 -0700
 
@@ -8443,7 +9795,7 @@ Date:   Tue Sep 2 00:30:24 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 4d0062648d6b3bbb9275c87cff18f41eff2a90df (tag: v1.1.3)
+commit 4d0062648d6b3bbb9275c87cff18f41eff2a90df (tag: refs/tags/v1.1.3)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Aug 26 02:39:12 2008 -0700
 
@@ -8581,7 +9933,7 @@ Date:   Mon Aug 11 01:28:31 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 936c963a90ce182ffd95cbc670459e5829b29ff4 (tag: v1.1.2)
+commit 936c963a90ce182ffd95cbc670459e5829b29ff4 (tag: refs/tags/v1.1.2)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Aug 11 01:01:51 2008 -0700
 
@@ -8853,7 +10205,7 @@ Date:   Wed Jul 30 03:57:50 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 3678e1619ee77d18e77f5b2e00f9355410e633b7 (tag: v1.1.1)
+commit 3678e1619ee77d18e77f5b2e00f9355410e633b7 (tag: refs/tags/v1.1.1)
 Merge: 68bfb55 c39e836
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Jul 30 03:23:10 2008 -0700
@@ -9074,7 +10426,7 @@ Date:   Mon Jul 14 00:54:01 2008 -0700
       cola: include GitPython to make installation simpler for users
       syntax: improve the whitespace checker
 
-commit fde6ced1edfb9762ae0f678789a0c02c2de26d08 (tag: v1.1.0)
+commit fde6ced1edfb9762ae0f678789a0c02c2de26d08 (tag: refs/tags/v1.1.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jul 14 00:44:23 2008 -0700
 
@@ -9390,7 +10742,7 @@ Date:   Mon Jun 23 23:50:53 2008 -0700
       models: add branch/rev support to diff_helper
       GitPython: updated to use Govind's latest GitPython changes
 
-commit a29d12d0b28bb8120db280cc7f26c90d2b870d37 (tag: v1.0.1)
+commit a29d12d0b28bb8120db280cc7f26c90d2b870d37 (tag: refs/tags/v1.0.1)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Mon Jun 23 23:46:06 2008 -0700
 
@@ -9526,7 +10878,7 @@ Date:   Wed Jun 11 01:16:53 2008 -0700
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 2803194de81675c8835e8142d6c641105da8fc1a (tag: v1.0.0)
+commit 2803194de81675c8835e8142d6c641105da8fc1a (tag: refs/tags/v1.0.0)
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Jun 10 03:05:36 2008 -0700
 

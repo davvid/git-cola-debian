@@ -51,7 +51,7 @@ uninstall:
 test_flags	?=
 all_test_flags	?= --with-doctest $(test_flags)
 
-test:
+test: all
 	@env PYTHONPATH="$(CURDIR)":"$(PYTHONPATH)" \
 	nosetests $(all_test_flags)
 
@@ -65,7 +65,7 @@ clean:
 	find . -name .noseids -print0 | xargs -0 rm -f
 	find . -name '*.py[co]' -print0 | xargs -0 rm -f
 	find share -name '*.qm' -print0 | xargs -0 rm -f
-	rm -rf cola/builtin_version.* build dist tmp tags
+	rm -rf cola/builtin_version.* build dist tmp tags git-cola.app
 
 tags:
 	ctags cola/*.py cola/*/*.py

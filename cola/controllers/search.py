@@ -7,6 +7,7 @@ import time
 from PyQt4 import QtGui
 
 import cola
+from cola import gitcmds
 from cola import qtutils
 from cola.qobserver import QObserver
 from cola.models.search import SearchModel
@@ -55,7 +56,7 @@ class SearchEngine(object):
 
     def revisions(self, *args, **kwargs):
         revlist = self.model.git.log(*args, **kwargs)
-        return self.model.parse_rev_list(revlist)
+        return gitcmds.parse_rev_list(revlist)
 
     def results(self):
         pass
@@ -101,7 +102,7 @@ class CommitterSearch(SearchEngine):
 class DiffSearch(SearchEngine):
     def results(self):
         query, kwargs = self.common_args()
-        return self.model.parse_rev_list(
+        return gitcmds.parse_rev_list(
             self.model.git.log('-S'+query, all=True, **kwargs))
 
 class DateRangeSearch(SearchEngine):
@@ -219,7 +220,7 @@ class SearchController(QObserver):
             return
         revision = self.results[row][0]
         qtutils.set_clipboard(revision)
-        diff = self.model.commit_diff(revision)
+        diff = gitcmds.commit_diff(revision)
         self.view.commit_text.setText(diff)
 
     def export_patch(self):

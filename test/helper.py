@@ -2,63 +2,60 @@ import os
 import sys
 import shutil
 import unittest
-from os.path import join
-from os.path import dirname
-from os.path import basename
 
 from cola import core
-from cola.models.base import BaseModel as Model
-from cola.models.observable import ObservableModel
+from cola import gitcmd
+from cola import gitcfg
 
+CUR_TEST = 0
 
-DEBUG_MODE = os.getenv('DEBUG','')
-
-TEST_SCRIPT_DIR = dirname(__file__)
-ROOT_TMP_DIR = join(TEST_SCRIPT_DIR, 'tmp')
-TEST_TMP_DIR = join(ROOT_TMP_DIR, basename(sys.argv[0]))
-
-LAST_IDX = 0
 
 def tmp_path(*paths):
     """Returns a path relative to the test/tmp directory"""
-    return join(TEST_SCRIPT_DIR, 'tmp', *paths)
+    return os.path.join(os.path.dirname(__file__), 'tmp', *paths)
+
 
 def fixture(*paths):
-    return join(TEST_SCRIPT_DIR, 'fixtures', *paths)
+    return os.path.join(os.path.dirname(__file__), 'fixtures', *paths)
+
 
 def setup_dir(dir):
     newdir = dir
-    parentdir = dirname(newdir)
+    parentdir = os.path.dirname(newdir)
     if not os.path.isdir(parentdir):
         os.mkdir(parentdir)
     if not os.path.isdir(newdir):
         os.mkdir(newdir)
 
-def get_dir():
-    global LAST_IDX
-    return '%s-%d.%04d' % (TEST_TMP_DIR, os.getpid(), LAST_IDX)
+
+def test_path(*paths):
+    cur_tmpdir = os.path.join(tmp_path(), os.path.basename(sys.argv[0]))
+    root = '%s-%d.%04d' % (cur_tmpdir, os.getpid(), CUR_TEST)
+    return os.path.join(root, *paths)
+
 
 def create_dir():
-    global LAST_IDX
-    LAST_IDX += 1
-    newdir = get_dir()
+    global CUR_TEST
+    CUR_TEST += 1
+    newdir = test_path()
     setup_dir(newdir)
     os.chdir(newdir)
     return newdir
 
-def rmdir(dir):
-    if not DEBUG_MODE:
-        os.chdir(ROOT_TMP_DIR)
-        shutil.rmtree(dir)
 
 def remove_dir():
-    global LAST_IDX
-    testdir = get_dir()
-    rmdir(testdir)
-    LAST_IDX -= 1
+    """Remove the test's tmp directory and return to the tmp root."""
+    global CUR_TEST
+    path = test_path()
+    if os.path.isdir(path):
+        os.chdir(tmp_path())
+        shutil.rmtree(path)
+    CUR_TEST -= 1
+
 
 def shell(cmd):
     return os.system(cmd)
+
 
 def pipe(cmd):
     p = os.popen(cmd)
@@ -66,50 +63,38 @@ def pipe(cmd):
     p.close()
     return out
 
-# All tests that operate on temporary data derive from helper.TestCase
-class TestCase(unittest.TestCase):
+
+class TmpPathTestCase(unittest.TestCase):
     def setUp(self):
         create_dir()
+
     def tearDown(self):
         remove_dir()
+
     def shell(self, cmd):
         result = shell(cmd)
         self.failIf(result != 0)
-    def get_dir(self):
-        return get_dir()
 
-class DuckModel(Model):
-    def __init__(self):
-        Model.__init__(self)
+    def test_path(self, *paths):
+        return test_path(*paths)
 
-        duck = Model()
-        duck.sound = 'quack'
-        duck.name = 'ducky'
 
-        goose = Model()
-        goose.sound = 'cluck'
-        goose.name = 'goose'
+class GitRepositoryTestCase(TmpPathTestCase):
+    """Tests that operate on temporary git repositories."""
+    def setUp(self, commit=True):
+        TmpPathTestCase.setUp(self)
+        self.initialize_repo()
+        if commit:
+            self.commit_files()
+        gitcmd.instance().load_worktree(os.getcwd())
+        gitcfg.instance().reset()
 
-        self.attribute = 'value'
-        self.mylist = [duck, duck, goose]
-        self.hello = 'world'
-        self.set_mylist([duck, duck, goose, 'meow', 'caboose', 42])
+    def initialize_repo(self):
+        self.shell("""
+            git init > /dev/null &&
+            touch A B &&
+            git add A B
+        """)
 
-    def duckMethod(self):
-        return 'duck'
-
-class InnerModel(Model):
-    def __init__(self):
-        Model.__init__(self)
-        self.foo = 'bar'
-
-class NestedModel(ObservableModel):
-    def __init__(self):
-        ObservableModel.__init__(self)
-        self.inner = InnerModel()
-        self.innerlist = []
-        self.innerlist.append(InnerModel())
-        self.innerlist.append([InnerModel()])
-        self.innerlist.append([[InnerModel()]])
-        self.innerlist.append([[[InnerModel(),InnerModel()]]])
-        self.innerlist.append({"foo": InnerModel()})
+    def commit_files(self):
+        self.shell('git commit -m"Initial commit" > /dev/null')

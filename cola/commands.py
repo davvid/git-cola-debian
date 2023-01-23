@@ -5,6 +5,8 @@ from cStringIO import StringIO
 
 import cola
 from cola import core
+from cola import gitcfg
+from cola import gitcmds
 from cola import utils
 from cola import signals
 from cola import cmdfactory
@@ -14,6 +16,7 @@ from cola.diffparse import DiffParser
 
 _notifier = cola.notifier()
 _factory = cmdfactory.factory()
+_config = gitcfg.instance()
 
 
 class Command(object):
@@ -100,7 +103,7 @@ class AmendMode(Command):
         self.new_head = 'HEAD'
         self.new_commitmsg = self.model.commitmsg
         # If we're going back into new-commit-mode then search the
-        # undo stack for a previous amend-commid-mode and grab the
+        # undo stack for a previous amend-commit-mode and grab the
         # commit message at that point in time.
         if not _factory.undostack:
             return
@@ -119,7 +122,7 @@ class AmendMode(Command):
         """Leave/enter amend mode."""
         """Attempt to enter amend mode.  Do not allow this when merging."""
         if self.amending:
-            if os.path.exists(self.model.git_repo_path('MERGE_HEAD')):
+            if os.path.exists(self.model.git.git_path('MERGE_HEAD')):
                 self.skip = True
                 _notifier.broadcast(signals.amend, False)
                 _notifier.broadcast(signals.information,
@@ -178,6 +181,41 @@ class ApplyDiffSelection(Command):
         diffcmd.do()
         self.model.update_status()
 
+class ApplyPatches(Command):
+    def __init__(self, patches):
+        Command.__init__(self)
+        patches.sort()
+        self.patches = patches
+
+    def do(self):
+        diff_text = ''
+        num_patches = len(self.patches)
+        orig_head = self.model.git.rev_parse('HEAD')
+
+        for idx, patch in enumerate(self.patches):
+            status, output = self.model.git.am(patch,
+                                               with_status=True,
+                                               with_stderr=True)
+            # Log the git-am command
+            _notifier.broadcast(signals.log_cmd, status, output)
+
+            if num_patches > 1:
+                diff = self.model.git.diff('HEAD^!', stat=True)
+                diff_text += 'Patch %d/%d - ' % (idx+1, num_patches)
+                diff_text += '%s:\n%s\n\n' % (os.path.basename(patch), diff)
+
+        diff_text += 'Summary:\n'
+        diff_text += self.model.git.diff(orig_head, stat=True)
+
+        # Display a diffstat
+        self.model.set_diff_text(diff_text)
+
+        _notifier.broadcast(signals.information,
+                            'Patch(es) Applied',
+                            '%d patch(es) applied:\n\n%s' %
+                            (len(self.patches),
+                             '\n'.join(map(os.path.basename, self.patches))))
+
 
 class HeadChangeCommand(Command):
     """Changes the model's current head."""
@@ -194,10 +232,10 @@ class BranchMode(HeadChangeCommand):
         self.old_filename = self.model.filename
         self.new_filename = filename
         self.new_mode = self.model.mode_branch
-        self.new_diff_text = self.model.diff_helper(filename=filename,
-                                                    cached=False,
-                                                    reverse=True,
-                                                    branch=treeish)
+        self.new_diff_text = gitcmds.diff_helper(filename=filename,
+                                                 cached=False,
+                                                 reverse=True,
+                                                 branch=treeish)
 class Checkout(Command):
     """
     A command object for git-checkout.
@@ -233,26 +271,30 @@ class CherryPick(Command):
         self.model.cherry_pick_list(self.commits)
 
 
-class Commit(Command):
+class ResetMode(Command):
+    """Reset the mode and clear the model's diff text."""
+    def __init__(self):
+        Command.__init__(self, update=True)
+        self.new_mode = self.model.mode_none
+        self.new_head = 'HEAD'
+        self.new_diff_text = ''
+
+
+class Commit(ResetMode):
     """Attempt to create a new commit."""
     def __init__(self, amend, msg):
-        Command.__init__(self)
+        ResetMode.__init__(self)
         self.amend = amend
         self.msg = core.encode(msg)
         self.old_commitmsg = self.model.commitmsg
-        self.new_mode = self.model.mode_none
         self.new_commitmsg = ''
-        self.new_diff_text = ''
 
     def do(self):
         status, output = self.model.commit_with_msg(self.msg, amend=self.amend)
         if status == 0:
-            self.model.set_mode(self.new_mode)
+            ResetMode.do(self)
             self.model.set_commitmsg(self.new_commitmsg)
-            self.model.set_diff_text(self.new_diff_text)
-            self.model.update_status()
             title = 'Commit: '
-            _notifier.broadcast(signals.amend, False)
         else:
             title = 'Commit failed: '
         _notifier.broadcast(signals.log_cmd, status, title+output)
@@ -307,9 +349,10 @@ class Diff(Command):
         self.new_filename = filenames[0]
         self.old_filename = self.model.filename
         if not self.model.read_only():
-            self.new_mode = self.model.mode_worktree
-        self.new_diff_text = self.model.diff_helper(filename=self.new_filename,
-                                                    cached=cached, **opts)
+            if self.model.mode != self.model.mode_amend:
+                self.new_mode = self.model.mode_worktree
+        self.new_diff_text = gitcmds.diff_helper(filename=self.new_filename,
+                                                 cached=cached, **opts)
 
 
 class DiffMode(HeadChangeCommand):
@@ -331,7 +374,7 @@ class Diffstat(Command):
     def __init__(self):
         Command.__init__(self)
         diff = self.model.git.diff(self.model.head,
-                                   unified=self.model.diff_context,
+                                   unified=_config.get('diff.context', 3),
                                    no_color=True,
                                    M=True,
                                    stat=True)
@@ -407,8 +450,8 @@ class FormatPatch(Command):
         self.revs = revs
 
     def do(self):
-        self.model.format_patch_helper(self.to_export, self.revs,
-                                       output='patches')
+        status, output = gitcmds.format_patchsets(self.to_export, self.revs)
+        _notifier.broadcast(signals.log_cmd, status, output)
 
 
 class GrepMode(Command):
@@ -418,11 +461,12 @@ class GrepMode(Command):
         self.new_mode = self.model.mode_grep
         self.new_diff_text = self.model.git.grep(txt, n=True)
 
-
 class LoadCommitMessage(Command):
     """Loads a commit message from a path."""
     def __init__(self, path):
         Command.__init__(self)
+        if not path or not os.path.exists(path):
+            raise OSError('error: "%s" does not exist' % path)
         self.undoable = True
         self.path = path
         self.old_commitmsg = self.model.commitmsg
@@ -430,14 +474,17 @@ class LoadCommitMessage(Command):
 
     def do(self):
         self.model.set_directory(os.path.dirname(self.path))
-        fh = open(self.path, 'r')
-        contents = core.decode(core.read_nointr(fh))
-        fh.close()
-        self.model.set_commitmsg(contents)
+        self.model.set_commitmsg(utils.slurp(self.path))
 
     def undo(self):
         self.model.set_commitmsg(self.old_commitmsg)
         self.model.set_directory(self.old_directory)
+
+
+class LoadCommitTemplate(LoadCommitMessage):
+    """Loads the commit message template specified by commit.template."""
+    def __init__(self):
+        LoadCommitMessage.__init__(self, _config.get('commit.template'))
 
 
 class Mergetool(Command):
@@ -468,16 +515,18 @@ class OpenRepo(Command):
 
 
 class Clone(Command):
-    """Clones a repository and launches a new cola session."""
-    def __init__(self, url, destdir):
+    """Clones a repository and optionally spawns a new cola session."""
+    def __init__(self, url, destdir, spawn=True):
         Command.__init__(self)
         self.url = url
         self.new_directory = utils.quote_repopath(destdir)
+        self.spawn = spawn
 
     def do(self):
         self.model.git.clone(self.url, self.new_directory,
                              with_stderr=True, with_status=True)
-        utils.fork(['python', sys.argv[0], '--repo', self.new_directory])
+        if self.spawn:
+            utils.fork(['python', sys.argv[0], '--repo', self.new_directory])
 
 
 class Rescan(Command):
@@ -486,21 +535,12 @@ class Rescan(Command):
         Command.__init__(self, update=True)
 
 
-class ResetMode(Command):
-    """Reset the mode and clear the model's diff text."""
-    def __init__(self):
-        Command.__init__(self, update=True)
-        self.new_mode = self.model.mode_none
-        self.new_head = 'HEAD'
-        self.new_diff_text = ''
-
-
 class ReviewBranchMode(Command):
     """Enter into review-branch mode."""
     def __init__(self, branch):
         Command.__init__(self, update=True)
         self.new_mode = self.model.mode_review
-        self.new_head = self.model.merge_base_to(branch)
+        self.new_head = gitcmds.merge_base_to(branch)
         self.new_diff_text = ''
 
 
@@ -553,26 +593,26 @@ class Tag(Command):
         log_msg = 'Tagging: "%s" as "%s"' % (self._revision, self._name)
         if self._sign:
             log_msg += ', GPG-signed'
-            path = cola.model().tmp_filename()
+            path = self.model.tmp_filename()
             utils.write(path, self._message)
-            status, output = cola.model().git.tag(self._name,
-                                                  self._revision,
-                                                  s=True,
-                                                  F=path,
-                                                  with_status=True,
-                                                  with_stderr=True)
+            status, output = self.model.git.tag(self._name,
+                                                self._revision,
+                                                s=True,
+                                                F=path,
+                                                with_status=True,
+                                                with_stderr=True)
             os.unlink(path)
         else:
-            status, output = cola.model().git.tag(self._name,
-                                                  self._revision,
-                                                  with_status=True,
-                                                  with_stderr=True)
+            status, output = self.model.git.tag(self._name,
+                                                self._revision,
+                                                with_status=True,
+                                                with_stderr=True)
         if output:
             log_msg += '\nOutput:\n%s' % output
 
         _notifier.broadcast(signals.log_cmd, status, log_msg)
         if status == 0:
-            cola.model().update_status()
+            self.model.update_status()
 
 
 class Unstage(Command):
@@ -584,7 +624,8 @@ class Unstage(Command):
     def do(self):
         msg = 'Unstaging: %s' % (', '.join(self.paths))
         _notifier.broadcast(signals.log_cmd, 0, msg)
-        self.model.unstage_paths(self.paths)
+        gitcmds.unstage_paths(self.paths)
+        self.model.update_status()
 
 
 class UnstageAll(Command):
@@ -655,8 +696,9 @@ def register():
     """
     signal_to_command_map = {
         signals.add_signoff: AddSignoff,
-        signals.apply_diff_selection: ApplyDiffSelection,
         signals.amend_mode: AmendMode,
+        signals.apply_diff_selection: ApplyDiffSelection,
+        signals.apply_patches: ApplyPatches,
         signals.branch_mode: BranchMode,
         signals.clone: Clone,
         signals.checkout: Checkout,
@@ -675,6 +717,7 @@ def register():
         signals.format_patch: FormatPatch,
         signals.grep: GrepMode,
         signals.load_commit_message: LoadCommitMessage,
+        signals.load_commit_template: LoadCommitTemplate,
         signals.modified_summary: Diffstat,
         signals.mergetool: Mergetool,
         signals.open_repo: OpenRepo,

@@ -11,6 +11,8 @@ import cola
 from cola import core
 from cola import utils
 from cola import qtutils
+from cola import version
+
 
 # Custom event type for GitRepoInfoEvents
 INFO_EVENT_TYPE = QtCore.QEvent.User + 42
@@ -207,6 +209,9 @@ class GitRepoEntry(QtCore.QObject):
     def update(self):
         """Starts a GitRepoInfoTask to calculate info for entries."""
         # GitRepoInfoTask handles expensive lookups
+        if not hasattr(QtCore, 'QThreadPool'):
+            # TODO: provide a fallback implementation
+            return
         threadpool = QtCore.QThreadPool.globalInstance()
         self.task = GitRepoInfoTask(self.path)
         threadpool.start(self.task)
@@ -220,10 +225,17 @@ class GitRepoEntry(QtCore.QObject):
         return QtCore.QObject.event(self, e)
 
 
-class GitRepoInfoTask(QtCore.QRunnable):
+# Support older versions of PyQt
+if version.check('pyqt_qrunnable', QtCore.PYQT_VERSION_STR):
+    QRunnable = QtCore.QRunnable
+else:
+    class QRunnable(object):
+        pass
+
+class GitRepoInfoTask(QRunnable):
     """Handles expensive git lookups for a path."""
     def __init__(self, path):
-        QtCore.QRunnable.__init__(self)
+        QRunnable.__init__(self)
         self.path = path
         self._data = {}
 

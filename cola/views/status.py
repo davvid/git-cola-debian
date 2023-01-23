@@ -10,9 +10,8 @@ from cola.qtutils import SLOT
 _widget = None
 def widget(parent=None):
     global _widget
-    if _widget:
-        return _widget
-    _widget = StatusWidget(parent)
+    if not _widget:
+        _widget = StatusWidget(parent)
     return _widget
 
 
@@ -46,8 +45,7 @@ class StatusWidget(QtGui.QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.tree.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.tree.setAnimated(True)
-        self.tree.setHeaderHidden(True)
+        self.tree.headerItem().setHidden(True)
         self.tree.setAllColumnsShowFocus(True)
         self.tree.setSortingEnabled(False)
 
