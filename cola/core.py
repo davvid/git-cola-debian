@@ -127,6 +127,11 @@ def mkpath(path, encoding=None):
     return encode(path, encoding=encoding)
 
 
+def decode_seq(seq, encoding=None):
+    """Decode a sequence of values"""
+    return [decode(x, encoding=encoding) for x in seq]
+
+
 def list2cmdline(cmd):
     return subprocess.list2cmdline([decode(c) for c in cmd])
 
@@ -342,7 +347,7 @@ def _win32_find_exe(exe):
 
 
 # Portability wrappers
-if sys.platform == 'win32' or sys.platform == 'cygwin':
+if sys.platform in {'win32', 'cygwin'}:
     fork = _fork_win32
 else:
     fork = _fork_posix
@@ -460,6 +465,17 @@ def _find_executable(executable, path=None):
     return executable
 
 
+def sync():
+    """Force writing of everything to disk. No-op on systems without os.sync()"""
+    if hasattr(os, 'sync'):
+        os.sync()
+
+
+def rename(old, new):
+    """Rename a path. Transform arguments to handle non-ascii file paths"""
+    os.rename(mkpath(old), mkpath(new))
+
+
 if PY2:
     find_executable = wrap(mkpath, _find_executable, decorator=decode)
 else:
@@ -467,6 +483,7 @@ else:
 isdir = wrap(mkpath, os.path.isdir)
 isfile = wrap(mkpath, os.path.isfile)
 islink = wrap(mkpath, os.path.islink)
+listdir = wrap(mkpath, os.listdir, decorator=decode_seq)
 makedirs = wrap(mkpath, os.makedirs)
 try:
     readlink = wrap(mkpath, os.readlink, decorator=decode)
@@ -479,6 +496,7 @@ except AttributeError:
 
 realpath = wrap(mkpath, os.path.realpath, decorator=decode)
 relpath = wrap(mkpath, os.path.relpath, decorator=decode)
+remove = wrap(mkpath, os.remove)
 stat = wrap(mkpath, os.stat)
 unlink = wrap(mkpath, os.unlink)
 walk = wrap(mkpath, os.walk)

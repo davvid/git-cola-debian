@@ -1,9 +1,11 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import sys
 
+from qtpy import QtCore
+from qtpy.QtCore import Signal
+
 from .. import core
 from .. import hidpi
-from .. import observable
 from .. import utils
 from ..cmd import Command
 
@@ -20,6 +22,7 @@ DIFFCONTEXT = 'gui.diffcontext'
 DIFFTOOL = 'diff.tool'
 DISPLAY_UNTRACKED = 'gui.displayuntracked'
 EDITOR = 'gui.editor'
+ENABLE_GRAVATAR = 'cola.gravatar'
 EXPANDTAB = 'cola.expandtab'
 FONTDIFF = 'cola.fontdiff'
 HIDPI = 'cola.hidpi'
@@ -61,6 +64,7 @@ class Defaults(object):
     diff_context = 5
     difftool = 'xxdiff'
     editor = 'gvim'
+    enable_gravatar = True
     expandtab = False
     history_browser = 'gitk'
     icon_theme = 'default'
@@ -116,7 +120,7 @@ def display_untracked(context):
 
 def editor(context):
     """Return the configured editor"""
-    app = context.cfg.get(EDITOR, default=Defaults.editor)
+    app = context.cfg.get(EDITOR, default=fallback_editor())
     return _remap_editor(app)
 
 
@@ -124,6 +128,27 @@ def background_editor(context):
     """Return the configured non-blocking background editor"""
     app = context.cfg.get(BACKGROUND_EDITOR, default=editor(context))
     return _remap_editor(app)
+
+
+def fallback_editor():
+    """Return a fallback editor for cases where one is not configured
+
+    GIT_VISUAL and VISUAL are consulted before GIT_EDITOR and EDITOR to allow
+    configuring a visual editor for Git Cola using $GIT_VISUAL and an alternative
+    editor for the Git CLI.
+    """
+    editor_variables = (
+        'GIT_VISUAL',
+        'VISUAL',
+        'GIT_EDITOR',
+        'EDITOR',
+    )
+    for env in editor_variables:
+        env_editor = core.getenv(env)
+        if env_editor:
+            return env_editor
+
+    return Defaults.editor
 
 
 def _remap_editor(app):
@@ -135,6 +160,11 @@ def _remap_editor(app):
 def comment_char(context):
     """Return the configured git commit comment character"""
     return context.cfg.get(COMMENT_CHAR, default=Defaults.comment_char)
+
+
+def enable_gravatar(context):
+    """Is gravatar enabled?"""
+    return context.cfg.get(ENABLE_GRAVATAR, default=Defaults.enable_gravatar)
 
 
 def default_history_browser():
@@ -209,28 +239,27 @@ def status_show_totals(context):
     return context.cfg.get(STATUS_SHOW_TOTALS, default=Defaults.status_show_totals)
 
 
-class PreferencesModel(observable.Observable):
+class PreferencesModel(QtCore.QObject):
     """Interact with repo-local and user-global git config preferences"""
 
-    message_config_updated = 'config_updated'
+    config_updated = Signal(str, str, object)
 
     def __init__(self, context):
-        observable.Observable.__init__(self)
+        super(PreferencesModel, self).__init__()
         self.context = context
         self.config = context.cfg
 
     def set_config(self, source, config, value):
         """Set a configuration value"""
-        if source == 'repo':
+        if source == 'local':
             self.config.set_repo(config, value)
         else:
             self.config.set_user(config, value)
-        message = self.message_config_updated
-        self.notify_observers(message, source, config, value)
+        self.config_updated.emit(source, config, value)
 
     def get_config(self, source, config):
         """Get a configured value"""
-        if source == 'repo':
+        if source == 'local':
             value = self.config.get_repo(config)
         else:
             value = self.config.get(config)

@@ -75,7 +75,7 @@ class StartupDialog(standard.Dialog):
         directory_icon = icons.directory()
         user_role = Qt.UserRole
         normalize = display.normalize_path
-        paths = set([normalize(repo['path']) for repo in all_repos])
+        paths = {normalize(repo['path']) for repo in all_repos}
         short_paths = display.shorten_paths(paths)
         self.short_paths = short_paths
 
@@ -218,7 +218,7 @@ class StartupDialog(standard.Dialog):
     def clone_repo(self):
         context = self.context
         progress = standard.progress('', '', self)
-        clone.clone_repo(context, self, True, progress, self.clone_repo_done, False)
+        clone.clone_repo(context, True, progress, self.clone_repo_done, False)
 
     def clone_repo_done(self, task):
         if task.cmd and task.cmd.status == 0:

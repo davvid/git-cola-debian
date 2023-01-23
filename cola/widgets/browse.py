@@ -11,7 +11,6 @@ from ..models.browse import GitRepoNameItem
 from ..models.selection import State
 from ..i18n import N_
 from ..interaction import Interaction
-from ..models import browse
 from .. import cmds
 from .. import core
 from .. import gitcmds
@@ -28,6 +27,9 @@ from . import standard
 def worktree_browser(context, parent=None, update=True, show=True):
     """Create a new worktree browser"""
     view = Browser(context, parent, update=update)
+    if parent is None:
+        context.browser_windows.append(view)
+        view.closed.connect(context.browser_windows.remove)
     model = GitRepoModel(context, view.tree)
     view.set_model(model)
     if update:
@@ -50,8 +52,6 @@ def save_path(context, path, model):
 
 
 class Browser(standard.Widget):
-    updated = Signal()
-
     # Read-only mode property
     mode = property(lambda self: self.model.mode)
 
@@ -61,14 +61,12 @@ class Browser(standard.Widget):
         self.mainlayout = qtutils.hbox(defs.no_margin, defs.spacing, self.tree)
         self.setLayout(self.mainlayout)
 
-        self.updated.connect(self._updated_callback, type=Qt.QueuedConnection)
-
         self.model = context.model
-        self.model.add_observer(self.model.message_updated, self.model_updated)
+        self.model.updated.connect(self._updated_callback, type=Qt.QueuedConnection)
         if parent is None:
             qtutils.add_close_action(self)
         if update:
-            self.model_updated()
+            self._updated_callback()
 
         self.init_state(context.settings, self.resize, 720, 420)
 
@@ -79,10 +77,6 @@ class Browser(standard.Widget):
     def refresh(self):
         """Refresh the model triggering view updates"""
         self.tree.refresh()
-
-    def model_updated(self):
-        """Update the title with the current branch and directory name."""
-        self.updated.emit()
 
     def _updated_callback(self):
         branch = self.model.currentbranch
@@ -103,9 +97,6 @@ class Browser(standard.Widget):
 class RepoTreeView(standard.TreeView):
     """Provides a filesystem-like view of a git repository."""
 
-    about_to_update = Signal()
-    updated = Signal()
-
     def __init__(self, context, parent):
         standard.TreeView.__init__(self, parent)
 
@@ -117,8 +108,6 @@ class RepoTreeView(standard.TreeView):
         self.restoring_selection = False
         self._columns_sized = False
 
-        self.info_event_type = browse.GitRepoInfoEvent.TYPE
-
         self.setDragEnabled(True)
         self.setRootIsDecorated(False)
         self.setSortingEnabled(False)
@@ -126,11 +115,8 @@ class RepoTreeView(standard.TreeView):
 
         # Observe model updates
         model = context.model
-        model.add_observer(model.message_about_to_update, self.emit_about_to_update)
-        model.add_observer(model.message_updated, self.emit_update)
-        # pylint: disable=no-member
-        self.about_to_update.connect(self.save_selection, type=Qt.QueuedConnection)
-        self.updated.connect(self.update_actions, type=Qt.QueuedConnection)
+        model.about_to_update.connect(self.save_selection, type=Qt.QueuedConnection)
+        model.updated.connect(self.update_actions, type=Qt.QueuedConnection)
         self.expanded.connect(self.index_expanded)
 
         self.collapsed.connect(lambda idx: self.size_columns())
@@ -216,14 +202,13 @@ class RepoTreeView(standard.TreeView):
 
         self.action_refresh = common.refresh_action(context, self)
 
-        if not utils.is_win32():
-            self.action_default_app = common.default_app_action(
-                context, self, self.selected_paths
-            )
+        self.action_default_app = common.default_app_action(
+            context, self, self.selected_paths
+        )
 
-            self.action_parent_dir = common.parent_dir_action(
-                context, self, self.selected_paths
-            )
+        self.action_parent_dir = common.parent_dir_action(
+            context, self, self.selected_paths
+        )
 
         self.action_terminal = common.terminal_action(
             context, self, self.selected_paths
@@ -293,12 +278,6 @@ class RepoTreeView(standard.TreeView):
             size = super(RepoTreeView, self).sizeHintForColumn(column)
         return size
 
-    def emit_update(self):
-        self.updated.emit()
-
-    def emit_about_to_update(self):
-        self.about_to_update.emit()
-
     def save_selection(self):
         selection = self.selected_paths()
         if selection:
@@ -357,21 +336,6 @@ class RepoTreeView(standard.TreeView):
 
         self.update_diff()
 
-    def event(self, ev):
-        """Respond to GitRepoInfoEvents"""
-        if ev.type() == self.info_event_type:
-            ev.accept()
-            self.apply_data(ev.data)
-        return super(RepoTreeView, self).event(ev)
-
-    def apply_data(self, data):
-        entry = self.model().get(data[0])
-        if entry:
-            entry[1].set_status(data[1])
-            entry[2].setText(data[2])
-            entry[3].setText(data[3])
-            entry[4].setText(data[4])
-
     def update_actions(self):
         """Enable/disable actions."""
         selection = self.selected_paths()
@@ -384,9 +348,8 @@ class RepoTreeView(standard.TreeView):
 
         self.action_editor.setEnabled(selected)
         self.action_history.setEnabled(selected)
-        if not utils.is_win32():
-            self.action_default_app.setEnabled(selected)
-            self.action_parent_dir.setEnabled(selected)
+        self.action_default_app.setEnabled(selected)
+        self.action_parent_dir.setEnabled(selected)
 
         if self.action_terminal is not None:
             self.action_terminal.setEnabled(selected)
@@ -415,10 +378,9 @@ class RepoTreeView(standard.TreeView):
         menu.addAction(self.action_revert_uncommitted)
         menu.addAction(self.action_untrack)
         menu.addAction(self.action_rename)
-        if not utils.is_win32():
-            menu.addSeparator()
-            menu.addAction(self.action_default_app)
-            menu.addAction(self.action_parent_dir)
+        menu.addSeparator()
+        menu.addAction(self.action_default_app)
+        menu.addAction(self.action_parent_dir)
 
         if self.action_terminal is not None:
             menu.addAction(self.action_terminal)

@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         # Repository checked out under $GITHUB_WORKSPACE
 
       - name: Install Dependencies
@@ -21,43 +21,47 @@ jobs:
       - name: Build
         run: make prefix="build" install
 
+      - name: Zip Artifact
+        run: zip artifact.zip build/* -r
+
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: git-cola-run${{github.run_number}}-${{runner.os}}
-          path: build/
+          path: artifact.zip
 
   test:
     name: 'Test'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         # Repository checked out under $GITHUB_WORKSPACE
 
       - name: Install Dependencies
         run: |
+          set -x
           sudo apt-get update
           sudo apt-get install \
               black \
               gettext \
               flake8 \
               pylint \
-              python-pytest \
+              python-is-python3 \
+              python3-setuptools-scm \
               python3-pytest \
               python3-pytest-flake8
-
           # Runtime dependencies (required)
           sudo apt-get install \
+              python3-qtpy \
               python3-pyqt5
-
           # Runtime dependencies (optional)
           sudo apt-get install \
-              python3-qtpy \
               python3-send2trash
 
       - name: Build Translations
-        run: make i18n
+        run: |
+          make i18n
 
       - name: Run Unit Tests
         run: |
@@ -80,28 +84,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         # Repository checked out under $GITHUB_WORKSPACE
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.x'
           architecture: 'x64'
 
       - name: Pip Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
             path: ~\AppData\Local\pip\Cache
             key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements/requirements*.txt') }}
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements/requirements.txt
-          pip install -r requirements/requirements-optional.txt
-          pip install -r requirements/requirements-maint.txt
-          pip install -r requirements/requirements-dev.txt
-          pip install PyQt5
+          pip install wheel
+          pip install --requirement requirements/requirements.txt
+          pip install --requirement requirements/requirements-dev.txt
+          pip install --requirement requirements/requirements-maint.txt
 
       # Based on: contrib/win32/run-pynsist.sh
       - name: Build Installer
@@ -117,7 +120,7 @@ jobs:
           mv git-cola*.exe git-cola-run${{github.run_number}}.exe
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: git-cola-run${{github.run_number}}-${{runner.os}}
           path: build\nsis\git-cola*.exe
@@ -127,26 +130,30 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         # Repository checked out under $GITHUB_WORKSPACE
 
       - name: Install Dependencies
         run: |
-          brew install sphinx-doc
+          set -x
           brew install git-cola
+          python3 -m venv env
+          source env/bin/activate
+          python -m pip install wheel
+          make requirements-dev
 
       - name: Build Bundle
         run: |
-          mkdir build
-          make \
-            PYTHON=$(brew --prefix python3)/bin/python3 \
-            PYTHON_CONFIG=$(brew --prefix python3)/bin/python3-config \
-            SPHINXBUILD=$(brew --prefix sphinx-doc)/bin/sphinx-build \
-            git-cola.app
+          set -x
+          source env/bin/activate
+          make git-cola.app
           mv git-cola.app build/
 
+      - name: Zip Artifact
+        run: zip artifact.zip build/* -r
+
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: git-cola-run${{github.run_number}}-${{runner.os}}
-          path: build/
+          path: artifact.zip

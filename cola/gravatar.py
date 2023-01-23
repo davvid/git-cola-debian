@@ -10,9 +10,9 @@ from qtpy import QtNetwork
 from . import compat
 from . import core
 from . import icons
-from .compat import bstr
-from .compat import ustr
+from . import qtutils
 from .compat import parse
+from .models import prefs
 from .widgets import defs
 
 
@@ -57,9 +57,10 @@ def md5_hexdigest(value):
 
 
 class GravatarLabel(QtWidgets.QLabel):
-    def __init__(self, parent=None):
+    def __init__(self, context, parent=None):
         QtWidgets.QLabel.__init__(self, parent)
 
+        self.context = context
         self.email = None
         self.response = None
         self.timeout = 0
@@ -72,8 +73,10 @@ class GravatarLabel(QtWidgets.QLabel):
         self.network.finished.connect(self.network_finished)
 
     def set_email(self, email):
-        if email in self.pixmaps:
-            self.setPixmap(self.pixmaps[email])
+        """Update the author icon based on the specified email"""
+        pixmap = self.pixmaps.get(email, None)
+        if pixmap is not None:
+            self.setPixmap(pixmap)
             return
         if self.timeout > 0 and (int(time.time()) - self.timeout) < (5 * 60):
             self.set_pixmap_from_response()
@@ -85,8 +88,11 @@ class GravatarLabel(QtWidgets.QLabel):
         self.request(email)
 
     def request(self, email):
-        url = Gravatar.url_for_email(email, self.imgsize)
-        self.network.get(QtNetwork.QNetworkRequest(QtCore.QUrl(url)))
+        if prefs.enable_gravatar(self.context):
+            url = Gravatar.url_for_email(email, self.imgsize)
+            self.network.get(QtNetwork.QNetworkRequest(QtCore.QUrl(url)))
+        else:
+            self.pixmaps[email] = self.set_pixmap_from_response()
 
     def default_pixmap_as_bytes(self):
         if self._default_pixmap_bytes is None:
@@ -105,15 +111,17 @@ class GravatarLabel(QtWidgets.QLabel):
     def network_finished(self, reply):
         email = self.email
 
-        header = QtCore.QByteArray(bstr('Location'))
-        location = ustr(reply.rawHeader(header)).strip()
+        header = QtCore.QByteArray(b'Location')
+        location = core.decode(bytes(reply.rawHeader(header))).strip()
         if location:
             request_location = Gravatar.url_for_email(self.email, self.imgsize)
             relocated = location != request_location
         else:
             relocated = False
-
-        if reply.error() == QtNetwork.QNetworkReply.NoError:
+        no_error = qtutils.enum_value(
+            QtNetwork.QNetworkReply.NetworkError.NoError  # pylint: disable=no-member
+        )
+        if reply.error() == no_error:
             if relocated:
                 # We could do get_url(parse.unquote(location)) to
                 # download the default image.
@@ -138,7 +146,7 @@ class GravatarLabel(QtWidgets.QLabel):
 
     def set_pixmap_from_response(self):
         if self.response is None:
-            self.response = self._default_pixmap_bytes()
+            self.response = self.default_pixmap_as_bytes()
         pixmap = QtGui.QPixmap()
         pixmap.loadFromData(self.response)
         self.setPixmap(pixmap)

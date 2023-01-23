@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
-import time
 from functools import partial
+import time
 
 from qtpy import QtCore
 from qtpy import QtGui
@@ -24,6 +24,8 @@ from . import defs
 
 class WidgetMixin(object):
     """Mix-in for common utilities and serialization of widget state"""
+
+    closed = Signal(QtWidgets.QWidget)
 
     def __init__(self):
         self._unmaximized_rect = {}
@@ -121,6 +123,7 @@ class WidgetMixin(object):
 
     def closeEvent(self, event):
         self.save_settings()
+        self.closed.emit(self)
         self.Base.closeEvent(self, event)
 
     def init_size(self, parent=None, settings=None, width=0, height=0):
@@ -205,7 +208,7 @@ class MainWindowMixin(WidgetMixin):
 
     def update_dockwidget_lock_state(self):
         if self.lock_layout:
-            features = QDockWidget.DockWidgetClosable | QDockWidget.DockWidgetFloatable
+            features = QDockWidget.DockWidgetClosable
         else:
             features = (
                 QDockWidget.DockWidgetClosable
@@ -897,6 +900,32 @@ class MessageBox(Dialog):
         self.show()
         return self.exec_()
 
+    def apply_state(self, state):
+        """Imports data for view save/restore"""
+        desktop_width, desktop_height = qtutils.desktop_size()
+        width = min(desktop_width, utils.asint(state.get('width')))
+        height = min(desktop_height, utils.asint(state.get('height')))
+        x = min(desktop_width, utils.asint(state.get('x')))
+        y = min(desktop_height, utils.asint(state.get('y')))
+        result = False
+
+        if width and height:
+            self.resize(width, height)
+            self.move(x, y)
+            result = True
+
+        return result
+
+    def export_state(self):
+        """Exports data for view save/restore"""
+        desktop_width, desktop_height = qtutils.desktop_size()
+        state = {}
+        state['width'] = min(desktop_width, self.width())
+        state['height'] = min(desktop_height, self.height())
+        state['x'] = min(desktop_width, self.x())
+        state['y'] = min(desktop_height, self.y())
+        return state
+
 
 def confirm(
     title,
@@ -993,8 +1022,7 @@ def save_as(filename, title):
 
 
 def async_command(title, cmd, runtask):
-    parent = qtutils.active_window()
-    task = qtutils.SimpleTask(parent, partial(core.run_command, cmd))
+    task = qtutils.SimpleTask(partial(core.run_command, cmd))
     task.connect(partial(async_command_result, title, cmd))
     runtask.start(task)
 

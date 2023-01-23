@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import sys
 import re
 from argparse import ArgumentParser
-from functools import partial
+from functools import partial, reduce
 
 from cola import app  # prints a message if Qt cannot be found
 from qtpy import QtCore
@@ -17,7 +17,6 @@ from cola import core
 from cola import difftool
 from cola import hotkeys
 from cola import icons
-from cola import observable
 from cola import qtutils
 from cola import utils
 from cola.i18n import N_
@@ -35,6 +34,7 @@ REWORD = 'reword'
 EDIT = 'edit'
 FIXUP = 'fixup'
 SQUASH = 'squash'
+UPDATE_REF = 'update-ref'
 EXEC = 'exec'
 COMMANDS = (
     PICK,
@@ -43,7 +43,7 @@ COMMANDS = (
     FIXUP,
     SQUASH,
 )
-COMMAND_IDX = dict([(cmd_, idx_) for idx_, cmd_ in enumerate(COMMANDS)])
+COMMAND_IDX = {cmd_: idx_ for idx_, cmd_ in enumerate(COMMANDS)}
 ABBREV = {
     'p': PICK,
     'r': REWORD,
@@ -51,6 +51,7 @@ ABBREV = {
     'f': FIXUP,
     's': SQUASH,
     'x': EXEC,
+    'u': UPDATE_REF,
 }
 
 
@@ -61,11 +62,6 @@ def main():
     view = new_window(context, args.filename)
     app.application_run(context, view, start=view.start, stop=stop)
     return view.status
-
-
-def winmain():
-    """Windows git-cola-sequence-editor entrypoint"""
-    return app.winmain(main)
 
 
 def stop(_context, _view):
@@ -102,7 +98,7 @@ class MainWindow(standard.MainWindow):
         self.context = context
         self.status = 1
         self.editor = None
-        default_title = '%s - git cola seqeuence editor' % core.getcwd()
+        default_title = '%s - git cola sequence editor' % core.getcwd()
         title = core.getenv('GIT_COLA_SEQ_EDITOR_TITLE', default_title)
         self.setWindowTitle(title)
 
@@ -154,22 +150,21 @@ class Editor(QtWidgets.QWidget):
         self.comment_char = comment_char = prefs.comment_char(context)
         self.cancel_action = core.getenv('GIT_COLA_SEQ_EDITOR_CANCEL_ACTION', 'abort')
 
-        self.notifier = notifier = observable.Observable()
-        self.diff = diff.DiffWidget(context, notifier, self)
-        self.tree = RebaseTreeWidget(context, notifier, comment_char, self)
-        self.filewidget = filelist.FileWidget(context, notifier, self)
+        self.diff = diff.DiffWidget(context, self)
+        self.tree = RebaseTreeWidget(context, comment_char, self)
+        self.filewidget = filelist.FileWidget(context, self)
         self.setFocusProxy(self.tree)
 
         self.rebase_button = qtutils.create_button(
             text=core.getenv('GIT_COLA_SEQ_EDITOR_ACTION', N_('Rebase')),
-            tooltip=N_('Accept changes and rebase\n' 'Shortcut: Ctrl+Enter'),
+            tooltip=N_('Accept changes and rebase\nShortcut: Ctrl+Enter'),
             icon=icons.ok(),
             default=True,
         )
 
         self.extdiff_button = qtutils.create_button(
             text=N_('Launch Diff Tool'),
-            tooltip=N_('Launch external diff tool\n' 'Shortcut: Ctrl+D'),
+            tooltip=N_('Launch external diff tool\nShortcut: Ctrl+D'),
         )
         self.extdiff_button.setEnabled(False)
 
@@ -205,8 +200,12 @@ class Editor(QtWidgets.QWidget):
             self, N_('Rebase'), self.rebase, hotkeys.CTRL_RETURN, hotkeys.CTRL_ENTER
         )
 
-        notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
+        self.tree.commits_selected.connect(self.commits_selected)
+        self.tree.commits_selected.connect(self.filewidget.commits_selected)
+        self.tree.commits_selected.connect(self.diff.commits_selected)
         self.tree.external_diff.connect(self.external_diff)
+
+        self.filewidget.files_selected.connect(self.diff.files_selected)
 
         qtutils.connect_button(self.rebase_button, self.rebase)
         qtutils.connect_button(self.extdiff_button, self.external_diff)
@@ -217,7 +216,7 @@ class Editor(QtWidgets.QWidget):
         insns = core.read(self.filename)
         self.parse_sequencer_instructions(insns)
 
-    # notifier callbacks
+    # signal callbacks
     def commits_selected(self, commits):
         self.extdiff_button.setEnabled(bool(commits))
 
@@ -226,6 +225,9 @@ class Editor(QtWidgets.QWidget):
         idx = 1
         re_comment_char = re.escape(self.comment_char)
         exec_rgx = re.compile(r'^\s*(%s)?\s*(x|exec)\s+(.+)$' % re_comment_char)
+        update_ref_rgx = re.compile(
+            r'^\s*(%s)?\s*(u|update-ref)\s+(.+)$' % re_comment_char
+        )
         # The upper bound of 40 below must match git.OID_LENGTH.
         # We'll have to update this to the new hash length when that happens.
         pick_rgx = re.compile(
@@ -253,6 +255,14 @@ class Editor(QtWidgets.QWidget):
                 command = unabbrev(match.group(2))
                 cmdexec = match.group(3)
                 self.tree.add_item(idx, enabled, command, cmdexec=cmdexec)
+                idx += 1
+                continue
+            match = update_ref_rgx.match(line)
+            if match:
+                enabled = match.group(1) is None
+                command = unabbrev(match.group(2))
+                branch = match.group(3)
+                self.tree.add_item(idx, enabled, command, branch=branch)
                 idx += 1
                 continue
 
@@ -298,13 +308,13 @@ class Editor(QtWidgets.QWidget):
 
 # pylint: disable=too-many-ancestors
 class RebaseTreeWidget(standard.DraggableTreeWidget):
+    commits_selected = Signal(object)
     external_diff = Signal()
     move_rows = Signal(object, object)
 
-    def __init__(self, context, notifier, comment_char, parent=None):
+    def __init__(self, context, comment_char, parent):
         super(RebaseTreeWidget, self).__init__(parent=parent)
         self.context = context
-        self.notifier = notifier
         self.comment_char = comment_char
         # header
         self.setHeaderLabels(
@@ -318,6 +328,7 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
         )
         self.header().setStretchLastSection(True)
         self.setColumnCount(5)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
         # actions
         self.copy_oid_action = qtutils.add_action(
@@ -375,7 +386,9 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
         self.move_rows.connect(self.move)
         self.items_moved.connect(self.decorate)
 
-    def add_item(self, idx, enabled, command, oid='', summary='', cmdexec=''):
+    def add_item(
+        self, idx, enabled, command, oid='', summary='', cmdexec='', branch=''
+    ):
         comment_char = self.comment_char
         item = RebaseTreeWidgetItem(
             idx,
@@ -384,6 +397,7 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
             oid=oid,
             summary=summary,
             cmdexec=cmdexec,
+            branch=branch,
             comment_char=comment_char,
         )
         self.invisibleRootItem().addChild(item)
@@ -441,13 +455,13 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
             commits.append(c)
         if commits:
             commits = commits[-1:]
-        self.notifier.notify_observers(diff.COMMITS_SELECTED, commits)
+        self.commits_selected.emit(commits)
 
     def toggle_enabled(self):
-        item = self.selected_item()
-        if item is None:
-            return
-        item.toggle_enabled()
+        items = self.selected_items()
+        logic_or = reduce(lambda res, item: res or item.is_enabled(), items, False)
+        for item in items:
+            item.set_enabled(not logic_or)
 
     def select_first(self):
         items = self.items()
@@ -458,40 +472,50 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
             self.setCurrentIndex(idx)
 
     def shift_down(self):
-        item = self.selected_item()
-        if item is None:
+        sel_items = self.selected_items()
+        all_items = self.items()
+        sel_idx = sorted([all_items.index(item) for item in sel_items])
+        if not sel_idx:
             return
-        items = self.items()
-        idx = items.index(item)
-        if idx < len(items) - 1:
-            self.move_rows.emit([idx], idx + 1)
+        idx = sel_idx[0] + 1
+        if not (
+            idx > len(all_items) - len(sel_items)
+            or all_items[sel_idx[-1]] is all_items[-1]
+        ):
+            self.move_rows.emit(sel_idx, idx)
 
     def shift_up(self):
-        item = self.selected_item()
-        if item is None:
+        sel_items = self.selected_items()
+        all_items = self.items()
+        sel_idx = sorted([all_items.index(item) for item in sel_items])
+        if not sel_idx:
             return
-        items = self.items()
-        idx = items.index(item)
-        if idx > 0:
-            self.move_rows.emit([idx], idx - 1)
+        idx = sel_idx[0] - 1
+        if idx >= 0:
+            self.move_rows.emit(sel_idx, idx)
 
     def move(self, src_idxs, dst_idx):
-        new_items = []
-        items = self.items()
+        moved_items = []
+        src_base = sorted(src_idxs)[0]
         for idx in reversed(sorted(src_idxs)):
-            item = items[idx].copy()
-            self.invisibleRootItem().takeChild(idx)
-            new_items.insert(0, item)
+            item = self.invisibleRootItem().takeChild(idx)
+            moved_items.insert(0, [dst_idx + (idx - src_base), item])
 
-        if new_items:
-            self.invisibleRootItem().insertChildren(dst_idx, new_items)
-            self.setCurrentItem(new_items[0])
+        for item in moved_items:
+            self.invisibleRootItem().insertChild(item[0], item[1])
+            self.setCurrentItem(item[1])
+
+        if moved_items:
+            moved_items = [item[1] for item in moved_items]
             # If we've moved to the top then we need to re-decorate all items.
             # Otherwise, we can decorate just the new items.
             if dst_idx == 0:
                 self.decorate(self.items())
             else:
-                self.decorate(new_items)
+                self.decorate(moved_items)
+
+            for item in moved_items:
+                item.setSelected(True)
         self.validate()
 
     # Qt events
@@ -501,6 +525,7 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
         self.validate()
 
     def contextMenuEvent(self, event):
+        items = self.selected_items()
         menu = qtutils.create_menu(N_('Actions'), self)
         menu.addAction(self.action_pick)
         menu.addAction(self.action_reword)
@@ -511,7 +536,11 @@ class RebaseTreeWidget(standard.DraggableTreeWidget):
         menu.addAction(self.toggle_enabled_action)
         menu.addSeparator()
         menu.addAction(self.copy_oid_action)
+        if len(items) > 1:
+            self.copy_oid_action.setDisabled(True)
         menu.addAction(self.external_diff_action)
+        if len(items) > 1:
+            self.external_diff_action.setDisabled(True)
         menu.exec_(self.mapToGlobal(event.pos()))
 
 
@@ -533,6 +562,7 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
         oid='',
         summary='',
         cmdexec='',
+        branch='',
         comment_char='#',
         parent=None,
     ):
@@ -543,6 +573,7 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
         self.oid = oid
         self.summary = summary
         self.cmdexec = cmdexec
+        self.branch = branch
         self.comment_char = comment_char
 
         # if core.abbrev is set to a higher value then we will notice by
@@ -557,6 +588,9 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
         if self.is_exec():
             self.setText(3, '')
             self.setText(4, cmdexec)
+        elif self.is_update_ref():
+            self.setText(3, '')
+            self.setText(4, branch)
         else:
             self.setText(3, oid)
             self.setText(4, summary)
@@ -580,11 +614,16 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
             oid=self.oid,
             summary=self.summary,
             cmdexec=self.cmdexec,
+            branch=self.branch,
+            comment_char=self.comment_char,
         )
 
     def decorate(self, parent):
         if self.is_exec():
             items = [EXEC]
+            idx = 0
+        elif self.is_update_ref():
+            items = [UPDATE_REF]
             idx = 0
         else:
             items = COMMANDS
@@ -605,8 +644,13 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
     def is_exec(self):
         return self.command == EXEC
 
+    def is_update_ref(self):
+        return self.command == UPDATE_REF
+
     def is_commit(self):
-        return bool(self.command != EXEC and self.oid and self.summary)
+        return bool(
+            not (self.is_exec() or self.is_update_ref()) and self.oid and self.summary
+        )
 
     def value(self):
         """Return the serialized representation of an item"""
@@ -616,6 +660,8 @@ class RebaseTreeWidgetItem(QtWidgets.QTreeWidgetItem):
             comment = self.comment_char + ' '
         if self.is_exec():
             return '%s%s %s' % (comment, self.command, self.cmdexec)
+        if self.is_update_ref():
+            return '%s%s %s' % (comment, self.command, self.branch)
         return '%s%s %s %s' % (comment, self.command, self.oid, self.summary)
 
     def is_enabled(self):
@@ -661,6 +707,7 @@ edit = use commit, but stop for amending
 squash = use commit, but meld into previous commit
 fixup = like "squash", but discard this commit's log message
 exec = run command (the rest of the line) using shell
+update-ref = update branches that point to commits
 
 These lines can be re-ordered; they are executed from top to bottom.
 

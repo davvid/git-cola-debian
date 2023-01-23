@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from .. import cmds
 from .. import core
-from .. import observable
 from .. import gitcmds
 from .. import utils
 from ..i18n import N_
@@ -10,9 +9,8 @@ from ..git import STDOUT
 from ..interaction import Interaction
 
 
-class StashModel(observable.Observable):
+class StashModel(object):
     def __init__(self, context):
-        observable.Observable.__init__(self)
         self.context = context
         self.git = context.git
         self.model = model = context.model
@@ -32,7 +30,7 @@ class StashModel(observable.Observable):
     def stash_info(self, revids=False, names=False):
         """Parses "git stash list" and returns a list of stashes."""
         stashes = self.stash_list(r'--format=%gd/%aD/%s')
-        split_stashes = [s.split('/', 3) for s in stashes if s]
+        split_stashes = [s.split('/', 2) for s in stashes if s]
         stashes = ['{0}: {1}'.format(s[0], s[2]) for s in split_stashes]
         revids = [s[0] for s in split_stashes]
         author_dates = [s[1] for s in split_stashes]

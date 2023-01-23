@@ -9,7 +9,7 @@ import sys
 import time
 
 __copyright__ = """
-Copyright (C) 2007-2017 David Aguilar and contributors
+Copyright (C) 2007-2022 David Aguilar and contributors
 """
 
 try:
@@ -17,10 +17,12 @@ try:
 except ImportError:
     sys.stderr.write(
         """
-You do not seem to have PyQt5, PySide, or PyQt4 installed.
-Please install it before using git-cola, e.g. on a Debian/Ubutnu system:
+You do not seem to have PyQt (or PySide) and qtpy installed.
+Please install the PyQt (or PySide) and qtpy into your Python environment.
 
-    sudo apt-get install python-pyqt5 python-pyqt5.qtwebkit
+For example, on a Debian/Ubuntu system you can install these using apt:
+
+    sudo apt install python3-pyqt5 python3-pyqt5.qtwebkit python3-qtpy
 
 """
     )
@@ -100,9 +102,9 @@ def setup_environment():
     elif ssh_askpass:
         askpass = ssh_askpass
     elif sys.platform == 'darwin':
-        askpass = resources.share('bin', 'ssh-askpass-darwin')
+        askpass = resources.package_command('ssh-askpass-darwin')
     else:
-        askpass = resources.share('bin', 'ssh-askpass')
+        askpass = resources.package_command('ssh-askpass')
 
     compat.setenv('GIT_ASKPASS', askpass)
     compat.setenv('SSH_ASKPASS', askpass)
@@ -164,7 +166,7 @@ def get_icon_themes(context):
     if icon_themes_env:
         result.extend([x for x in icon_themes_env.split(':') if x])
 
-    icon_themes_cfg = context.cfg.get_all('cola.icontheme')
+    icon_themes_cfg = list(reversed(context.cfg.get_all('cola.icontheme')))
     if icon_themes_cfg:
         result.extend(icon_themes_cfg)
 
@@ -193,6 +195,7 @@ class ColaApplication(object):
         self._install_hidpi_config()
         self._app = ColaQApplication(context, list(argv))
         self._app.setWindowIcon(icons.cola())
+        self._app.setDesktopFileName('git-cola')
         self._install_style(gui_theme)
 
     def _install_style(self, theme_str):
@@ -490,8 +493,11 @@ def new_worktree(context, repo, prompt):
 
         valid = model.set_worktree(gitdir)
         if not valid:
+            err = model.error
             standard.critical(
-                N_('Error Opening Repository'), N_('Could not open %s.' % gitdir)
+                N_('Error Opening Repository'),
+                message=N_('Could not open %s.' % gitdir),
+                details=err,
             )
 
 
@@ -514,7 +520,7 @@ def async_update(context):
 
     """
     update_status = partial(context.model.update_status, update_index=True)
-    task = qtutils.SimpleTask(context.view, update_status)
+    task = qtutils.SimpleTask(update_status)
     context.runtask.start(task)
 
 
@@ -535,6 +541,12 @@ def startup_message():
 
 def initialize():
     """System-level initialization"""
+    # We support ~/.config/git-cola/git-bindir on Windows for configuring
+    # a custom location for finding the "git" executable.
+    git_path = find_git()
+    if git_path:
+        prepend_path(git_path)
+
     # The current directory may have been deleted while we are still
     # in that directory.  We rectify this situation by walking up the
     # directory tree and retrying.
@@ -578,6 +590,20 @@ class Timer(object):
         sys.stdout.write('%s: %.5fs\n' % (key, elapsed))
 
 
+class NullArgs(object):
+    """Stub arguments for interactive API use"""
+
+    def __init__(self):
+        self.icon_themes = []
+        self.theme = None
+        self.settings = None
+
+
+def null_args():
+    """Create a new instance of application arguments"""
+    return NullArgs()
+
+
 class ApplicationContext(object):
     """Context for performing operations on Git and related data models"""
 
@@ -593,19 +619,12 @@ class ApplicationContext(object):
         self.selection = None  # selection.SelectionModel
         self.fsmonitor = None  # fsmonitor
         self.view = None  # QWidget
+        self.browser_windows = []  # list of browse.Browser
 
     def set_view(self, view):
         """Initialize view-specific members"""
         self.view = view
         self.runtask = qtutils.RunTask(parent=view)
-
-
-def winmain(main_fn, *argv):
-    """Find Git and launch main(argv)"""
-    git_path = find_git()
-    if git_path:
-        prepend_path(git_path)
-    return main_fn(*argv)
 
 
 def find_git():
@@ -616,9 +635,7 @@ def find_git():
     # If the user wants to use a Git/bin/ directory from a non-standard
     # directory then they can write its location into
     # ~/.config/git-cola/git-bindir
-    git_bindir = os.path.expanduser(
-        os.path.join('~', '.config', 'git-cola', 'git-bindir')
-    )
+    git_bindir = resources.config_home('git-bindir')
     if core.exists(git_bindir):
         custom_path = core.read(git_bindir).strip()
         if custom_path and core.exists(custom_path):

@@ -29,7 +29,6 @@ from .text import HintedLineEdit
 
 
 class CommitMessageEditor(QtWidgets.QFrame):
-    commit_message_changed = Signal(object)
     cursor_changed = Signal(int, int)
     down = Signal()
     up = Signal()
@@ -90,7 +89,7 @@ class CommitMessageEditor(QtWidgets.QFrame):
         self.description.set_dictionary(cfg.get('cola.dictionary', None))
         self.description.menu_actions.extend(menu_actions)
 
-        commit_button_tooltip = N_('Commit staged changes\n' 'Shortcut: Ctrl+Enter')
+        commit_button_tooltip = N_('Commit staged changes\nShortcut: Ctrl+Enter')
         self.commit_button = qtutils.create_button(
             text=N_('Commit@@verb'), tooltip=commit_button_tooltip, icon=icons.commit()
         )
@@ -185,11 +184,7 @@ class CommitMessageEditor(QtWidgets.QFrame):
             self.summary, N_('Move Down'), self.summary_cursor_down, hotkeys.DOWN
         )
 
-        self.model.add_observer(
-            self.model.message_commit_message_changed, self.commit_message_changed.emit
-        )
-
-        self.commit_message_changed.connect(
+        self.model.commit_message_changed.connect(
             self.set_commit_message, type=Qt.QueuedConnection
         )
 
@@ -223,7 +218,7 @@ class CommitMessageEditor(QtWidgets.QFrame):
         self.setFont(qtutils.diff_font(context))
         self.setFocusProxy(self.summary)
 
-        cfg.add_observer(cfg.message_user_config_changed, self.config_changed)
+        cfg.user_config_changed.connect(self.config_changed)
 
     def config_changed(self, key, value):
         if key != prefs.SPELL_CHECK:
@@ -442,7 +437,7 @@ class CommitMessageEditor(QtWidgets.QFrame):
             )
             if self.model.modified:
                 informative_text = N_(
-                    'Would you like to stage and ' 'commit all modified files?'
+                    'Would you like to stage and commit all modified files?'
                 )
                 if not Interaction.confirm(
                     N_('Stage and commit?'),
@@ -539,7 +534,7 @@ class CommitMessageEditor(QtWidgets.QFrame):
         spellcheck = self.description.spellcheck
         cfg = self.context.cfg
 
-        if cfg.get_user(prefs.SPELL_CHECK) != enabled:
+        if prefs.spellcheck(self.context) != enabled:
             cfg.set_user(prefs.SPELL_CHECK, enabled)
         if enabled and not self.spellcheck_initialized:
             # Add our name to the dictionary
@@ -568,24 +563,12 @@ class CommitMessageEditor(QtWidgets.QFrame):
 class MessageValidator(QtGui.QValidator):
     """Prevent invalid branch names"""
 
-    config_updated = Signal()
-
     def __init__(self, context, parent=None):
         super(MessageValidator, self).__init__(parent)
         self.context = context
         self._comment_char = None
-        self._cfg = cfg = context.cfg
         self.refresh()
-        # pylint: disable=no-member
-        self.config_updated.connect(self.refresh, type=Qt.QueuedConnection)
-        cfg.add_observer(cfg.message_updated, self.emit_config_updated)
-        self.destroyed.connect(self.teardown)
-
-    def teardown(self):
-        self._cfg.remove_observer(self.emit_config_updated)
-
-    def emit_config_updated(self):
-        self.config_updated.emit()
+        context.cfg.updated.connect(self.refresh, type=Qt.QueuedConnection)
 
     def refresh(self):
         """Update comment char in response to config changes"""

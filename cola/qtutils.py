@@ -304,9 +304,7 @@ def prompt_n(msg, inputs):
             long_value = k + v
 
     metrics = QtGui.QFontMetrics(dialog.font())
-    min_width = metrics.width(long_value) + 100
-    if min_width > 720:
-        min_width = 720
+    min_width = min(720, metrics.width(long_value) + 100)
     dialog.setMinimumWidth(min_width)
 
     ok_b = ok_button(msg, enabled=False)
@@ -342,9 +340,32 @@ def prompt_n(msg, inputs):
     return (ok, text)
 
 
+def standard_item_type_value(value):
+    """Return a custom UserType for use in QTreeWidgetItem.type() overrides"""
+    return custom_item_type_value(QtGui.QStandardItem, value)
+
+
+def graphics_item_type_value(value):
+    """Return a custom UserType for use in QGraphicsItem.type() overrides"""
+    return custom_item_type_value(QtWidgets.QGraphicsItem, value)
+
+
+def custom_item_type_value(cls, value):
+    """Return a custom cls.UserType for use in cls.type() overrides"""
+    user_type = enum_value(cls.UserType)
+    return user_type + value
+
+
+def enum_value(value):
+    """Qt6 has enums with an inner '.value' attribute."""
+    if hasattr(value, 'value'):
+        value = value.value
+    return value
+
+
 class TreeWidgetItem(QtWidgets.QTreeWidgetItem):
 
-    TYPE = QtGui.QStandardItem.UserType + 101
+    TYPE = standard_item_type_value(101)
 
     def __init__(self, path, icon, deleted):
         QtWidgets.QTreeWidgetItem.__init__(self)
@@ -442,9 +463,11 @@ def open_files(title, directory=None, filters=''):
 
 def opendir_dialog(caption, path):
     """Prompts for a directory path"""
-
     options = (
-        QtWidgets.QFileDialog.ShowDirsOnly | QtWidgets.QFileDialog.DontResolveSymlinks
+        QtWidgets.QFileDialog.Directory
+        | QtWidgets.QFileDialog.DontResolveSymlinks
+        | QtWidgets.QFileDialog.ReadOnly
+        | QtWidgets.QFileDialog.ShowDirsOnly
     )
     return compat.getexistingdirectory(
         parent=active_window(), caption=caption, basedir=path, options=options
@@ -939,10 +962,10 @@ class Task(QtCore.QRunnable):
 
     """
 
-    def __init__(self, parent):
+    def __init__(self):
         QtCore.QRunnable.__init__(self)
 
-        self.channel = Channel(parent)
+        self.channel = Channel()
         self.result = None
         self.setAutoDelete(False)
 
@@ -962,8 +985,8 @@ class Task(QtCore.QRunnable):
 class SimpleTask(Task):
     """Run a simple callable as a task"""
 
-    def __init__(self, parent, fn, *args, **kwargs):
-        Task.__init__(self, parent)
+    def __init__(self, fn, *args, **kwargs):
+        Task.__init__(self)
 
         self.fn = fn
         self.args = args
@@ -1074,7 +1097,7 @@ class ImageFormats(object):
         # portability: python3 data() returns bytes, python2 returns str
         decode = core.decode
         formats = [decode(x.data()) for x in formats_qba]
-        self.extensions = set(['.' + fmt for fmt in formats])
+        self.extensions = {'.' + fmt for fmt in formats}
 
     def ok(self, filename):
         _, ext = os.path.splitext(filename)

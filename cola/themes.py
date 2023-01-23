@@ -1,17 +1,21 @@
 """Themes generators"""
 from __future__ import absolute_import, division, print_function, unicode_literals
+import os
 
 from qtpy import QtGui
 
 from .i18n import N_
 from .widgets import defs
+from . import core
 from . import icons
 from . import qtutils
+from . import resources
 
 
 class EStylesheet(object):
     DEFAULT = 1
     FLAT = 2
+    CUSTOM = 3  # Files located in ~/.config/git-cola/themes/*.qss
 
 
 class Theme(object):
@@ -25,7 +29,9 @@ class Theme(object):
         self.main_color = main_color
 
     def build_style_sheet(self, app_palette):
-        if self.style_sheet == EStylesheet.FLAT:
+        if self.style_sheet == EStylesheet.CUSTOM:
+            return self.style_sheet_custom(app_palette)
+        elif self.style_sheet == EStylesheet.FLAT:
             return self.style_sheet_flat()
         else:
             return self.style_sheet_default(app_palette)
@@ -521,9 +527,26 @@ class Theme(object):
             focus=focus,
         )
 
+    def style_sheet_custom(self, app_palette):
+        """Get custom style sheet.
+        File name is saved in variable self.name.
+        If user has deleted file, use default style"""
+
+        # check if path exists
+        filename = resources.config_home('themes', self.name + '.qss')
+        if not core.exists(filename):
+            return self.style_sheet_default(app_palette)
+        try:
+            return core.read(filename)
+        except (IOError, OSError) as err:
+            core.print_stderr(
+                'warning: unable to read custom theme %s: %s' % (filename, err)
+            )
+            return self.style_sheet_default(app_palette)
+
 
 def get_all_themes():
-    return [
+    themes = [
         Theme('default', N_('Default'), False, EStylesheet.DEFAULT, None),
         Theme(
             'flat-light-blue', N_('Flat light blue'), False, EStylesheet.FLAT, '#5271cc'
@@ -552,6 +575,24 @@ def get_all_themes():
             'flat-dark-green', N_('Flat dark green'), True, EStylesheet.FLAT, '#42a65c'
         ),
     ]
+
+    # check if themes path exists in user folder
+    path = resources.config_home('themes')
+    if not os.path.isdir(path):
+        return themes
+
+    # Gather Qt .qss stylesheet themes
+    try:
+        filenames = core.listdir(path)
+    except OSError:
+        return themes
+
+    for filename in filenames:
+        name, ext = os.path.splitext(filename)
+        if ext == '.qss':
+            themes.append(Theme(name, N_(name), False, EStylesheet.CUSTOM, None))
+
+    return themes
 
 
 def options():
