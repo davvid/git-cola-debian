@@ -1,14 +1,12 @@
-.. git-cola documentation master file, created by
-   sphinx-quickstart on Sat Apr 18 22:49:53 2009.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-======================
-git-cola documentation
-======================
+===================================
+Welcome to git-cola's Documentation
+===================================
 .. toctree::
 
-    userguide
+    intro
+    tools
+    mainwindow
+    thanks
 
 Release Notes
 =============
@@ -16,13 +14,6 @@ Release Notes
     :maxdepth: 1
 
     relnotes
-
-Developer Reference
-===================
-.. toctree::
-    :maxdepth: 2
-
-    reference
 
 Indices and tables
 ==================

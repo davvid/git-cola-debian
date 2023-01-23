@@ -1,8 +1,9 @@
 import os
 import sys
+import platform
+from fnmatch import fnmatch
 
 from cStringIO import StringIO
-import commands
 
 import cola
 from cola import i18n
@@ -14,7 +15,6 @@ from cola import utils
 from cola import signals
 from cola import cmdfactory
 from cola import difftool
-from cola import version
 from cola.diffparse import DiffParser
 from cola.models import selection
 
@@ -23,12 +23,32 @@ _factory = cmdfactory.factory()
 _config = gitcfg.instance()
 
 
-class Command(object):
-    """Base class for all commands; provides the command pattern."""
+class BaseCommand(object):
+    """Base class for all commands; provides the command pattern"""
+    def __init__(self):
+        self.undoable = False
+
+    def is_undoable(self):
+        """Can this be undone?"""
+        return self.undoable
+
+    def name(self):
+        """Return this command's name."""
+        return self.__class__.__name__
+
+    def do(self):
+        raise NotImplementedError('%s.do() is unimplemented' % self.name())
+
+    def undo(self):
+        raise NotImplementedError('%s.undo() is unimplemented' % self.name())
+
+
+class Command(BaseCommand):
+    """Base class for commands that modify the main model"""
     def __init__(self):
         """Initialize the command and stash away values for use in do()"""
         # These are commonly used so let's make it easier to write new commands.
-        self.undoable = False
+        BaseCommand.__init__(self)
         self.model = cola.model()
 
         self.old_diff_text = self.model.diff_text
@@ -43,14 +63,10 @@ class Command(object):
 
     def do(self):
         """Perform the operation."""
-        self.model.set_diff_text(self.new_diff_text)
         self.model.set_filename(self.new_filename)
         self.model.set_head(self.new_head)
         self.model.set_mode(self.new_mode)
-
-    def is_undoable(self):
-        """Can this be undone?"""
-        return self.undoable
+        self.model.set_diff_text(self.new_diff_text)
 
     def undo(self):
         """Undo the operation."""
@@ -58,10 +74,6 @@ class Command(object):
         self.model.set_filename(self.old_filename)
         self.model.set_head(self.old_head)
         self.model.set_mode(self.old_mode)
-
-    def name(self):
-        """Return this command's name."""
-        return self.__class__.__name__
 
 
 class AmendMode(Command):
@@ -81,6 +93,7 @@ class AmendMode(Command):
         # else, amend unchecked, regular commit
         self.new_mode = self.model.mode_none
         self.new_head = 'HEAD'
+        self.new_diff_text = ''
         self.new_commitmsg = self.model.commitmsg
         # If we're going back into new-commit-mode then search the
         # undo stack for a previous amend-commit-mode and grab the
@@ -134,29 +147,16 @@ class ApplyDiffSelection(Command):
         self.apply_to_worktree = apply_to_worktree
 
     def do(self):
-        if self.model.mode == self.model.mode_branch:
-            # We're applying changes from a different branch!
-            parser = DiffParser(self.model,
-                                filename=self.model.filename,
-                                cached=False,
-                                branch=self.model.head)
-            status, output = \
-            parser.process_diff_selection(self.selected,
-                                          self.offset,
-                                          self.selection,
-                                          apply_to_worktree=True)
-        else:
-            # The normal worktree vs index scenario
-            parser = DiffParser(self.model,
-                                filename=self.model.filename,
-                                cached=self.staged,
-                                reverse=self.apply_to_worktree)
-            status, output = \
-            parser.process_diff_selection(self.selected,
-                                          self.offset,
-                                          self.selection,
-                                          apply_to_worktree=
-                                              self.apply_to_worktree)
+        # The normal worktree vs index scenario
+        parser = DiffParser(self.model,
+                            filename=self.model.filename,
+                            cached=self.staged,
+                            reverse=self.apply_to_worktree)
+        status, output = \
+        parser.process_diff_selection(self.selected,
+                                      self.offset,
+                                      self.selection,
+                                      apply_to_worktree=self.apply_to_worktree)
         _notifier.broadcast(signals.log_cmd, status, output)
         # Redo the diff to show changes
         if self.staged:
@@ -196,38 +196,15 @@ class ApplyPatches(Command):
         # Display a diffstat
         self.model.set_diff_text(diff_text)
 
+        self.model.update_file_status()
+
         _factory.prompt_user(signals.information,
                             'Patch(es) Applied',
                             '%d patch(es) applied:\n\n%s' %
                             (len(self.patches),
                              '\n'.join(map(os.path.basename, self.patches))))
 
-        self.model.update_file_status()
 
-
-class HeadChangeCommand(Command):
-    """Changes the model's current head."""
-    def __init__(self, treeish):
-        Command.__init__(self)
-        self.new_head = treeish
-        self.new_diff_text = ''
-
-    def do(self):
-        Command.do(self)
-        self.model.update_file_status()
-
-
-class BranchMode(HeadChangeCommand):
-    """Enter into diff-branch mode."""
-    def __init__(self, treeish, filename):
-        HeadChangeCommand.__init__(self, treeish)
-        self.old_filename = self.model.filename
-        self.new_filename = filename
-        self.new_mode = self.model.mode_branch
-        self.new_diff_text = gitcmds.diff_helper(filename=filename,
-                                                 cached=False,
-                                                 reverse=True,
-                                                 branch=treeish)
 class Checkout(Command):
     """
     A command object for git-checkout.
@@ -239,12 +216,12 @@ class Checkout(Command):
         Command.__init__(self)
         self.argv = argv
         self.checkout_branch = checkout_branch
+        self.new_diff_text = ''
 
     def do(self):
         status, output = self.model.git.checkout(with_stderr=True,
                                                  with_status=True, *self.argv)
         _notifier.broadcast(signals.log_cmd, status, output)
-        self.model.set_diff_text('')
         if self.checkout_branch:
             self.model.update_status()
         else:
@@ -291,7 +268,8 @@ class Commit(ResetMode):
         self.new_commitmsg = ''
 
     def do(self):
-        status, output = self.model.commit_with_msg(self.msg, amend=self.amend)
+        tmpfile = utils.tmp_filename('commit-message')
+        status, output = self.model.commit_with_msg(self.msg, tmpfile, amend=self.amend)
         if status == 0:
             ResetMode.do(self)
             self.model.set_commitmsg(self.new_commitmsg)
@@ -313,7 +291,7 @@ class Ignore(Command):
             new_additions = new_additions + fname + '\n'
         for_status = new_additions
         if new_additions:
-            if '.gitignore' in gitcmds.all_files():
+            if os.path.exists('.gitignore'):
                 current_list = utils.slurp('.gitignore')
                 new_additions = new_additions + current_list
             utils.write('.gitignore', new_additions)
@@ -364,32 +342,17 @@ class Diff(Command):
     """Perform a diff and set the model's current text."""
     def __init__(self, filenames, cached=False):
         Command.__init__(self)
+        # Guard against the list of files being empty
+        if not filenames:
+            return
         opts = {}
         if cached:
-            cached = not self.model.read_only()
-            opts = dict(ref=self.model.head)
-
+            opts['ref'] = self.model.head
         self.new_filename = filenames[0]
         self.old_filename = self.model.filename
-        if not self.model.read_only():
-            if self.model.mode != self.model.mode_amend:
-                self.new_mode = self.model.mode_worktree
+        self.new_mode = self.model.mode_worktree
         self.new_diff_text = gitcmds.diff_helper(filename=self.new_filename,
                                                  cached=cached, **opts)
-
-
-class DiffMode(HeadChangeCommand):
-    """Enter diff mode and clear the model's diff text."""
-    def __init__(self, treeish):
-        HeadChangeCommand.__init__(self, treeish)
-        self.new_mode = self.model.mode_diff
-
-
-class DiffExprMode(HeadChangeCommand):
-    """Enter diff-expr mode and clear the model's diff text."""
-    def __init__(self, treeish):
-        HeadChangeCommand.__init__(self, treeish)
-        self.new_mode = self.model.mode_diff_expr
 
 
 class Diffstat(Command):
@@ -409,24 +372,19 @@ class DiffStaged(Diff):
     """Perform a staged diff on a file."""
     def __init__(self, filenames):
         Diff.__init__(self, filenames, cached=True)
-        if not self.model.read_only():
-            if self.model.mode != self.model.mode_amend:
-                self.new_mode = self.model.mode_index
+        self.new_mode = self.model.mode_index
 
 
 class DiffStagedSummary(Command):
     def __init__(self):
         Command.__init__(self)
-        cached = not self.model.read_only()
         diff = self.model.git.diff(self.model.head,
-                                   cached=cached,
+                                   cached=True,
                                    no_color=True,
                                    patch_with_stat=True,
                                    M=True)
         self.new_diff_text = core.decode(diff)
-        if not self.model.read_only():
-            if self.model.mode != self.model.mode_amend:
-                self.new_mode = self.model.mode_index
+        self.new_mode = self.model.mode_index
 
 
 class Difftool(Command):
@@ -440,7 +398,7 @@ class Difftool(Command):
         if not self.filenames:
             return
         args = []
-        if self.staged and not self.model.read_only():
+        if self.staged:
             args.append('--cached')
         if self.model.head != 'HEAD':
             args.append(self.model.head)
@@ -461,10 +419,26 @@ class Edit(Command):
         if not os.path.exists(filename):
             return
         editor = self.model.editor()
-        if 'vi' in editor and self.line_number:
-            utils.fork([editor, filename, '+'+self.line_number])
+        opts = []
+
+        if self.line_number is None:
+            opts = self.filenames
         else:
-            utils.fork([editor, filename])
+            # Single-file w/ line-numbers (likely from grep)
+            editor_opts = {
+                    '*vim*': ['+'+self.line_number, filename],
+                    '*emacs*': ['+'+self.line_number, filename],
+                    '*textpad*': ['%s(%s,0)' % (filename, self.line_number)],
+                    '*notepad++*': ['-n'+self.line_number, filename],
+            }
+
+            opts = self.filenames
+            for pattern, opt in editor_opts.items():
+                if fnmatch(editor, pattern):
+                    opts = opt
+                    break
+
+        utils.fork(utils.shell_split(editor) + opts)
 
 
 class FormatPatch(Command):
@@ -477,14 +451,6 @@ class FormatPatch(Command):
     def do(self):
         status, output = gitcmds.format_patchsets(self.to_export, self.revs)
         _notifier.broadcast(signals.log_cmd, status, output)
-
-
-class GrepMode(Command):
-    def __init__(self, txt):
-        """Perform a git-grep."""
-        Command.__init__(self)
-        self.new_mode = self.model.mode_grep
-        self.new_diff_text = self.model.git.grep(txt, n=True)
 
 
 class LoadCommitMessage(Command):
@@ -523,6 +489,22 @@ class LoadCommitTemplate(LoadCommitMessage):
         return LoadCommitMessage.do(self)
 
 
+class LoadPreviousMessage(Command):
+    """Try to amend a commit."""
+    def __init__(self, sha1):
+        Command.__init__(self)
+        self.sha1 = sha1
+        self.old_commitmsg = self.model.commitmsg
+        self.new_commitmsg = self.model.prev_commitmsg(sha1)
+        self.undoable = True
+
+    def do(self):
+        self.model.set_commitmsg(self.new_commitmsg)
+
+    def undo(self):
+        self.model.set_commitmsg(self.old_commitmsg)
+
+
 class Mergetool(Command):
     """Launch git-mergetool on a list of paths."""
     def __init__(self, paths):
@@ -532,11 +514,26 @@ class Mergetool(Command):
     def do(self):
         if not self.paths:
             return
-        if version.check('mergetool-no-prompt',
-                         self.model.git.version().split()[-1]):
+        if utils.is_win32():
             utils.fork(['git', 'mergetool', '--no-prompt', '--'] + self.paths)
         else:
-            utils.fork(['xterm', '-e', 'git', 'mergetool', '--'] + self.paths)
+            utils.fork(['xterm', '-e',
+                        'git', 'mergetool', '--no-prompt', '--'] + self.paths)
+
+
+class OpenDefaultApp(Command):
+    """Open a file using the OS default."""
+    def __init__(self, filenames):
+        Command.__init__(self)
+        if utils.is_darwin():
+            launcher = 'open'
+        else:
+            launcher = 'xdg-open'
+        self.cmd = [launcher]
+        self.cmd.extend(filenames)
+
+    def do(self):
+        utils.fork(self.cmd)
 
 
 class OpenRepo(Command):
@@ -565,23 +562,20 @@ class Clone(Command):
             utils.fork(['python', sys.argv[0], '--repo', self.new_directory])
 
 
+rescan = 'rescan'
+
 class Rescan(Command):
     """Rescans for changes."""
     def do(self):
-        self.model.update_status(update_index=True)
-
-
-class ReviewBranchMode(Command):
-    """Enter into review-branch mode."""
-    def __init__(self, branch):
-        Command.__init__(self)
-        self.new_mode = self.model.mode_review
-        self.new_head = gitcmds.merge_base_parent(branch)
-        self.new_diff_text = ''
-
-    def do(self):
-        Command.do(self)
         self.model.update_status()
+
+
+rescan_and_refresh = 'rescan_and_refresh'
+
+class RescanAndRefresh(Command):
+    """Rescans for changes."""
+    def do(self):
+        self.model.update_status(update_index=True)
 
 
 class RunConfigAction(Command):
@@ -615,8 +609,7 @@ class RunConfigAction(Command):
                                      'Please select a file',
                                      '"%s" requires a selected file' % cmd)
                 return
-            os.environ['FILENAME'] = commands.mkarg(filename)
-
+            os.environ['FILENAME'] = filename
 
         if opts.get('revprompt') or opts.get('argprompt'):
             while True:
@@ -626,10 +619,9 @@ class RunConfigAction(Command):
                 rev = opts.get('revision')
                 args = opts.get('args')
                 if opts.get('revprompt') and not rev:
-                    msg = ('Invalid revision:\n\n'
-                           'Revision expression is empty')
-                    title = 'Oops!'
-                    _factory.prompt_user(signals.information, title, msg)
+                    title = 'Invalid Revision'
+                    msg = 'The revision expression cannot be empty.'
+                    _factory.prompt_user(signals.critical, title, msg)
                     continue
                 break
 
@@ -661,6 +653,13 @@ class RunConfigAction(Command):
         return status
 
 
+class SetDiffText(Command):
+    def __init__(self, text):
+        Command.__init__(self)
+        self.undoable = True
+        self.new_diff_text = text
+
+
 class ShowUntracked(Command):
     """Show an untracked file."""
     # We don't actually do anything other than set the mode right now.
@@ -668,8 +667,38 @@ class ShowUntracked(Command):
     # generically.
     def __init__(self, filenames):
         Command.__init__(self)
-        self.new_mode = self.model.mode_worktree
-        # TODO new_diff_text = utils.file_preview(filenames[0])
+        self.new_mode = self.model.mode_untracked
+        try:
+            self.new_diff_text = utils.slurp(filenames[0])
+        except:
+            self.new_diff_text = ''
+
+
+class SignOff(Command):
+    def __init__(self):
+        Command.__init__(self)
+        self.undoable = True
+        self.old_commitmsg = self.model.commitmsg
+
+    def do(self):
+        signoff = self.signoff()
+        if signoff in self.model.commitmsg:
+            return
+        self.model.set_commitmsg(self.model.commitmsg + '\n' + signoff)
+
+    def undo(self):
+        self.model.set_commitmsg(self.old_commitmsg)
+
+    def signoff(self):
+        try:
+            import pwd
+            user = pwd.getpwuid(os.getuid()).pw_name
+        except ImportError:
+            user = os.getenv('USER', 'unknown')
+
+        name = _config.get('user.name', user)
+        email = _config.get('user.email', '%s@%s' % (user, platform.node()))
+        return '\nSigned-off-by: %s <%s>' % (name, email)
 
 
 class Stage(Command):
@@ -691,11 +720,19 @@ class StageModified(Stage):
         self.paths = self.model.modified
 
 
+class StageUnmerged(Stage):
+    """Stage all modified files."""
+    def __init__(self):
+        Stage.__init__(self, None)
+        self.paths = self.model.unmerged
+
+
 class StageUntracked(Stage):
     """Stage all untracked files."""
     def __init__(self):
         Stage.__init__(self, None)
         self.paths = self.model.untracked
+
 
 class Tag(Command):
     """Create a tag object."""
@@ -710,7 +747,7 @@ class Tag(Command):
         log_msg = 'Tagging: "%s" as "%s"' % (self._revision, self._name)
         opts = {}
         if self._message:
-            opts['F'] = self.model.tmp_filename()
+            opts['F'] = utils.tmp_filename('tag-message')
             utils.write(opts['F'], self._message)
 
         if self._sign:
@@ -763,6 +800,19 @@ class UnstageSelected(Unstage):
         Unstage.__init__(self, cola.selection_model().staged)
 
 
+class Untrack(Command):
+    """Unstage a set of paths."""
+    def __init__(self, paths):
+        Command.__init__(self)
+        self.paths = paths
+
+    def do(self):
+        msg = 'Untracking: %s' % (', '.join(self.paths))
+        _notifier.broadcast(signals.log_cmd, 0, msg)
+        status, out = self.model.untrack_paths(self.paths)
+        _notifier.broadcast(signals.log_cmd, status, out)
+
+
 class UntrackedSummary(Command):
     """List possible .gitignore rules as the diff text."""
     def __init__(self):
@@ -776,44 +826,60 @@ class UntrackedSummary(Command):
             for u in untracked:
                 io.write('/'+core.encode(u))
         self.new_diff_text = core.decode(io.getvalue())
+        self.new_mode = self.model.mode_untracked
 
 
-class UpdateStatus(Command):
-    """Update the status of a list of files."""
-    def __init__(self, files):
-        Command.__init__(self)
-        self.files = files
-
+class UpdateFileStatus(Command):
+    """Rescans for changes."""
     def do(self):
-        self.model.update_status_of_files(self.files)
+        self.model.update_file_status()
 
 
 class VisualizeAll(Command):
     """Visualize all branches."""
     def do(self):
-        browser = self.model.history_browser()
-        utils.fork([browser, '--all'])
+        browser = utils.shell_split(self.model.history_browser())
+        utils.fork(browser + ['--all'])
 
 
 class VisualizeCurrent(Command):
     """Visualize all branches."""
     def do(self):
-        browser = self.model.history_browser()
-        utils.fork([browser, self.model.currentbranch])
+        browser = utils.shell_split(self.model.history_browser())
+        utils.fork(browser + [self.model.currentbranch])
 
 
 class VisualizePaths(Command):
     """Path-limited visualization."""
     def __init__(self, paths):
         Command.__init__(self)
-        browser = self.model.history_browser()
+        browser = utils.shell_split(self.model.history_browser())
         if paths:
-            self.argv = [browser] + paths
+            self.argv = browser + paths
         else:
-            self.argv = [browser]
+            self.argv = browser
 
     def do(self):
         utils.fork(self.argv)
+
+
+visualize_revision = 'visualize_revision'
+
+class VisualizeRevision(Command):
+    """Visualize a specific revision."""
+    def __init__(self, revision, paths=None):
+        Command.__init__(self)
+        self.revision = revision
+        self.paths = paths
+
+    def do(self):
+        argv = utils.shell_split(self.model.history_browser())
+        if self.revision:
+            argv.append(self.revision)
+        if self.paths:
+            argv.append('--')
+            argv.extend(self.paths)
+        utils.fork(argv)
 
 
 def register():
@@ -828,7 +894,6 @@ def register():
         signals.amend_mode: AmendMode,
         signals.apply_diff_selection: ApplyDiffSelection,
         signals.apply_patches: ApplyPatches,
-        signals.branch_mode: BranchMode,
         signals.clone: Clone,
         signals.checkout: Checkout,
         signals.checkout_branch: CheckoutBranch,
@@ -837,39 +902,43 @@ def register():
         signals.delete: Delete,
         signals.delete_branch: DeleteBranch,
         signals.diff: Diff,
-        signals.diff_mode: DiffMode,
-        signals.diff_expr_mode: DiffExprMode,
         signals.diff_staged: DiffStaged,
         signals.diffstat: Diffstat,
         signals.difftool: Difftool,
         signals.edit: Edit,
         signals.format_patch: FormatPatch,
-        signals.grep: GrepMode,
         signals.ignore: Ignore,
         signals.load_commit_message: LoadCommitMessage,
         signals.load_commit_template: LoadCommitTemplate,
+        signals.load_previous_message: LoadPreviousMessage,
         signals.modified_summary: Diffstat,
         signals.mergetool: Mergetool,
+        signals.open_default_app: OpenDefaultApp,
         signals.open_repo: OpenRepo,
         signals.rescan: Rescan,
+        signals.rescan_and_refresh: RescanAndRefresh,
         signals.reset_mode: ResetMode,
-        signals.review_branch_mode: ReviewBranchMode,
         signals.run_config_action: RunConfigAction,
+        signals.set_diff_text: SetDiffText,
         signals.show_untracked: ShowUntracked,
+        signals.signoff: SignOff,
         signals.stage: Stage,
         signals.stage_modified: StageModified,
+        signals.stage_unmerged: StageUnmerged,
         signals.stage_untracked: StageUntracked,
         signals.staged_summary: DiffStagedSummary,
         signals.tag: Tag,
+        signals.untrack: Untrack,
         signals.unstage: Unstage,
         signals.unstage_all: UnstageAll,
         signals.unstage_selected: UnstageSelected,
         signals.untracked_summary: UntrackedSummary,
-        signals.update_status: UpdateStatus,
+        signals.update_file_status: UpdateFileStatus,
         signals.visualize_all: VisualizeAll,
         signals.visualize_current: VisualizeCurrent,
         signals.visualize_paths: VisualizePaths,
+        signals.visualize_revision: VisualizeRevision,
     }
 
     for signal, cmd in signal_to_command_map.iteritems():
-        _factory.add_command(signal, cmd)
+        _factory.add_global_command(signal, cmd)

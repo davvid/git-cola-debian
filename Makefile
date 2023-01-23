@@ -10,53 +10,45 @@ TAR = tar
 # These values can be overridden on the command-line or via config.mak
 prefix = $(HOME)
 bindir = $(prefix)/bin
+coladir = $(prefix)/share/git-cola/lib
 # DESTDIR =
 
-cola_app = git-cola.app
+cola_base := git-cola
+cola_app_base= $(cola_base).app
+cola_app = $(CURDIR)/$(cola_app_base)
 cola_version = $(shell env TERM=dummy $(PYTHON) cola/version.py)
-cola_dist := cola-$(cola_version)
-
-python_path = $(CURDIR):$(CURDIR)/thirdparty:$(PYTHONPATH)
-python_version = $(shell env TERM=dummy $(PYTHON) -c 'import distutils.sysconfig as sc; print(sc.get_python_version())')
-python_site := $(prefix)/lib*/python$(python_version)/site-packages
+cola_dist := $(cola_base)-$(cola_version)
 
 test_flags =
-all_test_flags = --with-doctest $(test_flags)
+all_test_flags = --with-doctest --exclude=sphinxtogithub $(test_flags)
 
 # User customizations
 -include config.mak
 
-ifdef standalone
-standalone_args	?= --standalone
+setup_args = --prefix=$(prefix)
+setup_args += --quiet
+setup_args += --force
+setup_args += --install-scripts=$(bindir)
+setup_args += --record=build/MANIFEST
+setup_args += --install-lib=$(coladir)
+ifdef DESTDIR
+    setup_args += --root=$(DESTDIR)
 endif
-
 
 all::
 	$(PYTHON) setup.py build
 
 install: all
-	$(PYTHON) setup.py --quiet install \
-		$(standalone_args) \
-		--prefix=$(DESTDIR)$(prefix) \
-		--install-scripts=$(DESTDIR)$(bindir) \
-		--force && \
-	rm -f $(DESTDIR)$(python_site)/git_cola*
-	rmdir -p $(DESTDIR)$(python_site) 2>/dev/null || true
+	$(PYTHON) setup.py install $(setup_args)
 	(cd $(DESTDIR)$(bindir) && \
 	! test -e cola && ln -s git-cola cola) || true
+	rm -rf $(DESTDIR)$(coladir)/git_cola*
+	rm -rf git_cola.egg-info
 
 # Maintainer's dist target
-dist: all
-	$(GIT) archive --format=tar --prefix=$(cola_dist)/ HEAD^{tree} \
-		>$(cola_dist).tar
-	mkdir -p $(cola_dist)/cola
-	cp cola/builtin_version.py $(cola_dist)/cola
-	echo $(cola_version) > $(cola_dist)/version
-	$(TAR) rf $(cola_dist).tar \
-		$(cola_dist)/version \
-		$(cola_dist)/cola/builtin_version.py
-	rm -r $(cola_dist)
-	gzip -f -9 $(cola_dist).tar
+dist:
+	$(GIT) archive --format=tar --prefix=$(cola_dist)/ HEAD^{tree} | \
+		gzip -f -9 - >$(cola_dist).tar.gz
 
 doc:
 	$(MAKE) -C share/doc/git-cola prefix=$(prefix) all
@@ -72,17 +64,26 @@ install-html:
 
 uninstall:
 	rm -rf  $(DESTDIR)$(prefix)/bin/git-cola \
+		$(DESTDIR)$(prefix)/bin/git-dag \
 		$(DESTDIR)$(prefix)/bin/cola \
-		$(DESTDIR)$(prefix)/share/applications/cola.desktop \
+		$(DESTDIR)$(prefix)/share/applications/git-cola.desktop \
+		$(DESTDIR)$(prefix)/share/applications/git-dag.desktop \
 		$(DESTDIR)$(prefix)/share/git-cola \
 		$(DESTDIR)$(prefix)/share/doc/git-cola
+	rm -f $(DESTDIR)$(prefix)/share/locale/*/LC_MESSAGES/git-cola.mo
+	rmdir $(DESTDIR)$(prefix)/share/locale/*/LC_MESSAGES 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix)/share/locale/* 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix)/share/locale 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix)/share/doc 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix)/share/applications 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix)/share 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix)/bin 2>/dev/null || true
+	rmdir $(DESTDIR)$(prefix) 2>/dev/null || true
 
 test: all
-	@env PYTHONPATH=$(python_path) \
 	$(NOSETESTS) $(all_test_flags)
 
 coverage:
-	@env PYTHONPATH=$(python_path) \
 	$(NOSETESTS) --with-coverage --cover-package=cola $(all_test_flags)
 
 clean:
@@ -105,11 +106,11 @@ git-cola.app:
 	mkdir -p $(cola_app)/Contents/MacOS
 	cp darwin/git-cola $(cola_app)/Contents/MacOS
 	cp darwin/Info.plist darwin/PkgInfo $(cola_app)/Contents
-	$(MAKE) prefix=$(cola_app)/Contents/Resources install
+	$(MAKE) prefix=$(cola_app)/Contents/Resources install install-doc
 	cp darwin/git-cola.icns $(cola_app)/Contents/Resources
 
 app-tarball: git-cola.app
-	$(TAR) czf git-cola-$(cola_version).app.tar.gz $(cola_app)
+	$(TAR) czf $(cola_dist).app.tar.gz $(cola_app_base)
 
 .PHONY: all install doc install-doc install-html test clean tags
 .PHONY: git-cola.app app-tarball

@@ -1,7 +1,7 @@
 #define APP_NAME     'git-cola'
-#define APP_LONGNAME 'git-cola - A highly caffeinated git GUI'
+#define APP_LONGNAME 'git-cola - The highly caffeinated git GUI'
 #define APP_VERSION  '%APPVERSION%'
-#define APP_URL      'http://cola.tuxfamily.org/'
+#define APP_URL      'http://git-cola.github.com/'
 
 [Setup]
 ; Compiler-related
@@ -38,13 +38,15 @@ Source: "*"; DestDir: "{app}"; Excludes: "\*.bmp, \install.*, \tmp.*, \bin\*inst
 Source: "etc\ReleaseNotes.txt"; DestDir: "{app}\etc"; Flags: isreadme
 
 [Icons]
-Name: "{group}\Git Cola"; Filename: "{app}\bin\git-cola.pyw"; Parameters: "--prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"
-Name: "{group}\License"; Filename: "{app}\etc\gpl-2.0.rtf"; WorkingDir: "%USERPROFILE%";
+Name: "{group}\git-cola"; Filename: "{code:GetPythonExe}"; Parameters: """{app}\bin\git-cola.pyw"" --prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"
+Name: "{group}\git-dag"; Filename: "{code:GetPythonExe}"; Parameters: """{app}\bin\git-dag.pyw"" --prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"
+Name: "{group}\git-cola Homepage"; Filename: "{#emit APP_URL}"; WorkingDir: "%USERPROFILE%";
 Name: "{group}\Release Notes"; Filename: "{app}\etc\ReleaseNotes.txt"; WorkingDir: "%USERPROFILE%";
-Name: "{group}\Git Cola Homepage"; Filename: "{#emit APP_URL}"; WorkingDir: "%USERPROFILE%";
-Name: "{group}\Uninstall Git Cola"; Filename: "{uninstallexe}"
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Git Cola"; Filename: "{app}\bin\git-cola.pyw"; Parameters: "--prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"; Tasks: quicklaunchicon
-Name: "{code:GetShellFolder|desktop}\Git Cola"; Filename: "{app}\bin\git-cola.pyw"; Parameters: "--prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"; Tasks: desktopicon
+Name: "{group}\License"; Filename: "{app}\etc\gpl-2.0.rtf"; WorkingDir: "%USERPROFILE%";
+Name: "{group}\Uninstall git-cola"; Filename: "{uninstallexe}"
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\git-cola"; Filename: "{code:GetPythonExe}"; Parameters: """{app}\bin\git-cola.pyw"" --prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"; Tasks: quicklaunchicon
+Name: "{code:GetShellFolder|desktop}\git-cola"; Filename: "{code:GetPythonExe}"; Parameters: """{app}\bin\git-cola.pyw"" --prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"; Tasks: desktopicon
+Name: "{code:GetShellFolder|desktop}\git-dag"; Filename: "{code:GetPythonExe}"; Parameters: """{app}\bin\git-dag.pyw"" --prompt --git-path ""{code:GetGitExe}"""; WorkingDir: "%USERPROFILE%"; IconFilename: "{app}\etc\git.ico"; Tasks: desktopicon
 
 [Messages]
 BeveledLabel={#emit APP_URL}
@@ -55,19 +57,27 @@ SetupWindowTitle={#emit APP_NAME} Setup
 Type: files; Name: "{app}\bin\*"
 Type: files; Name: "{app}\etc\*"
 Type: files; Name: "{app}\share\git-cola\bin\*"
+Type: files; Name: "{app}\share\git-cola\icons\*"
 Type: files; Name: "{app}\share\git-cola\lib\cola\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\classic\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\dag\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\main\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\merge\*"
 Type: files; Name: "{app}\share\git-cola\lib\cola\models\*"
-Type: files; Name: "{app}\share\git-cola\lib\cola\controllers\*"
-Type: files; Name: "{app}\share\git-cola\lib\cola\views\*"
-Type: files; Name: "{app}\share\git-cola\lib\jsonpickle\*"
-Type: files; Name: "{app}\share\git-cola\lib\simplejson\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\prefs\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\stash\*"
+Type: files; Name: "{app}\share\git-cola\lib\cola\widgets\*"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\classic"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\dag"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\main"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\merge"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\models"
-Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\controllers"
-Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\views"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\prefs"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\stash"
+Type: dirifempty; Name: "{app}\share\git-cola\lib\cola\widgets"
 Type: dirifempty; Name: "{app}\share\git-cola\lib\cola"
-Type: dirifempty; Name: "{app}\share\git-cola\lib\simplejson"
-Type: dirifempty; Name: "{app}\share\git-cola\lib\jsonpickle"
 Type: dirifempty; Name: "{app}\share\git-cola\lib"
+Type: dirifempty; Name: "{app}\share\git-cola\icons"
 Type: dirifempty; Name: "{app}\share\git-cola\bin"
 Type: dirifempty; Name: "{app}\etc"
 Type: dirifempty; Name: "{app}\bin"
@@ -256,7 +266,8 @@ begin
     EdtPython:=TEdit.Create(PythonPage);
     with EdtPython do begin
         Parent:=PythonPage.Surface;
-        Text:='C:\Python26\pythonw.exe';
+        Text:=GetPreviousData('PythonPath', 'C:\Python26');
+        Text:=Text+'pythonw.exe';
         if not FileExists(Text) then begin
             Text:='';
         end;
@@ -297,7 +308,8 @@ begin
     EdtGit:=TEdit.Create(GitPage);
     with EdtGit do begin
         Parent:=GitPage.Surface;
-        Text:='C:\Program Files\Git\bin\git.exe';
+        Text:=GetPreviousData('GitPath', 'C:\Program Files\Git');
+        Text:=Text+'git.exe';
         if not FileExists(Text) then begin
             Text:='';
         end;

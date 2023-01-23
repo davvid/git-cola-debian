@@ -1,13 +1,12 @@
 """This module provides core functions for handling unicode and UNIX quirks
 
-OSX and others are known to interrupt system calls
+The @interruptable functions retry when system calls are interrupted,
+e.g. when python raises an IOError or OSError with errno == EINTR.
 
-    http://en.wikipedia.org/wiki/PCLSRing
-    http://en.wikipedia.org/wiki/Unix_philosophy#Worse_is_better
-
-The {read,write,wait}_nointr functions handle this situation
 """
-import errno
+import itertools
+
+from cola.decorators import interruptable
 
 # Some files are not in UTF-8; some other aren't in any codification.
 # Remember that GIT doesn't care about encodings (saves binary data)
@@ -19,10 +18,15 @@ _encoding_tests = [
     # <-- add encodings here
 ]
 
-def decode(enc):
+def decode(enc, encoding=None):
     """decode(encoded_string) returns an unencoded unicode string
     """
-    for encoding in _encoding_tests:
+    if encoding is None:
+        encoding_tests = _encoding_tests
+    else:
+        encoding_tests = itertools.chain([encoding], _encoding_tests)
+
+    for encoding in encoding_tests:
         try:
             return unicode(enc.decode(encoding))
         except:
@@ -30,55 +34,33 @@ def decode(enc):
     # this shouldn't ever happen... FIXME
     return unicode(enc)
 
-def encode(unenc):
+
+def encode(unenc, encoding=None):
     """encode(unencoded_string) returns a string encoded in utf-8
     """
-    return unenc.encode('utf-8', 'replace')
+    if encoding is None:
+        encoding = 'utf-8'
+    return unenc.encode(encoding, 'replace')
 
-def read_nointr(fh):
+
+@interruptable
+def read(fh):
     """Read from a filehandle and retry when interrupted"""
-    while True:
-        try:
-            content = fh.read()
-            break
-        except IOError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-        except OSError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-    return content
+    return fh.read()
 
-def write_nointr(fh, content):
+
+@interruptable
+def write(fh, content):
     """Write to a filehandle and retry when interrupted"""
-    while True:
-        try:
-            content = fh.write(content)
-            break
-        except IOError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-        except OSError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-    return content
+    return fh.write(content)
 
-def wait_nointr(proc):
+
+@interruptable
+def wait(proc):
     """Wait on a subprocess and retry when interrupted"""
-    while True:
-        try:
-            status = proc.wait()
-            break
-        except IOError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-        except OSError, e:
-            if e.errno == errno.EINTR:
-                continue
-            raise e
-    return status
+    return proc.wait()
+
+
+@interruptable
+def readline(fh):
+    return fh.readline()

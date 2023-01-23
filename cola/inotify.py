@@ -82,22 +82,18 @@ class Handler():
         """Create an event handler"""
         ## Timer used to prevent notification floods
         self._timer = None
-        ## The files that have changed since the last broadcast
-        self._files = set()
         ## Lock to protect files and timer from threading issues
         self._lock = Lock()
 
     def broadcast(self):
         """Broadcasts a list of all files touched since last broadcast"""
         with self._lock:
-            cola.notifier().broadcast(signals.update_status, self._files)
-            self._files = set()
+            cola.notifier().broadcast(signals.update_file_status)
             self._timer = None
 
     def handle(self, path):
         """Queues up filesystem events for broadcast"""
         with self._lock:
-            self._files.add(path)
             if self._timer is None:
                 self._timer = Timer(0.333, self.broadcast)
                 self._timer.start()
@@ -213,7 +209,7 @@ class GitNotifier(QtCore.QThread):
     def run_win32(self):
         """Generate notifications using pywin32"""
 
-        hDir = win32file.CreateFile(
+        hdir = win32file.CreateFile(
                 self._path,
                 0x0001,
                 win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE,
@@ -236,21 +232,20 @@ class GitNotifier(QtCore.QThread):
 
         handler = Handler()
         while self._running:
-            win32file.ReadDirectoryChangesW(hDir,
-                                            buf,
-                                            True,
-                                            flags,
-                                            overlapped)
+            win32file.ReadDirectoryChangesW(hdir, buf, True, flags, overlapped)
 
-            rc = win32event.WaitForSingleObject(overlapped.hEvent, self._timeout)
-            if rc == win32event.WAIT_OBJECT_0:
-                nbytes = win32file.GetOverlappedResult(hDir, overlapped, True)
-                if nbytes:
-                    results = win32file.FILE_NOTIFY_INFORMATION(buf, nbytes)
-                    for action, path in results:
-                        if not self._running:
-                            break
-
-                        path = path.replace('\\', '/')
-                        if not path.startswith('.git/') and os.path.isfile(path):
-                            handler.handle(path)
+            rc = win32event.WaitForSingleObject(overlapped.hEvent,
+                                                self._timeout)
+            if rc != win32event.WAIT_OBJECT_0:
+                continue
+            nbytes = win32file.GetOverlappedResult(hdir, overlapped, True)
+            if not nbytes:
+                continue
+            results = win32file.FILE_NOTIFY_INFORMATION(buf, nbytes)
+            for action, path in results:
+                if not self._running:
+                    break
+                path = path.replace('\\', '/')
+                if (not path.startswith('.git/') and
+                        '/.git/' not in path and os.path.isfile(path)):
+                    handler.handle(path)

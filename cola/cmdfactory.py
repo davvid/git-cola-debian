@@ -32,23 +32,25 @@ def SLOT(signal, *args, **opts):
 
 
 class CommandFactory(object):
-    def __init__(self):
+    def __init__(self, context=None):
         """Setup the undo/redo stacks and register for notifications."""
         self.undoable = True
         self.undostack = []
         self.redostack = []
         self.signal_to_command = {}
         self.callbacks = {}
+        self.context = context
 
-        cola.notifier().connect(signals.undo, self.undo)
-        cola.notifier().connect(signals.redo, self.redo)
-
-        self.model = cola.model()
-        self.model.add_observer(self)
+    def has_command(self, signal):
+        return signal in self.signal_to_command
 
     def add_command(self, signal, command):
         """Register a signal/command pair."""
         self.signal_to_command[signal] = command
+
+    def add_global_command(self, signal, command):
+        """Register a global signal/command pair."""
+        self.add_command(signal, command)
         cola.notifier().connect(signal, self.cmdrunner(signal))
 
     def add_command_wrapper(self, cmd_wrapper):
@@ -59,23 +61,6 @@ class CommandFactory(object):
             return self.callbacks[name](*args, **opts)
         except KeyError:
             raise NotImplementedError('No callback for "%s' % name)
-
-    def notify(self, *params):
-        """
-        Observe model changes.
-
-        This captures model parameters and maps them to signals that
-        are observed by the UIs.
-
-        """
-        actions = {
-            'diff_text': SLOT(signals.diff_text, self.model.diff_text),
-            'commitmsg': SLOT(signals.editor_text, self.model.commitmsg),
-            'mode': SLOT(signals.mode, self.model.mode),
-        }
-        for param in params:
-            action = actions.get(param, lambda: None)
-            action()
 
     def clear(self):
         """Clear the undo and redo stacks."""
@@ -92,6 +77,7 @@ class CommandFactory(object):
         """Given a signal and arguments, run its corresponding command."""
         cmdclass = self.signal_to_command[signal]
         cmdobj = cmdclass(*args, **opts)
+        cmdobj.context = self.context
         # TODO we disable undo/redo for now; views just need to
         # inspect the stack and add menu entries when we enable it.
         ok, result = self._do(cmdobj)
@@ -103,7 +89,7 @@ class CommandFactory(object):
         try:
             result = cmdobj.do()
         except errors.UsageError, e:
-            self.prompt_user(signals.information, e.title, e.message)
+            self.prompt_user(signals.information, e.title, e.msg)
             return False, None
         else:
             return True, result
@@ -125,7 +111,7 @@ class CommandFactory(object):
             cmdobj = self.redostack.pop()
             ok, result = self._do(cmdobj)
             if ok and cmdobj.is_undoable():
-                self.undo.append(cmd)
+                self.undo.append(cmdobj)
             else:
                 self.redostack.push(cmdobj)
             return result
