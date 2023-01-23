@@ -69,7 +69,7 @@ def get_version():
             return v()
         except VersionUnavailable:
             pass
-    return '1.3.5.28.gc1e4'
+    return '1.3.5.42.gfe01'
 
 version = get_version()
 

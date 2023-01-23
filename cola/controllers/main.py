@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """This module provides access to the application controllers."""
 
 import os
@@ -474,9 +473,17 @@ class Controller(QObserver):
                 'You must stage at least 1 file before you can commit.\n')
             self.log(error_msg)
             return
-
-        # Perform the commit
         amend = self.view.amend_is_checked()
+        if (amend and self.model.is_commit_published() and
+            not qtutils.question(self.view,
+                                 'Rewrite Published Commit?',
+                                 'This commit has already been published.\n'
+                                 'You are rewriting published history.\n'
+                                 'You probably don\'t want to do this.\n\n'
+                                 'Continue?',
+                                 default=False)):
+            return
+        # Perform the commit
         umsg = encode(msg)
         status, output = self.model.commit_with_msg(umsg, amend=amend)
         if status == 0:
@@ -530,10 +537,7 @@ class Controller(QObserver):
         filename = self.get_selected_filename(staged=False)
         if not filename or filename not in self.model.get_unmerged():
             return
-        utils.fork('xterm', '-e',
-                   'git', 'mergetool',
-                   '-t', self.model.get_mergetool(),
-                   filename)
+        utils.fork('xterm', '-e', 'git', 'mergetool', filename)
 
     def edit_file(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
@@ -543,8 +547,7 @@ class Controller(QObserver):
     def edit_diff(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
         if filename:
-            args = ['perl', utils.get_libexec('git-difftool'),
-                    '--no-prompt', '-t', self.model.get_mergetool()]
+            args = ['perl', utils.get_libexec('git-difftool'), '--no-prompt']
             if staged:
                 args.append('--cached')
             if self.view.amend_is_checked():
