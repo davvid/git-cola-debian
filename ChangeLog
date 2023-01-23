@@ -1,7 +1,612 @@
-git-cola: 1.3.5.44.ge024
-bottled-on: Tue Mar 17 22:16:19 PDT 2009
+git-cola: 1.3.7.6.g4210
+bottled-on: Tue Apr 21 02:41:46 PDT 2009
 
-commit e02484f060b4ff112e64a51836c14661eec28c9d (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit 421077fafbff75e1c8d512b051a69775664ee2d0 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Apr 21 02:41:00 2009 -0700
+
+    setup.py: fix a bug when generating .qm files
+    
+    We were double-adding the .qm extension.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 75346cde7504efce1e43a86d67d432ace246df3e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Apr 21 01:23:19 2009 -0700
+
+    Install all cola resources into /usr/share/git-cola
+    
+    Debian bug #519972 suggested installing all items into
+    /usr/share/git-cola/* instead of /usr/share/cola.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2539c3c1133b7e4a4b6001eb4e82a8dde6dd262f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:56:47 2009 -0700
+
+    win32: update the create-installer script for the new directory layout
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 95f5eedcafc9522b29bf58e5af1e66fd8f3ea585
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:46:05 2009 -0700
+
+    Makefile: make the 'install' target more quiet
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d08e92e13b28902e991d64f74a9353d055681261
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:36:12 2009 -0700
+
+    difftool: sync up with the last git version of difftool
+    
+    We keep git-difftool around for compatibility purposes only.
+    This pulls in vimdiff fixes and support for diffuse.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 819aacc970cd526099f4a69b47b8f41623dd42e7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:27:23 2009 -0700
+
+    win32: remove a superfluous 'find' command in create-installer.sh
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e492cd9eb1c1c0a7e696bf13a3359a384e404bba (tag: refs/tags/v1.3.7)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:15:00 2009 -0700
+
+    qobserver: fix a misspelled QComboBox
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6f6f0a1ae16bdbf99f94322ef512fdf920d62260
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:07:17 2009 -0700
+
+    qtutils: use QApplication.instance() instead of QtGui.qApp
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f5fed2db85b3c586e187ef39bfd84e10ee2db47f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 01:06:39 2009 -0700
+
+    inotify: terminate the GitNotifier on shutdown
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8eb79783760b71220c00e92b135b8bc7b9ee86a3
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Apr 20 00:37:30 2009 -0700
+
+    utils: make fork() take a list instead of a *args parameter
+    
+    This makes things clearer by using a list as an argument
+    to utils.fork().  This also centralizes the difftool invocations
+    in the cola.difftool module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8a4a318f13b699be947e03b93da77021e1008310
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Apr 19 13:54:47 2009 -0700
+
+    Use a private module dir for cola's libraries
+    
+    This fixes debian bug #519972:
+            git-cola: should use private module dirs.
+    
+    All of the cola modules are now installed into $prefix/share/cola/lib.
+    The private versions of jsonpickle and simplejson were moved up
+    a level in the source tree and synced with upstream since they are now
+    installed into $prefix/share/cola/lib as well.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1818d777f952f022b5cee2f9bacccc5ce5d9c2ee
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Apr 19 13:55:05 2009 -0700
+
+    tests: create all temporary directories underneath test/tmp
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 52faaf1f00a54c822bbc297c3e04db45f248f3e9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Apr 19 21:41:54 2009 -0700
+
+    app: make ColaApplication test-friendly by using less derivation
+    
+    ColaApplication no longer inherits from QApplication.  It now
+    contains either a QApplication or QCoreApplication based on the value
+    of the gui=<bool> construction option.
+    
+    Consequently, this makes tests work without a gui =)
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a18b9476eb945945df68043e26e3973b5fd14476
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Apr 19 00:00:47 2009 -0700
+
+    version: remove the get_version() docstring
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit aea38354d04b7e5307c0fca794534f718ec39f78
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 18 23:56:44 2009 -0700
+
+    difftool: only install git-difftool on older versions of git
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6575874d3bc888ace9bbc9400cd631a7495f403f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 18 23:35:03 2009 -0700
+
+    version: add a get_version() function to replace version.version
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 90546dea02667eec6252948e75a73ee9ef264279
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Apr 18 23:57:32 2009 -0700
+
+    Add a ColaError base exception class
+    
+    ColaError is now the base of all cola exceptions.
+    
+    We don't really use exceptions much at the moment, but it's there
+    for future use.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e8feffb418af49bb19630fe4cee7b03ddf884b87
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 04:01:44 2009 -0700
+
+    observable: add more source comments
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 32cf8cefb08554da3e1b705fc8818e76675ab34c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 03:49:05 2009 -0700
+
+    qobserver: minimize imports and avoid double-underscores
+    
+    This lessens namespace pollution and makes the code more obvious.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ee3fab5ce21fd35855f0a2aaf1f532b5028e4b40
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 03:46:47 2009 -0700
+
+    resources: add more source comments
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dd43457a4dba1199b12054322c1d1dc61190977f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 03:46:23 2009 -0700
+
+    observer: remove the unused set_debug() method
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 11e80f85609d18c3098bbbaed4e410062be067cf
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 03:14:32 2009 -0700
+
+    settings: add comments to the SettingsModel
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit febf7a6a8907971c5c3fcee3d9aa0ff4cb5800db
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 02:37:37 2009 -0700
+
+    models: use core.write_nointr and other trivial fixups
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 37e39e1a4e19f7d0cf8080c8f355d5db51ca082c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Apr 17 02:26:19 2009 -0700
+
+    ui: simplify the search and branch menus
+    
+    Less is more.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bcb28c1900c93400a5ba1797c0521d8fee3c30aa
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 16 02:02:17 2009 -0700
+
+    model: add more comments and minimize the number of imports
+    
+    We now import just the 'types' module instead of importing
+    lots of individual items out of it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f01269d901751bedd3c8d83669073950c84a6212
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Apr 16 02:01:30 2009 -0700
+
+    main: add more comments to the cola.main module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c94801d672ee30ca4bae8831777d609cb4ff559f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Apr 15 22:26:12 2009 -0700
+
+    tests: add deadlock and interrupted system call tests
+    
+    This adds tests to ensure that the git.Git command object
+    never deadlocks and properly handles interrupted system calls.
+    
+    This also does away with the stdout/stderr.py fixtures
+    since the code is now contained within each test.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2be4692a8536b173f0cee78c20cca254e1a66f0f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Apr 14 00:20:48 2009 -0700
+
+    PEP-8: cleanup docstrings and methods in the tests
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7cf78db43e4d3ae6e244434d5a5819db73bd86ca
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Apr 15 22:25:23 2009 -0700
+
+    git: remove the deprecated with_extended_output option
+    
+    with_extended_output has been replaced by with_status.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3a16abf80d53cb6941a5db25a90b7bf9de51b5aa
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Mar 30 09:42:22 2009 -0700
+
+    difftool: add support for a difftool.prompt config variable
+    
+    difftool now supports difftool.prompt so that users do not have to
+    pass --no-prompt or hit enter each time a diff tool is launched.
+    The --prompt flag overrides the configuration variable.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ee2af7186d24e3cd7bcc6c62c147b967db4e54b0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Mar 24 23:29:59 2009 -0700
+
+    difftool: add a -y shortcut for --no-prompt
+    
+    This is another consistency cleanup to make git-difftool's options
+    match git-mergetool.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 505144bb8c7f71f3db799d5983778f34bf46ab96
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Mar 24 23:13:53 2009 -0700
+
+    difftool: use perl built-ins when testing for msys
+    
+    I don't even know what $COMSPEC means so let's be safe and use the
+    same perly $^O test add--interactive uses.  While we're at it, make
+    git-difftool match the prevalent git-perl style.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7fd60f3b6455f5474e93bcb39ff63c0dc455a0f8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 11:13:01 2009 -0500
+
+    build: cleanup Makefile/setup.py
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 33e7100411b19a3161548550756a0b24cd644661
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 08:44:58 2009 -0500
+
+    tests: improve the test_cola_model test cases
+    
+    test_cola_model now uses its own local model for testing
+    so that we don't have to maintain one in the test/helper module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d3cd74d331f23d7f654aff57da500a7280e85c95
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 08:35:14 2009 -0500
+
+    core: add a wait_nointr() function and use {read,wait}_nointr() in cola.git
+    
+    cola.git's execute() method now uses {read,wait}_nointr() to handle the
+    "interrupted system call" problem.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 0452fe48cfe19f85c20303d02a3077efdbd08a6e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 02:52:08 2009 -0500
+
+    refactor: change various modules to use core.{read,write}_nointr
+    
+    OSX and other systems can interrupt us in the middle of a system call so
+    wrap all read/write calls with an automatic retry loop.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 19964a0ec15fa30c179f6744ed653739735af9b6
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 02:49:00 2009 -0500
+
+    core: add read/write_nointr helper functions
+    
+    read/write_nointr automatically retries interrupted system calls.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 4b12880b731c923fd9d78d679f7e7a3126ce395b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 02:00:24 2009 -0500
+
+    git: catch OSError in addition to IOError in the execute() method
+    
+    Popen.wait() can throw OSError errno.EINTR, so catch it and retry the syscall.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d04e6d5a0556bb807572dda13ed3c7348f0d8a87
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 01:58:57 2009 -0500
+
+    app: move ColaApplication into its own 'app' module and test it
+    
+    This refactors things so that ColaApplication lives in the cola.app module.
+    i18n is tested by the test_cola_app test script.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3ab6e07b34157453f376b6e829b07d8d3376c6ff
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 01:57:14 2009 -0500
+
+    resources: add a 'resources' module for finding cola resource files
+    
+    resources.path() returns paths relative to the cola installation root.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 32d9fdb1a9006ae84644933aaa9b07e8266d0d82
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Mar 29 00:10:55 2009 -0500
+
+    inotify: add more source comments and cleanup the code
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 824e751168dccbaeec4e91fd03d8a891fbf32347
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 17:26:42 2009 -0500
+
+    tests: add better comments to the test_cola_git test
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 195561970f45475021fb966030e6f072417bbf87
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 17:06:32 2009 -0500
+
+    tests: add tests for the cola.core module
+    
+    These test the unicode encode/decode functions in the cola.core module.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 67d2f3ddaab38ee366ec11ce0c414f46300b1881
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 17:05:38 2009 -0500
+
+    Makefile: update 'test' target and add a 'coverage' target
+    
+    The test target no longer adds build/lib to PYTHONPATH.
+    The 'coverage' target runs nose's coverage plugin.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c8c3262219826f8a360856c82f6348b0cb4638bd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 16:47:59 2009 -0500
+
+    tests: renamed tests to match the prevalent Python coding style
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 35aaf18c213b6e5299adf546f9fb66fe62d3f7fd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 16:20:32 2009 -0500
+
+    cola: allow Ctrl-C to exit cola from the command-line
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 70614f887c6747588692265c366becb0415cb204
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 16:19:38 2009 -0500
+
+    git: handle interrupted system calls on OSX
+    
+    OSX will actually interrupt creationg of subprocess.Popen objects so catch
+    the OSError and retry.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8980d9cb98345c9f7a2947420fe064570301ce8f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 16:18:47 2009 -0500
+
+    inotify: make the inotify module import-safe
+    
+    The tests were failing on OSX because inotify wasn't import-safe.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dfe07d51c92f872a35c73590ae76f212324728b9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 28 16:20:12 2009 -0500
+
+    options: fix unicode bugs in the option dialog
+    
+    Font names with non-ascii characters were crashing cola.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 787e46ea1d100f86e695fdcc0780db8624b08b6c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Mar 26 03:07:09 2009 -0700
+
+    remotes: warn when non-ffwd is used for push and pull
+    
+    cola could be destructive when using push/pull w/out fast-forward-only
+    so issue more warnings.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit f4b8e0479f5b0bc0fd6921dd41c81f36f302c553
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Mar 26 03:05:31 2009 -0700
+
+    models: pass the remote/local branch to fetch/push/pull when specified
+    
+    We're going to hide local branches in the pull dialog (so that pulling
+    can only happen on the current branch) so prepare the model for the new
+    caller.  This improves the usability of fetch/push as well.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a3962781da4384c80c8c8fe7b9bc0d4ee884a1d0
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Mar 26 03:02:06 2009 -0700
+
+    views/remote: hide appropriate controls when in specific fetch/push/pull modes
+    
+    This makes the remote gui automatically hide controls based on its mode.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a138c60dc55f59e56ace3498074226ae78df3a4d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Mar 26 03:00:06 2009 -0700
+
+    ui/remote: name the local/remote branch labels
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a3a86efe2db2ad029fdbfbacac24abde716f00fe (tag: refs/tags/v1.3.6)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Mar 19 01:44:10 2009 -0700
+
+    ui: simplify the log display by removing the search functionality
+    
+    This makes things the interface simpler by removing the rarely-used
+    search feature in the cola log gui.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7f714dc6b22ff4997ddbf1ab878e4eae0d107107
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Mar 18 03:57:04 2009 -0700
+
+    logging: add support for the cola.showoutput configuration variable
+    
+    This makes it so that the log window honors cola.showoutput.
+    
+        never = never show output
+        always = always show the output
+        errors = only show output on errors (default)
+    
+    This was done by centralizing logging logic in qtutils.log() and adding
+    a model.should_display_log(status) method.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e99440d6457809b03394099dd37c3ee579507c4d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Mar 18 03:53:28 2009 -0700
+
+    ui: removed the status bar and cleaned out some dead code
+    
+    The status bar isn't very useful now that the right-hand tree widget
+    succinctly displays a file's status, so remove it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 312a5a416a499911d05e599607d7ccaae8616187
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Mar 14 03:49:41 2009 -0700
+
+    gui: improve logging by adding drawers to the main window
+    
+    The log window is now a drawer positioned at the bottom of the
+    main window.  This does away with the dreaded log window.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2d7934c68cbfe78a3bef97107975c4581f061214
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Mar 18 00:40:45 2009 -0700
+
+    refactor: move log, options, and select commits into separate controllers
+    
+    This makes the util controller more lightweight separating out the
+    logger, options, and select_commits functionality into separate
+    controllers.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 362cc1b8f5f557e62d9fe9b844a6accecc859f8a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Mar 18 00:38:59 2009 -0700
+
+    qtutils: minimize the number of imports
+    
+    We now access QtGui classes through the QtGui module so that
+    we import less and are more explicit about our module
+    dependencies at the call sites.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 308e1d443d206db4d5cbde5a6e94f77dd78cd988
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Mar 19 01:48:41 2009 -0700
+
+    refactor: avoid importing encode and decode directly
+    
+    This changes call sites so that they always use core.encode/decode
+    instead of importing those functions directly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e02484f060b4ff112e64a51836c14661eec28c9d
 Author: David Aguilar <davvid@gmail.com>
 Date:   Tue Mar 17 22:00:44 2009 -0700
 

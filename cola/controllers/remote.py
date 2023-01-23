@@ -7,6 +7,7 @@ from PyQt4.QtGui import QDialog
 from cola import utils
 from cola import qtutils
 from cola.views import RemoteView
+from cola.views.drawer import Drawer
 from cola.qobserver import QObserver
 
 def remote_action(model, parent, action):
@@ -19,12 +20,6 @@ def remote_action(model, parent, action):
     model.ffwd_only_checkbox = True
 
     view = RemoteView(parent, action)
-    if action == 'Fetch' or action == 'Pull':
-        model.set_tags_checkbox(False)
-    if action == 'Pull':
-        view.tags_checkbox.hide()
-    if action != 'Pull':
-        view.rebase_checkbox.hide()
     controller = RemoteController(model, view, action)
     view.show()
 
@@ -40,10 +35,11 @@ class RemoteController(QObserver):
                              'tags_checkbox',
                              'rebase_checkbox',
                              'ffwd_only_checkbox')
+        self.action = action
         self.action_method = {
-            'Fetch': self.gen_remote_callback(self.model.fetch_helper),
-            'Push': self.gen_remote_callback(self.model.push_helper),
-            'Pull': self.gen_remote_callback(self.model.pull_helper),
+            'fetch': self.gen_remote_callback(self.model.fetch_helper),
+            'push': self.gen_remote_callback(self.model.push_helper),
+            'pull': self.gen_remote_callback(self.model.pull_helper),
         }   [action]
 
         self.add_actions(remotes = self.display_remotes)
@@ -105,14 +101,6 @@ class RemoteController(QObserver):
         self.model.set_remote_branch(branch)
         self.view.remote_branch.selectAll()
 
-    def check_remote(self):
-        if not self.model.get_remotename():
-            errmsg = self.tr('No repository selected.')
-            qtutils.show_output(errmsg)
-            return False
-        else:
-            return True
-
     def get_common_args(self):
         return (self.model.get_remotename(),
                 {
@@ -123,22 +111,34 @@ class RemoteController(QObserver):
                     'rebase': self.model.get_rebase_checkbox(),
                 })
 
-    def show_results(self, output):
-        qtutils.show_output(output)
-        self.view.accept()
-        qtutils.show_logger()
-
     #+-------------------------------------------------------------
     #+ Actions
     def gen_remote_callback(self, modelaction):
         """Generates a Qt callback for fetch/push/pull.
         """
         def remote_callback():
-            if not self.check_remote():
+            if not self.model.get_remotename():
+                errmsg = self.tr('No repository selected.')
+                qtutils.log(1, errmsg)
                 return
+            action = self.action
+            if not self.model.get_ffwd_only_checkbox():
+                if action == 'fetch':
+                    msg = ('Non-fast-forward fetch overwrites local '
+                           'history!\n\tContinue?')
+                elif action == 'push':
+                    msg = ('Non-fast-forward push overwrites published '
+                           'history!\nAre you sure you want to do this?  '
+                           '(Did you pull first?)\n\tContinue?')
+                else: # pull: shouldn't happen since the controls are hidden
+                    msg = "You probably don't want to do this.\n\tContinue?"
+                if not qtutils.question(self.view,
+                        'Force %s?' % action.title(), msg, default=False):
+                    return
             remote, kwargs = self.get_common_args()
-            output = modelaction(remote, **kwargs)
+            status, output = modelaction(remote, **kwargs)
             if not output: # git fetch --tags --verbose doesn't print anything...
                 output = self.tr('Already up-to-date.')
-            self.show_results(output)
+            qtutils.log(status, output)
+            self.view.accept()
         return remote_callback

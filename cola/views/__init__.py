@@ -12,10 +12,10 @@ from PyQt4.QtGui import QListWidget
 from PyQt4.QtGui import qApp
 from PyQt4.QtCore import SIGNAL
 
+from cola import core
 from cola.views.standard import create_standard_view
 from cola.views.syntax import DiffSyntaxHighlighter
 from cola.views.syntax import LogSyntaxHighlighter
-from cola.core import decode
 
 try:
     from main import View
@@ -58,7 +58,6 @@ class LogView(LogViewBase):
     """A simple dialog to display command logs."""
     def __init__(self, parent=None, output=None):
         LogViewBase.__init__(self, parent)
-        self.setWindowTitle(self.tr('Git Command Log'))
         self.syntax = LogSyntaxHighlighter(self.output_text.document())
         if output:
             self.set_output(output)
@@ -73,7 +72,7 @@ class LogView(LogViewBase):
         cursor.movePosition(cursor.End)
         text = self.output_text
         cursor.insertText(time.asctime() + '\n')
-        for line in unicode(decode(output)).splitlines():
+        for line in unicode(core.decode(output)).splitlines():
             cursor.insertText(line + '\n')
         cursor.insertText('\n')
         cursor.movePosition(cursor.End)
@@ -148,11 +147,19 @@ class MergeView(MergeViewBase):
 
 RemoteViewBase = create_standard_view(Ui_remote, QDialog)
 class RemoteView(RemoteViewBase):
-    def __init__(self, parent=None, button_text=''):
+    def __init__(self, parent, action): 
         RemoteViewBase.__init__(self, parent)
-        if button_text:
-            self.action_button.setText(button_text)
-            self.setWindowTitle(button_text)
+        if action:
+            self.action_button.setText(action.title())
+            self.setWindowTitle(action.title())
+        if action == 'pull':
+            self.tags_checkbox.hide()
+            self.ffwd_only_checkbox.hide()
+            self.local_label.hide()
+            self.local_branch.hide()
+            self.local_branches.hide()
+        if action != 'pull':
+            self.rebase_checkbox.hide()
     def select_first_remote(self):
         return self.select_remote(0)
     def select_remote(self, idx):

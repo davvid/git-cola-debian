@@ -1,82 +1,43 @@
 # Copyright (c) 2008 David Aguilar
 """This module provides miscellaneous Qt utility functions.
 """
-
 import os
+
 from PyQt4 import QtCore
 from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
-from PyQt4.QtGui import QClipboard
-from PyQt4.QtGui import QFileDialog
-from PyQt4.QtGui import QIcon
-from PyQt4.QtGui import QTreeWidget
-from PyQt4.QtGui import QListWidgetItem
-from PyQt4.QtGui import QTreeWidgetItem
-from PyQt4.QtGui import QMessageBox
 
+from cola import core
 from cola import utils
-from cola.core import encode
+from cola import resources
 
 LOGGER = None
 
-def log(output, quiet=True, doraise=False):
+def log(status, output):
     """Sends messages to the log window.
     """
-    if not LOGGER:
+    if not LOGGER or not output:
         return
-    LOGGER.log(output)
-    if quiet:
-        return
-    LOGGER.show()
-    if not doraise:
-        return
-    LOGGER.raise_()
-
-def show_logger():
-    """Raises the log window."""
-    LOGGER.show()
-    LOGGER.raise_()
+    LOGGER.log(status, output)
 
 def input(msg, title=None):
     """Presents the user with an input widget and returns the input."""
     if title is None:
         title = msg
-    parent = QtGui.qApp.activeWindow()
+    parent = QtGui.QApplication.instance().activeWindow()
     result = QtGui.QInputDialog.getText(parent, msg, title)
     return (unicode(result[0]), result[1])
 
-def close_log_window():
-    """Closes the log window."""
-    LOGGER.hide()
-    LOGGER.done(0)
-
-def show_output(output, **kwargs):
-    """Sends output to the log window."""
-    if not output:
-        return
-    log(output, quiet=False)
-
-def toggle_log_window():
-    """Shows/hides the log window."""
-    if not LOGGER:
-        return
-    if LOGGER.isVisible():
-        LOGGER.hide()
-    else:
-        LOGGER.show()
-        LOGGER.raise_()
-
 def create_listwidget_item(text, filename):
     """Creates a QListWidgetItem with text and the icon at filename."""
-    item = QListWidgetItem()
-    item.setIcon(QIcon(filename))
+    item = QtGui.QListWidgetItem()
+    item.setIcon(QtGui.QIcon(filename))
     item.setText(text)
     return item
 
 def create_treewidget_item(text, filename):
     """Creates a QTreeWidgetItem with text and the icon at filename."""
-    item = QTreeWidgetItem()
-    item.setIcon(0, QIcon(filename))
+    item = QtGui.QTreeWidgetItem()
+    item.setIcon(0, QtGui.QIcon(filename))
     item.setText(0, text)
     return item
 
@@ -85,7 +46,8 @@ def information(title, message=None):
     provided title and message."""
     if message is None:
         message = title
-    QMessageBox.information(QtGui.qApp.activeWindow(), title, message)
+    parent = QtGui.QApplication.instance().activeWindow()
+    QtGui.QMessageBox.information(parent, title, message)
 
 def get_selected_treeitem(tree_widget):
     """Returns a(id_number, is_selected) for a QTreeWidget."""
@@ -93,7 +55,7 @@ def get_selected_treeitem(tree_widget):
     selected = False
     item = tree_widget.currentItem()
     if item:
-        id_number = item.data(0, Qt.UserRole).toInt()[0]
+        id_number = item.data(0, QtCore.Qt.UserRole).toInt()[0]
         selected = True
     return(id_number, selected)
 
@@ -117,15 +79,14 @@ def get_selection_list(listwidget, items):
     return selected
 
 def get_tree_selection(treeitem, items):
-    """Returns an array of model items that correspond to
-    the selected QListWidget indices."""
-    selected = []
+    """Returns model items that correspond to selected widget indices"""
     itemcount = treeitem.childCount()
     widgetitems = [ treeitem.child(idx) for idx in range(itemcount) ]
-
+    selected = []
     for item, widgetitem in zip(items[:len(widgetitems)], widgetitems):
         if widgetitem.isSelected():
             selected.append(item)
+
     return selected
 
 def get_selected_item(list_widget, items):
@@ -138,46 +99,54 @@ def get_selected_item(list_widget, items):
 
 def open_dialog(parent, title, filename=None):
     """Creates an Open File dialog and returns a filename."""
-    return unicode(QFileDialog.getOpenFileName(parent, parent.tr(title),
-                                               filename))
+    title_tr = parent.tr(title)
+    return unicode(QtGui.QFileDialog
+                        .getOpenFileName(parent, title_tr, filename))
 
-def opendir_dialog(parent, title, directory):
-    """Creates an Open Directory dialog and returns the file path."""
-    flags = QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
-    return unicode(QFileDialog.getExistingDirectory(parent, parent.tr(title),
-                                                    directory, flags))
+def opendir_dialog(parent, title, path):
+    """Prompts for a directory path"""
+
+    flags = (QtGui.QFileDialog.ShowDirsOnly |
+             QtGui.QFileDialog.DontResolveSymlinks)
+    title_tr = parent.tr(title)
+    qstr = (QtGui.QFileDialog
+                 .getExistingDirectory(parent, title_tr, path, flags))
+    return unicode(qstr)
+
 
 def save_dialog(parent, title, filename=''):
     """Creates a Save File dialog and returns a filename."""
-    return unicode(QFileDialog.getSaveFileName(parent,
-                                               parent.tr(title),
-                                               filename))
+    title_tr = parent.tr(title)
+    return unicode(QtGui.QFileDialog
+                        .getSaveFileName(parent, title_tr, filename))
 
-def get_icon(filename):
+def get_icon(basename):
     """Given a basename returns a QIcon from the corresponding cola icon."""
-    return QIcon(utils.get_icon(filename))
+    return QtGui.QIcon(resources.icon(basename))
 
 def question(parent, title, message, default=True):
     """Launches a QMessageBox question with the provided title and message.
     Passing "default=False" will make "No" the default choice."""
-    yes = QMessageBox.Yes
-    no = QMessageBox.No
+    yes = QtGui.QMessageBox.Yes
+    no = QtGui.QMessageBox.No
     buttons = yes | no
     if default:
         default = yes
     else:
         default = no
-    result = QMessageBox.question(parent, title, message, buttons, default)
-    return result == QMessageBox.Yes
+    result = QtGui.QMessageBox.question(parent, title, message,
+                                        buttons, default)
+    return result == QtGui.QMessageBox.Yes
 
 def set_clipboard(text):
     """Sets the copy/paste buffer to text."""
-    QtGui.qApp.clipboard().setText(text, QClipboard.Clipboard)
-    QtGui.qApp.clipboard().setText(text, QClipboard.Selection)
+    clipboard = QtGui.QApplication.instance().clipboard()
+    clipboard.setText(text, QtGui.QClipboard.Clipboard)
+    clipboard.setText(text, QtGui.QClipboard.Selection)
 
 def set_selected_item(widget, idx):
     """Sets a the currently selected item to the item at index idx."""
-    if type(widget) is QTreeWidget:
+    if type(widget) is QtGui.QTreeWidget:
         item = widget.topLevelItem(idx)
         if item:
             widget.setItemSelected(item, True)
@@ -195,17 +164,17 @@ def set_items(widget, items):
 
 def tr(txt):
     """Translate a string into a local language."""
-    return unicode(QtGui.qApp.translate('', txt))
+    return unicode(QtGui.QApplication.instance().translate('', txt))
 
 def get_icon_file(filename, staged=False, untracked=False):
     """Returns a file path representing a corresponding file path."""
     if staged:
-        if os.path.exists(encode(filename)):
-            icon_file = utils.get_icon('staged.png')
+        if os.path.exists(core.encode(filename)):
+            icon_file = resources.icon('staged.png')
         else:
-            icon_file = utils.get_icon('removed.png')
+            icon_file = resources.icon('removed.png')
     elif untracked:
-        icon_file = utils.get_icon('untracked.png')
+        icon_file = resources.icon('untracked.png')
     else:
         icon_file = utils.get_file_icon(filename)
     return icon_file
@@ -248,4 +217,4 @@ def update_listwidget(widget, items, staged=True,
 def set_listwidget_strings(widget, items):
     """Sets a list widget to the strings passed in items."""
     widget.clear()
-    add_items(widget, [ QListWidgetItem(i) for i in items ])
+    add_items(widget, [ QtGui.QListWidgetItem(i) for i in items ])
