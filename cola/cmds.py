@@ -1,25 +1,28 @@
 import os
 import sys
 import platform
+import traceback
 from fnmatch import fnmatch
 
 from cStringIO import StringIO
 
+from PyQt4 import QtCore
+from PyQt4.QtCore import SIGNAL
+
 import cola
+from cola import compat
 from cola import i18n
 from cola import core
 from cola import errors
 from cola import gitcfg
 from cola import gitcmds
 from cola import utils
-from cola import signals
-from cola import cmdfactory
 from cola import difftool
 from cola.diffparse import DiffParser
+from cola.interaction import Interaction
 from cola.models import selection
 
 _notifier = cola.notifier()
-_factory = cmdfactory.factory()
 _config = gitcfg.instance()
 
 
@@ -35,6 +38,15 @@ class BaseCommand(object):
     def name(self):
         """Return this command's name."""
         return self.__class__.__name__
+
+    def prepare(self):
+        """Prepare to run the command.
+
+        This is performed in a separate thread before do()
+        is invoked.
+
+        """
+        pass
 
     def do(self):
         raise NotImplementedError('%s.do() is unimplemented' % self.name())
@@ -78,6 +90,8 @@ class Command(BaseCommand):
 
 class AmendMode(Command):
     """Try to amend a commit."""
+    LAST_MESSAGE = None
+
     def __init__(self, amend):
         Command.__init__(self)
         self.undoable = True
@@ -89,6 +103,7 @@ class AmendMode(Command):
             self.new_mode = self.model.mode_amend
             self.new_head = 'HEAD^'
             self.new_commitmsg = self.model.prev_commitmsg()
+            AmendMode.LAST_MESSAGE = self.model.commitmsg
             return
         # else, amend unchecked, regular commit
         self.new_mode = self.model.mode_none
@@ -98,18 +113,9 @@ class AmendMode(Command):
         # If we're going back into new-commit-mode then search the
         # undo stack for a previous amend-commit-mode and grab the
         # commit message at that point in time.
-        if not _factory.undostack:
-            return
-        undo_count = len(_factory.undostack)
-        for i in xrange(undo_count):
-            # Find the latest AmendMode command
-            idx = undo_count - i - 1
-            cmdobj = _factory.undostack[idx]
-            if type(cmdobj) is not AmendMode:
-                continue
-            if cmdobj.amending:
-                self.new_commitmsg = cmdobj.old_commitmsg
-                break
+        if AmendMode.LAST_MESSAGE is not None:
+            self.new_commitmsg = AmendMode.LAST_MESSAGE
+            AmendMode.LAST_MESSAGE = None
 
     def do(self):
         """Leave/enter amend mode."""
@@ -117,14 +123,14 @@ class AmendMode(Command):
         if self.amending:
             if os.path.exists(self.model.git.git_path('MERGE_HEAD')):
                 self.skip = True
-                _notifier.broadcast(signals.amend, False)
-                _factory.prompt_user(signals.information,
-                                    'Oops! Unmerged',
-                                    'You are in the middle of a merge.\n'
-                                    'You cannot amend while merging.')
+                _notifier.broadcast(_notifier.AMEND, False)
+                Interaction.information(
+                        'Oops! Unmerged',
+                        'You are in the middle of a merge.\n'
+                        'You cannot amend while merging.')
                 return
         self.skip = False
-        _notifier.broadcast(signals.amend, self.amending)
+        _notifier.broadcast(_notifier.AMEND, self.amending)
         self.model.set_commitmsg(self.new_commitmsg)
         Command.do(self)
         self.model.update_file_status()
@@ -157,7 +163,7 @@ class ApplyDiffSelection(Command):
                                       self.offset,
                                       self.selection,
                                       apply_to_worktree=self.apply_to_worktree)
-        _notifier.broadcast(signals.log_cmd, status, output)
+        Interaction.log_status(status, output, '')
         # Redo the diff to show changes
         if self.staged:
             diffcmd = DiffStaged([self.model.filename])
@@ -183,7 +189,7 @@ class ApplyPatches(Command):
                                                with_status=True,
                                                with_stderr=True)
             # Log the git-am command
-            _notifier.broadcast(signals.log_cmd, status, output)
+            Interaction.log_status(status, output, '')
 
             if num_patches > 1:
                 diff = self.model.git.diff('HEAD^!', stat=True)
@@ -198,11 +204,34 @@ class ApplyPatches(Command):
 
         self.model.update_file_status()
 
-        _factory.prompt_user(signals.information,
-                            'Patch(es) Applied',
-                            '%d patch(es) applied:\n\n%s' %
-                            (len(self.patches),
-                             '\n'.join(map(os.path.basename, self.patches))))
+        Interaction.information(
+                'Patch(es) Applied',
+                '%d patch(es) applied:\n\n%s' %
+                (len(self.patches),
+                 '\n'.join(map(os.path.basename, self.patches))))
+
+
+class Archive(BaseCommand):
+    def __init__(self, ref, fmt, prefix, filename):
+        BaseCommand.__init__(self)
+        self.ref = ref
+        self.fmt = fmt
+        self.prefix = prefix
+        self.filename = filename
+
+    def do(self):
+        fp = open(core.encode(self.filename), 'wb')
+        cmd = ['git', 'archive', '--format='+self.fmt]
+        if self.fmt in ('tgz', 'tar.gz'):
+            cmd.append('-9')
+        if self.prefix:
+            cmd.append('--prefix=' + self.prefix)
+        cmd.append(self.ref)
+        proc = utils.start_command(cmd, stdout=fp)
+        out, err = proc.communicate()
+        fp.close()
+        status = proc.returncode
+        Interaction.log_status(status, out or '', err or '')
 
 
 class Checkout(Command):
@@ -221,7 +250,7 @@ class Checkout(Command):
     def do(self):
         status, output = self.model.git.checkout(with_stderr=True,
                                                  with_status=True, *self.argv)
-        _notifier.broadcast(signals.log_cmd, status, output)
+        Interaction.log_status(status, output, '')
         if self.checkout_branch:
             self.model.update_status()
         else:
@@ -230,8 +259,9 @@ class Checkout(Command):
 
 class CheckoutBranch(Checkout):
     """Checkout a branch."""
-    def __init__(self, branch, checkout_branch=True):
-        Checkout.__init__(self, [branch])
+    def __init__(self, branch):
+        args = [branch]
+        Checkout.__init__(self, args, checkout_branch=True)
 
 
 class CherryPick(Command):
@@ -276,7 +306,7 @@ class Commit(ResetMode):
             title = 'Commit: '
         else:
             title = 'Commit failed: '
-        _notifier.broadcast(signals.log_cmd, status, title+output)
+        Interaction.log_status(status, title+output, '')
 
 
 class Ignore(Command):
@@ -295,9 +325,8 @@ class Ignore(Command):
                 current_list = utils.slurp('.gitignore')
                 new_additions = new_additions + current_list
             utils.write('.gitignore', new_additions)
-            _notifier.broadcast(signals.log_cmd,
-                                0,
-                                'Added to .gitignore:\n%s' % for_status)
+            Interaction.log_status(
+                    0, 'Added to .gitignore:\n%s' % for_status, '')
             self.model.update_file_status()
 
 
@@ -316,11 +345,11 @@ class Delete(Command):
                     os.remove(filename)
                     rescan=True
                 except:
-                    _factory.prompt_user(signals.information,
-                                        'Error'
-                                        'Deleting "%s" failed.' % filename)
+                    Interaction.information(
+                            'Error', 'Deleting "%s" failed' % filename)
         if rescan:
             self.model.update_file_status()
+
 
 class DeleteBranch(Command):
     """Delete a git branch."""
@@ -335,7 +364,7 @@ class DeleteBranch(Command):
             output = 'E' + output[1:]
         else:
             title = 'Info: '
-        _notifier.broadcast(signals.log_cmd, status, title + output)
+        Interaction.log_status(status, title + output)
 
 
 class Diff(Command):
@@ -395,26 +424,23 @@ class Difftool(Command):
         self.filenames = filenames
 
     def do(self):
-        if not self.filenames:
-            return
-        args = []
-        if self.staged:
-            args.append('--cached')
-        if self.model.head != 'HEAD':
-            args.append(self.model.head)
-        args.append('--')
-        args.extend(self.filenames)
-        difftool.launch(args)
+        difftool.launch_with_head(self.filenames,
+                                  self.staged, self.model.head)
 
 
 class Edit(Command):
     """Edit a file using the configured gui.editor."""
+    NAME = 'Edit'
+    SHORTCUT = 'Ctrl+E'
+
     def __init__(self, filenames, line_number=None):
         Command.__init__(self)
         self.filenames = filenames
         self.line_number = line_number
 
     def do(self):
+        if not self.filenames:
+            return
         filename = self.filenames[0]
         if not os.path.exists(filename):
             return
@@ -450,7 +476,28 @@ class FormatPatch(Command):
 
     def do(self):
         status, output = gitcmds.format_patchsets(self.to_export, self.revs)
-        _notifier.broadcast(signals.log_cmd, status, output)
+        Interaction.log_status(status, output, '')
+
+
+class LaunchDifftool(BaseCommand):
+    NAME = 'Launch Diff Tool'
+    SHORTCUT = 'Ctrl+D'
+
+    def __init__(self):
+        BaseCommand.__init__(self)
+
+    def do(self):
+        difftool.run()
+
+
+class LaunchEditor(Edit):
+    NAME = 'Launch Editor'
+    SHORTCUT = 'Ctrl+E'
+
+    def __init__(self):
+        s = cola.selection()
+        allfiles = s.staged + s.unmerged + s.modified + s.untracked
+        Edit.__init__(self, allfiles)
 
 
 class LoadCommitMessage(Command):
@@ -505,6 +552,30 @@ class LoadPreviousMessage(Command):
         self.model.set_commitmsg(self.old_commitmsg)
 
 
+class Merge(Command):
+    def __init__(self, revision, no_commit, squash):
+        Command.__init__(self)
+        self.revision = revision
+        self.no_commit = no_commit
+        self.squash = squash
+
+    def do(self):
+        squash = self.squash
+        revision = self.revision
+        no_commit = self.no_commit
+        msg = gitcmds.merge_message(revision)
+
+        status, output = self.model.git.merge('-m', msg,
+                                              revision,
+                                              no_commit=no_commit,
+                                              squash=squash,
+                                              with_stderr=True,
+                                              with_status=True)
+
+        Interaction.log_status(status, output, '')
+        self.model.update_status()
+
+
 class Mergetool(Command):
     """Launch git-mergetool on a list of paths."""
     def __init__(self, paths):
@@ -521,19 +592,39 @@ class Mergetool(Command):
                         'git', 'mergetool', '--no-prompt', '--'] + self.paths)
 
 
-class OpenDefaultApp(Command):
+class OpenDefaultApp(BaseCommand):
     """Open a file using the OS default."""
+    NAME = 'Open Using Default Application'
+    SHORTCUT = 'Space'
+
     def __init__(self, filenames):
-        Command.__init__(self)
+        BaseCommand.__init__(self)
         if utils.is_darwin():
             launcher = 'open'
         else:
             launcher = 'xdg-open'
-        self.cmd = [launcher]
-        self.cmd.extend(filenames)
+        self.launcher = launcher
+        self.filenames = filenames
 
     def do(self):
-        utils.fork(self.cmd)
+        if not self.filenames:
+            return
+        utils.fork([self.launcher] + self.filenames)
+
+
+class OpenParentDir(OpenDefaultApp):
+    """Open parent directories using the OS default."""
+    NAME = 'Open Parent Directory'
+    SHORTCUT = 'Shift+Space'
+
+    def __init__(self, filenames):
+        OpenDefaultApp.__init__(self, filenames)
+
+    def do(self):
+        if not self.filenames:
+            return
+        dirs = set(map(os.path.dirname, self.filenames))
+        utils.fork([self.launcher] + dirs)
 
 
 class OpenRepo(Command):
@@ -570,10 +661,11 @@ class Rescan(Command):
         self.model.update_status()
 
 
-rescan_and_refresh = 'rescan_and_refresh'
-
 class RescanAndRefresh(Command):
     """Rescans for changes."""
+    NAME = 'Rescan'
+    SHORTCUT = 'Ctrl+R'
+
     def do(self):
         self.model.update_status(update_index=True)
 
@@ -588,7 +680,7 @@ class RunConfigAction(Command):
     def do(self):
         for env in ('FILENAME', 'REVISION', 'ARGS'):
             try:
-                del os.environ[env]
+                compat.unsetenv(env)
             except KeyError:
                 pass
         rev = None
@@ -605,48 +697,47 @@ class RunConfigAction(Command):
         if opts.get('needsfile'):
             filename = selection.filename()
             if not filename:
-                _factory.prompt_user(signals.information,
-                                     'Please select a file',
-                                     '"%s" requires a selected file' % cmd)
-                return
-            os.environ['FILENAME'] = filename
+                Interaction.information(
+                        'Please select a file',
+                        '"%s" requires a selected file' % cmd)
+                return False
+            compat.putenv('FILENAME', filename)
 
         if opts.get('revprompt') or opts.get('argprompt'):
             while True:
-                ok = _factory.prompt_user(signals.run_config_action, cmd, opts)
+                ok = Interaction.confirm_config_action(cmd, opts)
                 if not ok:
-                    return
+                    return False
                 rev = opts.get('revision')
                 args = opts.get('args')
                 if opts.get('revprompt') and not rev:
                     title = 'Invalid Revision'
                     msg = 'The revision expression cannot be empty.'
-                    _factory.prompt_user(signals.critical, title, msg)
+                    Interaction.critical(title, msg)
                     continue
                 break
 
         elif opts.get('confirm'):
             title = os.path.expandvars(opts.get('title'))
             prompt = os.path.expandvars(opts.get('prompt'))
-            if not _factory.prompt_user(signals.question, title, prompt):
+            if Interaction.question(title, prompt):
                 return
         if rev:
-            os.environ['REVISION'] = rev
+            compat.putenv('REVISION', rev)
         if args:
-            os.environ['ARGS'] = args
+            compat.putenv('ARGS', args)
         title = os.path.expandvars(cmd)
-        _notifier.broadcast(signals.log_cmd, 0, 'running: ' + title)
+        Interaction.log('running: ' + title)
         cmd = ['sh', '-c', cmd]
 
         if opts.get('noconsole'):
-            status, out, err = utils.run_command(cmd, flag_error=False)
+            status, out, err = utils.run_command(cmd)
         else:
-            status, out, err = _factory.prompt_user(signals.run_command,
-                                                    title, cmd)
+            status, out, err = Interaction.run_command(title, cmd)
 
-        _notifier.broadcast(signals.log_cmd, status,
-                            'stdout: %s\nstatus: %s\nstderr: %s' %
-                                (out.rstrip(), status, err.rstrip()))
+        Interaction.log_status(status,
+                               out and 'stdout: %s' % out,
+                               err and 'stderr: %s' % err)
 
         if not opts.get('norescan'):
             self.model.update_status()
@@ -662,19 +753,32 @@ class SetDiffText(Command):
 
 class ShowUntracked(Command):
     """Show an untracked file."""
-    # We don't actually do anything other than set the mode right now.
-    # TODO check the mimetype for the file and handle things
-    # generically.
     def __init__(self, filenames):
         Command.__init__(self)
+        self.filenames = filenames
         self.new_mode = self.model.mode_untracked
+        self.new_diff_text = ''
+
+    def prepare(self):
+        filenames = self.filenames
+        self.new_diff_text = self.diff_text_for(filenames[0])
+
+    def diff_text_for(self, filename):
+        size = _config.get('cola.readsize', 1024 * 2)
         try:
-            self.new_diff_text = utils.slurp(filenames[0])
+            result = utils.slurp(filename, size=size)
         except:
-            self.new_diff_text = ''
+            result = ''
+
+        if len(result) == size:
+            result += '...'
+        return result
 
 
 class SignOff(Command):
+    NAME = 'Sign Off'
+    SHORTCUT = 'Ctrl+I'
+
     def __init__(self):
         Command.__init__(self)
         self.undoable = True
@@ -703,18 +807,24 @@ class SignOff(Command):
 
 class Stage(Command):
     """Stage a set of paths."""
+    NAME = 'Stage'
+    SHORTCUT = 'Ctrl+S'
+
     def __init__(self, paths):
         Command.__init__(self)
         self.paths = paths
 
     def do(self):
         msg = 'Staging: %s' % (', '.join(self.paths))
-        _notifier.broadcast(signals.log_cmd, 0, msg)
+        Interaction.log(msg)
         self.model.stage_paths(self.paths)
 
 
 class StageModified(Stage):
     """Stage all modified files."""
+    NAME = 'Stage Modified'
+    SHORTCUT = 'Ctrl+S'
+
     def __init__(self):
         Stage.__init__(self, None)
         self.paths = self.model.modified
@@ -722,6 +832,9 @@ class StageModified(Stage):
 
 class StageUnmerged(Stage):
     """Stage all modified files."""
+    NAME = 'Stage Unmerged'
+    SHORTCUT = 'Ctrl+S'
+
     def __init__(self):
         Stage.__init__(self, None)
         self.paths = self.model.unmerged
@@ -729,6 +842,9 @@ class StageUnmerged(Stage):
 
 class StageUntracked(Stage):
     """Stage all untracked files."""
+    NAME = 'Stage Untracked'
+    SHORTCUT = 'Ctrl+S'
+
     def __init__(self):
         Stage.__init__(self, None)
         self.paths = self.model.untracked
@@ -771,20 +887,23 @@ class Tag(Command):
         if output:
             log_msg += '\nOutput:\n%s' % output
 
-        _notifier.broadcast(signals.log_cmd, status, log_msg)
+        Interaction.log_status(status, log_msg, '')
         if status == 0:
             self.model.update_status()
 
 
 class Unstage(Command):
     """Unstage a set of paths."""
+    NAME = 'Unstage'
+    SHORTCUT = 'Ctrl+S'
+
     def __init__(self, paths):
         Command.__init__(self)
         self.paths = paths
 
     def do(self):
         msg = 'Unstaging: %s' % (', '.join(self.paths))
-        _notifier.broadcast(signals.log_cmd, 0, msg)
+        Interaction.log(msg)
         self.model.unstage_paths(self.paths)
 
 
@@ -808,9 +927,9 @@ class Untrack(Command):
 
     def do(self):
         msg = 'Untracking: %s' % (', '.join(self.paths))
-        _notifier.broadcast(signals.log_cmd, 0, msg)
+        Interaction.log(msg)
         status, out = self.model.untrack_paths(self.paths)
-        _notifier.broadcast(signals.log_cmd, status, out)
+        Interaction.log_status(status, out, '')
 
 
 class UntrackedSummary(Command):
@@ -824,7 +943,7 @@ class UntrackedSummary(Command):
         if untracked:
             io.write('# possible .gitignore rule%s:\n' % suffix)
             for u in untracked:
-                io.write('/'+core.encode(u))
+                io.write('/'+core.encode(u)+'\n')
         self.new_diff_text = core.decode(io.getvalue())
         self.new_mode = self.model.mode_untracked
 
@@ -863,8 +982,6 @@ class VisualizePaths(Command):
         utils.fork(self.argv)
 
 
-visualize_revision = 'visualize_revision'
-
 class VisualizeRevision(Command):
     """Visualize a specific revision."""
     def __init__(self, revision, paths=None):
@@ -882,63 +999,98 @@ class VisualizeRevision(Command):
         utils.fork(argv)
 
 
-def register():
+def run(cls, *args, **opts):
     """
-    Register signal mappings with the factory.
+    Returns a callback that runs a command
 
-    These commands are automatically created and run when
-    their corresponding signal is broadcast by the notifier.
+    If the caller of run() provides args or opts then those are
+    used instead of the ones provided by the invoker of the callback.
 
     """
-    signal_to_command_map = {
-        signals.amend_mode: AmendMode,
-        signals.apply_diff_selection: ApplyDiffSelection,
-        signals.apply_patches: ApplyPatches,
-        signals.clone: Clone,
-        signals.checkout: Checkout,
-        signals.checkout_branch: CheckoutBranch,
-        signals.cherry_pick: CherryPick,
-        signals.commit: Commit,
-        signals.delete: Delete,
-        signals.delete_branch: DeleteBranch,
-        signals.diff: Diff,
-        signals.diff_staged: DiffStaged,
-        signals.diffstat: Diffstat,
-        signals.difftool: Difftool,
-        signals.edit: Edit,
-        signals.format_patch: FormatPatch,
-        signals.ignore: Ignore,
-        signals.load_commit_message: LoadCommitMessage,
-        signals.load_commit_template: LoadCommitTemplate,
-        signals.load_previous_message: LoadPreviousMessage,
-        signals.modified_summary: Diffstat,
-        signals.mergetool: Mergetool,
-        signals.open_default_app: OpenDefaultApp,
-        signals.open_repo: OpenRepo,
-        signals.rescan: Rescan,
-        signals.rescan_and_refresh: RescanAndRefresh,
-        signals.reset_mode: ResetMode,
-        signals.run_config_action: RunConfigAction,
-        signals.set_diff_text: SetDiffText,
-        signals.show_untracked: ShowUntracked,
-        signals.signoff: SignOff,
-        signals.stage: Stage,
-        signals.stage_modified: StageModified,
-        signals.stage_unmerged: StageUnmerged,
-        signals.stage_untracked: StageUntracked,
-        signals.staged_summary: DiffStagedSummary,
-        signals.tag: Tag,
-        signals.untrack: Untrack,
-        signals.unstage: Unstage,
-        signals.unstage_all: UnstageAll,
-        signals.unstage_selected: UnstageSelected,
-        signals.untracked_summary: UntrackedSummary,
-        signals.update_file_status: UpdateFileStatus,
-        signals.visualize_all: VisualizeAll,
-        signals.visualize_current: VisualizeCurrent,
-        signals.visualize_paths: VisualizePaths,
-        signals.visualize_revision: VisualizeRevision,
-    }
+    def runner(*local_args, **local_opts):
+        if args or opts:
+            do(cls, *args, **opts)
+        else:
+            do(cls, *local_args, **local_opts)
 
-    for signal, cmd in signal_to_command_map.iteritems():
-        _factory.add_global_command(signal, cmd)
+    return runner
+
+
+def do(cls, *args, **opts):
+    """Run a command in-place"""
+    do_cmd(cls(*args, **opts))
+
+
+def do_cmd(cmd):
+    try:
+        cmd.do()
+    except StandardError, e:
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        details = traceback.format_exception(exc_type, exc_value, exc_tb)
+        details = '\n'.join(details)
+        msg = _exception_message(e)
+        Interaction.critical('Oops', message=msg, details=details)
+
+
+def bg(parent, cls, *args, **opts):
+    """
+    Returns a callback that runs a command
+
+    If the caller of run() provides args or opts then those are
+    used instead of the ones provided by the invoker of the callback.
+
+    """
+    def runner(*local_args, **local_opts):
+        if args or opts:
+            background(parent, cls, *args, **opts)
+        else:
+            background(parent, cls, *local_args, **local_opts)
+
+    return runner
+
+
+# Holds a reference to background tasks to avoid PyQt4 segfaults
+ALL_TASKS = set()
+
+
+def background(parent, cls, *args, **opts):
+    cmd = cls(*args, **opts)
+    task = AsyncCommand(parent, cmd)
+    ALL_TASKS.add(task)
+    QtCore.QThreadPool.globalInstance().start(task)
+
+
+
+class RunCommand(QtCore.QObject):
+    def __init__(self, cmd, task, parent):
+        QtCore.QObject.__init__(self, parent)
+        self.cmd = cmd
+        self.task = task
+        self.connect(self, SIGNAL('command_ready'), self.do)
+
+    def run(self):
+        self.cmd.prepare()
+        self.emit(SIGNAL('command_ready'))
+
+    def do(self):
+        do_cmd(self.cmd)
+        try:
+            ALL_TASKS.remove(self.task)
+        except:
+            pass
+
+
+class AsyncCommand(QtCore.QRunnable):
+    def __init__(self, parent, cmd):
+        QtCore.QRunnable.__init__(self)
+        self.runner = RunCommand(cmd, self, parent)
+
+    def run(self):
+        self.runner.run()
+
+
+def _exception_message(e):
+    if hasattr(e, 'msg'):
+        return e.msg
+    else:
+        return str(e)

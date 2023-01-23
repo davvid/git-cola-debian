@@ -1,18 +1,19 @@
 import os
+import sys
 import subprocess
 import itertools
 
+from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 import cola
-from cola import signals
+from cola import cmds
 from cola import qtutils
 from cola import utils
 from cola.compat import set
-from cola.qtutils import SLOT
-from cola.widgets import defs
+from cola.interaction import Interaction
 from cola.models.selection import State
 
 
@@ -43,6 +44,13 @@ class StatusWidget(QtGui.QWidget):
         self.layout.addWidget(self.tree)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
+    def set_initial_size(self):
+        self.setMaximumWidth(222)
+        QtCore.QTimer.singleShot(1, self.restore_size)
+
+    def restore_size(self):
+        self.setMaximumWidth(2 ** 13)
+
 
 class StatusTreeWidget(QtGui.QTreeWidget):
     # Item categories
@@ -53,7 +61,6 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     idx_untracked = 3
     idx_end = 4
 
-    txt_default_app = 'Open Using Default Application'
     txt_parent_dir = 'Open Parent Directory'
 
     # Read-only access to the mode state
@@ -69,11 +76,12 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.setUniformRowHeights(True)
         self.setAnimated(True)
         self.setRootIsDecorated(False)
+        self.setIndentation(0)
 
-        self.add_item('Staged', 'plus.png', hide=True)
-        self.add_item('Unmerged', 'unmerged.png', hide=True)
-        self.add_item('Modified', 'modified.png', hide=True)
-        self.add_item('Untracked', 'untracked.png', hide=True)
+        self.add_item('Staged', hide=True)
+        self.add_item('Unmerged', hide=True)
+        self.add_item('Modified', hide=True)
+        self.add_item('Untracked', hide=True)
 
         # Used to restore the selection
         self.old_scroll = None
@@ -83,30 +91,33 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         self.expanded_items = set()
 
         self.process_selection = qtutils.add_action(self,
-                'Process Selection', self._process_selection,
-                defs.stage_shortcut)
+                'Stage/Unstage', self._process_selection,
+                cmds.Stage.SHORTCUT)
 
         self.launch_difftool = qtutils.add_action(self,
-                'Launch Diff Tool', self._launch_difftool,
-                defs.difftool_shortcut)
+                self.tr(cmds.LaunchDifftool.NAME),
+                cmds.run(cmds.LaunchDifftool),
+                cmds.LaunchDifftool.SHORTCUT)
         self.launch_difftool.setIcon(qtutils.icon('git.svg'))
 
         self.launch_editor = qtutils.add_action(self,
-                'Launch Editor', self._launch_editor,
-                defs.editor_shortcut)
+                self.tr(cmds.LaunchEditor.NAME),
+                cmds.run(cmds.LaunchEditor),
+                cmds.LaunchEditor.SHORTCUT,
+                'Return', 'Enter')
         self.launch_editor.setIcon(qtutils.options_icon())
 
         if not utils.is_win32():
             self.open_using_default_app = qtutils.add_action(self,
-                    self.txt_default_app,
+                    self.tr(cmds.OpenDefaultApp.NAME),
                     self._open_using_default_app,
-                    defs.default_app_shortcut)
+                    cmds.OpenDefaultApp.SHORTCUT)
             self.open_using_default_app.setIcon(qtutils.file_icon())
 
             self.open_parent_dir = qtutils.add_action(self,
-                    self.txt_parent_dir,
+                    self.tr(cmds.OpenParentDir.NAME),
                     self._open_parent_dir,
-                    defs.parent_dir_shortcut)
+                    cmds.OpenParentDir.SHORTCUT)
             self.open_parent_dir.setIcon(qtutils.open_file_icon())
 
         self.up = qtutils.add_action(self,
@@ -143,11 +154,16 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                      SIGNAL('itemExpanded(QTreeWidgetItem*)'),
                      lambda x: self.update_column_widths())
 
-    def add_item(self, txt, path, hide=False):
+    def add_item(self, txt, hide=False):
         """Create a new top-level item in the status tree."""
+        # TODO no icon
+        font = self.font()
+        font.setBold(True)
+        font.setCapitalization(QtGui.QFont.SmallCaps)
+
         item = QtGui.QTreeWidgetItem(self)
+        item.setFont(0, font)
         item.setText(0, self.tr(txt))
-        item.setIcon(0, qtutils.icon(path))
         if hide:
             self.setItemHidden(item, True)
 
@@ -339,158 +355,182 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             category, idx = selection[0]
             # A header item e.g. 'Staged', 'Modified', etc.
             if category == self.idx_header:
-                if idx == self.idx_staged:
-                    menu.addAction(qtutils.icon('remove.svg'),
-                                   self.tr('Unstage All'),
-                                   SLOT(signals.unstage_all))
-                    return menu
-                elif idx == self.idx_unmerged:
-                    action = menu.addAction(qtutils.icon('add.svg'),
-                                            self.tr('Stage Merged'),
-                                            SLOT(signals.stage_unmerged))
-                    action.setShortcut(defs.stage_shortcut)
-                    return menu
-                elif idx == self.idx_modified:
-                    action = menu.addAction(qtutils.icon('add.svg'),
-                                            self.tr('Stage Modified'),
-                                            SLOT(signals.stage_modified))
-                    action.setShortcut(defs.stage_shortcut)
-                    return menu
+                return self._create_header_context_menu(menu, idx)
 
-                elif idx == self.idx_untracked:
-                    action = menu.addAction(qtutils.icon('add.svg'),
-                                            self.tr('Stage Untracked'),
-                                            SLOT(signals.stage_untracked))
-                    action.setShortcut(defs.stage_shortcut)
-                    return menu
+        if s.staged:
+            return self._create_staged_context_menu(menu, s)
 
-        if s.staged and self.m.unstageable():
+        elif s.unmerged:
+            return self._create_unmerged_context_menu(menu, s)
+        else:
+            return self._create_unstaged_context_menu(menu, s)
+
+    def _create_header_context_menu(self, menu, idx):
+        if idx == self.idx_staged:
+            menu.addAction(qtutils.icon('remove.svg'),
+                           self.tr('Unstage All'),
+                           cmds.run(cmds.UnstageAll))
+            return menu
+        elif idx == self.idx_unmerged:
+            action = menu.addAction(qtutils.icon('add.svg'),
+                                    self.tr(cmds.StageUnmerged.NAME),
+                                    cmds.run(cmds.StageUnmerged))
+            action.setShortcut(cmds.StageUnmerged.SHORTCUT)
+            return menu
+        elif idx == self.idx_modified:
+            action = menu.addAction(qtutils.icon('add.svg'),
+                                    self.tr(cmds.StageModified.NAME),
+                                    cmds.run(cmds.StageModified))
+            action.setShortcut(cmds.StageModified.SHORTCUT)
+            return menu
+
+        elif idx == self.idx_untracked:
+            action = menu.addAction(qtutils.icon('add.svg'),
+                                    self.tr(cmds.StageUntracked.NAME),
+                                    cmds.run(cmds.StageUntracked))
+            action.setShortcut(cmds.StageUntracked.SHORTCUT)
+            return menu
+
+    def _create_staged_context_menu(self, menu, s):
+        if s.staged[0] in self.m.submodules:
+            return self._create_staged_submodule_context_menu(menu, s)
+
+        action = menu.addAction(qtutils.options_icon(),
+                                self.tr(cmds.LaunchEditor.NAME),
+                                cmds.run(cmds.LaunchEditor))
+        action.setShortcut(cmds.LaunchEditor.SHORTCUT)
+
+        action = menu.addAction(qtutils.git_icon(),
+                                self.tr(cmds.LaunchDifftool.NAME),
+                                cmds.run(cmds.LaunchDifftool))
+        action.setShortcut(cmds.LaunchDifftool.SHORTCUT)
+
+        if self.m.unstageable():
+            menu.addSeparator()
             action = menu.addAction(qtutils.icon('remove.svg'),
                                     self.tr('Unstage Selected'),
-                                    SLOT(signals.unstage, self.staged()))
-            action.setShortcut(defs.stage_shortcut)
+                                    cmds.run(cmds.Unstage, self.staged()))
+            action.setShortcut(cmds.Unstage.SHORTCUT)
 
-        if s.staged and s.staged[0] in self.m.submodules:
-            menu.addAction(qtutils.git_icon(),
-                           self.tr('Launch git-cola'),
-                           SLOT(signals.open_repo,
+        if not utils.is_win32():
+            menu.addSeparator()
+            action = menu.addAction(qtutils.file_icon(),
+                    self.tr(cmds.OpenDefaultApp.NAME),
+                    cmds.run(cmds.OpenDefaultApp, self.staged()))
+            action.setShortcut(cmds.OpenDefaultApp.SHORTCUT)
+
+            action = menu.addAction(qtutils.open_file_icon(),
+                    self.tr(cmds.OpenParentDir.NAME),
+                    self._open_parent_dir)
+            action.setShortcut(cmds.OpenParentDir.SHORTCUT)
+
+        if self.m.undoable():
+            menu.addSeparator()
+            menu.addAction(qtutils.icon('undo.svg'),
+                           self.tr('Revert Unstaged Edits...'),
+                           lambda: self._revert_unstaged_edits(staged=True))
+        menu.addSeparator()
+        menu.addAction(self.copy_path_action)
+        return menu
+
+    def _create_staged_submodule_context_menu(self, menu, s):
+        menu.addAction(qtutils.git_icon(),
+                       self.tr('Launch git-cola'),
+                       cmds.run(cmds.OpenRepo,
                                 os.path.abspath(s.staged[0])))
-            menu.addSeparator()
-            menu.addAction(self.copy_path_action)
-            return menu
-        elif s.staged:
-            menu.addSeparator()
-            action = menu.addAction(qtutils.git_icon(),
-                                    self.tr('Launch Diff Tool'),
-                                    SLOT(signals.difftool, True,
-                                         self.staged()))
-            action.setShortcut(defs.difftool_shortcut)
 
-            action = menu.addAction(qtutils.options_icon(),
-                                    self.tr('Launch Editor'),
-                                    SLOT(signals.edit, self.staged()))
-            action.setShortcut(defs.editor_shortcut)
-
-            if not utils.is_win32():
-                menu.addSeparator()
-                action = menu.addAction(qtutils.file_icon(),
-                        self.tr(self.txt_default_app),
-                        SLOT(signals.open_default_app, self.staged()))
-                action.setShortcut(defs.default_app_shortcut)
-
-                action = menu.addAction(qtutils.open_file_icon(),
-                        self.tr(self.txt_parent_dir),
-                        self._open_parent_dir)
-                action.setShortcut(defs.parent_dir_shortcut)
-
-            if self.m.undoable():
-                menu.addSeparator()
-                menu.addAction(qtutils.icon('undo.svg'),
-                               self.tr('Revert Unstaged Edits...'),
-                               lambda: self._revert_unstaged_edits(staged=True))
-            menu.addSeparator()
-            menu.addAction(self.copy_path_action)
-            return menu
-
-        if s.unmerged:
-            menu.addAction(qtutils.git_icon(),
-                           self.tr('Launch Merge Tool'),
-                           SLOT(signals.mergetool, self.unmerged()))
-
-            action = menu.addAction(qtutils.icon('add.svg'),
-                                    self.tr('Stage Selected'),
-                                    SLOT(signals.stage, self.unstaged()))
-            action.setShortcut(defs.stage_shortcut)
-            menu.addSeparator()
-            action = menu.addAction(qtutils.options_icon(),
-                                    self.tr('Launch Editor'),
-                                    SLOT(signals.edit, self.unmerged()))
-            action.setShortcut(defs.editor_shortcut)
-
-            if not utils.is_win32():
-                menu.addSeparator()
-                action = menu.addAction(qtutils.file_icon(),
-                        self.tr(self.txt_default_app),
-                        SLOT(signals.open_default_app, self.unmerged()))
-                action.setShortcut(defs.default_app_shortcut)
-
-                action = menu.addAction(qtutils.open_file_icon(),
-                        self.tr(self.txt_parent_dir),
-                        self._open_parent_dir)
-                action.setShortcut(defs.parent_dir_shortcut)
-
-            menu.addSeparator()
-            menu.addAction(self.copy_path_action)
-            return menu
-
-        modified_submodule = (s.modified and
-                              s.modified[0] in self.m.submodules)
-        if self.m.stageable():
-            action = menu.addAction(qtutils.icon('add.svg'),
-                                    self.tr('Stage Selected'),
-                                    SLOT(signals.stage, self.unstaged()))
-            action.setShortcut(defs.stage_shortcut)
-            menu.addSeparator()
-
-        if s.modified and self.m.stageable() and not modified_submodule:
-            action = menu.addAction(qtutils.git_icon(),
-                                    self.tr('Launch Diff Tool'),
-                                    SLOT(signals.difftool, False,
-                                         self.modified()))
-            action.setShortcut(defs.difftool_shortcut)
-
-        if modified_submodule:
-            menu.addAction(qtutils.git_icon(),
-                           self.tr('Launch git-cola'),
-                           SLOT(signals.open_repo,
-                                os.path.abspath(s.modified[0])))
-        elif self.unstaged():
-            action = menu.addAction(qtutils.options_icon(),
-                                    self.tr('Launch Editor'),
-                                    SLOT(signals.edit, self.unstaged()))
-            action.setShortcut(defs.editor_shortcut)
-            if not utils.is_win32():
-                menu.addSeparator()
-                action = menu.addAction(qtutils.file_icon(),
-                        self.tr(self.txt_default_app),
-                        SLOT(signals.open_default_app, self.unstaged()))
-                action.setShortcut(defs.default_app_shortcut)
-
-                action = menu.addAction(qtutils.open_file_icon(),
-                        self.tr(self.txt_parent_dir),
-                        self._open_parent_dir)
-                action.setShortcut(defs.parent_dir_shortcut)
+        action = menu.addAction(qtutils.options_icon(),
+                                self.tr(cmds.LaunchEditor.NAME),
+                                cmds.run(cmds.LaunchEditor))
+        action.setShortcut(cmds.LaunchEditor.SHORTCUT)
 
         menu.addSeparator()
+        action = menu.addAction(qtutils.icon('remove.svg'),
+                                self.tr('Unstage Selected'),
+                                cmds.run(cmds.Unstage, self.staged()))
+        action.setShortcut(cmds.Unstage.SHORTCUT)
 
-        if s.modified and self.m.stageable() and not modified_submodule:
+        menu.addSeparator()
+        menu.addAction(self.copy_path_action)
+        return menu
+
+    def _create_unmerged_context_menu(self, menu, s):
+        menu.addAction(qtutils.git_icon(),
+                       self.tr('Launch Merge Tool'),
+                       cmds.run(cmds.Mergetool, self.unmerged()))
+
+        action = menu.addAction(qtutils.icon('add.svg'),
+                                self.tr('Stage Selected'),
+                                cmds.run(cmds.Stage, self.unstaged()))
+        action.setShortcut(cmds.Stage.SHORTCUT)
+        menu.addSeparator()
+        action = menu.addAction(qtutils.options_icon(),
+                                self.tr(cmds.LaunchEditor.NAME),
+                                cmds.run(cmds.LaunchEditor))
+        action.setShortcut(cmds.LaunchEditor.SHORTCUT)
+
+        if not utils.is_win32():
+            menu.addSeparator()
+            action = menu.addAction(qtutils.file_icon(),
+                    self.tr(cmds.OpenDefaultApp.NAME),
+                    cmds.run(cmds.OpenDefaultApp, self.unmerged()))
+            action.setShortcut(cmds.OpenDefaultApp.SHORTCUT)
+
+            action = menu.addAction(qtutils.open_file_icon(),
+                    self.tr(cmds.OpenParentDir.NAME),
+                    self._open_parent_dir)
+            action.setShortcut(cmds.OpenParentDir.SHORTCUT)
+
+        menu.addSeparator()
+        menu.addAction(self.copy_path_action)
+        return menu
+
+    def _create_unstaged_context_menu(self, menu, s):
+        modified_submodule = (s.modified and
+                              s.modified[0] in self.m.submodules)
+        if modified_submodule:
+            return self._create_modified_submodule_context_menu(menu, s)
+
+        if self.unstaged():
+            action = menu.addAction(qtutils.options_icon(),
+                                    self.tr(cmds.LaunchEditor.NAME),
+                                    cmds.run(cmds.LaunchEditor))
+            action.setShortcut(cmds.Edit.SHORTCUT)
+
+        if s.modified and self.m.stageable():
+            action = menu.addAction(qtutils.git_icon(),
+                                    self.tr(cmds.LaunchDifftool.NAME),
+                                    cmds.run(cmds.LaunchDifftool))
+            action.setShortcut(cmds.LaunchDifftool.SHORTCUT)
+
+        if self.m.stageable():
+            menu.addSeparator()
+            action = menu.addAction(qtutils.icon('add.svg'),
+                                    self.tr('Stage Selected'),
+                                    cmds.run(cmds.Stage, self.unstaged()))
+            action.setShortcut(cmds.Stage.SHORTCUT)
+
+        if s.modified and self.m.stageable():
             if self.m.undoable():
+                menu.addSeparator()
                 menu.addAction(qtutils.icon('undo.svg'),
                                self.tr('Revert Unstaged Edits...'),
                                self._revert_unstaged_edits)
                 menu.addAction(qtutils.icon('undo.svg'),
                                self.tr('Revert Uncommited Edits...'),
                                self._revert_uncommitted_edits)
+
+        if self.unstaged() and not utils.is_win32():
+            menu.addSeparator()
+            action = menu.addAction(qtutils.file_icon(),
+                    self.tr(cmds.OpenDefaultApp.NAME),
+                    cmds.run(cmds.OpenDefaultApp, self.unstaged()))
+            action.setShortcut(cmds.OpenDefaultApp.SHORTCUT)
+
+            action = menu.addAction(qtutils.open_file_icon(),
+                    self.tr(cmds.OpenParentDir.NAME),
+                    self._open_parent_dir)
+            action.setShortcut(cmds.OpenParentDir.SHORTCUT)
 
         if s.untracked:
             menu.addSeparator()
@@ -499,11 +539,34 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             menu.addSeparator()
             menu.addAction(qtutils.icon('edit-clear.svg'),
                            self.tr('Add to .gitignore'),
-                           SLOT(signals.ignore,
+                           cmds.run(cmds.Ignore,
                                 map(lambda x: '/' + x, self.untracked())))
         menu.addSeparator()
         menu.addAction(self.copy_path_action)
         return menu
+
+    def _create_modified_submodule_context_menu(self, menu, s):
+        menu.addAction(qtutils.git_icon(),
+                       self.tr('Launch git-cola'),
+                       cmds.run(cmds.OpenRepo,
+                            os.path.abspath(s.modified[0])))
+
+        action = menu.addAction(qtutils.options_icon(),
+                                self.tr(cmds.LaunchEditor.NAME),
+                                cmds.run(cmds.LaunchEditor))
+        action.setShortcut(cmds.Edit.SHORTCUT)
+
+        if self.m.stageable():
+            menu.addSeparator()
+            action = menu.addAction(qtutils.icon('add.svg'),
+                                    self.tr('Stage Selected'),
+                                    cmds.run(cmds.Stage, self.unstaged()))
+            action.setShortcut(cmds.Stage.SHORTCUT)
+
+        menu.addSeparator()
+        menu.addAction(self.copy_path_action)
+        return menu
+
 
     def _delete_files(self):
         files = self.untracked()
@@ -525,7 +588,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         if qtutils.confirm(title, msg, info_txt, ok_txt,
                            default=True,
                            icon=qtutils.discard_icon()):
-            cola.notifier().broadcast(signals.delete, files)
+            cmds.do(cmds.Delete, files)
 
     def _revert_unstaged_edits(self, staged=False):
         if not self.m.undoable():
@@ -547,11 +610,10 @@ class StatusTreeWidget(QtGui.QTreeWidget):
             args = []
             if not staged and self.m.amending():
                 args.append(self.m.head)
-            cola.notifier().broadcast(signals.checkout,
-                                      args + ['--'] + items_to_undo)
+            cmds.do(cmds.Checkout, args + ['--'] + items_to_undo)
         else:
-            qtutils.log(1, self.tr('No files selected for '
-                                   'checkout from HEAD.'))
+            msg = self.tr('No files selected for checkout from HEAD.')
+            Interaction.log(msg)
 
     def _revert_uncommitted_edits(self):
         items_to_undo = self.modified()
@@ -564,11 +626,10 @@ class StatusTreeWidget(QtGui.QTreeWidget):
                                    default=True,
                                    icon=qtutils.icon('undo.svg')):
                 return
-            cola.notifier().broadcast(signals.checkout,
-                                      [self.m.head, '--'] + items_to_undo)
+            cmds.do(cmds.Checkout, [self.m.head, '--'] + items_to_undo)
         else:
-            qtutils.log(1, self.tr('No files selected for '
-                                   'checkout from HEAD.'))
+            msg = self.tr('No files selected for checkout from HEAD.')
+            Interaction.log(msg)
 
     def single_selection(self):
         """Scan across staged, modified, etc. and return a single item."""
@@ -703,9 +764,9 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         selection = self.selected_indexes()
         if not selection:
             if self.m.amending():
-                cola.notifier().broadcast(signals.set_diff_text, '')
+                cmds.do(cmds.SetDiffText, '')
             else:
-                cola.notifier().broadcast(signals.reset_mode)
+                cmds.do(cmds.ResetMode)
             self.blockSignals(True)
             self.clearSelection()
             self.blockSignals(False)
@@ -718,7 +779,7 @@ class StatusTreeWidget(QtGui.QTreeWidget):
     def _process_selection(self):
         s = self.selection()
         if s.staged:
-            cola.notifier().broadcast(signals.unstage, s.staged)
+            cmds.do(cmds.Unstage, s.staged)
 
         unstaged = []
         if s.unmerged:
@@ -728,38 +789,15 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         if s.untracked:
             unstaged.extend(s.untracked)
         if unstaged:
-            cola.notifier().broadcast(signals.stage, unstaged)
-
-    def _launch_difftool(self):
-        staged, modified, unmerged, untracked = self.selection()
-        if staged:
-            selection = staged
-        elif unmerged:
-            selection = unmerged
-        elif modified:
-            selection = modified
-        else:
-            return
-        cola.notifier().broadcast(signals.difftool, bool(staged), selection)
-
-    def _launch_editor(self):
-        selection = self.selected_group()
-        if not selection:
-            return
-        cola.notifier().broadcast(signals.edit, selection)
+            cmds.do(cmds.Stage, unstaged)
 
     def _open_using_default_app(self):
         selection = self.selected_group()
-        if not selection:
-            return
-        cola.notifier().broadcast(signals.open_default_app, selection)
+        cmds.do(cmds.OpenDefaultApp, selection)
 
     def _open_parent_dir(self):
         selection = self.selected_group()
-        if not selection:
-            return
-        dirs = set(map(os.path.dirname, selection))
-        cola.notifier().broadcast(signals.open_default_app, dirs)
+        cmds.do(cmds.OpenParentDir, selection)
 
     def show_selection(self):
         """Show the selected item."""
@@ -772,26 +810,27 @@ class StatusTreeWidget(QtGui.QTreeWidget):
         category, idx = selection[0]
         # A header item e.g. 'Staged', 'Modified', etc.
         if category == self.idx_header:
-            signal = {
-                self.idx_staged: signals.staged_summary,
-                self.idx_modified: signals.modified_summary,
-                self.idx_unmerged: signals.unmerged_summary,
-                self.idx_untracked: signals.untracked_summary,
-            }.get(idx, signals.diffstat)
-            cola.notifier().broadcast(signal)
+            cls = {
+                self.idx_staged: cmds.DiffStagedSummary,
+                self.idx_modified: cmds.Diffstat,
+                # TODO implement UnmergedSummary
+                #self.idx_unmerged: cmds.UnmergedSummary,
+                self.idx_untracked: cmds.UntrackedSummary,
+            }.get(idx, cmds.Diffstat)
+            cmds.do(cls)
         # A staged file
         elif category == self.idx_staged:
-            cola.notifier().broadcast(signals.diff_staged, self.staged())
+            cmds.do(cmds.DiffStaged, self.staged())
 
         # A modified file
         elif category == self.idx_modified:
-            cola.notifier().broadcast(signals.diff, self.modified())
+            cmds.do(cmds.Diff, self.modified())
 
         elif category == self.idx_unmerged:
-            cola.notifier().broadcast(signals.diff, self.unmerged())
+            cmds.do(cmds.Diff, self.unmerged())
 
         elif category == self.idx_untracked:
-            cola.notifier().broadcast(signals.show_untracked, self.unstaged())
+            cmds.background(self, cmds.ShowUntracked, self.unstaged())
 
     def move_up(self):
         idx = self.selected_idx()

@@ -1,25 +1,24 @@
 import collections
 import math
 import sys
-import time
-import urllib
 
 from PyQt4 import QtGui
 from PyQt4 import QtCore
-from PyQt4 import QtNetwork
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
+from PyQt4.QtCore import QPointF
+from PyQt4.QtCore import QRectF
 
-import cola
+from cola import cmds
 from cola import difftool
 from cola import gitcmds
 from cola import observable
+from cola import qt
 from cola import qtutils
-from cola import resources
-from cola import signals
-from cola.compat import hashlib
-from cola.dag.model import archive
+from cola.compat import set
+from cola.dag import gravatar
 from cola.dag.model import RepoReader
+from cola.qtutils import tr
 from cola.widgets import completion
 from cola.widgets import defs
 from cola.widgets.createbranch import create_new_branch
@@ -30,81 +29,7 @@ from cola.widgets.standard import Widget
 from cola.widgets.text import DiffTextEdit
 
 
-class GravatarLabel(QtGui.QLabel):
-    def __init__(self, parent=None):
-        QtGui.QLabel.__init__(self, parent)
-
-        self.email = None
-        self.response = None
-        self.timeout = 0
-        self.imgsize = 48
-
-        self.network = QtNetwork.QNetworkAccessManager()
-        self.connect(self.network,
-                     SIGNAL('finished(QNetworkReply*)'),
-                     self.network_finished)
-
-    def url_for_email(self, email):
-        email_hash = hashlib.md5(email).hexdigest()
-        default_url = 'http://git-cola.github.com/images/git-64x64.jpg'
-        encoded_url = urllib.quote(default_url, '')
-        query = '?s=%d&d=%s' % (self.imgsize, encoded_url)
-        url = 'http://gravatar.com/avatar/' + email_hash + query
-        return url
-
-    def get_email(self, email):
-        if (self.timeout > 0 and
-                (int(time.time()) - self.timeout) < (5 * 60)):
-            self.set_pixmap_from_response()
-            return
-        if email == self.email and self.response is not None:
-            self.set_pixmap_from_response()
-            return
-        self.email = email
-        self.get(self.url_for_email(email))
-
-    def get(self, url):
-        self.network.get(QtNetwork.QNetworkRequest(QtCore.QUrl(url)))
-
-    def default_pixmap_as_bytes(self):
-        xres = self.imgsize
-        pixmap = QtGui.QPixmap(resources.icon('git.svg'))
-        pixmap = pixmap.scaledToHeight(xres, Qt.SmoothTransformation)
-        byte_array = QtCore.QByteArray()
-        buf = QtCore.QBuffer(byte_array)
-        buf.open(QtCore.QIODevice.WriteOnly)
-        pixmap.save(buf, 'PNG')
-        buf.close()
-        return byte_array
-
-    def network_finished(self, reply):
-        header = QtCore.QByteArray('Location')
-        raw_header = reply.rawHeader(header)
-        if raw_header:
-            location = unicode(QtCore.QString(raw_header)).strip()
-            request_location = unicode(self.url_for_email(self.email))
-            relocated = location != request_location
-        else:
-            relocated = False
-
-        if reply.error() == QtNetwork.QNetworkReply.NoError:
-            if relocated:
-                # We could do get_url(urllib.unquote(location)) to
-                # download the default image.
-                # Save bandwidth by using a pixmap.
-                self.response = self.default_pixmap_as_bytes()
-            else:
-                self.response = reply.readAll()
-            self.timeout = 0
-        else:
-            self.response = self.default_pixmap_as_bytes()
-            self.timeout = int(time.time())
-        self.set_pixmap_from_response()
-
-    def set_pixmap_from_response(self):
-        pixmap = QtGui.QPixmap()
-        pixmap.loadFromData(self.response)
-        self.setPixmap(pixmap)
+COMMITS_SELECTED = 'COMMITS_SELECTED'
 
 
 class TextLabel(QtGui.QLabel):
@@ -155,6 +80,17 @@ class TextLabel(QtGui.QLabel):
         QtGui.QLabel.resizeEvent(self, event)
 
 
+class DiffInfoTask(QtCore.QRunnable):
+    def __init__(self, sha1, reflector):
+        QtCore.QRunnable.__init__(self)
+        self.sha1 = sha1
+        self.reflector = reflector
+
+    def run(self):
+        diff = gitcmds.diff_info(self.sha1)
+        self.reflector.emit(SIGNAL('diff'), diff)
+
+
 class DiffWidget(QtGui.QWidget):
     def __init__(self, notifier, parent):
         QtGui.QWidget.__init__(self, parent)
@@ -168,7 +104,7 @@ class DiffWidget(QtGui.QWidget):
         policy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding,
                                    QtGui.QSizePolicy.Minimum)
 
-        self.gravatar_label = GravatarLabel()
+        self.gravatar_label = gravatar.GravatarLabel()
 
         self.author_label = TextLabel()
         self.author_label.setTextFormat(Qt.RichText)
@@ -184,13 +120,22 @@ class DiffWidget(QtGui.QWidget):
         self.summary_label.setAlignment(Qt.AlignTop)
         self.summary_label.elide()
 
+        self.sha1_label = TextLabel()
+        self.sha1_label.setTextFormat(Qt.PlainText)
+        self.sha1_label.setSizePolicy(policy)
+        self.sha1_label.setAlignment(Qt.AlignTop)
+        self.sha1_label.elide()
+
         self.diff = DiffTextEdit(self, whitespace=False)
+        self.tasks = set()
+        self.reflector = QtCore.QObject(self)
 
         self.info_layout = QtGui.QVBoxLayout()
         self.info_layout.setMargin(0)
         self.info_layout.setSpacing(0)
         self.info_layout.addWidget(self.author_label)
         self.info_layout.addWidget(self.summary_label)
+        self.info_layout.addWidget(self.sha1_label)
 
         self.logo_layout = QtGui.QHBoxLayout()
         self.logo_layout.setContentsMargins(defs.margin, 0, defs.margin, 0)
@@ -205,15 +150,27 @@ class DiffWidget(QtGui.QWidget):
         self.main_layout.addWidget(self.diff)
         self.setLayout(self.main_layout)
 
-        sig = signals.commits_selected
-        notifier.add_observer(sig, self.commits_selected)
+        notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
+        self.connect(self.reflector, SIGNAL('diff'), self.diff.setText)
+        self.connect(self.reflector, SIGNAL('task_done'), self.task_done)
+
+    def task_done(self, task):
+        try:
+            self.tasks.remove(task)
+        except:
+            pass
+
+    def set_diff_sha1(self, sha1):
+        self.diff.setText(self.tr('+++ Loading...'))
+        task = DiffInfoTask(sha1, self.reflector)
+        self.tasks.add(task)
+        QtCore.QThreadPool.globalInstance().start(task)
 
     def commits_selected(self, commits):
         if len(commits) != 1:
             return
         commit = commits[0]
         sha1 = commit.sha1
-        self.diff.setText(gitcmds.diff_info(sha1))
 
         email = commit.email or ''
         summary = commit.summary or ''
@@ -225,7 +182,6 @@ class DiffWidget(QtGui.QWidget):
                 'summary': summary
         }
 
-        self.gravatar_label.get_email(email)
         author_text = ("""%(author)s &lt;"""
                        """<a href="mailto:%(email)s">"""
                        """%(email)s</a>&gt;"""
@@ -234,6 +190,10 @@ class DiffWidget(QtGui.QWidget):
         author_template = '%(author)s <%(email)s>' % template_args
         self.author_label.set_template(author_text, author_template)
         self.summary_label.set_text(summary)
+        self.sha1_label.set_text(sha1)
+
+        self.set_diff_sha1(sha1)
+        self.gravatar_label.set_email(email)
 
 
 class ViewerMixin(object):
@@ -270,7 +230,7 @@ class ViewerMixin(object):
         sha1 = self.selected_sha1()
         if sha1 is None:
             return
-        cola.notifier().broadcast(signals.cherry_pick, [sha1])
+        cmds.do(cmds.CherryPick, [sha1])
 
     def copy_to_clipboard(self):
         sha1 = self.selected_sha1()
@@ -403,7 +363,7 @@ class CommitTreeWidget(QtGui.QTreeWidget, ViewerMixin):
         self.setAllColumnsShowFocus(True)
         self.setAlternatingRowColors(True)
         self.setRootIsDecorated(False)
-        self.setHeaderLabels(['Summary', 'Author', 'Age'])
+        self.setHeaderLabels([tr('Summary'), tr('Author'), tr('Age')])
 
         self.sha1map = {}
         self.notifier = notifier
@@ -416,8 +376,7 @@ class CommitTreeWidget(QtGui.QTreeWidget, ViewerMixin):
         self.action_down = qtutils.add_action(self, 'Go Down', self.go_down,
                                               Qt.Key_J)
 
-        sig = signals.commits_selected
-        notifier.add_observer(sig, self.commits_selected)
+        notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
 
         self.connect(self, SIGNAL('itemSelectionChanged()'),
                      self.selection_changed)
@@ -449,8 +408,8 @@ class CommitTreeWidget(QtGui.QTreeWidget, ViewerMixin):
         if not items:
             return
         self.set_selecting(True)
-        sig = signals.commits_selected
-        self.notifier.notify_observers(sig, [i.commit for i in items])
+        self.notifier.notify_observers(COMMITS_SELECTED,
+                                       [i.commit for i in items])
         self.set_selecting(False)
 
     def commits_selected(self, commits):
@@ -501,7 +460,7 @@ class CommitTreeWidget(QtGui.QTreeWidget, ViewerMixin):
         items.reverse()
         sha1s = [item.commit.sha1 for item in items]
         all_sha1s = [c.sha1 for c in self.commits]
-        cola.notifier().broadcast(signals.format_patch, sha1s, all_sha1s)
+        cmds.do(cmds.FormatPatch, sha1s, all_sha1s)
 
     # Qt overrides
     def contextMenuEvent(self, event):
@@ -533,6 +492,7 @@ class DAGView(Widget):
 
         self.old_count = None
         self.old_ref = None
+        self.thread = ReaderThread(dag, self)
 
         self.revtext = completion.GitLogLineEdit(parent=self)
 
@@ -572,10 +532,6 @@ class DAGView(Widget):
         self.treewidget = CommitTreeWidget(notifier, self)
         self.diffwidget = DiffWidget(notifier, self)
 
-        for signal in (archive,):
-            qtutils.relay_signal(self, self.graphview, SIGNAL(signal))
-            qtutils.relay_signal(self, self.treewidget, SIGNAL(signal))
-
         self.splitter = QtGui.QSplitter()
         self.splitter.setOrientation(Qt.Horizontal)
         self.splitter.setChildrenCollapsible(True)
@@ -612,7 +568,9 @@ class DAGView(Widget):
         self.maxresults.setValue(dag.count)
         self.update_window_title()
 
-        self.thread = ReaderThread(dag, self)
+        qtutils.connect_button(self.zoom_in, self.graphview.zoom_in)
+        qtutils.connect_button(self.zoom_out, self.graphview.zoom_out)
+        qtutils.connect_button(self.displaybutton, self.display)
 
         self.thread.connect(self.thread, self.thread.commits_ready,
                             self.add_commits)
@@ -623,11 +581,6 @@ class DAGView(Widget):
         self.connect(self.splitter, SIGNAL('splitterMoved(int,int)'),
                      self.splitter_moved)
 
-        self.connect(self.zoom_in, SIGNAL('pressed()'),
-                     self.graphview.zoom_in)
-
-        self.connect(self.zoom_out, SIGNAL('pressed()'),
-                     self.graphview.zoom_out)
 
         self.connect(self.treewidget, SIGNAL('diff_commits'),
                      self.diff_commits)
@@ -636,9 +589,6 @@ class DAGView(Widget):
                      self.diff_commits)
 
         self.connect(self.maxresults, SIGNAL('editingFinished()'),
-                     self.display)
-
-        self.connect(self.displaybutton, SIGNAL('pressed()'),
                      self.display)
 
         self.connect(self.revtext, SIGNAL('ref_changed'),
@@ -750,8 +700,7 @@ class DAGView(Widget):
             commit_obj = self.commit_list[-1]
         except IndexError:
             return
-        sig = signals.commits_selected
-        self.notifier.notify_observers(sig, [commit_obj])
+        self.notifier.notify_observers(COMMITS_SELECTED, [commit_obj])
         self.graphview.update_scene_rect()
         self.graphview.set_initial_view()
 
@@ -870,9 +819,9 @@ class Edge(QtGui.QGraphicsItem):
             line = Qt.SolidLine
         else:
             color = EdgeColor.current()
-            line = Qt.DotLine
+            line = Qt.SolidLine
 
-        self.pen = QtGui.QPen(color, 1.0, line, Qt.SquareCap, Qt.BevelJoin)
+        self.pen = QtGui.QPen(color, 4.0, line, Qt.SquareCap, Qt.RoundJoin)
 
     # Qt overrides
     def type(self):
@@ -882,32 +831,86 @@ class Edge(QtGui.QGraphicsItem):
         return self.bound
 
     def paint(self, painter, option, widget):
-        # Draw the line
+
+        arc_rect = 10
+        connector_length = 5
+
         painter.setPen(self.pen)
-        painter.drawLine(self.line)
+        path = QtGui.QPainterPath()
+
+        if self.source.x() == self.dest.x():
+            path.moveTo(self.source.x(), self.source.y())
+            path.lineTo(self.dest.x(), self.dest.y())
+            painter.drawPath(path)
+
+        else:
+
+            #Define points starting from source
+            point1 = QPointF(self.source.x(), self.source.y())
+            point2 = QPointF(point1.x(), point1.y() - connector_length)
+            point3 = QPointF(point2.x() + arc_rect, point2.y() - arc_rect)
+
+            #Define points starting from dest
+            point4 = QPointF(self.dest.x(), self.dest.y())
+            point5 = QPointF(point4.x(),point3.y() - arc_rect)
+            point6 = QPointF(point5.x() - arc_rect, point5.y() + arc_rect)
+
+            start_angle_arc1 = 180
+            span_angle_arc1 = 90
+            start_angle_arc2 = 90
+            span_angle_arc2 = -90
+
+            # If the dest is at the left of the source, then we
+            # need to reverse some values
+            if self.source.x() > self.dest.x():
+                point5 = QPointF(point4.x(), point4.y() + connector_length)
+                point6 = QPointF(point5.x() + arc_rect, point5.y() + arc_rect)
+                point3 = QPointF(self.source.x() - arc_rect, point6.y())
+                point2 = QPointF(self.source.x(), point3.y() + arc_rect)
+
+                span_angle_arc1 = 90
+
+            path.moveTo(point1)
+            path.lineTo(point2)
+            path.arcTo(QRectF(point2, point3),
+                       start_angle_arc1, span_angle_arc1)
+            path.lineTo(point6)
+            path.arcTo(QRectF(point6, point5),
+                       start_angle_arc2, span_angle_arc2)
+            path.lineTo(point4)
+            painter.drawPath(path)
+
 
 class EdgeColor(object):
     """An edge color factory"""
 
     current_color_index = 0
-    # TODO: Make this configurable, e.g.
-    # colors = [
-    #             QtGui.QColor.fromRgb(0xff, 0x30, 0x30), # red
-    #             QtGui.QColor.fromRgb(0x30, 0xff, 0x30), # green
-    #             QtGui.QColor.fromRgb(0x30, 0x30, 0xff), # blue
-    #             QtGui.QColor.fromRgb(0xff, 0xff, 0x30), # yellow
-    #          ]
     colors = [
-                QtGui.QColor.fromRgb(0xff, 0xff, 0xff), # white
-                QtGui.QColor.fromRgb(0x30, 0x80, 0xff), # blue
-                QtGui.QColor.fromRgb(0x80, 0x80, 0xff), # indigo
+                QtGui.QColor(Qt.red),
+                QtGui.QColor(Qt.green),
+                QtGui.QColor(Qt.blue),
+                QtGui.QColor(Qt.black),
+                QtGui.QColor(Qt.darkRed),
+                QtGui.QColor(Qt.darkGreen),
+                QtGui.QColor(Qt.darkBlue),
+                QtGui.QColor(Qt.cyan),
+                QtGui.QColor(Qt.magenta),
+                # Orange; Qt.yellow is too low-contrast
+                qt.rgba(0xff, 0x66, 0x00),
+                QtGui.QColor(Qt.gray),
+                QtGui.QColor(Qt.darkCyan),
+                QtGui.QColor(Qt.darkMagenta),
+                QtGui.QColor(Qt.darkYellow),
+                QtGui.QColor(Qt.darkGray),
              ]
 
     @classmethod
     def next(cls):
         cls.current_color_index += 1
         cls.current_color_index %= len(cls.colors)
-        return cls.colors[cls.current_color_index]
+        color = cls.colors[cls.current_color_index]
+        color.setAlpha(128)
+        return color
 
     @classmethod
     def current(cls):
@@ -915,25 +918,27 @@ class EdgeColor(object):
 
 class Commit(QtGui.QGraphicsItem):
     item_type = QtGui.QGraphicsItem.UserType + 2
-    width = 48.
-    height = 24.
+    commit_radius = 12.0
+    merge_radius = 18.0
 
     item_shape = QtGui.QPainterPath()
-    item_shape.addRect(width/-2., height/-2., width, height)
+    item_shape.addRect(commit_radius/-2.0,
+                       commit_radius/-2.0,
+                       commit_radius, commit_radius)
     item_bbox = item_shape.boundingRect()
 
     inner_rect = QtGui.QPainterPath()
-    inner_rect.addRect(width/-2.+2., height/-2.+2, width-4., height-4.)
+    inner_rect.addRect(commit_radius/-2.0 + 2.0,
+                       commit_radius/-2.0 + 2.0,
+                       commit_radius - 4.0,
+                       commit_radius - 4.0)
     inner_rect = inner_rect.boundingRect()
 
-    text_options = QtGui.QTextOption()
-    text_options.setAlignment(Qt.AlignCenter)
-
-    commit_color = QtGui.QColor.fromRgb(0x0, 0x80, 0xff)
-    commit_selected_color = QtGui.QColor.fromRgb(0xff, 0x8a, 0x22)
-    merge_color = QtGui.QColor.fromRgb(0xff, 0xff, 0xff)
-
+    commit_color = QtGui.QColor(Qt.white)
     outline_color = commit_color.darker()
+    merge_color = QtGui.QColor(Qt.lightGray)
+
+    commit_selected_color = QtGui.QColor(Qt.green)
     selected_outline_color = commit_selected_color.darker()
 
     commit_pen = QtGui.QPen()
@@ -944,34 +949,31 @@ class Commit(QtGui.QGraphicsItem):
                  notifier,
                  selectable=QtGui.QGraphicsItem.ItemIsSelectable,
                  cursor=Qt.PointingHandCursor,
-                 xpos=width/2. + 1.,
+                 xpos=commit_radius/2.0 + 1.0,
                  cached_commit_color=commit_color,
-                 cached_commit_selected_color=commit_selected_color,
                  cached_merge_color=merge_color):
 
         QtGui.QGraphicsItem.__init__(self)
 
+        self.commit = commit
+        self.notifier = notifier
+
         self.setZValue(0)
         self.setFlag(selectable)
         self.setCursor(cursor)
-
-        self.commit = commit
-        self.notifier = notifier
+        self.setToolTip(commit.sha1[:7] + ': ' + commit.summary)
 
         if commit.tags:
             self.label = label = Label(commit)
             label.setParentItem(self)
-            label.setPos(xpos, 0.)
+            label.setPos(xpos, -self.commit_radius/2.0)
         else:
             self.label = None
 
         if len(commit.parents) > 1:
             self.brush = cached_merge_color
-            self.text_pen = Qt.black
         else:
             self.brush = cached_commit_color
-            self.text_pen = Qt.white
-        self.sha1_text = commit.sha1[:7]
 
         self.pressed = False
         self.dragged = False
@@ -985,22 +987,18 @@ class Commit(QtGui.QGraphicsItem):
             selected_items = self.scene().selectedItems()
             commits = [item.commit for item in selected_items]
             self.scene().parent().set_selecting(True)
-            sig = signals.commits_selected
-            self.notifier.notify_observers(sig, commits)
+            self.notifier.notify_observers(COMMITS_SELECTED, commits)
             self.scene().parent().set_selecting(False)
 
             # Cache the pen for use in paint()
             if value.toPyObject():
                 self.brush = self.commit_selected_color
                 color = self.selected_outline_color
-                self.text_pen = Qt.white
             else:
                 if len(self.commit.parents) > 1:
                     self.brush = self.merge_color
-                    self.text_pen = Qt.black
                 else:
                     self.brush = self.commit_color
-                    self.text_pen = Qt.white
                 color = self.outline_color
             commit_pen = QtGui.QPen()
             commit_pen.setWidth(1.0)
@@ -1020,7 +1018,6 @@ class Commit(QtGui.QGraphicsItem):
 
     def paint(self, painter, option, widget,
               inner=inner_rect,
-              text_opts=text_options,
               cache=Cache):
 
         # Do not draw outside the exposed rect
@@ -1029,17 +1026,8 @@ class Commit(QtGui.QGraphicsItem):
         # Draw ellipse
         painter.setPen(self.commit_pen)
         painter.setBrush(self.brush)
-        painter.drawRoundedRect(inner, 22, 9)
+        painter.drawEllipse(inner)
 
-        # Draw text
-        try:
-            font = cache.font
-        except AttributeError:
-            font = cache.font = painter.font()
-            font.setPointSize(7)
-        painter.setFont(font)
-        painter.setPen(self.text_pen)
-        painter.drawText(inner, self.sha1_text, text_opts)
 
     def mousePressEvent(self, event):
         QtGui.QGraphicsItem.mousePressEvent(self, event)
@@ -1076,21 +1064,21 @@ class Label(QtGui.QGraphicsItem):
     text_options.setAlignment(Qt.AlignVCenter)
 
     def __init__(self, commit,
-                 other_color=QtGui.QColor.fromRgb(255, 255, 64),
-                 head_color=QtGui.QColor.fromRgb(64, 255, 64)):
+                 other_color=QtGui.QColor(Qt.white),
+                 head_color=QtGui.QColor(Qt.green)):
         QtGui.QGraphicsItem.__init__(self)
         self.setZValue(-1)
 
         # Starts with enough space for two tags. Any more and the commit
         # needs to be taller to accomodate.
         self.commit = commit
-        self.label_text = '\n'.join(commit.tags)
 
         if 'HEAD' in commit.tags:
             self.color = head_color
         else:
             self.color = other_color
 
+        self.color.setAlpha(180)
         self.pen = QtGui.QPen()
         self.pen.setColor(self.color.darker())
         self.pen.setWidth(1.0)
@@ -1110,23 +1098,26 @@ class Label(QtGui.QGraphicsItem):
               cache=Cache):
         try:
             font = cache.label_font
-            height = cache.label_height
         except AttributeError:
-            font = cache.label_font = painter.font()
+            font = cache.label_font = QtGui.QApplication.font()
             font.setPointSize(6)
-            height = cache.label_height = QtGui.QFontMetrics(font).height()
 
-        height = height * len(self.commit.tags)
-        label_box = QtCore.QRectF(0., -height/2.-3, self.width, height+6)
-        text_box = QtCore.QRectF(3., -height/2., self.width-4., height)
 
         # Draw tags
         painter.setBrush(self.color)
         painter.setPen(self.pen)
-        painter.drawRoundedRect(label_box, 4, 4)
         painter.setFont(font)
-        painter.setPen(black)
-        painter.drawText(text_box, self.label_text, text_opts)
+
+        current_width = 0
+
+        for tag in self.commit.tags:
+            text_rect = painter.boundingRect(
+                    QRectF(current_width, 0, 0, 0), Qt.TextSingleLine, tag)
+            box_rect = text_rect.adjusted(-1, -1, 1, 1)
+            painter.drawRoundedRect(box_rect, 2, 2)
+            painter.drawText(text_rect, Qt.TextSingleLine, tag)
+            current_width += text_rect.width() + 5
+
 
 
 class GraphView(QtGui.QGraphicsView, ViewerMixin):
@@ -1134,23 +1125,19 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
     x_max = 0
     y_min = 0
 
-    x_adjust = Commit.width*4/3
-    y_adjust = Commit.height*4/3
+    x_adjust = Commit.commit_radius*4/3
+    y_adjust = Commit.commit_radius*4/3
 
-    x_off = x_adjust + Label.width
-    y_off = 32
+    x_off = 18
+    y_off = 24
 
     def __init__(self, notifier, parent):
         QtGui.QGraphicsView.__init__(self, parent)
         ViewerMixin.__init__(self)
-        try:
-            from PyQt4 import QtOpenGL
-            glformat = QtOpenGL.QGLFormat(QtOpenGL.QGL.SampleBuffers)
-            self.glwidget = QtOpenGL.QGLWidget(glformat)
-            self.setViewport(self.glwidget)
-        except:
-            pass
 
+        highlight = self.palette().color(QtGui.QPalette.Highlight)
+        Commit.commit_selected_color = highlight
+        Commit.selected_outline_color = highlight.darker()
 
         self.selection_list = []
         self.notifier = notifier
@@ -1176,7 +1163,7 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
         self.setCacheMode(QtGui.QGraphicsView.CacheBackground)
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.NoAnchor)
-        self.setBackgroundBrush(QtGui.QColor.fromRgb(0, 0, 0))
+        self.setBackgroundBrush(QtGui.QColor(Qt.white))
 
         qtutils.add_action(self, 'Zoom In',
                            self.zoom_in, Qt.Key_Plus, Qt.Key_Equal)
@@ -1199,8 +1186,7 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
         qtutils.add_action(self, 'Select Newest Child',
                            self.select_newest_child, Qt.Key_K)
 
-        sig = signals.commits_selected
-        notifier.add_observer(sig, self.commits_selected)
+        notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
 
     def clear(self):
         self.scene().clear()
@@ -1271,7 +1257,7 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
         selected_commits = self.sort_by_generation([n.commit for n in items])
         sha1s = [c.sha1 for c in selected_commits]
         all_sha1s = [c.sha1 for c in self.commits]
-        cola.notifier().broadcast(signals.format_patch, sha1s, all_sha1s)
+        cmds.do(cmds.FormatPatch, sha1s, all_sha1s)
 
     def select_parent(self):
         """Select the parent with the newest generation number"""
@@ -1283,7 +1269,8 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
             return
         selected_item.setSelected(False)
         parent_item.setSelected(True)
-        self.ensureVisible(parent_item.mapRectToScene(parent_item.boundingRect()))
+        self.ensureVisible(
+                parent_item.mapRectToScene(parent_item.boundingRect()))
 
     def select_oldest_parent(self):
         """Select the parent with the oldest generation number"""
@@ -1295,7 +1282,8 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
             return
         selected_item.setSelected(False)
         parent_item.setSelected(True)
-        self.ensureVisible(parent_item.mapRectToScene(parent_item.boundingRect()))
+        scene_rect = parent_item.mapRectToScene(parent_item.boundingRect())
+        self.ensureVisible(scene_rect)
 
     def select_child(self):
         """Select the child with the oldest generation number"""
@@ -1307,7 +1295,8 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
             return
         selected_item.setSelected(False)
         child_item.setSelected(True)
-        self.ensureVisible(child_item.mapRectToScene(child_item.boundingRect()))
+        scene_rect = child_item.mapRectToScene(child_item.boundingRect())
+        self.ensureVisible(scene_rect)
 
     def select_newest_child(self):
         """Select the Nth child with the newest generation number (N > 1)"""
@@ -1323,13 +1312,14 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
             return
         selected_item.setSelected(False)
         child_item.setSelected(True)
-        self.ensureVisible(child_item.mapRectToScene(child_item.boundingRect()))
+        scene_rect = child_item.mapRectToScene(child_item.boundingRect())
+        self.ensureVisible(scene_rect)
 
     def set_initial_view(self):
         self_commits = self.commits
         self_items = self.items
 
-        commits = self_commits[-1:]
+        commits = self_commits[-10:]
         items = [self_items[c.sha1] for c in commits]
         self.fit_view_to_items(items)
 
@@ -1361,8 +1351,8 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
         y_adjust = GraphView.y_adjust
         rect.setX(rect.x() - x_adjust)
         rect.setY(rect.y() - y_adjust)
-        rect.setHeight(rect.height() + y_adjust * 2)
-        rect.setWidth(rect.width() + x_adjust * 2)
+        rect.setHeight(rect.height() + y_adjust*2)
+        rect.setWidth(rect.width() + x_adjust*2)
         self.fitInView(rect, Qt.KeepAspectRatio)
         self.scene().invalidate()
 
@@ -1413,7 +1403,7 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
 
     def wheel_zoom(self, event):
         """Handle mouse wheel zooming."""
-        zoom = math.pow(2.0, event.delta() / 512.0)
+        zoom = math.pow(2.0, event.delta()/512.0)
         factor = (self.matrix()
                         .scale(zoom, zoom)
                         .mapRect(QtCore.QRectF(0.0, 0.0, 1.0, 1.0))
@@ -1428,16 +1418,16 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
         """Handle mouse wheel panning."""
 
         if event.delta() < 0:
-            s = -133.
+            s = -133.0
         else:
-            s = 133.
+            s = 133.0
         pan_rect = QtCore.QRectF(0.0, 0.0, 1.0, 1.0)
-        factor = 1.0 / self.matrix().mapRect(pan_rect).width()
+        factor = 1.0/self.matrix().mapRect(pan_rect).width()
 
         if event.orientation() == Qt.Vertical:
-            matrix = self.matrix().translate(0, s * factor)
+            matrix = self.matrix().translate(0, s*factor)
         else:
-            matrix = self.matrix().translate(s * factor, 0)
+            matrix = self.matrix().translate(s*factor, 0)
         self.setTransformationAnchor(QtGui.QGraphicsView.NoAnchor)
         self.setMatrix(matrix)
 
@@ -1445,7 +1435,7 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
         factor = (self.matrix().scale(scale, scale)
                                .mapRect(QtCore.QRectF(0, 0, 1, 1))
                                .width())
-        if factor < 0.07 or factor > 100:
+        if factor < 0.07 or factor > 100.0:
             return
         self.zoom = scale
 
@@ -1457,7 +1447,7 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
             max_ = scrollbar.maximum()
             range_ = max_ - min_
             distance = value - min_
-            nonzero_range = float(range_) != 0.0
+            nonzero_range = float(range_) > 0.1
             if nonzero_range:
                 scrolloffset = distance/float(range_)
             else:
@@ -1525,15 +1515,13 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
             generation = node.generation
             sha1 = node.sha1
 
-            if len(node.children) > 1:
+            if node.is_fork():
                 # This is a fan-out so sweep over child generations and
                 # shift them to the right to avoid overlapping edges
                 child_gens = [c.generation for c in node.children]
-                maxgen = reduce(max, child_gens)
-                mingen = reduce(min, child_gens)
-                if maxgen > mingen:
-                    for g in xrange(generation+1, maxgen):
-                        x_offsets[g] += x_off
+                maxgen = max(child_gens)
+                for g in xrange(generation + 1, maxgen):
+                    x_offsets[g] += x_off
 
             if len(node.parents) == 1:
                 # Align nodes relative to their parents
@@ -1549,11 +1537,14 @@ class GraphView(QtGui.QGraphicsView, ViewerMixin):
 
             x_pos = cur_xoff
             y_pos = -generation * y_off
+
+            y_pos = min(y_pos, y_min - y_off)
+
+            #y_pos = y_off
             positions[sha1] = (x_pos, y_pos)
 
             x_max = max(x_max, x_pos)
-            y_min = min(y_min, y_pos)
-
+            y_min = y_pos
 
         self.x_max = x_max
         self.y_min = y_min

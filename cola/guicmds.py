@@ -1,49 +1,23 @@
 import os
 
 import cola
+from cola import cmds
 from cola import core
 from cola import difftool
 from cola import gitcmds
 from cola import qt
 from cola import qtutils
-from cola import signals
 from cola.git import git
+from cola.interaction import Interaction
 from cola.widgets.browse import BrowseDialog
 from cola.widgets.combodlg import ComboDialog
 from cola.widgets.grep import run_grep
 from cola.widgets.selectcommits import select_commits
 
 
-def install_command_wrapper():
-    wrapper = CommandWrapper()
-    cola.factory().add_command_wrapper(wrapper)
-
-
-class CommandWrapper(object):
-    def __init__(self):
-        self.callbacks = {
-                signals.confirm: qtutils.confirm,
-                signals.critical: qtutils.critical,
-                signals.information: qtutils.information,
-                signals.question: qtutils.question,
-        }
-
-
 def choose_from_combo(title, items):
     """Quickly choose an item from a list using a combo box"""
     return ComboDialog(qtutils.active_window(), title=title, items=items).selected()
-
-
-def slot_with_parent(fn, parent):
-    """Return an argument-less method for calling fn(parent=parent)
-
-    :param fn: - Function reference, must accept 'parent' as a keyword
-    :param parent: - Qt parent widget
-
-    """
-    def slot():
-        fn(parent=parent)
-    return slot
 
 
 def branch_delete():
@@ -52,7 +26,7 @@ def branch_delete():
                                cola.model().local_branches)
     if not branch:
         return
-    cola.notifier().broadcast(signals.delete_branch, branch)
+    cmds.do(cmds.DeleteBranch, branch)
 
 
 def diff_revision():
@@ -85,7 +59,7 @@ def checkout_branch():
                                cola.model().local_branches)
     if not branch:
         return
-    cola.notifier().broadcast(signals.checkout_branch, branch)
+    cmds.do(cmds.CheckoutBranch, branch)
 
 
 def cherry_pick():
@@ -95,7 +69,7 @@ def cherry_pick():
                              revs, summaries, multiselect=False)
     if not commits:
         return
-    cola.notifier().broadcast(signals.cherry_pick, commits)
+    cmds.do(cmds.CherryPick, commits)
 
 
 def clone_repo(spawn=True):
@@ -125,10 +99,10 @@ def clone_repo(spawn=True):
         if not default:
             raise
     except:
-        cola.notifier().broadcast(signals.information,
-                                  'Error Cloning',
-                                  'Could not parse: "%s"' % url)
-        qtutils.log(1, 'Oops, could not parse git url: "%s"' % url)
+        Interaction.information(
+                'Error Cloning',
+                'Could not parse: "%s"' % url)
+        Interaction.log('Oops, could not parse git url: "%s"' % url)
         return None
 
     # Prompt the user for a directory to use as the parent directory
@@ -144,15 +118,13 @@ def clone_repo(spawn=True):
         # An existing path can be specified
         msg = ('"%s" already exists, cola will create a new directory' %
                destdir)
-        cola.notifier().broadcast(signals.information,
-                                  'Directory Exists', msg)
+        Interaction.information('Directory Exists', msg)
 
     # Make sure the new destdir doesn't exist
     while os.path.exists(destdir):
         destdir = olddestdir + str(count)
         count += 1
-    cola.notifier().broadcast(signals.clone, core.decode(url), destdir,
-                              spawn=spawn)
+    cmds.do(cmds.Clone, core.decode(url), destdir, spawn=spawn)
     return destdir
 
 
@@ -164,7 +136,7 @@ def export_patches():
         return
     to_export.reverse()
     revs.reverse()
-    cola.notifier().broadcast(signals.format_patch, to_export, revs)
+    cmds.do(cmds.FormatPatch, to_export, revs)
 
 
 def diff_expression():
@@ -196,7 +168,7 @@ def open_repo():
                                      cola.model().getcwd())
     if not dirname:
         return
-    cola.notifier().broadcast(signals.open_repo, dirname)
+    cmds.do(cmds.OpenRepo, dirname)
 
 
 def load_commitmsg():
@@ -204,7 +176,7 @@ def load_commitmsg():
     filename = qtutils.open_dialog('Load Commit Message...',
                                    cola.model().getcwd())
     if filename:
-        cola.notifier().broadcast(signals.load_commit_message, filename)
+        cmds.do(cmds.LoadCommitMessage, filename)
 
 
 def rebase():
@@ -215,7 +187,7 @@ def rebase():
         return
     #TODO cmd
     status, output = git.rebase(branch, with_stderr=True, with_status=True)
-    qtutils.log(status, output)
+    Interaction.log_status(status, output, '')
 
 
 def choose_ref(title, button_text, default=None):

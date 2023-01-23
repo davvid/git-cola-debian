@@ -4,17 +4,15 @@ from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 import cola
+from cola import cmds
 from cola import gitcmds
-from cola import signals
 from cola import utils
+from cola.cmds import Interaction
 from cola.qt import create_toolbutton
 from cola.qtutils import add_action
 from cola.qtutils import confirm
 from cola.qtutils import connect_action_bool
 from cola.qtutils import connect_button
-from cola.qtutils import emit
-from cola.qtutils import log
-from cola.qtutils import relay_signal
 from cola.qtutils import options_icon
 from cola.qtutils import save_icon
 from cola.qtutils import tr
@@ -42,9 +40,9 @@ class CommitMessageEditor(QtGui.QWidget):
         self._tabwidth = None
 
         # Actions
-        self.signoff_action = add_action(self, 'Sign Off',
-                                         emit(self, signals.signoff),
-                                         'Ctrl+I')
+        self.signoff_action = add_action(self, cmds.SignOff.NAME,
+                                         cmds.run(cmds.SignOff),
+                                         cmds.SignOff.SHORTCUT)
         self.signoff_action.setToolTip('Sign off on this commit')
 
         self.commit_action = add_action(self, 'Commit@@verb',
@@ -106,15 +104,13 @@ class CommitMessageEditor(QtGui.QWidget):
         self.mainlayout.addWidget(self.description)
         self.setLayout(self.mainlayout)
 
-        relay_signal(self, self.description,
-                     SIGNAL(signals.load_previous_message))
-
         connect_button(self.commit_button, self.commit)
 
-        cola.notifier().connect(signals.amend, self.amend_action.setChecked)
+        notifier = cola.notifier()
+        notifier.connect(notifier.AMEND, self.amend_action.setChecked)
 
         # Broadcast the amend mode
-        connect_action_bool(self.amend_action, emit(self, signals.amend_mode))
+        connect_action_bool(self.amend_action, cmds.run(cmds.AmendMode))
 
         # Handle the one-off autowrapping
         connect_action_bool(self.autowrap_action, self.set_linebreak)
@@ -161,6 +157,13 @@ class CommitMessageEditor(QtGui.QWidget):
 
         # Allow tab to jump from the summary to the description
         self.setTabOrder(self.summary, self.description)
+
+    def set_initial_size(self):
+        self.setMaximumHeight(133)
+        QtCore.QTimer.singleShot(1, self.restore_size)
+
+    def restore_size(self):
+        self.setMaximumHeight(2 ** 13)
 
     def focus_summary(self):
         self.summary.setFocus()
@@ -321,10 +324,8 @@ class CommitMessageEditor(QtGui.QWidget):
                 '- First line: Describe in one sentence what you did.\n'
                 '- Second line: Blank\n'
                 '- Remaining lines: Describe why this change is good.\n')
-            log(1, error_msg)
-            cola.notifier().broadcast(signals.information,
-                                      'Missing Commit Message',
-                                      error_msg)
+            Interaction.log(error_msg)
+            Interaction.information('Missing Commit Message', error_msg)
             return
 
         msg = self.commit_message(raw=False)
@@ -344,11 +345,9 @@ class CommitMessageEditor(QtGui.QWidget):
                                icon=save_icon()):
                     return
             else:
-                cola.notifier().broadcast(signals.information,
-                                          'Nothing to commit',
-                                          error_msg)
+                Interaction.information('Nothing to commit', error_msg)
                 return
-            cola.notifier().broadcast(signals.stage_modified)
+            cmds.do(cmds.StageModified)
 
         # Warn that amending published commits is generally bad
         amend = self.amend_action.isChecked()
@@ -361,8 +360,7 @@ class CommitMessageEditor(QtGui.QWidget):
                         'Amend Commit',
                         default=False, icon=save_icon())):
             return
-        # Perform the commit
-        cola.notifier().broadcast(signals.commit, amend, msg)
+        cmds.do(cmds.Commit, amend, msg)
 
     def build_prev_commits_menu(self):
         dag = DAG('HEAD', 6)
@@ -378,7 +376,7 @@ class CommitMessageEditor(QtGui.QWidget):
         menu.clear()
         for c in menu_commits:
             menu.addAction(c.summary,
-                           lambda c=c: self.load_previous_message(c.sha1))
+                           cmds.run(cmds.LoadPreviousMessage, c.sha1))
 
         if len(commits) == 6:
             menu.addSeparator()
@@ -391,10 +389,7 @@ class CommitMessageEditor(QtGui.QWidget):
         if not sha1s:
             return
         sha1 = sha1s[0]
-        self.load_previous_message(sha1)
-
-    def load_previous_message(self, sha1):
-        self.emit(SIGNAL(signals.load_previous_message), sha1)
+        cmds.do(cmds.LoadPreviousMessage, sha1)
 
 
 class CommitSummaryLineEdit(HintedLineEdit):

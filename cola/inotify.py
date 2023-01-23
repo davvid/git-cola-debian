@@ -5,6 +5,8 @@ import os
 from threading import Timer
 from threading import Lock
 from cola import utils
+from cola import cmds
+from cola.interaction import Interaction
 
 try:
     import pyinotify
@@ -32,7 +34,6 @@ from PyQt4 import QtCore
 
 import cola
 from cola import core
-from cola import signals
 from cola.compat import set
 
 _thread = None
@@ -51,7 +52,7 @@ def start():
         if utils.is_debian():
             msg += ('On Debian systems '
                     'try: sudo aptitude install python-pyinotify')
-        cola.notifier().broadcast(signals.log_cmd, 0, msg)
+        Interaction.log(msg)
         return
 
     # Start the notification thread
@@ -61,7 +62,7 @@ def start():
         msg = 'file notification: enabled'
     else:
         msg = 'inotify support: enabled'
-    cola.notifier().broadcast(signals.log_cmd, 0, msg)
+    Interaction.log(msg)
 
 def stop():
     if not has_inotify():
@@ -88,7 +89,7 @@ class Handler():
     def broadcast(self):
         """Broadcasts a list of all files touched since last broadcast"""
         with self._lock:
-            cola.notifier().broadcast(signals.update_file_status)
+            cmds.do(cmds.UpdateFileStatus)
             self._timer = None
 
     def handle(self, path):
