@@ -1,16 +1,15 @@
 """Text wrapping and filling.
 """
 from __future__ import division, absolute_import, unicode_literals
+import re
+
+from .compat import ustr
 
 # Copyright (C) 1999-2001 Gregory P. Ward.
 # Copyright (C) 2002, 2003 Python Software Foundation.
 # Copyright (C) 2013, David Aguilar
 # Written by Greg Ward <gward@python.net>
 # Simplified for git-cola by David Aguilar <davvid@gmail.com>
-
-import re
-
-from cola.compat import ustr
 
 
 class TextWrapper(object):
@@ -26,7 +25,7 @@ class TextWrapper(object):
         The preferred width of wrapped lines.
       tabwidth (default: 8)
         The width of a tab used when calculating line length.
-      break_on_hyphens (default: true)
+      break_on_hyphens (default: false)
         Allow breaking hyphenated words. If true, wrapping will occur
         preferably on whitespaces and right after hyphens part of
         compound words.
@@ -54,7 +53,7 @@ class TextWrapper(object):
     def __init__(self,
                  width=70,
                  tabwidth=8,
-                 break_on_hyphens=True,
+                 break_on_hyphens=False,
                  drop_whitespace=True):
         self.width = width
         self.tabwidth = tabwidth
@@ -173,7 +172,6 @@ class TextWrapper(object):
         """
         return len(word.replace('\t', '')) + word.count('\t') * self.tabwidth
 
-
     # -- Public interface ----------------------------------------------
 
     def wrap(self, text):
@@ -198,7 +196,7 @@ class TextWrapper(object):
         return "\n".join(self.wrap(text))
 
 
-def word_wrap(text, tabwidth, limit):
+def word_wrap(text, tabwidth, limit, break_on_hyphens=False):
     """Wrap long lines to the specified limit"""
 
     lines = []
@@ -250,7 +248,7 @@ def word_wrap(text, tabwidth, limit):
 
     w = TextWrapper(width=limit,
                     tabwidth=tabwidth,
-                    break_on_hyphens=True,
+                    break_on_hyphens=break_on_hyphens,
                     drop_whitespace=True)
 
     for line in text.split('\n'):

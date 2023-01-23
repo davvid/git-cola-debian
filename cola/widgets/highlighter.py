@@ -1,6 +1,9 @@
 from __future__ import division, absolute_import, unicode_literals
 
-from PyQt4 import QtCore, QtGui
+from qtpy import QtCore
+from qtpy import QtGui
+from qtpy import QtWidgets
+
 
 have_pygments = True
 try:
@@ -11,18 +14,17 @@ try:
 except ImportError:
     have_pygments = False
 
-def highlight_document(edit, filename):
-    doc = edit.document()
 
+def highlight_document(edit, filename):
     if not have_pygments:
         return
-
+    doc = edit.document()
     try:
         lexer = get_lexer_for_filename(filename, stripnl=False)
     except ClassNotFound:
         return
 
-    style = get_style_by_name("default")
+    style = get_style_by_name('default')
 
     font = doc.defaultFont()
     base_format = QtGui.QTextCharFormat()
@@ -30,7 +32,7 @@ def highlight_document(edit, filename):
     token_formats = {}
 
     window = edit.window()
-    if hasattr(window, "processEvents"):
+    if hasattr(window, 'processEvents'):
         processEvents = window.processEvents
     else:
         processEvents = QtCore.QCoreApplication.processEvents
@@ -49,13 +51,17 @@ def highlight_document(edit, filename):
         if style.styles_token(token):
             tstyle = style.style_for_token(token)
             if tstyle['color']:
-                format.setForeground (QtGui.QColor("#"+tstyle['color']))
-            if tstyle['bold']: font.setWeight(QtGui.QFont.Bold)
-            if tstyle['italic']: font.setItalic (True)
-            if tstyle['underline']: format.setFontUnderline(True)
-            if tstyle['bgcolor']: format.setBackground (QtGui.QColor("#"+tstyle['bgcolor']))
+                format.setForeground(QtGui.QColor('#' + tstyle['color']))
+            if tstyle['bold']:
+                font.setWeight(QtGui.QFont.Bold)
+            if tstyle['italic']:
+                font.setItalic(True)
+            if tstyle['underline']:
+                format.setFontUnderline(True)
+            if tstyle['bgcolor']:
+                format.setBackground(QtGui.QColor('#' + tstyle['bgcolor']))
             # No way to set this for a QTextCharFormat
-            #if tstyle['border']: format.
+            # if tstyle['border']: format.
         token_formats[token] = format
         return format
 
@@ -93,11 +99,10 @@ def highlight_document(edit, filename):
                     processEvents()
 
 
-if __name__ == "__main__":
-    import sys
-    app = QtGui.QApplication(sys.argv)
+if __name__ == '__main__':
+    app = QtWidgets.QApplication([])
 
-    python = QtGui.QPlainTextEdit()
+    python = QtWidgets.QPlainTextEdit()
     f = open(__file__, 'r')
     python.setPlainText(f.read())
     f.close()
@@ -106,4 +111,4 @@ if __name__ == "__main__":
     python.show()
     highlight_document(python, __file__)
 
-    sys.exit(app.exec_())
+    app.exec_()

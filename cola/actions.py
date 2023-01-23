@@ -1,15 +1,10 @@
 from __future__ import absolute_import
 
-from cola import sipcompat
-sipcompat.initialize()
-
-from PyQt4.QtCore import SIGNAL
-
-from cola import cmds
-from cola import hotkeys
-from cola import icons
-from cola import qtutils
-from cola.i18n import N_
+from . import cmds
+from . import hotkeys
+from . import icons
+from . import qtutils
+from .i18n import N_
 
 
 def cmd_action(widget, cmd, icon, *shortcuts):
@@ -35,12 +30,12 @@ def stage_or_unstage(widget):
 
 
 def move_down(widget):
-    return qtutils.add_action(widget,
-            N_('Next File'), lambda: widget.emit(SIGNAL('move_down()')),
+    return qtutils.add_action(
+            widget, N_('Next File'), widget.down.emit,
             hotkeys.MOVE_DOWN_SECONDARY)
 
 
 def move_up(widget):
-    return qtutils.add_action(widget,
-            N_('Previous File'), lambda: widget.emit(SIGNAL('move_up()')),
+    return qtutils.add_action(
+            widget, N_('Previous File'), widget.up.emit,
             hotkeys.MOVE_UP_SECONDARY)

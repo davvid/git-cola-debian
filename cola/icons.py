@@ -1,16 +1,15 @@
 """The only file where icon filenames are mentioned"""
 
 from __future__ import absolute_import, division, unicode_literals
-
 import mimetypes
 import os
 
-from PyQt4 import QtGui
+from qtpy import QtGui
 
-from cola import qtcompat
-from cola import resources
-from cola.compat import ustr
-from cola.decorators import memoize
+from . import qtcompat
+from . import resources
+from .compat import ustr
+from .decorators import memoize
 
 
 KNOWN_FILE_MIME_TYPES = [
@@ -169,12 +168,14 @@ def download():
 def discard():
     return icon('trashcan.svg')
 
+
 # folder vs directory: directory is opaque, folder is just an outline
 # directory is used for the File Browser, where more contrast with the file
 # icons are needed.
 
 def folder():
     return icon('folder.svg')
+
 
 def directory():
     return icon('file-directory.svg')

@@ -1,21 +1,18 @@
 from __future__ import division, absolute_import, unicode_literals
-
 import os
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
 
-from cola import core
-from cola import cmds
-from cola import hotkeys
-from cola import icons
-from cola import qtutils
-from cola.i18n import N_
-from cola.widgets import defs
-from cola.widgets.standard import Dialog
-from cola.widgets.standard import DraggableTreeWidget
-from cola.compat import ustr
+from ..i18n import N_
+from .. import core
+from .. import cmds
+from .. import hotkeys
+from .. import icons
+from .. import qtutils
+from .standard import Dialog
+from .standard import DraggableTreeWidget
+from . import defs
 
 
 def apply_patches():
@@ -36,8 +33,8 @@ def new_apply_patches(patches=None, parent=None):
 def get_patches_from_paths(paths):
     paths = [core.decode(p) for p in paths]
     patches = [p for p in paths
-                if core.isfile(p) and (
-                    p.endswith('.patch') or p.endswith('.mbox'))]
+               if core.isfile(p) and
+               (p.endswith('.patch') or p.endswith('.mbox'))]
     dirs = [p for p in paths if core.isdir(p)]
     dirs.sort()
     for d in dirs:
@@ -75,7 +72,7 @@ class ApplyPatches(Dialog):
         self.curdir = core.getcwd()
         self.inner_drag = False
 
-        self.usage = QtGui.QLabel()
+        self.usage = QtWidgets.QLabel()
         self.usage.setText(N_("""
             <p>
                 Drag and drop or use the <strong>Add</strong> button to add
@@ -99,11 +96,11 @@ class ApplyPatches(Dialog):
 
         self.close_button = qtutils.close_button()
 
-        self.add_action = qtutils.add_action(self,
-                N_('Add'), self.add_files, hotkeys.ADD_ITEM)
+        self.add_action = qtutils.add_action(
+                self, N_('Add'), self.add_files, hotkeys.ADD_ITEM)
 
-        self.remove_action = qtutils.add_action(self,
-                N_('Remove'), self.tree.remove_selected,
+        self.remove_action = qtutils.add_action(
+                self, N_('Remove'), self.tree.remove_selected,
                 hotkeys.DELETE, hotkeys.BACKSPACE, hotkeys.REMOVE_ITEM)
 
         self.top_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
@@ -124,8 +121,7 @@ class ApplyPatches(Dialog):
         qtutils.connect_button(self.apply_button, self.apply_patches)
         qtutils.connect_button(self.close_button, self.close)
 
-        if not self.restore_state():
-            self.resize(666, 420)
+        self.init_state(None, self.resize, 666, 420)
 
     def apply_patches(self):
         items = self.tree.items()
@@ -138,7 +134,7 @@ class ApplyPatches(Dialog):
     def add_files(self):
         files = qtutils.open_files(N_('Select patch file(s)...'),
                                    directory=self.curdir,
-                                   filter='Patches (*.patch *.mbox)')
+                                   filters='Patches (*.patch *.mbox)')
         if not files:
             return
         self.curdir = os.path.dirname(files[0])
@@ -165,9 +161,6 @@ class ApplyPatches(Dialog):
 
 class PatchTreeWidget(DraggableTreeWidget):
 
-    def __init__(self, parent=None):
-        super(PatchTreeWidget, self).__init__(parent=parent)
-
     def add_paths(self, paths):
         patches = get_patches_from_paths(paths)
         if not patches:
@@ -175,7 +168,7 @@ class PatchTreeWidget(DraggableTreeWidget):
         items = []
         icon = icons.file_text()
         for patch in patches:
-            item = QtGui.QTreeWidgetItem()
+            item = QtWidgets.QTreeWidgetItem()
             flags = item.flags() & ~Qt.ItemIsDropEnabled
             item.setFlags(flags)
             item.setIcon(0, icon)

@@ -3,8 +3,8 @@ from __future__ import division, absolute_import, unicode_literals
 import os
 import sys
 
-from cola import core
-from cola.i18n import N_
+from . import core
+from .i18n import N_
 
 
 class Interaction(object):
@@ -22,8 +22,8 @@ class Interaction(object):
         scope['title_dashes'] = '-' * len(title)
         scope['message'] = message
         scope['details'] = details and '\n'+details or ''
-        scope['informative_text'] = (informative_text and
-                '\n'+informative_text or '')
+        scope['informative_text'] = (
+                informative_text and ('\n' + informative_text) or '')
         sys.stdout.write("""
 %(title)s
 %(title_dashes)s

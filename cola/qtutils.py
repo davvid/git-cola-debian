@@ -1,39 +1,40 @@
-# Copyright (c) 2008 David Aguilar
-"""This module provides miscellaneous Qt utility functions.
-"""
+# Copyright (c) 2008-2016 David Aguilar
+"""Miscellaneous Qt utility functions."""
 from __future__ import division, absolute_import, unicode_literals
 
-from PyQt4 import QtGui
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt
-from PyQt4.QtCore import SIGNAL
+from qtpy import compat
+from qtpy import QtGui
+from qtpy import QtCore
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
+from qtpy.QtCore import Signal
 
-from cola import core
-from cola import gitcfg
-from cola import hotkeys
-from cola import icons
-from cola import utils
-from cola.i18n import N_
-from cola.interaction import Interaction
-from cola.compat import int_types
-from cola.compat import ustr
-from cola.models import prefs
-from cola.widgets import defs
+from . import core
+from . import gitcfg
+from . import hotkeys
+from . import icons
+from . import utils
+from .i18n import N_
+from .interaction import Interaction
+from .compat import int_types
+from .compat import ustr
+from .models import prefs
+from .widgets import defs
 
 
 def connect_action(action, fn):
-    """Connectc an action to a function"""
-    action.connect(action, SIGNAL('triggered()'), fn)
+    """Connect an action to a function"""
+    action.triggered[bool].connect(lambda x: fn())
 
 
 def connect_action_bool(action, fn):
     """Connect a triggered(bool) action to a function"""
-    action.connect(action, SIGNAL('triggered(bool)'), fn)
+    action.triggered[bool].connect(fn)
 
 
 def connect_button(button, fn):
     """Connect a button to a function"""
-    button.connect(button, SIGNAL('clicked()'), fn)
+    button.clicked.connect(fn)
 
 
 def button_action(button, action):
@@ -42,23 +43,23 @@ def button_action(button, action):
 
 
 def connect_toggle(toggle, fn):
-    toggle.connect(toggle, SIGNAL('toggled(bool)'), fn)
+    toggle.toggled.connect(fn)
 
 
 def active_window():
-    return QtGui.QApplication.activeWindow()
+    return QtWidgets.QApplication.activeWindow()
 
 
 def hbox(margin, spacing, *items):
-    return box(QtGui.QHBoxLayout, margin, spacing, *items)
+    return box(QtWidgets.QHBoxLayout, margin, spacing, *items)
 
 
 def vbox(margin, spacing, *items):
-    return box(QtGui.QVBoxLayout, margin, spacing, *items)
+    return box(QtWidgets.QVBoxLayout, margin, spacing, *items)
 
 
 def buttongroup(*items):
-    group = QtGui.QButtonGroup()
+    group = QtWidgets.QButtonGroup()
     for i in items:
         group.addButton(i)
     return group
@@ -68,18 +69,22 @@ STRETCH = object()
 SKIPPED = object()
 
 
+def set_margin(layout, margin):
+    layout.setContentsMargins(margin, margin, margin, margin)
+
+
 def box(cls, margin, spacing, *items):
     stretch = STRETCH
     skipped = SKIPPED
     layout = cls()
-    layout.setMargin(margin)
     layout.setSpacing(spacing)
+    set_margin(layout, margin)
 
     for i in items:
-        if isinstance(i, QtGui.QWidget):
+        if isinstance(i, QtWidgets.QWidget):
             layout.addWidget(i)
-        elif isinstance(i, (QtGui.QHBoxLayout, QtGui.QVBoxLayout,
-                            QtGui.QFormLayout, QtGui.QLayout)):
+        elif isinstance(i, (QtWidgets.QHBoxLayout, QtWidgets.QVBoxLayout,
+                            QtWidgets.QFormLayout, QtWidgets.QLayout)):
             layout.addLayout(i)
         elif i is stretch:
             layout.addStretch()
@@ -92,38 +97,38 @@ def box(cls, margin, spacing, *items):
 
 
 def form(margin, spacing, *widgets):
-    layout = QtGui.QFormLayout()
-    layout.setMargin(margin)
+    layout = QtWidgets.QFormLayout()
     layout.setSpacing(spacing)
-    layout.setFieldGrowthPolicy(QtGui.QFormLayout.ExpandingFieldsGrow)
+    layout.setFieldGrowthPolicy(QtWidgets.QFormLayout.ExpandingFieldsGrow)
+    set_margin(layout, margin)
 
     for idx, (label, widget) in enumerate(widgets):
         if isinstance(label, (str, ustr)):
             layout.addRow(label, widget)
         else:
-            layout.setWidget(idx, QtGui.QFormLayout.LabelRole, label)
-            layout.setWidget(idx, QtGui.QFormLayout.FieldRole, widget)
+            layout.setWidget(idx, QtWidgets.QFormLayout.LabelRole, label)
+            layout.setWidget(idx, QtWidgets.QFormLayout.FieldRole, widget)
 
     return layout
 
 
 def grid(margin, spacing, *widgets):
-    layout = QtGui.QGridLayout()
-    layout.setMargin(defs.no_margin)
-    layout.setSpacing(defs.spacing)
+    layout = QtWidgets.QGridLayout()
+    layout.setSpacing(spacing)
+    set_margin(layout, margin)
 
     for row in widgets:
         item = row[0]
-        if isinstance(item, QtGui.QWidget):
+        if isinstance(item, QtWidgets.QWidget):
             layout.addWidget(*row)
-        elif isinstance(item, QtGui.QLayoutItem):
+        elif isinstance(item, QtWidgets.QLayoutItem):
             layout.addItem(*row)
 
     return layout
 
 
 def splitter(orientation, *widgets):
-    layout = QtGui.QSplitter()
+    layout = QtWidgets.QSplitter()
     layout.setOrientation(orientation)
     layout.setHandleWidth(defs.handle_width)
     layout.setChildrenCollapsible(True)
@@ -138,17 +143,18 @@ def prompt(msg, title=None, text=''):
     """Presents the user with an input widget and returns the input."""
     if title is None:
         title = msg
-    result = QtGui.QInputDialog.getText(active_window(), msg, title,
-                                        QtGui.QLineEdit.Normal, text)
+    result = QtWidgets.QInputDialog.getText(
+            active_window(), msg, title,
+            QtWidgets.QLineEdit.Normal, text)
     return (result[0], result[1])
 
 
-class TreeWidgetItem(QtGui.QTreeWidgetItem):
+class TreeWidgetItem(QtWidgets.QTreeWidgetItem):
 
     TYPE = QtGui.QStandardItem.UserType + 101
 
     def __init__(self, path, icon, deleted):
-        QtGui.QTreeWidgetItem.__init__(self)
+        QtWidgets.QTreeWidgetItem.__init__(self)
         self.path = path
         self.deleted = deleted
         self.setIcon(0, icons.from_name(icon))
@@ -166,12 +172,16 @@ def paths_from_indexes(model, indexes,
     return paths_from_items(items, item_type=item_type, item_filter=item_filter)
 
 
+def _true_filter(x):
+    return True
+
+
 def paths_from_items(items,
                      item_type=TreeWidgetItem.TYPE,
                      item_filter=None):
     """Return a list of paths from a list of items"""
     if item_filter is None:
-        item_filter = lambda x: True
+        item_filter = _true_filter
     return [i.path for i in items
             if i.type() == item_type and item_filter(i)]
 
@@ -180,17 +190,17 @@ def confirm(title, text, informative_text, ok_text,
             icon=None, default=True,
             cancel_text=None, cancel_icon=None):
     """Confirm that an action should take place"""
-    msgbox = QtGui.QMessageBox(active_window())
+    msgbox = QtWidgets.QMessageBox(active_window())
     msgbox.setWindowModality(Qt.WindowModal)
     msgbox.setWindowTitle(title)
     msgbox.setText(text)
     msgbox.setInformativeText(informative_text)
 
     icon = icons.mkicon(icon, icons.ok)
-    ok = msgbox.addButton(ok_text, QtGui.QMessageBox.ActionRole)
+    ok = msgbox.addButton(ok_text, QtWidgets.QMessageBox.ActionRole)
     ok.setIcon(icon)
 
-    cancel = msgbox.addButton(QtGui.QMessageBox.Cancel)
+    cancel = msgbox.addButton(QtWidgets.QMessageBox.Cancel)
     cancel_icon = icons.mkicon(cancel_icon, icons.close)
     cancel.setIcon(cancel_icon)
     if cancel_text:
@@ -204,24 +214,24 @@ def confirm(title, text, informative_text, ok_text,
     return msgbox.clickedButton() == ok
 
 
-class ResizeableMessageBox(QtGui.QMessageBox):
+class ResizeableMessageBox(QtWidgets.QMessageBox):
 
     def __init__(self, parent):
-        QtGui.QMessageBox.__init__(self, parent)
+        QtWidgets.QMessageBox.__init__(self, parent)
         self.setMouseTracking(True)
         self.setSizeGripEnabled(True)
 
     def event(self, event):
-        res = QtGui.QMessageBox.event(self, event)
+        res = QtWidgets.QMessageBox.event(self, event)
         event_type = event.type()
         if (event_type == QtCore.QEvent.MouseMove or
                 event_type == QtCore.QEvent.MouseButtonPress):
             maxi = QtCore.QSize(defs.max_size, defs.max_size)
             self.setMaximumSize(maxi)
-            text = self.findChild(QtGui.QTextEdit)
+            text = self.findChild(QtWidgets.QTextEdit)
             if text is not None:
-                expand = QtGui.QSizePolicy.Expanding
-                text.setSizePolicy(QtGui.QSizePolicy(expand, expand))
+                expand = QtWidgets.QSizePolicy.Expanding
+                text.setSizePolicy(QtWidgets.QSizePolicy(expand, expand))
                 text.setMaximumSize(maxi)
         return res
 
@@ -234,9 +244,9 @@ def critical(title, message=None, details=None):
     mbox.setWindowTitle(title)
     mbox.setTextFormat(Qt.PlainText)
     mbox.setText(message)
-    mbox.setIcon(QtGui.QMessageBox.Critical)
-    mbox.setStandardButtons(QtGui.QMessageBox.Close)
-    mbox.setDefaultButton(QtGui.QMessageBox.Close)
+    mbox.setIcon(QtWidgets.QMessageBox.Critical)
+    mbox.setStandardButtons(QtWidgets.QMessageBox.Close)
+    mbox.setDefaultButton(QtWidgets.QMessageBox.Close)
     if details:
         mbox.setDetailedText(details)
     mbox.exec_()
@@ -246,9 +256,9 @@ def information(title, message=None, details=None, informative_text=None):
     """Show information with the provided title and message."""
     if message is None:
         message = title
-    mbox = QtGui.QMessageBox(active_window())
-    mbox.setStandardButtons(QtGui.QMessageBox.Close)
-    mbox.setDefaultButton(QtGui.QMessageBox.Close)
+    mbox = QtWidgets.QMessageBox(active_window())
+    mbox.setStandardButtons(QtWidgets.QMessageBox.Close)
+    mbox.setDefaultButton(QtWidgets.QMessageBox.Close)
     mbox.setWindowTitle(title)
     mbox.setWindowModality(Qt.WindowModal)
     mbox.setTextFormat(Qt.PlainText)
@@ -266,16 +276,18 @@ def information(title, message=None, details=None, informative_text=None):
 def question(title, msg, default=True):
     """Launches a QMessageBox question with the provided title and message.
     Passing "default=False" will make "No" the default choice."""
-    yes = QtGui.QMessageBox.Yes
-    no = QtGui.QMessageBox.No
+    yes = QtWidgets.QMessageBox.Yes
+    no = QtWidgets.QMessageBox.No
     buttons = yes | no
     if default:
         default = yes
     else:
         default = no
-    result = (QtGui.QMessageBox
-                   .question(active_window(), title, msg, buttons, default))
-    return result == QtGui.QMessageBox.Yes
+
+    parent = active_window()
+    MessageBox = QtWidgets.QMessageBox
+    result = MessageBox.question(parent, title, msg, buttons, default)
+    return result == QtWidgets.QMessageBox.Yes
 
 
 def tree_selection(tree_item, items):
@@ -329,29 +341,38 @@ def selected_items(list_widget, items):
 
 def open_file(title, directory=None):
     """Creates an Open File dialog and returns a filename."""
-    return (QtGui.QFileDialog
-                 .getOpenFileName(active_window(), title, directory))
+    result = compat.getopenfilename(parent=active_window(),
+                                    caption=title,
+                                    basedir=directory)
+    return result[0]
 
 
-def open_files(title, directory=None, filter=None):
+def open_files(title, directory=None, filters=''):
     """Creates an Open File dialog and returns a list of filenames."""
-    return (QtGui.QFileDialog
-            .getOpenFileNames(active_window(), title, directory, filter))
+    result = compat.getopenfilenames(parent=active_window(),
+                                     caption=title,
+                                     basedir=directory,
+                                     filters=filters)
+    return result[0]
 
 
-def opendir_dialog(title, path):
+def opendir_dialog(caption, path):
     """Prompts for a directory path"""
 
-    flags = (QtGui.QFileDialog.ShowDirsOnly |
-             QtGui.QFileDialog.DontResolveSymlinks)
-    return (QtGui.QFileDialog
-                 .getExistingDirectory(active_window(), title, path, flags))
+    options = (QtWidgets.QFileDialog.ShowDirsOnly |
+               QtWidgets.QFileDialog.DontResolveSymlinks)
+    return compat.getexistingdirectory(parent=active_window(),
+                                       caption=caption,
+                                       basedir=path,
+                                       options=options)
 
 
 def save_as(filename, title='Save As...'):
     """Creates a Save File dialog and returns a filename."""
-    return (QtGui.QFileDialog
-                 .getSaveFileName(active_window(), title, filename))
+    result = compat.getsavefilename(parent=active_window(),
+                                    caption=title,
+                                    basedir=filename)
+    return result[0]
 
 
 def copy_path(filename, absolute=True):
@@ -367,7 +388,7 @@ def set_clipboard(text):
     """Sets the copy/paste buffer to text."""
     if not text:
         return
-    clipboard = QtGui.QApplication.clipboard()
+    clipboard = QtWidgets.QApplication.clipboard()
     clipboard.setText(text, QtGui.QClipboard.Clipboard)
     clipboard.setText(text, QtGui.QClipboard.Selection)
     persist_clipboard()
@@ -384,9 +405,9 @@ def persist_clipboard():
     C.f. https://stackoverflow.com/questions/2007103/how-can-i-disable-clear-of-clipboard-on-exit-of-pyqt4-application
 
     """
-    clipboard = QtGui.QApplication.clipboard()
+    clipboard = QtWidgets.QApplication.clipboard()
     event = QtCore.QEvent(QtCore.QEvent.Clipboard)
-    QtGui.QApplication.sendEvent(clipboard, event)
+    QtWidgets.QApplication.sendEvent(clipboard, event)
 
 
 def add_action_bool(widget, text, fn, checked, *shortcuts):
@@ -407,7 +428,7 @@ def add_action_with_status_tip(widget, text, tip, fn, *shortcuts):
 
 
 def _add_action(widget, text, tip, fn, connect, *shortcuts):
-    action = QtGui.QAction(text, widget)
+    action = QtWidgets.QAction(text, widget)
     if hasattr(action, 'setIconVisibleInMenu'):
         action.setIconVisibleInMenu(True)
     if tip:
@@ -423,10 +444,10 @@ def _add_action(widget, text, tip, fn, connect, *shortcuts):
 
 def set_selected_item(widget, idx):
     """Sets a the currently selected item to the item at index idx."""
-    if type(widget) is QtGui.QTreeWidget:
+    if type(widget) is QtWidgets.QTreeWidget:
         item = widget.topLevelItem(idx)
         if item:
-            widget.setItemSelected(item, True)
+            item.setSelected(True)
             widget.setCurrentItem(item)
 
 
@@ -442,7 +463,6 @@ def set_items(widget, items):
     """Clear the existing widget contents and set the new items."""
     widget.clear()
     add_items(widget, items)
-
 
 
 def create_treeitem(filename, staged=False, deleted=False, untracked=False):
@@ -464,7 +484,7 @@ def add_close_action(widget):
 
 def center_on_screen(widget):
     """Move widget to the center of the default screen"""
-    desktop = QtGui.QApplication.instance().desktop()
+    desktop = QtWidgets.QApplication.instance().desktop()
     rect = desktop.screenGeometry(QtGui.QCursor().pos())
     cy = rect.height()//2
     cx = rect.width()//2
@@ -508,7 +528,7 @@ def font(string):
 def create_button(text='', layout=None, tooltip=None, icon=None,
                   enabled=True, default=False):
     """Create a button, set its title, and add it to the parent."""
-    button = QtGui.QPushButton()
+    button = QtWidgets.QPushButton()
     button.setCursor(Qt.PointingHandCursor)
     if text:
         button.setText(text)
@@ -527,7 +547,7 @@ def create_button(text='', layout=None, tooltip=None, icon=None,
 
 
 def create_action_button(tooltip=None, icon=None):
-    button = QtGui.QPushButton()
+    button = QtWidgets.QPushButton()
     button.setCursor(Qt.PointingHandCursor)
     button.setFlat(True)
     if tooltip is not None:
@@ -575,7 +595,7 @@ def hide_button_menu_indicator(button):
 
 
 def checkbox(text='', tooltip='', checked=None):
-    cb = QtGui.QCheckBox()
+    cb = QtWidgets.QCheckBox()
     if text:
         cb.setText(text)
     if tooltip:
@@ -605,7 +625,7 @@ def checkbox(text='', tooltip='', checked=None):
 
 
 def radio(text='', tooltip='', checked=None):
-    rb = QtGui.QRadioButton()
+    rb = QtWidgets.QRadioButton()
     if text:
         rb.setText(text)
     if tooltip:
@@ -639,11 +659,11 @@ def radio(text='', tooltip='', checked=None):
     return rb
 
 
-class DockTitleBarWidget(QtGui.QWidget):
+class DockTitleBarWidget(QtWidgets.QWidget):
 
     def __init__(self, parent, title, stretch=True):
-        QtGui.QWidget.__init__(self, parent)
-        self.label = label = QtGui.QLabel()
+        QtWidgets.QWidget.__init__(self, parent)
+        self.label = label = QtWidgets.QLabel()
         font = label.font()
         font.setBold(True)
         label.setFont(font)
@@ -694,7 +714,7 @@ class DockTitleBarWidget(QtGui.QWidget):
 
 def create_dock(title, parent, stretch=True):
     """Create a dock widget and set it up accordingly."""
-    dock = QtGui.QDockWidget(parent)
+    dock = QtWidgets.QDockWidget(parent)
     dock.setWindowTitle(title)
     dock.setObjectName(title)
     titlebar = DockTitleBarWidget(dock, title, stretch=stretch)
@@ -706,12 +726,12 @@ def create_dock(title, parent, stretch=True):
 
 def create_menu(title, parent):
     """Create a menu and set its title."""
-    qmenu = QtGui.QMenu(title, parent)
+    qmenu = QtWidgets.QMenu(title, parent)
     return qmenu
 
 
 def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
-    button = QtGui.QToolButton()
+    button = QtWidgets.QToolButton()
     button.setAutoRaise(True)
     button.setAutoFillBackground(True)
     button.setCursor(Qt.PointingHandCursor)
@@ -773,6 +793,11 @@ class BlockSignals(object):
             w.blockSignals(self.values[w])
 
 
+class Channel(QtCore.QObject):
+    finished = Signal(object)
+    result = Signal(object)
+
+
 class Task(QtCore.QRunnable):
     """Disable auto-deletion to avoid gc issues
 
@@ -781,30 +806,26 @@ class Task(QtCore.QRunnable):
 
     """
 
-    FINISHED = SIGNAL('TASK_FINISHED')
-    RESULT = SIGNAL('TASK_RESULT')
-
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent):
         QtCore.QRunnable.__init__(self)
 
-        self.channel = QtCore.QObject(parent)
+        self.channel = Channel()
         self.result = None
         self.setAutoDelete(False)
 
     def run(self):
         self.result = self.task()
-        self.channel.emit(self.RESULT, self.result)
+        self.channel.result.emit(self.result)
         self.done()
 
     def task(self):
-        pass
+        return None
 
     def done(self):
-        self.channel.emit(self.FINISHED, self)
+        self.channel.finished.emit(self)
 
     def connect(self, handler):
-        self.channel.connect(self.channel, self.RESULT,
-                             handler, Qt.QueuedConnection)
+        self.channel.result.connect(handler, type=Qt.QueuedConnection)
 
 
 class SimpleTask(Task):
@@ -839,11 +860,10 @@ class RunTask(QtCore.QObject):
         task_id = id(task)
         self.task_details[task_id] = (progress, finish)
 
-        self.connect(task.channel, Task.FINISHED, self.finish,
-                     Qt.QueuedConnection)
+        task.channel.finished.connect(self.finish, type=Qt.QueuedConnection)
         self.threadpool.start(task)
 
-    def finish(self, task, *args, **kwargs):
+    def finish(self, task):
         task_id = id(task)
         try:
             self.tasks.remove(task)
@@ -859,7 +879,7 @@ class RunTask(QtCore.QObject):
             progress.hide()
 
         if finish is not None:
-            finish(task, *args, **kwargs)
+            finish(task)
 
 
 # Syntax highlighting

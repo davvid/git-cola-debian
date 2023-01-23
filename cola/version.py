@@ -9,10 +9,10 @@ if __name__ == '__main__':
     srcdir = os.path.dirname(os.path.dirname(__file__))
     sys.path.insert(1, srcdir)
 
-from cola.git import git
-from cola.git import STDOUT
-from cola.decorators import memoize
-from cola._version import VERSION
+from .git import git
+from .git import STDOUT
+from .decorators import memoize
+from ._version import VERSION
 
 # minimum version requirements
 _versions = {
@@ -68,6 +68,7 @@ def version_to_list(version):
 def git_version_str():
     """Returns the current GIT version"""
     return git.version()[STDOUT].strip()
+
 
 @memoize
 def git_version():

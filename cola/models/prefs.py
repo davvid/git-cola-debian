@@ -2,10 +2,10 @@ from __future__ import division, absolute_import, unicode_literals
 
 import sys
 
-from cola import core
-from cola import gitcfg
-from cola import observable
-from cola import utils
+from .. import core
+from .. import gitcfg
+from .. import observable
+from .. import utils
 
 
 BLAME_VIEWER = 'cola.blameviewer'
@@ -97,7 +97,6 @@ def tabwidth():
 
 def textwidth():
     return gitcfg.current().get(TEXTWIDTH, 72)
-
 
 
 class PreferencesModel(observable.Observable):

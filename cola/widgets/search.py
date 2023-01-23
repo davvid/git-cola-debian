@@ -1,27 +1,25 @@
 """A widget for searching git commits"""
 from __future__ import division, absolute_import, unicode_literals
-
 import time
 
-from PyQt4 import QtGui
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtCore
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
 
-from cola import core
-from cola import gitcmds
-from cola import icons
-from cola import utils
-from cola import qtutils
-from cola.i18n import N_
-from cola.interaction import Interaction
-from cola.git import git
-from cola.git import STDOUT
-from cola.qtutils import connect_button
-from cola.qtutils import create_toolbutton
-from cola.widgets import defs
-from cola.widgets import standard
-from cola.widgets.diff import DiffTextEdit
+from .. import core
+from .. import gitcmds
+from .. import icons
+from .. import utils
+from .. import qtutils
+from ..i18n import N_
+from ..interaction import Interaction
+from ..git import git
+from ..git import STDOUT
+from ..qtutils import connect_button
+from ..qtutils import create_toolbutton
+from . import defs
+from . import standard
+from .diff import DiffTextEdit
 
 
 def mkdate(timespec):
@@ -29,6 +27,7 @@ def mkdate(timespec):
 
 
 class SearchOptions(object):
+
     def __init__(self):
         self.query = ''
         self.max_count = 500
@@ -37,40 +36,40 @@ class SearchOptions(object):
 
 
 class SearchWidget(standard.Dialog):
+
     def __init__(self, parent):
         standard.Dialog.__init__(self, parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
         self.setWindowTitle(N_('Search'))
 
-        self.mode_combo = QtGui.QComboBox()
+        self.mode_combo = QtWidgets.QComboBox()
         self.browse_button = create_toolbutton(icon=icons.folder(),
                                                tooltip=N_('Browse...'))
-        self.query = QtGui.QLineEdit()
+        self.query = QtWidgets.QLineEdit()
 
-        self.start_date = QtGui.QDateEdit()
-        self.start_date.setCurrentSection(QtGui.QDateTimeEdit.YearSection)
+        self.start_date = QtWidgets.QDateEdit()
+        self.start_date.setCurrentSection(QtWidgets.QDateTimeEdit.YearSection)
         self.start_date.setCalendarPopup(True)
         self.start_date.setDisplayFormat(N_('yyyy-MM-dd'))
 
-        self.end_date = QtGui.QDateEdit()
-        self.end_date.setCurrentSection(QtGui.QDateTimeEdit.YearSection)
+        self.end_date = QtWidgets.QDateEdit()
+        self.end_date.setCurrentSection(QtWidgets.QDateTimeEdit.YearSection)
         self.end_date.setCalendarPopup(True)
         self.end_date.setDisplayFormat(N_('yyyy-MM-dd'))
 
         icon = icons.search()
         self.search_button = qtutils.create_button(text=N_('Search'),
                                                    icon=icon, default=True)
-
-        self.max_count = QtGui.QSpinBox()
+        self.max_count = QtWidgets.QSpinBox()
         self.max_count.setMinimum(5)
         self.max_count.setMaximum(9995)
         self.max_count.setSingleStep(5)
         self.max_count.setValue(500)
 
-        self.commit_list = QtGui.QListWidget()
+        self.commit_list = QtWidgets.QListWidget()
         self.commit_list.setMinimumSize(QtCore.QSize(1, 1))
         self.commit_list.setAlternatingRowColors(True)
-        selection_mode = QtGui.QAbstractItemView.SingleSelection
+        selection_mode = QtWidgets.QAbstractItemView.SingleSelection
         self.commit_list.setSelectionMode(selection_mode)
 
         self.commit_text = DiffTextEdit(self, whitespace=False)
@@ -142,7 +141,9 @@ class SearchEngine(object):
     def results(self):
         pass
 
+
 class RevisionSearch(SearchEngine):
+
     def results(self):
         query, opts = self.common_args()
         args = utils.shell_split(query)
@@ -150,6 +151,7 @@ class RevisionSearch(SearchEngine):
 
 
 class PathSearch(SearchEngine):
+
     def results(self):
         query, args = self.common_args()
         paths = ['--'] + utils.shell_split(query)
@@ -157,24 +159,28 @@ class PathSearch(SearchEngine):
 
 
 class MessageSearch(SearchEngine):
+
     def results(self):
         query, kwargs = self.common_args()
         return self.revisions(all=True, grep=query, **kwargs)
 
 
 class AuthorSearch(SearchEngine):
+
     def results(self):
         query, kwargs = self.common_args()
         return self.revisions(all=True, author=query, **kwargs)
 
 
 class CommitterSearch(SearchEngine):
+
     def results(self):
         query, kwargs = self.common_args()
         return self.revisions(all=True, committer=query, **kwargs)
 
 
 class DiffSearch(SearchEngine):
+
     def results(self):
         query, kwargs = self.common_args()
         return gitcmds.parse_rev_list(
@@ -182,6 +188,7 @@ class DiffSearch(SearchEngine):
 
 
 class DateRangeSearch(SearchEngine):
+
     def validate(self):
         return self.model.start_date < self.model.end_date
 
@@ -231,12 +238,8 @@ class Search(SearchWidget):
         connect_button(self.button_cherrypick, self.cherry_pick)
         connect_button(self.button_close, self.accept)
 
-        self.connect(self.mode_combo, SIGNAL('currentIndexChanged(int)'),
-                     self.mode_index_changed)
-
-        self.connect(self.commit_list,
-                     SIGNAL('itemSelectionChanged()'),
-                     self.display)
+        self.mode_combo.currentIndexChanged[int].connect(self.mode_changed)
+        self.commit_list.itemSelectionChanged.connect(self.display)
 
         self.set_start_date(mkdate(time.time()-(87640*31)))
         self.set_end_date(mkdate(time.time()+87640))
@@ -244,13 +247,13 @@ class Search(SearchWidget):
 
         self.query.setFocus()
 
-    def mode_index_changed(self, idx):
+    def mode_changed(self, idx):
         mode = self.mode()
         self.update_shown_widgets(mode)
         if mode == self.PATH:
             self.browse_callback()
 
-    def set_commit_list(self, commits):
+    def set_commits(self, commits):
         widget = self.commit_list
         widget.clear()
         widget.addItems(commits)
@@ -300,24 +303,27 @@ class Search(SearchWidget):
             self.commit_text.setText('')
 
     def browse_callback(self):
-        paths = QtGui.QFileDialog.getOpenFileNames(self,
-                                                   N_('Choose Path(s)'))
+        paths = qtutils.open_files(N_('Choose Path(s)'))
         if not paths:
             return
         filepaths = []
-        lenprefix = len(core.getcwd()) + 1
+        curdir = core.getcwd()
+        prefix_len = len(curdir) + 1
         for path in paths:
-            if not path.startswith(core.getcwd()):
+            if not path.startswith(curdir):
                 continue
-            filepaths.append(path[lenprefix:])
+            relpath = path[prefix_len:]
+            if relpath:
+                filepaths.append(relpath)
+
         query = core.list2cmdline(filepaths)
         self.query.setText(query)
         if query:
             self.search_callback()
 
     def display_results(self):
-        commit_list = [result[1] for result in self.results]
-        self.set_commit_list(commit_list)
+        commits = [result[1] for result in self.results]
+        self.set_commits(commits)
 
     def selected_revision(self):
         result = qtutils.selected_item(self.commit_list, self.results)
@@ -354,10 +360,8 @@ def search_commits(parent):
     return widget
 
 
-
 if __name__ == '__main__':
-    import sys
-    app = QtGui.QApplication(sys.argv)
-    search = Search()
-    search.show()
-    sys.exit(app.exec_())
+    app = QtWidgets.QApplication([])
+    widget = Search()
+    widget.show()
+    app.exec_()

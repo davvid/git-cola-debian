@@ -8,11 +8,11 @@ import subprocess
 import threading
 from os.path import join
 
-from cola import core
-from cola.compat import int_types
-from cola.compat import ustr
-from cola.decorators import memoize
-from cola.interaction import Interaction
+from . import core
+from .compat import int_types
+from .compat import ustr
+from .decorators import memoize
+from .interaction import Interaction
 
 
 INDEX_LOCK = threading.Lock()
@@ -32,15 +32,15 @@ def is_git_dir(git_dir):
     if git_dir:
         headref = join(git_dir, 'HEAD')
 
-        if (core.isdir(git_dir)
-            and (core.isdir(join(git_dir, 'objects'))
-                and core.isdir(join(git_dir, 'refs')))
-            or (core.isfile(join(git_dir, 'gitdir'))
-                and core.isfile(join(git_dir, 'commondir')))):
+        if (core.isdir(git_dir) and
+                (core.isdir(join(git_dir, 'objects')) and
+                    core.isdir(join(git_dir, 'refs'))) or
+                (core.isfile(join(git_dir, 'gitdir')) and
+                    core.isfile(join(git_dir, 'commondir')))):
 
             result = (core.isfile(headref) or
                       (core.islink(headref) and
-                        core.readlink(headref).startswith('refs/')))
+                       core.readlink(headref).startswith('refs/')))
         else:
             result = is_git_file(git_dir)
 
@@ -84,7 +84,7 @@ def find_git_directory(curpath):
 
     """
     paths = Paths(git_dir=core.getenv('GIT_DIR'),
-                  worktree=core.getenv('GIT_WORKTREE'),
+                  worktree=core.getenv('GIT_WORK_TREE'),
                   git_file=None)
 
     ceiling_dirs = set()
@@ -237,11 +237,9 @@ class Git(object):
         # Guard against thread-unsafe .git/index.lock files
         if not _readonly:
             INDEX_LOCK.acquire()
-        status, out, err = core.run_command(command,
-                                            cwd=_cwd,
-                                            encoding=_encoding,
-                                            stdin=_stdin, stdout=_stdout, stderr=_stderr,
-                                            **extra)
+        status, out, err = core.run_command(
+                command, cwd=_cwd, encoding=_encoding,
+                stdin=_stdin, stdout=_stdout, stderr=_stderr, **extra)
         # Let the next thread in
         if not _readonly:
             INDEX_LOCK.release()
@@ -329,16 +327,20 @@ class Git(object):
             core.stderr("error: unable to execute 'git'\n"
                         "error: please ensure that 'git' is in your $PATH")
             if sys.platform == 'win32':
-                hint = ('\n'
-                        'hint: If you have Git installed in a custom location, e.g.\n'
-                        'hint: C:\\Tools\\Git, then you can create a file at\n'
-                        'hint: ~/.config/git-cola/git-bindir with the following text\n'
-                        'hint: and git-cola will add the specified location to your $PATH\n'
-                        'hint: automatically when starting cola:\n'
-                        'hint:\n'
-                        'hint: C:\\Tools\\Git\\bin\n')
-                core.stderr(hint)
+                _print_win32_git_hint()
             sys.exit(1)
+
+
+def _print_win32_git_hint():
+    hint = ('\n'
+            'hint: If you have Git installed in a custom location, e.g.\n'
+            'hint: C:\\Tools\\Git, then you can create a file at\n'
+            'hint: ~/.config/git-cola/git-bindir with following text\n'
+            'hint: and git-cola will add the specified location to your $PATH\n'
+            'hint: automatically when starting cola:\n'
+            'hint:\n'
+            'hint: C:\\Tools\\Git\\bin\n')
+    core.stderr(hint)
 
 
 @memoize
@@ -351,9 +353,8 @@ git = current()
 """
 Git command singleton
 
->>> from cola.git import git
->>> from cola.git import STDOUT
->>> 'git' == git.version()[STDOUT][:3].lower()
+>>> git = current()
+>>> 'git' == git.version()[0][:3].lower()
 True
 
 """

@@ -1,25 +1,25 @@
 from __future__ import division, absolute_import, unicode_literals
 import os
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtCore
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
+from qtpy.QtCore import Signal
 
-from cola import cmds
-from cola import core
-from cola import gitcmds
-from cola import hotkeys
-from cola import icons
-from cola import utils
-from cola import qtutils
-from cola.i18n import N_
-from cola.utils import Group
-from cola.widgets import completion
-from cola.widgets import defs
-from cola.widgets import filetree
-from cola.widgets import standard
-from cola.widgets import text
+from ..i18n import N_
+from ..utils import Group
+from .. import cmds
+from .. import core
+from .. import gitcmds
+from .. import hotkeys
+from .. import icons
+from .. import utils
+from .. import qtutils
+from . import completion
+from . import defs
+from . import filetree
+from . import standard
+from . import text
 
 
 def finder(paths=None):
@@ -63,6 +63,7 @@ and the results.
 
 
 class FindFilesThread(QtCore.QThread):
+    result = Signal(object)
 
     def __init__(self, parent):
         QtCore.QThread.__init__(self, parent)
@@ -76,7 +77,7 @@ class FindFilesThread(QtCore.QThread):
             args = [add_wildcards(arg) for arg in utils.shell_split(query)]
         filenames = gitcmds.tracked_files(*args)
         if query == self.query:
-            self.emit(SIGNAL('result(PyQt_PyObject)'), filenames)
+            self.result.emit(filenames)
         else:
             self.run()
 
@@ -90,7 +91,8 @@ class Finder(standard.Dialog):
         if parent is not None:
             self.setWindowModality(Qt.WindowModal)
 
-        self.input_label = QtGui.QLabel(os.path.basename(core.getcwd()) + '/')
+        label = os.path.basename(core.getcwd()) + '/'
+        self.input_label = QtWidgets.QLabel(label)
         self.input_txt = completion.GitTrackedLineEdit(hint=N_('<path> ...'))
         self.input_txt.hint.enable(True)
 
@@ -128,33 +130,30 @@ class Finder(standard.Dialog):
                                           self.close_button)
 
         self.main_layout = qtutils.vbox(defs.margin, defs.no_spacing,
-                                       self.input_layout,
-                                       self.tree,
-                                       self.bottom_layout)
+                                        self.input_layout,
+                                        self.tree,
+                                        self.bottom_layout)
         self.setLayout(self.main_layout)
         self.setFocusProxy(self.input_txt)
 
-        self.worker_thread = FindFilesThread(self)
-        self.connect(self.worker_thread, SIGNAL('result(PyQt_PyObject)'),
-                     self.process_result, Qt.QueuedConnection)
+        thread = self.worker_thread = FindFilesThread(self)
+        thread.result.connect(self.process_result, type=Qt.QueuedConnection)
 
-        self.connect(self.input_txt, SIGNAL('textChanged(QString)'),
-                     lambda s: self.search())
-        self.connect(self.input_txt, SIGNAL('activated()'), self.focus_tree)
-        self.connect(self.input_txt, SIGNAL('down()'), self.focus_tree)
-        self.connect(self.input_txt, SIGNAL('enter()'), self.focus_tree)
-        self.connect(self.input_txt, SIGNAL('return()'), self.focus_tree)
+        self.input_txt.textChanged.connect(lambda s: self.search())
+        self.input_txt.activated.connect(self.focus_tree)
+        self.input_txt.down.connect(self.focus_tree)
+        self.input_txt.enter.connect(self.focus_tree)
 
-        self.connect(self.tree, SIGNAL('itemSelectionChanged()'),
-                     self.tree_item_selection_changed)
-        self.connect(self.tree, SIGNAL('up()'), self.focus_input)
-        self.connect(self.tree, SIGNAL('space()'), self.open_default)
+        item_selection_changed = self.tree_item_selection_changed
+        self.tree.itemSelectionChanged.connect(item_selection_changed)
+        self.tree.up.connect(self.focus_input)
+        self.tree.space.connect(self.open_default)
 
         qtutils.add_action(self, 'Focus Input', self.focus_input,
                            hotkeys.FOCUS, hotkeys.FINDER)
 
-        self.show_help_action = qtutils.add_action(self,
-                N_('Show Help'), show_help, hotkeys.QUESTION)
+        self.show_help_action = qtutils.add_action(
+                self, N_('Show Help'), show_help, hotkeys.QUESTION)
 
         qtutils.connect_button(self.edit_button, self.edit)
         qtutils.connect_button(self.open_default_button, self.open_default)
@@ -163,9 +162,8 @@ class Finder(standard.Dialog):
         qtutils.connect_button(self.close_button, self.close)
         qtutils.add_close_action(self)
 
-        if not self.restore_state():
-            width, height = qtutils.default_size(parent, 666, 420)
-            self.resize(width, height)
+        self.init_state(None, self.resize,
+                        *qtutils.default_size(parent, 666, 420))
 
     def focus_tree(self):
         self.tree.setFocus()

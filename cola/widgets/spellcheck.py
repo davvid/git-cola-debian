@@ -1,31 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from __future__ import division, absolute_import, unicode_literals
+import collections
+import re
+import sys
+
+from qtpy.QtCore import Qt
+from qtpy.QtCore import QEvent
+from qtpy.QtCore import Signal
+from qtpy.QtGui import QMouseEvent
+from qtpy.QtGui import QSyntaxHighlighter
+from qtpy.QtGui import QTextCharFormat
+from qtpy.QtGui import QTextCursor
+from qtpy.QtWidgets import QAction
+from qtpy.QtWidgets import QApplication
+
+from .. import qtutils
+from ..i18n import N_
+from .text import HintedTextEdit
+
 
 __copyright__ = """
 2012, Peter Norvig (http://norvig.com/spell-correct.html)
 2013, David Aguilar <davvid@gmail.com>
 """
-
-import collections
-import re
-import sys
-
-from PyQt4.Qt import QAction
-from PyQt4.Qt import QApplication
-from PyQt4.Qt import QEvent
-from PyQt4.Qt import QMenu
-from PyQt4.Qt import QMouseEvent
-from PyQt4.Qt import QSyntaxHighlighter
-from PyQt4.Qt import QTextCharFormat
-from PyQt4.Qt import QTextCursor
-from PyQt4.Qt import Qt
-from PyQt4.QtCore import SIGNAL
-
-from cola import qtutils
-from cola.i18n import N_
-from cola.widgets.text import HintedTextEdit
-
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
@@ -37,17 +35,18 @@ def train(features, model):
 
 
 def edits1(word):
-    splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
-    deletes    = [a + b[1:] for a, b in splits if b]
-    transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
-    replaces   = [a + c + b[1:] for a, b in splits for c in alphabet if b]
-    inserts    = [a + c + b     for a, b in splits for c in alphabet]
+    splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+    deletes = [a + b[1:] for a, b in splits if b]
+    transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b) > 1]
+    replaces = [a + c + b[1:] for a, b in splits for c in alphabet if b]
+    inserts = [a + c + b for a, b in splits for c in alphabet]
     return set(deletes + transposes + replaces + inserts)
 
 
 def known_edits2(word, words):
     return set(e2 for e1 in edits1(word)
-                  for e2 in edits1(e1) if e2 in words)
+               for e2 in edits1(e1) if e2 in words)
+
 
 def known(word, words):
     return set(w for w in word if w in words)
@@ -141,8 +140,7 @@ class SpellCheckTextEdit(HintedTextEdit):
                 spell_menu = qtutils.create_menu(title, self)
                 for word in self.spellcheck.suggest(text):
                     action = SpellAction(word, spell_menu)
-                    self.connect(action, SIGNAL('correct(PyQt_PyObject)'),
-                                 self.correct)
+                    action.result.connect(self.correct)
                     spell_menu.addAction(action)
                 # Only add the spelling suggests to the menu if there are
                 # suggestions.
@@ -190,19 +188,20 @@ class Highlighter(QSyntaxHighlighter):
         for word_object in re.finditer(self.WORDS, text):
             if not self.spellcheck.check(word_object.group()):
                 self.setFormat(word_object.start(),
-                    word_object.end() - word_object.start(), fmt)
+                               word_object.end() - word_object.start(), fmt)
 
 
 class SpellAction(QAction):
     """QAction that returns the text in a signal.
     """
+    result = Signal(object)
 
     def __init__(self, *args):
         QAction.__init__(self, *args)
-        self.connect(self, SIGNAL('triggered()'), self.correct)
+        self.triggered.connect(self.correct)
 
     def correct(self):
-        self.emit(SIGNAL('correct(PyQt_PyObject)'), self.text())
+        self.result.emit(self.text())
 
 
 def main(args=sys.argv):

@@ -4,61 +4,65 @@ from __future__ import division, absolute_import, unicode_literals
 
 import os
 
-from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
-from PyQt4.QtCore import SIGNAL
+from qtpy import QtGui
+from qtpy import QtWidgets
+from qtpy.QtCore import Qt
+from qtpy.QtCore import Signal
 
-from cola import cmds
-from cola import core
-from cola import guicmds
-from cola import git
-from cola import gitcfg
-from cola import hotkeys
-from cola import icons
-from cola import qtutils
-from cola import resources
-from cola import utils
-from cola import version
-from cola.compat import unichr
-from cola.i18n import N_
-from cola.interaction import Interaction
-from cola.models import prefs
-from cola.settings import Settings
-from cola.widgets import about
-from cola.widgets import action
-from cola.widgets import archive
-from cola.widgets import bookmarks
-from cola.widgets import browse
-from cola.widgets import cfgactions
-from cola.widgets import commitmsg
-from cola.widgets import compare
-from cola.widgets import createbranch
-from cola.widgets import createtag
-from cola.widgets import dag
-from cola.widgets import defs
-from cola.widgets import diff
-from cola.widgets import finder
-from cola.widgets import editremotes
-from cola.widgets import grep
-from cola.widgets import log
-from cola.widgets import merge
-from cola.widgets import patch
-from cola.widgets import prefs as prefs_widget
-from cola.widgets import recent
-from cola.widgets import remote
-from cola.widgets import search
-from cola.widgets import standard
-from cola.widgets import status
-from cola.widgets import stash
+from ..compat import unichr
+from ..i18n import N_
+from ..interaction import Interaction
+from ..models import prefs
+from ..settings import Settings
+from .. import cmds
+from .. import core
+from .. import guicmds
+from .. import git
+from .. import gitcfg
+from .. import hotkeys
+from .. import icons
+from .. import qtutils
+from .. import resources
+from .. import utils
+from .. import version
+from . import about
+from . import action
+from . import archive
+from . import bookmarks
+from . import browse
+from . import cfgactions
+from . import commitmsg
+from . import compare
+from . import createbranch
+from . import createtag
+from . import dag
+from . import defs
+from . import diff
+from . import finder
+from . import editremotes
+from . import grep
+from . import log
+from . import merge
+from . import patch
+from . import prefs as prefs_widget
+from . import recent
+from . import remote
+from . import search
+from . import standard
+from . import status
+from . import stash
 
 
 class MainView(standard.MainWindow):
+    config_actions_changed = Signal(object)
+    updated = Signal()
 
     def __init__(self, model, parent=None, settings=None):
         standard.MainWindow.__init__(self, parent)
         self.setAttribute(Qt.WA_MacMetalStyle)
 
         # Default size; this is thrown out when save/restore is used
+        self.dag = None
         self.model = model
         self.settings = settings
         self.prefs_model = prefs_model = prefs.PreferencesModel()
@@ -69,7 +73,6 @@ class MainView(standard.MainWindow):
 
         # Runs asynchronous tasks
         self.runtask = qtutils.RunTask()
-        self.progress = standard.ProgressDialog('', '', self)
 
         create_dock = qtutils.create_dock
         cfg = gitcfg.current()
@@ -108,7 +111,7 @@ class MainView(standard.MainWindow):
         self.bookmarkswidget.connect_to(self.recentwidget)
 
         # "Commit Message Editor" widget
-        self.position_label = QtGui.QLabel()
+        self.position_label = QtWidgets.QLabel()
         self.position_label.setAlignment(Qt.AlignCenter)
         font = qtutils.default_monospace_font()
         font.setPointSize(int(font.pointSize() * 0.8))
@@ -325,9 +328,9 @@ class MainView(standard.MainWindow):
         # For "Start Rebase" only, reverse the first argument to setEnabled()
         # so that we can operate on it as a group.
         # We can do this because can_rebase == not is_rebasing
-        set_disabled = lambda x: self.rebase_start_action.setEnabled(not x)
-        self.rebase_start_action_proxy = utils.Proxy(self.rebase_start_action,
-                                                     setEnabled=set_disabled)
+        self.rebase_start_action_proxy = utils.Proxy(
+                self.rebase_start_action,
+                setEnabled=lambda x: self.rebase_start_action.setEnabled(not x))
 
         self.rebase_group = utils.Group(self.rebase_start_action_proxy,
                                         self.rebase_edit_todo_action,
@@ -339,7 +342,7 @@ class MainView(standard.MainWindow):
             self, N_('Lock Layout'), self.set_lock_layout, False)
 
         # Create the application menu
-        self.menubar = QtGui.QMenuBar(self)
+        self.menubar = QtWidgets.QMenuBar(self)
 
         # File Menu
         create_menu = qtutils.create_menu
@@ -473,10 +476,10 @@ class MainView(standard.MainWindow):
         self.addDockWidget(bottom, self.logdockwidget)
         self.tabifyDockWidget(self.actionsdockwidget, self.logdockwidget)
 
-
         # Listen for model notifications
-        model.add_observer(model.message_updated, self._update)
-        model.add_observer(model.message_mode_changed, lambda x: self._update())
+        model.add_observer(model.message_updated, self.updated.emit)
+        model.add_observer(model.message_mode_changed,
+                           lambda mode: self.updated.emit())
 
         prefs_model.add_observer(prefs_model.message_config_updated,
                                  self._config_updated)
@@ -484,42 +487,25 @@ class MainView(standard.MainWindow):
         # Set a default value
         self.show_cursor_position(1, 0)
 
-        self.connect(self.open_recent_menu, SIGNAL('aboutToShow()'),
-                     self.build_recent_menu)
+        self.open_recent_menu.aboutToShow.connect(self.build_recent_menu)
+        self.commitmsgeditor.cursor_changed.connect(self.show_cursor_position)
 
-        self.connect(self.commitmsgeditor, SIGNAL('cursorPosition(int,int)'),
-                     self.show_cursor_position)
+        self.diffeditor.options_changed.connect(self.statuswidget.refresh)
+        self.diffeditor.up.connect(self.statuswidget.move_up)
+        self.diffeditor.down.connect(self.statuswidget.move_down)
 
-        self.connect(self.diffeditor, SIGNAL('diff_options_updated()'),
-                     self.statuswidget.refresh)
+        self.commitmsgeditor.up.connect(self.statuswidget.move_up)
+        self.commitmsgeditor.down.connect(self.statuswidget.move_down)
 
-        self.connect(self.diffeditor, SIGNAL('move_down()'),
-                     self.statuswidget.move_down)
+        self.updated.connect(self.refresh, type=Qt.QueuedConnection)
 
-        self.connect(self.diffeditor, SIGNAL('move_up()'),
-                     self.statuswidget.move_up)
-
-        self.connect(self.commitmsgeditor, SIGNAL('move_down()'),
-                     self.statuswidget.move_down)
-
-        self.connect(self.commitmsgeditor, SIGNAL('move_up()'),
-                     self.statuswidget.move_up)
-
-        self.connect(self, SIGNAL('update()'),
-                     self._update_callback, Qt.QueuedConnection)
-
-        self.connect(self, SIGNAL('install_cfg_actions(PyQt_PyObject)'),
-                     self._install_config_actions, Qt.QueuedConnection)
-
+        self.config_actions_changed.connect(self._install_config_actions,
+                                            type=Qt.QueuedConnection)
         # Install .git-config-defined actions
         self.init_config_actions()
-
-        # Restore saved settings
-        if not self.restore_state(settings=settings):
-            self.resize(987, 610)
-            self.set_initial_size()
-
         self.statusdockwidget.widget().setFocus()
+
+        self.init_state(settings, self.set_initial_size)
 
         # Route command output here
         Interaction.log_status = self.logwidget.log_status
@@ -529,6 +515,7 @@ class MainView(standard.MainWindow):
                         N_('git cola version %s') % version.version())
 
     def set_initial_size(self):
+        self.resize(987, 610)
         self.statuswidget.set_initial_size()
         self.commitmsgeditor.set_initial_size()
 
@@ -591,7 +578,7 @@ class MainView(standard.MainWindow):
 
     def get_config_actions(self):
         actions = cfgactions.get_config_actions()
-        self.emit(SIGNAL('install_cfg_actions(PyQt_PyObject)'), actions)
+        self.config_actions_changed.emit(actions)
 
     def _install_config_actions(self, names_and_shortcuts):
         """Install .gitconfig-defined actions"""
@@ -604,10 +591,7 @@ class MainView(standard.MainWindow):
             if shortcut:
                 action.setShortcut(shortcut)
 
-    def _update(self):
-        self.emit(SIGNAL('update()'))
-
-    def _update_callback(self):
+    def refresh(self):
         """Update the title with the current branch and directory name."""
         alerts = []
         branch = self.model.currentbranch
@@ -691,17 +675,19 @@ class MainView(standard.MainWindow):
             toggleview = dockwidget.toggleViewAction()
             toggleview.setShortcut('Shift+' + shortcut)
             self.view_menu.addAction(toggleview)
+
             def showdock(show, dockwidget=dockwidget):
                 if show:
                     dockwidget.raise_()
                     dockwidget.widget().setFocus()
                 else:
                     self.setFocus()
+
             self.addAction(toggleview)
             qtutils.connect_action_bool(toggleview, showdock)
 
             # Create a new shortcut Shift+<shortcut> that gives focus
-            toggleview = QtGui.QAction(self)
+            toggleview = QtWidgets.QAction(self)
             toggleview.setShortcut(shortcut)
 
             def focusdock(dockwidget=dockwidget):
@@ -709,16 +695,21 @@ class MainView(standard.MainWindow):
             self.addAction(toggleview)
             qtutils.connect_action(toggleview, focusdock)
 
-        focus = lambda: focus_dock(self.commitdockwidget)
-        focus_status = lambda: focus_dock(self.statusdockwidget)
-        qtutils.add_action(self, 'Focus Commit Message', focus, hotkeys.FOCUS)
-        qtutils.add_action(self, 'Focus Status Window', focus_status, hotkeys.FOCUS_STATUS)
+        qtutils.add_action(self, 'Focus Commit Message',
+                           lambda: focus_dock(self.commitdockwidget),
+                           hotkeys.FOCUS)
+
+        qtutils.add_action(self, 'Focus Status Window',
+                           lambda: focus_dock(self.statusdockwidget),
+                           hotkeys.FOCUS_STATUS)
 
     def preferences(self):
         return prefs_widget.preferences(model=self.prefs_model, parent=self)
 
     def git_dag(self):
-        view = dag.git_dag(self.model)
+        if self.dag is None:
+            self.dag = dag.git_dag(self.model)
+        view = self.dag
         view.show()
         view.raise_()
 
@@ -772,7 +763,7 @@ class MainView(standard.MainWindow):
         if not upstream:
             return
         self.model.is_rebasing = True
-        self._update_callback()
+        self.refresh()
         cmds.do(cmds.Rebase, upstream=upstream)
 
     def rebase_edit_todo(self):
@@ -788,7 +779,8 @@ class MainView(standard.MainWindow):
         cmds.do(cmds.RebaseAbort)
 
     def clone_repo(self):
-        guicmds.clone_repo(self, self.runtask, self.progress,
+        progress = standard.ProgressDialog('', '', self)
+        guicmds.clone_repo(self, self.runtask, progress,
                            guicmds.report_clone_repo_errors, True)
 
 

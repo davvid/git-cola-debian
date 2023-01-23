@@ -1,24 +1,21 @@
 from __future__ import division, absolute_import, unicode_literals
-
 import os
 import re
 
-from PyQt4 import QtGui
-
-from cola import cmds
-from cola import core
-from cola import difftool
-from cola import gitcmds
-from cola import icons
-from cola import qtutils
-from cola import utils
-from cola import git
-from cola.i18n import N_
-from cola.interaction import Interaction
-from cola.models import main
-from cola.widgets import completion
-from cola.widgets.browse import BrowseDialog
-from cola.widgets.selectcommits import select_commits
+from . import cmds
+from . import core
+from . import difftool
+from . import gitcmds
+from . import icons
+from . import qtutils
+from . import utils
+from . import git
+from .i18n import N_
+from .interaction import Interaction
+from .models import main
+from .widgets import completion
+from .widgets.browse import BrowseDialog
+from .widgets.selectcommits import select_commits
 
 
 def delete_branch():
@@ -83,17 +80,7 @@ def new_repo():
     :returns str: repository path or None if no repository was created.
 
     """
-    dlg = QtGui.QFileDialog()
-    dlg.setFileMode(QtGui.QFileDialog.Directory)
-    dlg.setOption(QtGui.QFileDialog.ShowDirsOnly)
-    dlg.show()
-    dlg.raise_()
-    if dlg.exec_() != QtGui.QFileDialog.Accepted:
-        return None
-    paths = dlg.selectedFiles()
-    if not paths:
-        return None
-    path = paths[0]
+    path = qtutils.opendir_dialog(N_('New Repository...'), core.getcwd())
     if not path:
         return None
     # Avoid needlessly calling `git init`.
