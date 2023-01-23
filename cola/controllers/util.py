@@ -86,10 +86,9 @@ class SelectCommitsController(QObserver):
         row, selected = qtutils.get_selected_row(self.view.commit_list)
         if not selected:
             return
-        status, out, err = self.model.git.checkout(
-            self.model.get_revision_sha1(row), with_extended_output=True)
-        qtutils.show_output(out+err)
-        return
+        sha1 = self.model.get_revision_sha1(row)
+        out = self.model.git.checkout(sha1, with_stderr=True)
+        qtutils.show_output(out)
 
     def create_branch_at(self):
         row, selected = qtutils.get_selected_row(self.view.commit_list)
@@ -97,16 +96,14 @@ class SelectCommitsController(QObserver):
             return
         create_new_branch(self.original_model, self.view,
                           revision=self.model.get_revision_sha1(row))
-        return
 
     def cherry_pick(self):
         row, selected = qtutils.get_selected_row(self.view.commit_list)
         if not selected:
             return
-        status, out, err = self.model.git.cherry_pick(
-            self.model.get_revision_sha1(row), with_extended_output=True)
-        qtutils.show_output(out+err)
-
+        sha1 = self.model.get_revision_sha1(row)
+        out = self.model.git.cherry_pick(sha1, with_stderr=True)
+        qtutils.show_output(out)
 
     def commit_sha1_selected(self):
         row, selected = qtutils.get_selected_row(self.view.commit_list)
@@ -164,6 +161,7 @@ class OptionsController(QObserver):
                              'global_cola_fontui_size',
                              'global_cola_fontui',
                              'global_cola_savewindowsettings',
+                             'global_cola_tabwidth',
                              )
         self.add_actions(global_cola_fontdiff = self.tell_parent_model)
         self.add_actions(global_cola_fontui = self.tell_parent_model)
@@ -219,6 +217,7 @@ class OptionsController(QObserver):
                  'global_cola_fontdiff_size',
                  'global_cola_fontui_size',
                  'global_cola_savewindowsettings',
+                 'global_cola_tabwidth',
                  )
         for param in params:
             self.original_model.set_param(

@@ -72,6 +72,17 @@ def get_stylesheet(name):
     else:
         return None
 
+def get_libexec(*args):
+    """Returns the path to the libexec scripts dir.
+    This currently == 'bin' but it may change in the future.
+    """
+    libexec = os.path.dirname(os.path.abspath(sys.argv[0]))
+    return os.path.join(libexec, *args)
+
+def get_style_dir():
+    """Returns the path to the style dir within the cola install tree."""
+    return STYLEDIR
+
 def get_htmldocs():
     """Returns the path to the cola html documentation."""
     return os.path.join(DOCDIR, 'git-cola.html')
@@ -117,7 +128,7 @@ def fork(*args):
                     return os.spawnv(os.P_NOWAIT, filename, args)
                 except os.error:
                     pass
-        raise IOError('cannot find executable: %s' % program)
+        raise IOError('cannot find executable: %s' % args[0])
     else:
         argv = map(shell_quote, args)
         return os.system(' '.join(argv) + '&')

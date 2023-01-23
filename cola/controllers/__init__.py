@@ -44,7 +44,7 @@ from stash import stash
 from compare import compare
 from compare import compare_file
 from compare import branch_compare
-
+from cola.views import AboutView
 
 class Controller(QObserver):
     """Manages the interaction between models and views."""
@@ -87,11 +87,14 @@ class Controller(QObserver):
         # When a model attribute changes, this runs a specific action
         self.add_actions(global_cola_fontdiff = self.update_diff_font)
         self.add_actions(global_cola_fontui = self.update_ui_font)
+        self.add_actions(global_cola_tabwidth = self.update_tab_width)
 
         self.add_callbacks(
             # Push Buttons
+            rescan_button = self.rescan,
             signoff_button = self.model.add_signoff,
             stage_button = self.stage_selected,
+            stash_button = lambda: stash(self.model, self.view),
             commit_button = self.commit,
             fetch_button = self.fetch,
             push_button = self.push,
@@ -180,8 +183,10 @@ class Controller(QObserver):
                 lambda: self.log(self.model.stage_untracked()),
             menu_unstage_all =
                 lambda: self.log(self.model.unstage_all()),
+            menu_view_log = self.view_log,
 
             # Help Menu
+            menu_help_about = self.about,
             menu_help_docs =
                 lambda: self.model.git.web__browse(utils.get_htmldocs()),
             )
@@ -194,16 +199,14 @@ class Controller(QObserver):
                      'itemDoubleClicked(QTreeWidgetItem*, int)',
                      self.doubleclick_tree)
 
-        # Toolbar log button
-        self.connect(view.toolbar_show_log,
-                     'triggered()', self.show_log)
-
         self.merge_msg_hash = ''
         self.load_gui_settings()
         self.rescan()
         self.init_log_window()
         self.refresh_view('global_cola_fontdiff', 'global_cola_fontui')
         self.start_inotify_thread()
+        if self.has_inotify():
+            self.view.rescan_button.hide()
 
     #####################################################################
     # handle when the status tree is clicked
@@ -364,8 +367,17 @@ class Controller(QObserver):
 
     #####################################################################
     # Qt callbacks
+    def about(self):
+        view = AboutView(self.view)
+        style = QtGui.QApplication.instance().styleSheet()
+        if style:
+            view.setStyleSheet(style)
+        view.show()
+        view.set_version(version.version)
+
     def tr(self, fortr):
         return qtutils.tr(fortr)
+
     def goto_grep(self):
         line = self.view.selected_line()
         filename, lineno, contents = line.split(':', 2)
@@ -379,7 +391,7 @@ class Controller(QObserver):
 
     def gen_search(self, searchtype, browse=False):
         def search_handler():
-            search_commits(self.model, searchtype, browse)
+            search_commits(self.model, self.view, searchtype, browse)
         return search_handler
 
     def grep(self):
@@ -391,8 +403,8 @@ class Controller(QObserver):
         self.view.display_text.setText(stuff)
         self.view.show_diff()
 
-    def show_log(self, *rest):
-        qtutils.toggle_log_window()
+    def view_log(self, *rest):
+        qtutils.show_logger()
 
     def options(self):
         update_options(self.model, self.view)
@@ -429,9 +441,7 @@ class Controller(QObserver):
                                    self.model.get_local_branches())
         if not branch:
             return
-        status, out, err = self.model.git.checkout(branch,
-                                                   with_extended_output=True)
-        self.log(out+err)
+        self.log(self.model.git.checkout(branch, with_stderr=True))
 
     def browse_commits(self):
         self.select_commits_gui('Browse Commits',
@@ -532,12 +542,12 @@ class Controller(QObserver):
     def edit_diff(self, staged=True):
         filename = self.get_selected_filename(staged=staged)
         if filename:
-            args = ['git', 'difftool', '--no-prompt',
-                    '-t', self.model.get_mergetool()]
-            if (self.view.amend_is_checked()
-                    or (staged and
-                        filename not in self.model.partially_staged)):
-                args.extend(['-c', 'HEAD^'])
+            args = ['perl', utils.get_libexec('git-difftool'),
+                    '--no-prompt', '-t', self.model.get_mergetool()]
+            if staged:
+                args.append('--cached')
+            if self.view.amend_is_checked():
+                args.append('HEAD^')
             args.extend(['--', filename])
             utils.fork(*args)
 
@@ -574,13 +584,20 @@ class Controller(QObserver):
                                                 revs,
                                                 output='patches'))
 
+    def _quote_repopath(self, repopath):
+        if os.name in ('nt', 'dos'):
+            repopath = '"%s"' % repopath
+        return repopath
+
     def open_repo(self):
         """Spawns a new cola session"""
         dirname = qtutils.opendir_dialog(self.view,
                                          'Open Git Repository...',
                                          os.getcwd())
-        if dirname:
-            utils.fork(sys.argv[0], '--repo', dirname)
+        if not dirname:
+            return
+        utils.fork('python', sys.argv[0],
+                   '--repo', self._quote_repopath(dirname))
 
     def clone_repo(self):
         """Clones a git repository"""
@@ -595,6 +612,8 @@ class Controller(QObserver):
                 default = os.path.basename(os.path.dirname(newurl))
             if default.endswith('.git'):
                 default = default[:-4]
+            if url == '.':
+                default = os.path.basename(os.getcwd())
             if not default:
                 raise
         except:
@@ -617,7 +636,11 @@ class Controller(QObserver):
             count += 1
 
         self.log(self.model.git.clone(url, destdir))
-        utils.fork(sys.argv[0], '--repo', destdir)
+        utils.fork('python', sys.argv[0],
+                   '--repo', self._quote_repopath(destdir))
+
+    def has_inotify(self):
+        return self.inotify_thread and self.inotify_thread.isRunning()
 
     def quit_app(self, *args):
         """Save config settings and cleanup any inotify threads."""
@@ -628,7 +651,7 @@ class Controller(QObserver):
         pattern = self.model.get_tmp_file_pattern()
         for filename in glob.glob(pattern):
             os.unlink(filename)
-        if self.inotify_thread and self.inotify_thread.isRunning():
+        if self.has_inotify():
             self.inotify_thread.abort = True
             self.inotify_thread.wait()
         self.view.close()
@@ -927,12 +950,12 @@ class Controller(QObserver):
     def viz_all(self):
         """Visualizes the entire git history using gitk."""
         browser = self.model.get_history_browser()
-        utils.fork(browser, '--all')
+        utils.fork('sh', '-c', browser, '--all')
 
     def viz_current(self):
         """Visualizes the current branch's history using gitk."""
         browser = self.model.get_history_browser()
-        utils.fork(browser, self.model.get_currentbranch())
+        utils.fork('sh', '-c', browser, self.model.get_currentbranch())
 
     def load_gui_settings(self):
         try:
@@ -1059,6 +1082,12 @@ class Controller(QObserver):
         qfont = QFont()
         qfont.fromString(font)
         QtGui.qApp.setFont(qfont)
+
+    def update_tab_width(self):
+        tab_width = self.model.get_cola_config('tabwidth')
+        display_font = self.view.display_text.font()
+        space_width = QtGui.QFontMetrics(display_font).width(' ')
+        self.view.display_text.setTabStopWidth(tab_width * space_width)
 
     def init_log_window(self):
         branch = self.model.get_currentbranch()

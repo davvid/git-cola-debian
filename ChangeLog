@@ -1,7 +1,473 @@
-git-cola: 1.3.4.4.gbe70
-bottled-on: Fri Dec 26 01:34:17 PST 2008
+git-cola: 1.3.5
+bottled-on: Thu Jan 22 00:48:56 PST 2009
 
-commit be70329b11f7a611db63e13255c9f9b74b76ab01 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit e2657c59adcf51bb12d1e9566e6c3b341acaee03 (tag: refs/tags/v1.3.5, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 19 19:09:46 2009 -0800
+
+    git-difftool: update difftool documentation to include some packaging notes
+    
+    difftool is now available in cola.git and git.git.
+    Mention this and recommend usage of the version from git.git.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c6b12a1442b0b0e79580bbe8391bb2e51b720b96
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 19 19:07:02 2009 -0800
+
+    difftool: change trap condition from SIGINT to INT
+    
+    Markus Heidelberg provided this patch against git.git's
+    contrib/difftool.
+    
+    In 'man 1p trap' there is written:
+    
+       "The condition can be EXIT, 0 (equivalent to EXIT), or a signal
+        specified using a symbolic name, without the SIG prefix, [...]"
+    
+       "Implementations may permit names with the SIG prefix or ignore case
+        in signal names as an extension."
+    
+    So now we do it the POSIX compliant way instead of using an extension.
+    
+    Signed-off-by: Markus Heidelberg <markus.heidelberg@web.de>
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit fc805e5dd33dd4f9d43837981f09049d60e761f5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Jan 18 16:52:05 2009 -0800
+
+    git-difftool: incorporate suggestions from the git mailing list
+    
+    Markus Heidelberg has a number of stylistic improvements to the
+    difftool documentation and comments.  This also adds usage of the
+    vim "wincmd" command for positioning the cursor at startup.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e7a80fee4304ba25c06dd1b1527c5373b2f7a914
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 30 03:34:30 2008 -0800
+
+    windows: make clone and open work reliably on windows
+    
+    os.spawnv is a nasty beast in windows-land.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 44ed8ab3bf526873e19704a296fcf06687cc288f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 30 03:32:41 2008 -0800
+
+    win32/cola: add Python's path to $PATH
+    
+    This lets us easily launch python scripts.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c5b0ecd991d7f2ab33e8e2025908e6d27aaccbcd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jan 17 02:49:58 2009 -0800
+
+    cola: use the new with_stderr flag throughout cola
+    
+    We now grab stderr only when we really need to do so.
+    Places that care about stderr but not about the return status
+    no longer need to grab it into a throw-away variable.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5d437b618beec020340a78a645e70af1fd6732d9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Jan 17 02:48:39 2009 -0800
+
+    git: add a with_stderr option to control whether or not we get stderr
+    
+    The git command module will only include stderr when the with_stderr
+    option is set to True.  This separates with_extended_output and with_stderr
+    so that they do not have overlapping duties.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9a1f2a7fa64c54c293fb73605b164bd311ad85fb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 16 18:12:56 2009 -0800
+
+    models: simplify the model worktree status routine
+    
+    We no longer post-process the status data to remove unmerged
+    items from the modified files list -- this is done up front
+    when unmerged entries are first found.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 73ecfad6264d33abdb59bf5e9e71fc885abada54
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 16 21:05:13 2009 -0800
+
+    tests: skip serialization tests when simplejson is not available
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit dc7d7b0edf21dd4c286f0903f7f4dc66076def29
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 16 21:04:57 2009 -0800
+
+    model: simplify the deserializer by using __import__()
+    
+    We were using the 'imp' module to for loading modules.
+    Using __import__() is simpler and more robust.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 166b38543b9a6005de7a2f3b2f5647941fb19ebb
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 16 18:10:32 2009 -0800
+
+    git: change with_extended_output to only return status, output
+    
+    The stderr+stdout handling in the git module was broken because it
+    could deadlock on older versions of Python.  All of the complication
+    came from trying to handle both stderr and stdout in the same
+    function.  We now pass stderr=subprocess.STDOUT to subprocess.Popen
+    so that things become much simpler.  We only include stderr when
+    with_extended_output=True, otherwise we ignore it.
+    
+    This fixes deadlocks on older Pythons and on Mac OSX.
+    It also seems to speed things up a bit on Linux, which is a plus.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d1d3b93da32c7761f6a21ab663da458ef5bf1ac4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 16 18:08:18 2009 -0800
+
+    tests: simplify the import test by using __import__()
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 369ae9fbc35880f6e7e061c87dbd4632801996e5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jan 15 21:51:31 2009 -0800
+
+    inotify: add support for pyinotify 0.8.x
+    
+    The pyinotify API changed between 0.7.x and 0.8.x.
+    The cola.inotify module now works with both 0.8.x and as 0.7.x.
+    
+    We do accomplish this by checking pyinotify.__version__ at runtime
+    to determine which API to use.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 761ede3ce3ea3e1bc3d5c8cf1dfc66043d6f3a3c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 30 00:34:08 2008 -0800
+
+    git-difftool: simplify the windows exe() handling
+    
+    Windows doesn't need the full path to git.exe.
+    We just need to exec "git.exe" instead of "git".
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 37a01c137271d001cd71b486f05be4c412331b22
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 30 00:27:21 2008 -0800
+
+    win32: update the 'cola' script so that it passes "$@"
+    
+    We were losing command-line args when run through the 'cola'
+    windows wrapper script.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 273be078708beac8d77dfb101b38a6a3faaa229b
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Dec 29 23:51:36 2008 -0800
+
+    git-difftool: add portability code for Windows
+    
+    git-difftool now works on Windows.
+    The GIT_EXTERNAL_DIFF rewrite broke Windows.
+    This makes things happy again.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 789cdd388feba59a4b11c7a3b15137ec49078d11
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jan 15 11:34:06 2009 -0800
+
+    git: fix a deadlock on python2.4
+    
+    Python 2.4's subprocess.Popen requires that you read from stderr before
+    reading stdout.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 540bb69c6511071d436c1281fcfad7e710ed8437
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 9 02:38:31 2009 -0800
+
+    ui: add a 'Help->About' menu action
+    
+    The 'About' dialog lists the cola license and version.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 35e9fb7e8f40f5efa14913a0a6badd79672a1451
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 9 02:28:14 2009 -0800
+
+    Makefile: handle the case where the 'cola' symlink already exists
+    
+    We should ignore the 'cola' symlink if it already exists.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 2459017e155efcff43a79668772e8aaa35db23f4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Jan 8 22:06:28 2009 -0800
+
+    docs: update the 'git difftool' documentation
+    
+    'git difftool' is much more powerful (and simpler) now,
+    so update the documentation accordingly.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8cfbdc740a2353142c60e42435b03704ae26d39a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jan 7 02:45:42 2009 -0800
+
+    search: show author and date in the summary line
+    
+    The default 'git log' format was updated so that the author
+    and date are part of the summary format.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 3c3a08081b8c501d2f7fb537618bb5cbea74b055
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jan 7 00:22:54 2009 -0800
+
+    git-difftool: simplify the code slightly
+    
+    Some unnecessary temporary variables and control blocks
+    were removed.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit b272078cf6cbe8fb2ef67994b6f00fc7f0f1988c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Jan 7 00:58:32 2009 -0800
+
+    ui: clean up the options dialog
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 80f22bf71f43f03a3efcb9ddbab8731b5902f4d9
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Jan 6 01:32:39 2009 -0800
+
+    options: add a cola.tabwidth configuration field
+    
+    Users can now specify their own tab width in the options dialog.
+    The setting corresponds to the cola.tabwidth git configuration variable.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 30a6c67d05e11adec58aa355f436cda9b1264f77
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 5 22:43:09 2009 -0800
+
+    stash: use --index when applying stashes
+    
+    git stash apply --index preserves the index so we should use it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit ae43deba349e85e5d13c3dc1e78121e4a20085fa
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 5 22:40:22 2009 -0800
+
+    ui: add a stash button to the main ui
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit bd0f10bd4ed14b5afd05d857cf482c12e0291847
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 5 22:35:37 2009 -0800
+
+    usability: reinstate the rescan button
+    
+    This brings back the old rescan button.  We hide the button whenever
+    inotify is available since rescan is automatic on linux.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 95dec436a8704a13c9ba3a6afed8c78435494fb7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Jan 5 19:27:26 2009 -0800
+
+    doc: update git links to point to github
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit aed58632e73b36b6f463b8378c7366e768e9fd2d
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Jan 2 09:44:01 2009 -0800
+
+    git-difftool: take advantage of GIT_EXTERNAL_DIFF
+    
+    By using GIT_EXTERNAL_DIFF we can make git-difftool support any
+    option supported by 'git diff'.  This makes git-difftool much more
+    useful since it can now handle any type of diff,
+    e.g. worktree vs. index, worktree vs. commit, commit vs. commit, etc.
+    
+    'git-difftool-helper' is invoked by git and handles all of the
+    git configuration and merge tool finding logic.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9cde7c554b366bd3decbe12aacbda917ca3619b4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Dec 30 14:40:35 2008 -0800
+
+    git-cola: add 'prefix' to the sys.path
+    
+    We lost the ability to launch git-cola from its source tree when we
+    fixed things up for Windows.  It would work if you were sitting in
+    the cola source tree, but not if your current directory was somewhere
+    else.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 7715361133d7640cbd7d29d926a9e992e9eca56c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Mon Dec 29 15:51:58 2008 -0800
+
+    .mailmap: add /me to the mailmap
+    
+    I had a bad user.name configuration at one point in time, so add
+    a .mailmap entry to fix it.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 38be16d8bbd41d416555bc52e4b54e588baf95fe
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Dec 27 01:08:32 2008 -0800
+
+    win32: vastly simplify the installation procedure for Windows
+    
+    We now automatically install the bin/cola win32 wrapper script.
+    This is now the only recommended way to run cola.  Installing
+    cola on Windows is now no more difficult then unzipping a tarball
+    and running the 'cola' shell script.
+    
+    The 'cola' wrapper script is now smarter in that it checks for
+    both Python2.5 and Python2.6, thus cola can now run with either
+    version.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 43d9101681a844312d9faddf4bba611fed74bd40
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Dec 27 00:41:00 2008 -0800
+
+    win32: make gitk launch properly on win32
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 52a0d1fd074929967f21241a36e87dd79ddb6006
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 20:05:16 2008 -0800
+
+    views: remove the log icon and its toolbar
+    
+    It doesn't make sense to have a toolbar until we have more buttons
+    in there.  The 'View Log' functionality was moved to the 'File' menu.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5735f747f7a024e2a8e285be64582f8a04f3e4ab
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 19:29:52 2008 -0800
+
+    ui: re-save all .ui files using Qt 4.4.2
+    
+    This updates all of the property definitions to the latest
+    schema.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 44a508004d5c41a6924aa996613c11caee23e708
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 19:23:48 2008 -0800
+
+    views: remove exec_ calls so that all dialogs are non-modal
+    
+    Calling exec_ makes it so that the parent window cannot be
+    raised above the child window.  This removes all exec()
+    calls to prevent this.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5cbaed0f649f6daf120bd56ffa576426139c2afd
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 18:58:40 2008 -0800
+
+    search: make the dialog slightly shorter by default
+    
+    This saves some screen real estate.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9bf49779f2609ef207b1a9280de4d89229af4440
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 18:04:02 2008 -0800
+
+    views: move cola.syntax into the views namespace
+    
+    cola.syntax was moved the cola.views.syntax, since it makes more
+    sense there.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 9448492a74159dc277315cadf3b6def27967f638
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 18:04:50 2008 -0800
+
+    search: pass the parent view to the search dialog
+    
+    We now pass the parent view to the search dialog so that it can
+    properly center its window on the screen.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a542351b8d6ff7655346ef458c2f296543fd7ff5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 17:04:29 2008 -0800
+
+    views: make all dialogs maximizable
+    
+    Windows requires that we use setWindowFlags on all dialogs
+    otherwise Qt drops the maximize button.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 62a7ab1be18fef0ac13bf0c8bac0a51ed9c3e8b7
+Author: David Aguilar <davvid@gmail.com>
+Date:   Fri Dec 26 16:19:09 2008 -0800
+
+    Add a .mailmap file
+    
+    This fixes a commit where I messed up David's name.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit be70329b11f7a611db63e13255c9f9b74b76ab01
 Author: David Aguilar <davvid@gmail.com>
 Date:   Fri Dec 26 01:26:49 2008 -0800
 
@@ -649,7 +1115,7 @@ Date:   Wed Nov 12 02:47:53 2008 -0800
     
     Signed-off-by: David Aguilar <davvid@gmail.com>
 
-commit 6e8c1357ba538684a2b9e8244d123196f0e611e6 (refs/remotes/origin/maint)
+commit 6e8c1357ba538684a2b9e8244d123196f0e611e6
 Author: David Aguilar <davvid@gmail.com>
 Date:   Wed Nov 12 02:43:55 2008 -0800
 
