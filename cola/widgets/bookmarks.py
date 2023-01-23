@@ -80,6 +80,7 @@ class BookmarksWidget(QtWidgets.QFrame):
         qtutils.connect_button(self.open_button, self.tree.open_repo)
 
         item_selection_changed = self.tree_item_selection_changed
+        # pylint: disable=no-member
         self.tree.itemSelectionChanged.connect(item_selection_changed)
 
         QtCore.QTimer.singleShot(0, self.reload_bookmarks)
@@ -102,8 +103,10 @@ def disable_rename(_path, _name, _new_name):
     return False
 
 
+# pylint: disable=too-many-ancestors
 class BookmarksTreeWidget(standard.TreeWidget):
     default_changed = Signal()
+    worktree_changed = Signal()
 
     def __init__(self, context, style, settings, parent=None):
         standard.TreeWidget.__init__(self, parent=parent)
@@ -150,6 +153,10 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.copy_action = qtutils.add_action(
             self, N_('Copy'), self.copy, hotkeys.COPY)
 
+        self.delete_action = qtutils.add_action(
+            self, N_('Delete'), self.delete_bookmark)
+
+        # pylint: disable=no-member
         self.itemChanged.connect(self.item_changed)
         self.itemSelectionChanged.connect(self.item_selection_changed)
         self.itemDoubleClicked.connect(self.tree_double_clicked)
@@ -160,10 +167,18 @@ class BookmarksTreeWidget(standard.TreeWidget):
                                         self.launch_editor_action,
                                         self.launch_terminal_action,
                                         self.open_default_action,
-                                        self.rename_repo_action)
+                                        self.rename_repo_action,
+                                        self.delete_action)
         self.action_group.setEnabled(False)
         self.set_default_repo_action.setEnabled(False)
         self.clear_default_repo_action.setEnabled(False)
+
+        # Connections
+        if style == RECENT_REPOS:
+            self.worktree_changed.connect(self.refresh,
+                                          type=Qt.QueuedConnection)
+            context.model.add_observer(context.model.message_worktree_changed,
+                                       self.worktree_changed.emit)
 
     def refresh(self):
         context = self.context
@@ -175,6 +190,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
             entries = settings.bookmarks
         # recent items
         elif self.style == RECENT_REPOS:
+            settings.reload_recent()
             entries = settings.recent
 
         items = [builder.get(entry['path'], entry['name']) for entry in entries]
@@ -201,6 +217,8 @@ class BookmarksTreeWidget(standard.TreeWidget):
         else:
             menu.addAction(self.set_default_repo_action)
         menu.addAction(self.rename_repo_action)
+        menu.addSeparator()
+        menu.addAction(self.delete_action)
         menu.exec_(self.mapToGlobal(event.pos()))
 
     def item_changed(self, item, _index):

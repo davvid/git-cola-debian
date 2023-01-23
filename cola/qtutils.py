@@ -313,6 +313,7 @@ def prompt_n(msg, inputs):
     for name, value in inputs:
         lineedit = QtWidgets.QLineEdit()
         # Enable the OK button only when all fields have been populated
+        # pylint: disable=no-member
         lineedit.textChanged.connect(
             lambda x: ok_b.setEnabled(all(get_values())))
         if value:
@@ -658,17 +659,25 @@ def tool_button():
     button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
     button.setCursor(Qt.PointingHandCursor)
     button.setFocusPolicy(Qt.NoFocus)
+    # Highlight colors
+    palette = QtGui.QPalette()
+    highlight = palette.color(QtGui.QPalette.Highlight)
+    highlight_rgb = rgb_css(highlight)
+
     button.setStyleSheet("""
         /* No borders */
         QToolButton {
-            border: 0;
-            border-style: none;
+            border: none;
+            background-color: none;
         }
         /* Hide the menu indicator */
         QToolButton::menu-indicator {
             image: none;
         }
-    """)
+        QToolButton:hover {
+            border: %(border)spx solid %(highlight_rgb)s;
+        }
+    """ % dict(border=defs.border, highlight_rgb=highlight_rgb))
     return button
 
 
@@ -751,7 +760,7 @@ class DockTitleBarWidget(QtWidgets.QFrame):
         else:
             separator = SKIPPED
 
-        self.main_layout = hbox(defs.small_margin, defs.spacing,
+        self.main_layout = hbox(defs.small_margin, defs.titlebar_spacing,
                                 qlabel, separator, self.corner_layout,
                                 self.toggle_button, self.close_button)
         self.setLayout(self.main_layout)

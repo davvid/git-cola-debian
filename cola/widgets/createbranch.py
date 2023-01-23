@@ -198,6 +198,7 @@ class CreateBranchDialog(standard.Dialog):
         qtutils.connect_toggle(self.tag_radio, self.display_model)
 
         branches = self.branch_list
+        # pylint: disable=no-member
         branches.itemSelectionChanged.connect(self.branch_item_changed)
 
         thread = self.thread
@@ -332,3 +333,7 @@ class CreateBranchDialog(standard.Dialog):
         else:
             value = []
         return value
+
+    def dispose(self):
+        self.branch_name.dispose()
+        self.revision.dispose()
