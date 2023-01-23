@@ -10,6 +10,7 @@ from qtpy.QtCore import Signal
 
 from ..i18n import N_
 from ..interaction import Interaction
+from ..models import prefs
 from ..qtutils import get
 from .. import actions
 from .. import cmds
@@ -40,6 +41,7 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
     DIFF_FILE_HEADER_STATE = 2
     DIFF_STATE = 3
     SUBMODULE_STATE = 4
+    END_STATE = 5
 
     DIFF_FILE_HEADER_START_RGX = re.compile(r'diff --git a/.* b/.*')
     DIFF_HUNK_HEADER_RGX = re.compile(r'(?:@@ -[0-9,]+ \+[0-9,]+ @@)|'
@@ -80,53 +82,73 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
     def highlightBlock(self, text):
         if not self.enabled or not text:
             return
+        # Aliases for quick local access
+        initial_state = self.INITIAL_STATE
+        default_state = self.DEFAULT_STATE
+        diff_state = self.DIFF_STATE
+        diffstat_state = self.DIFFSTAT_STATE
+        diff_file_header_state = self.DIFF_FILE_HEADER_STATE
+        submodule_state = self.SUBMODULE_STATE
+        end_state = self.END_STATE
+
+        diff_file_header_start_rgx = self.DIFF_FILE_HEADER_START_RGX
+        diff_hunk_header_rgx = self.DIFF_HUNK_HEADER_RGX
+        bad_whitespace_rgx = self.BAD_WHITESPACE_RGX
+
+        diff_header_fmt = self.diff_header_fmt
+        bold_diff_header_fmt = self.bold_diff_header_fmt
+        diff_add_fmt = self.diff_add_fmt
+        diff_remove_fmt = self.diff_remove_fmt
+        bad_whitespace_fmt = self.bad_whitespace_fmt
 
         state = self.previousBlockState()
-        if state == self.INITIAL_STATE:
+        if state == initial_state:
             if text.startswith('Submodule '):
-                state = self.SUBMODULE_STATE
+                state = submodule_state
             elif text.startswith('diff --git '):
-                state = self.DIFFSTAT_STATE
+                state = diffstat_state
             elif self.is_commit:
-                state = self.DEFAULT_STATE
+                state = default_state
             else:
-                state = self.DIFFSTAT_STATE
+                state = diffstat_state
 
-        if state == self.DIFFSTAT_STATE:
-            if self.DIFF_FILE_HEADER_START_RGX.match(text):
-                state = self.DIFF_FILE_HEADER_STATE
-                self.setFormat(0, len(text), self.diff_header_fmt)
-            elif self.DIFF_HUNK_HEADER_RGX.match(text):
-                state = self.DIFF_STATE
-                self.setFormat(0, len(text), self.bold_diff_header_fmt)
+        if state == diffstat_state:
+            if diff_file_header_start_rgx.match(text):
+                state = diff_file_header_state
+                self.setFormat(0, len(text), diff_header_fmt)
+            elif diff_hunk_header_rgx.match(text):
+                state = diff_state
+                self.setFormat(0, len(text), bold_diff_header_fmt)
             elif '|' in text:
                 i = text.index('|')
-                self.setFormat(0, i, self.bold_diff_header_fmt)
-                self.setFormat(i, len(text) - i, self.diff_header_fmt)
+                self.setFormat(0, i, bold_diff_header_fmt)
+                self.setFormat(i, len(text) - i, diff_header_fmt)
             else:
-                self.setFormat(0, len(text), self.diff_header_fmt)
-        elif state == self.DIFF_FILE_HEADER_STATE:
-            if self.DIFF_HUNK_HEADER_RGX.match(text):
-                state = self.DIFF_STATE
-                self.setFormat(0, len(text), self.bold_diff_header_fmt)
+                self.setFormat(0, len(text), diff_header_fmt)
+        elif state == diff_file_header_state:
+            if diff_hunk_header_rgx.match(text):
+                state = diff_state
+                self.setFormat(0, len(text), bold_diff_header_fmt)
             else:
-                self.setFormat(0, len(text), self.diff_header_fmt)
-        elif state == self.DIFF_STATE:
-            if self.DIFF_FILE_HEADER_START_RGX.match(text):
-                state = self.DIFF_FILE_HEADER_STATE
-                self.setFormat(0, len(text), self.diff_header_fmt)
-            elif self.DIFF_HUNK_HEADER_RGX.match(text):
-                self.setFormat(0, len(text), self.bold_diff_header_fmt)
+                self.setFormat(0, len(text), diff_header_fmt)
+        elif state == diff_state:
+            if diff_file_header_start_rgx.match(text):
+                state = diff_file_header_state
+                self.setFormat(0, len(text), diff_header_fmt)
+            elif diff_hunk_header_rgx.match(text):
+                self.setFormat(0, len(text), bold_diff_header_fmt)
             elif text.startswith('-'):
-                self.setFormat(0, len(text), self.diff_remove_fmt)
+                if text == '-- ':
+                    state = end_state
+                else:
+                    self.setFormat(0, len(text), diff_remove_fmt)
             elif text.startswith('+'):
-                self.setFormat(0, len(text), self.diff_add_fmt)
+                self.setFormat(0, len(text), diff_add_fmt)
                 if self.whitespace:
-                    m = self.BAD_WHITESPACE_RGX.search(text)
+                    m = bad_whitespace_rgx.search(text)
                     if m is not None:
                         i = m.start()
-                        self.setFormat(i, len(text) - i,
-                                       self.bad_whitespace_fmt)
+                        self.setFormat(i, len(text) - i, bad_whitespace_fmt)
 
         self.setCurrentBlockState(state)
 
@@ -249,6 +271,23 @@ class DiffLineNumbers(TextDecorator):
     def set_highlighted(self, line_number):
         """Set the line to highlight"""
         self.highlight_line = line_number
+
+    def current_line(self):
+        if self.lines and self.highlight_line >= 0:
+            # Find the next valid line
+            for line in self.lines[self.highlight_line:]:
+                # take the "new" line number: last value in tuple
+                line_number = line[-1]
+                if line_number > 0:
+                    return line_number
+
+            # Find the previous valid line
+            for line in self.lines[self.highlight_line-1::-1]:
+                # take the "new" line number: last value in tuple
+                line_number = line[-1]
+                if line_number > 0:
+                    return line_number
+        return None
 
     def paintEvent(self, event):
         """Paint the line number"""
@@ -614,8 +653,8 @@ class DiffEditor(DiffTextEdit):
             self, 'Revert', self.revert_selection, hotkeys.REVERT)
         self.action_revert_selection.setIcon(icons.undo())
 
-        self.launch_editor = actions.launch_editor(context, self,
-                                                   *hotkeys.ACCEPT)
+        self.launch_editor = actions.launch_editor_at_line(
+            context, self, *hotkeys.ACCEPT)
         self.launch_difftool = actions.launch_difftool(context, self)
         self.stage_or_unstage = actions.stage_or_unstage(context, self)
 
@@ -630,6 +669,8 @@ class DiffEditor(DiffTextEdit):
         selection_model.add_observer(
             selection_model.message_selection_changed, self.updated.emit)
         self.updated.connect(self.refresh, type=Qt.QueuedConnection)
+        # Update the selection model when the cursor changes
+        self.cursorPositionChanged.connect(self._update_line_number)
 
     def refresh(self):
         enabled = False
@@ -757,8 +798,7 @@ class DiffEditor(DiffTextEdit):
         """setPlainText(str) while retaining scrollbar positions"""
         model = self.model
         mode = model.mode
-        highlight = (mode != model.mode_none and
-                     mode != model.mode_untracked)
+        highlight = mode not in (model.mode_none, model.mode_untracked)
         self.highlighter.set_enabled(highlight)
 
         scrollbar = self.verticalScrollBar()
@@ -839,6 +879,10 @@ class DiffEditor(DiffTextEdit):
                 first_line_idx, last_line_idx,
                 self.has_selection(), reverse, apply_to_worktree)
 
+    def _update_line_number(self):
+        """Update the selection model when the cursor changes"""
+        self.selection_model.line_number = self.numbers.current_line()
+
 
 class DiffWidget(QtWidgets.QWidget):
 
@@ -866,6 +910,12 @@ class DiffWidget(QtWidgets.QWidget):
         self.author_label.setAlignment(Qt.AlignBottom)
         self.author_label.elide()
 
+        self.date_label = TextLabel()
+        self.date_label.setTextFormat(Qt.PlainText)
+        self.date_label.setSizePolicy(policy)
+        self.date_label.setAlignment(Qt.AlignTop)
+        self.date_label.hide()
+
         self.summary_label = TextLabel()
         self.summary_label.setTextFormat(Qt.PlainText)
         self.summary_label.setFont(summary_font)
@@ -883,8 +933,8 @@ class DiffWidget(QtWidgets.QWidget):
             context, self, is_commit=is_commit, whitespace=False)
 
         self.info_layout = qtutils.vbox(defs.no_margin, defs.no_spacing,
-                                        self.author_label, self.summary_label,
-                                        self.oid_label)
+                                        self.author_label, self.date_label,
+                                        self.summary_label, self.oid_label)
 
         self.logo_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                         self.gravatar_label, self.info_layout)
@@ -896,6 +946,7 @@ class DiffWidget(QtWidgets.QWidget):
 
         notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
         notifier.add_observer(FILES_SELECTED, self.files_selected)
+        self.set_tabwidth(prefs.tabwidth(context))
 
     def set_tabwidth(self, width):
         self.diff.set_tabwidth(width)
@@ -905,35 +956,40 @@ class DiffWidget(QtWidgets.QWidget):
         self.diff.save_scrollbar()
         self.diff.set_loading_message()
         task = DiffInfoTask(context, oid, filename, self)
-        self.context.runtask.start(task, result=self.diff.set_diff)
+        self.context.runtask.start(task, result=self.set_diff)
 
     def commits_selected(self, commits):
         if len(commits) != 1:
             return
         commit = commits[0]
-        self.oid = commit.oid
-
+        oid = self.oid = commit.oid
         email = commit.email or ''
         summary = commit.summary or ''
         author = commit.author or ''
 
+        self.set_details(oid, author, email, '', summary)
+        self.set_diff_oid(oid)
+
+    def set_diff(self, diff):
+        self.diff.set_diff(diff)
+
+    def set_details(self, oid, author, email, date, summary):
         template_args = {
             'author': author,
             'email': email,
             'summary': summary
         }
-
         author_text = ("""%(author)s &lt;"""
                        """<a href="mailto:%(email)s">"""
                        """%(email)s</a>&gt;"""
                        % template_args)
-
         author_template = '%(author)s <%(email)s>' % template_args
+
+        self.date_label.set_text(date)
+        self.date_label.setVisible(bool(date))
+        self.oid_label.set_text(oid)
         self.author_label.set_template(author_text, author_template)
         self.summary_label.set_text(summary)
-        self.oid_label.set_text(self.oid)
-
-        self.set_diff_oid(self.oid)
         self.gravatar_label.set_email(email)
 
     def files_selected(self, filenames):

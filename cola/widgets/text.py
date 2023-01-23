@@ -9,6 +9,7 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
+from ..models import prefs
 from ..qtutils import get
 from .. import hotkeys
 from .. import qtutils
@@ -18,39 +19,6 @@ from . import defs
 
 def get_stripped(widget):
     return widget.get().strip()
-
-
-# PyQt4 does not provide QProxyStyle -- this is a drop-in replacement
-class ProxyStyle(QtWidgets.QCommonStyle):
-
-    OVERRIDES = set()
-
-    def __init__(self, style):
-        super(ProxyStyle, self).__init__()
-        for name, value in style.__dict__.items():
-            if name not in self.OVERRIDES:
-                setattr(self, name, value)
-
-
-if hasattr(QtWidgets, 'QProxyStyle'):
-    BaseProxyStyle = QtWidgets.QProxyStyle  # pylint: disable=no-member
-else:
-    BaseProxyStyle = ProxyStyle
-
-
-class LineEditStyle(BaseProxyStyle):
-
-    OVERRIDES = set(['pixelMetric'])
-
-    def __init__(self, widget):
-        super(LineEditStyle, self).__init__(widget.style())
-        self.widget = widget
-
-    def pixelMetric(self, metric, option, widget):
-        if metric == QtWidgets.QStyle.PM_TextCursorWidth:
-            font = self.widget.font()
-            return QtGui.QFontMetrics(font).width('M')
-        return super(LineEditStyle, self).pixelMetric(metric, option, widget)
 
 
 class LineEdit(QtWidgets.QLineEdit):
@@ -67,8 +35,6 @@ class LineEdit(QtWidgets.QLineEdit):
 
         if clear_button and hasattr(self, 'setClearButtonEnabled'):
             self.setClearButtonEnabled(True)
-
-        self.setStyle(LineEditStyle(self))
 
     def get(self):
         """Return the raw unicode value from Qt"""
@@ -235,23 +201,20 @@ class BaseTextEditExtension(QtCore.QObject):
 
     # For extension by sub-classes
 
+    # pylint: disable=no-self-use
     def init(self):
         """Called during init for class-specific settings"""
-        pass
+        return
 
+    # pylint: disable=no-self-use,unused-argument
     def set_textwidth(self, width):
         """Set the text width"""
-        pass
+        return
 
+    # pylint: disable=no-self-use,unused-argument
     def set_linebreak(self, brk):
         """Enable word wrapping"""
-        pass
-
-    def set_font(self, font):
-        # Update cursor width
-        metrics = QtGui.QFontMetrics(font)
-        width = metrics.width('M')
-        self.widget.setCursorWidth(width)
+        return
 
 
 class PlainTextEditExtension(BaseTextEditExtension):
@@ -315,10 +278,6 @@ class PlainTextEdit(QtWidgets.QPlainTextEdit):
             return
         super(PlainTextEdit, self).wheelEvent(event)
 
-    def setFont(self, font):
-        super(PlainTextEdit, self).setFont(font)
-        self.ext.set_font(font)
-
 
 class TextEditExtension(BaseTextEditExtension):
 
@@ -373,10 +332,6 @@ class TextEdit(QtWidgets.QTextEdit):
 
     def set_expandtab(self, value):
         self.expandtab_enabled = value
-
-    def setFont(self, font):
-        super(TextEdit, self).setFont(font)
-        self.ext.set_font(font)
 
     def mousePressEvent(self, event):
         self.ext.mouse_press_event(event)
@@ -564,7 +519,8 @@ class HintWidget(QtCore.QObject):
             style = self._hint_style
         else:
             style = self._default_style
-        self._widget.setStyleSheet(style)
+        QtCore.QTimer.singleShot(
+            0, lambda: self._widget.setStyleSheet(style))
 
     def eventFilter(self, _obj, event):
         """Enable/disable hint-mode when focus changes"""
@@ -599,6 +555,7 @@ class HintedPlainTextEdit(PlainTextEdit):
         self.hint = HintWidget(self, hint)
         self.hint.init()
         self.setFont(qtutils.diff_font(context))
+        self.set_tabwidth(prefs.tabwidth(context))
         # Refresh palettes when text changes
         self.textChanged.connect(self.hint.refresh)
 

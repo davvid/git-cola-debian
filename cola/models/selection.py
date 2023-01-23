@@ -58,12 +58,14 @@ class SelectionModel(Observable):
         self.unmerged = []
         self.modified = []
         self.untracked = []
+        self.line_number = None
 
     def reset(self):
         self.staged = []
         self.unmerged = []
         self.modified = []
         self.untracked = []
+        self.line_number = None
 
     def is_empty(self):
         return not(bool(self.staged or self.unmerged or
@@ -115,9 +117,6 @@ class SelectionModel(Observable):
     def group(self):
         """A list of selected files in various states of being"""
         return pick(self.selection())
-
-    def pick(self, selection):
-        return pick(selection)
 
     def union(self):
         """Return the union of all selected items in a sorted list"""

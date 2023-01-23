@@ -153,7 +153,7 @@ def cola():
 
 
 def commit():
-    return icon('git-commit.svg')
+    return icon('document-save-symbolic.svg')
 
 
 def compare():
@@ -230,6 +230,10 @@ def fold():
 
 def merge():
     return icon('git-merge.svg')
+
+
+def modified():
+    return icon('modified.svg')
 
 
 def modified_name():

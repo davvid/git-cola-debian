@@ -13,7 +13,6 @@ from qtpy import QtWidgets
 from ..compat import maxsize
 from ..i18n import N_
 from ..models import dag
-from ..models import prefs
 from ..qtutils import get
 from .. import core
 from .. import cmds
@@ -394,8 +393,14 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
     def showEvent(self, event):
         """Override QWidget::showEvent() to size columns when we are shown"""
         if self._adjust_columns:
-            self.adjust_columns()
             self._adjust_columns = False
+            width = self.width()
+            two_thirds = (width * 2) // 3
+            one_sixth = width // 6
+
+            self.setColumnWidth(0, two_thirds)
+            self.setColumnWidth(1, one_sixth)
+            self.setColumnWidth(2, one_sixth)
         return standard.TreeWidget.showEvent(self, event)
 
     # ViewerMixin
@@ -449,15 +454,6 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
                 continue
             self.scrollToItem(item)
             item.setSelected(True)
-
-    def adjust_columns(self):
-        width = self.width()
-        two_thirds = (width * 2) // 3
-        one_sixth = width // 6
-
-        self.setColumnWidth(0, two_thirds)
-        self.setColumnWidth(1, one_sixth)
-        self.setColumnWidth(2, one_sixth)
 
     def clear(self):
         QtWidgets.QTreeWidget.clear(self)
@@ -544,7 +540,6 @@ class GitDAG(standard.MainWindow):
         self.treewidget = CommitTreeWidget(context, notifier, self)
         self.diffwidget = diff.DiffWidget(context, notifier, self,
                                           is_commit=True)
-        self.diffwidget.set_tabwidth(prefs.tabwidth(context))
         self.filewidget = filelist.FileWidget(context, notifier, self)
         self.graphview = GraphView(context, notifier, self)
 
@@ -709,6 +704,7 @@ class GitDAG(standard.MainWindow):
 
     def model_updated(self):
         self.display()
+        self.update_window_title()
 
     def refresh(self):
         """Unconditionally refresh the DAG"""
@@ -997,10 +993,8 @@ class Edge(QtWidgets.QGraphicsItem):
             # If the dest is at the left of the source, then we
             # need to reverse some values
             if self.source.x() > self.dest.x():
-                point5 = QPointF(point4.x(), point4.y() + connector_length)
-                point6 = QPointF(point5.x() + arc_rect, point5.y() + arc_rect)
-                point3 = QPointF(self.source.x() - arc_rect, point6.y())
-                point2 = QPointF(self.source.x(), point3.y() + arc_rect)
+                point3 = QPointF(point2.x() - arc_rect, point3.y())
+                point6 = QPointF(point5.x() + arc_rect, point6.y())
 
                 span_angle_arc1 = 90
 
@@ -1160,8 +1154,8 @@ class Commit(QtWidgets.QGraphicsItem):
     def type(self):
         return self.item_type
 
-    def boundingRect(self, rect=item_bbox):
-        return rect
+    def boundingRect(self):
+        return self.item_bbox
 
     def shape(self):
         return self.item_shape
@@ -1368,16 +1362,16 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
                            self.zoom_to_fit, hotkeys.FIT)
 
         qtutils.add_action(self, N_('Select Parent'),
-                           self.select_parent, hotkeys.MOVE_DOWN_TERTIARY)
+                           self._select_parent, hotkeys.MOVE_DOWN_TERTIARY)
 
         qtutils.add_action(self, N_('Select Oldest Parent'),
-                           self.select_oldest_parent, hotkeys.MOVE_DOWN)
+                           self._select_oldest_parent, hotkeys.MOVE_DOWN)
 
         qtutils.add_action(self, N_('Select Child'),
-                           self.select_child, hotkeys.MOVE_UP_TERTIARY)
+                           self._select_child, hotkeys.MOVE_UP_TERTIARY)
 
         qtutils.add_action(self, N_('Select Newest Child'),
-                           self.select_newest_child, hotkeys.MOVE_UP)
+                           self._select_newest_child, hotkeys.MOVE_UP)
 
         notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
 
@@ -1420,7 +1414,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
             item_rect = item.sceneTransform().mapRect(item.boundingRect())
             self.ensureVisible(item_rect)
 
-    def get_item_by_generation(self, commits, criteria_fn):
+    def _get_item_by_generation(self, commits, criteria_fn):
         """Return the item for the commit matching criteria"""
         if not commits:
             return None
@@ -1435,30 +1429,30 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         except KeyError:
             return None
 
-    def oldest_item(self, commits):
+    def _oldest_item(self, commits):
         """Return the item for the commit with the oldest generation number"""
-        return self.get_item_by_generation(commits, lambda a, b: a > b)
+        return self._get_item_by_generation(commits, lambda a, b: a > b)
 
-    def newest_item(self, commits):
+    def _newest_item(self, commits):
         """Return the item for the commit with the newest generation number"""
-        return self.get_item_by_generation(commits, lambda a, b: a < b)
+        return self._get_item_by_generation(commits, lambda a, b: a < b)
 
     def create_patch(self):
         items = self.selected_items()
         if not items:
             return
         context = self.context
-        selected_commits = self.sort_by_generation([n.commit for n in items])
+        selected_commits = sort_by_generation([n.commit for n in items])
         oids = [c.oid for c in selected_commits]
         all_oids = [c.oid for c in self.commits]
         cmds.do(cmds.FormatPatch, context, oids, all_oids)
 
-    def select_parent(self):
+    def _select_parent(self):
         """Select the parent with the newest generation number"""
         selected_item = self.selected_item()
         if selected_item is None:
             return
-        parent_item = self.newest_item(selected_item.commit.parents)
+        parent_item = self._newest_item(selected_item.commit.parents)
         if parent_item is None:
             return
         selected_item.setSelected(False)
@@ -1466,12 +1460,12 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         self.ensureVisible(
             parent_item.mapRectToScene(parent_item.boundingRect()))
 
-    def select_oldest_parent(self):
+    def _select_oldest_parent(self):
         """Select the parent with the oldest generation number"""
         selected_item = self.selected_item()
         if selected_item is None:
             return
-        parent_item = self.oldest_item(selected_item.commit.parents)
+        parent_item = self._oldest_item(selected_item.commit.parents)
         if parent_item is None:
             return
         selected_item.setSelected(False)
@@ -1479,12 +1473,12 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         scene_rect = parent_item.mapRectToScene(parent_item.boundingRect())
         self.ensureVisible(scene_rect)
 
-    def select_child(self):
+    def _select_child(self):
         """Select the child with the oldest generation number"""
         selected_item = self.selected_item()
         if selected_item is None:
             return
-        child_item = self.oldest_item(selected_item.commit.children)
+        child_item = self._oldest_item(selected_item.commit.children)
         if child_item is None:
             return
         selected_item.setSelected(False)
@@ -1492,7 +1486,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         scene_rect = child_item.mapRectToScene(child_item.boundingRect())
         self.ensureVisible(scene_rect)
 
-    def select_newest_child(self):
+    def _select_newest_child(self):
         """Select the Nth child with the newest generation number (N > 1)"""
         selected_item = self.selected_item()
         if selected_item is None:
@@ -1501,7 +1495,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
             children = selected_item.commit.children[1:]
         else:
             children = selected_item.commit.children
-        child_item = self.newest_item(children)
+        child_item = self._newest_item(children)
         if child_item is None:
             return
         selected_item.setSelected(False)
@@ -1520,6 +1514,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         if selected:
             items.extend(selected)
 
+        self.setSceneRect(self.scene().itemsBoundingRect())
         self.fit_view_to_items(items)
 
     def zoom_to_fit(self):
@@ -1941,7 +1936,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         self.reset_columns()
         self.reset_rows()
 
-        for node in self.sort_by_generation(list(self.commits)):
+        for node in sort_by_generation(list(self.commits)):
             if node.column is None:
                 # Node is either root or its parent is not in items. The last
                 # happens when tree loading is in progress. Allocate new
@@ -2013,12 +2008,6 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
 
         return positions
 
-    def sort_by_generation(self, commits):
-        if len(commits) < 2:
-            return commits
-        commits.sort(key=lambda x: x.generation)
-        return commits
-
     # Qt overrides
     def contextMenuEvent(self, event):
         self.context_menu_event(event)
@@ -2084,6 +2073,13 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
             xratio = yratio = max(xratio, yratio)
         self.scale(xratio, yratio)
         self.centerOn(rect.center())
+
+
+def sort_by_generation(commits):
+    if len(commits) < 2:
+        return commits
+    commits.sort(key=lambda x: x.generation)
+    return commits
 
 
 # Glossary

@@ -94,9 +94,10 @@ class _BaseThread(QtCore.QThread):
     def _pending(self):
         return self._force_notify or self._file_paths or self._force_config
 
+    # pylint: disable=no-self-use
     def refresh(self):
         """Do any housekeeping necessary in response to repository changes."""
-        pass
+        return
 
     def notify(self):
         """Notifies all observers"""
@@ -204,40 +205,41 @@ if AVAILABLE == 'inotify':
                 self.refresh()
 
                 self._log_enabled_message()
-
-                while self._running:
-                    if self._pending:
-                        timeout = self._NOTIFICATION_DELAY
-                    else:
-                        timeout = None
-                    try:
-                        events = poll_obj.poll(timeout)
-                    except OSError as e:
-                        if e.errno == errno.EINTR:
-                            continue
-                        else:
-                            raise
-                    except select.error:
-                        continue
-                    else:
-                        if not self._running:
-                            break
-                        elif not events:
-                            self.notify()
-                        else:
-                            for (fd, _) in events:
-                                if fd == self._inotify_fd:
-                                    self._handle_events()
+                self._process_events(poll_obj)
             finally:
-                with self._lock:
-                    if self._inotify_fd is not None:
-                        os.close(self._inotify_fd)
-                        self._inotify_fd = None
-                    if self._pipe_r is not None:
-                        os.close(self._pipe_r)
-                        self._pipe_r = None
-                        os.close(self._pipe_w)
-                        self._pipe_w = None
+                self._close_fds()
+
+        def _process_events(self, poll_obj):
+            while self._running:
+                if self._pending:
+                    timeout = self._NOTIFICATION_DELAY
+                else:
+                    timeout = None
+                try:
+                    events = poll_obj.poll(timeout)
+                # pylint: disable=duplicate-except
+                except (OSError, select.error):
+                    continue
+                else:
+                    if not self._running:
+                        break
+                    elif not events:
+                        self.notify()
+                    else:
+                        for (fd, _) in events:
+                            if fd == self._inotify_fd:
+                                self._handle_events()
+
+        def _close_fds(self):
+            with self._lock:
+                if self._inotify_fd is not None:
+                    os.close(self._inotify_fd)
+                    self._inotify_fd = None
+                if self._pipe_r is not None:
+                    os.close(self._pipe_r)
+                    self._pipe_r = None
+                    os.close(self._pipe_w)
+                    self._pipe_w = None
 
         def refresh(self):
             with self._lock:
@@ -285,9 +287,8 @@ if AVAILABLE == 'inotify':
                         # This error can occur if the target of the wd was
                         # removed on the filesystem before we call
                         # inotify.rm_watch() so ignore it.
-                        pass
-                    else:
-                        raise
+                        continue
+                    raise e
             for path in paths_to_watch - watched_paths:
                 try:
                     wd = inotify.add_watch(self._inotify_fd, core.encode(path),
@@ -301,9 +302,8 @@ if AVAILABLE == 'inotify':
                         # directory referenced by path was replaced with a file
                         # before the call to inotify.add_watch().  Therefore we
                         # simply ignore them.
-                        pass
-                    else:
-                        raise
+                        continue
+                    raise e
                 else:
                     wd_to_path_map[wd] = path
                     path_to_wd_map[path] = wd
@@ -324,7 +324,7 @@ if AVAILABLE == 'inotify':
                     self._force_notify = True
             elif wd == self._git_dir_wd:
                 name = core.decode(name)
-                if name == 'HEAD' or name == 'index':
+                if name in ('HEAD', 'index'):
                     self._force_notify = True
                 elif name == 'config':
                     self._force_config = True
@@ -422,15 +422,6 @@ if AVAILABLE == 'pywin32':
         @staticmethod
         def _transform_path(path):
             return path.replace('\\', '/').lower()
-
-        def _read_watch(self, watch):
-            if win32event.WaitForSingleObject(watch.event, 0) \
-                    == win32event.WAIT_TIMEOUT:
-                nbytes = 0
-            else:
-                nbytes = win32file.GetOverlappedResult(watch.handle,
-                                                       watch.overlapped, False)
-            return win32file.FILE_NOTIFY_INFORMATION(watch.buffer, nbytes)
 
         def run(self):
             try:

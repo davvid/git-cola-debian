@@ -253,19 +253,21 @@ def run_command(cmd, *args, **kwargs):
 
 
 @interruptable
-def _fork_posix(args, cwd=None):
+def _fork_posix(args, cwd=None, shell=False):
     """Launch a process in the background."""
     encoded_args = [encode(arg) for arg in args]
-    return subprocess.Popen(encoded_args, cwd=cwd).pid
+    return subprocess.Popen(encoded_args, cwd=cwd, shell=shell).pid
 
 
-def _fork_win32(args, cwd=None):
+def _fork_win32(args, cwd=None, shell=False):
     """Launch a background process using crazy win32 voodoo."""
     # This is probably wrong, but it works.  Windows.. wow.
     if args[0] == 'git-dag':
         # win32 can't exec python scripts
         args = [sys.executable] + args
-    args[0] = _win32_find_exe(args[0])
+
+    if not shell:
+        args[0] = _win32_find_exe(args[0])
 
     if PY3:
         # see comment in start_command()
@@ -274,7 +276,8 @@ def _fork_win32(args, cwd=None):
         argv = [encode(arg) for arg in args]
 
     DETACHED_PROCESS = 0x00000008  # Amazing!
-    return subprocess.Popen(argv, cwd=cwd, creationflags=DETACHED_PROCESS).pid
+    return subprocess.Popen(argv, cwd=cwd, creationflags=DETACHED_PROCESS,
+                            shell=shell).pid
 
 
 def _win32_find_exe(exe):
@@ -382,6 +385,7 @@ exists = wrap(mkpath, os.path.exists)
 expanduser = wrap(encode, os.path.expanduser, decorator=decode)
 if PY2:
     if hasattr(os, 'getcwdu'):
+        # pylint: disable=no-member
         getcwd = os.getcwdu
     else:
         getcwd = decorate(decode, os.getcwd)

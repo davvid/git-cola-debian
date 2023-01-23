@@ -247,7 +247,9 @@ class OrderedDict(dict):
         return d
 
     def __hash__(self):
-        return dict.__hash__(self)
+        """Stable hash value"""
+        # pylint: disable=dict-items-not-iterating
+        return hash(frozenset(self.items()))
 
     def __eq__(self, other):
         '''od.__eq__(y) <==> od==y.  Comparison to another OD is order-sensitive

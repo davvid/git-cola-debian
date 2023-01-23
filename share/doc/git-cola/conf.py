@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-import sys, os
+import os
+import sys
 
 # Add the cola source directory to sys.path
 abspath = os.path.abspath(os.path.realpath(__file__))
@@ -36,7 +37,7 @@ release = version
 exclude_trees = ['_build']
 add_function_parentheses = True
 pygments_style = 'default'
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'default'
 html_theme_path = ['_themes']
 html_static_path = ['_static']
 html_show_sourcelink = True
