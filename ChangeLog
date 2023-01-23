@@ -1,7 +1,252 @@
-git-cola: 1.3.0.3.g5ea2
-bottled-on: Fri Nov  7 22:59:09 PST 2008
+git-cola: 1.3.2
+bottled-on: Tue Nov 18 03:32:53 PST 2008
 
-commit 5ea2f4ea88a0c8d09ad6496a28aadb7eebcde166 (refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+commit 3d0c28af19ce1a2872af9bbcf2594582e99571c4 (tag: refs/tags/v1.3.2, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 18 03:35:25 2008 -0800
+
+    gui: fix the gui settings save/restore
+    
+    The defaults module was removed in the process of refactoring the gui
+    settings save/restore functionality.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 72cdd4a7bdff5e6b916da24babdf4ae9d45ef646
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 18 03:33:31 2008 -0800
+
+    main: call git update-index before importing the version module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c469d17e63041025ca33a8e4c71944d545205d64
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 18 03:32:39 2008 -0800
+
+    git: make the git module independent of the exceptions module
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 82b89d5fe90f6e7cf17626113fc9afc218ad236f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 18 03:31:47 2008 -0800
+
+    core: assume utf-8 when no other encodings are able to decode a string
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e7b75f26c301c5fba2b4fb718973bb23f206a92a
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 18 03:30:21 2008 -0800
+
+    cola: add more documentation strings to the cola modules
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 58ad4f099af09510ba7a1768314962f64de294e4
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 18 02:09:05 2008 -0800
+
+    version: remove the git update-index call to improve startup time
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8470c27b9d302f169a33cbcfc75cc03eb0bd126c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 16 21:48:11 2008 -0800
+
+    Makefile: add an uninstall target
+    
+    This target allows users to easily uninstall cola.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit e2437f96053a001bf29d191610bffedaad2ecd61
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sun Nov 16 21:47:34 2008 -0800
+
+    INSTALL: mention some build issues encountered by users
+    
+    Issues with pyuic4 and PyQt were added to the INSTALL guide.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 60675e650badc21d81e8e16056d0f8144ae2df8e
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 15 06:16:54 2008 -0800
+
+    unicode: use core.encode() and core.decode() throughout git-cola
+    
+    This retrofits git-cola to use the new core encoding module.
+    This centralizes all of the encoding duties so that we can modify them
+    as needed.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit c54dfa941f9c4b5e729089e17a94f28e2cde219c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Sat Nov 15 06:15:19 2008 -0800
+
+    core: add a core module for holding core encoding routines, for now
+    
+    This creates generic core.encode() and core.decode() routines from the
+    encoding-guessing patch provided by David Martínez Martí.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 1ef6f5ef638e17ddd98094027413e07aa4590800
+Author: David Martínez Martí <deavidsedice@gmail.com>
+Date:   Fri Nov 14 17:13:25 2008 +0100
+
+    Guess the correct encoding for each diff line.
+    
+    Git can handle any type of file, whatever encoding it uses
+    (or a broken one). Git-cola must not fail (or complain) when
+    trying to show that data.
+    
+    Git-cola only handles utf8 in diffs, which is not very useful
+    when your project has different encodings.
+    
+    This patch adds a very simple encoding guess for each line.
+    Do not try to do this at the whole file, because it is useful
+    when you are viewing a diff of a encode change.
+    
+    Signed-off-by: David Martínez Martí <deavidsedice@gmail.com>
+
+commit df58c910bef4e706b790d60c0d854d7664c5dd8f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 13 23:04:52 2008 -0800
+
+    controllers: optimize delete_files by only calling rescan() once
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit af7cc1b05922299196237409af351fae9d4dadb5
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 13 23:04:23 2008 -0800
+
+    models: do not list a file in both the unmerged and modified sections
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit eca3d33342076104ad544405eab55808837b9a4c
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 13 17:50:47 2008 -0800
+
+    git: check for errno.EINTR when handling interrupted system calls
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 904c7a681c208dd19cc9211043170ad2b2d2e154
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 13 17:35:51 2008 -0800
+
+    ui: remove the sortingEnabled property to allow qt 4.1.x compatibility
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 44f2c3c95d08f0a1faaaf65129c98a24850f6b9f
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 13 00:22:05 2008 -0800
+
+    context menu: simplify the context menus in the right-click menu
+    
+    This simplifies both the code creating the context menus and improves the
+    order in which items appear in the menu.  This moves the common operations
+    to the top of each context menu permutation and adds separators to delineate
+    less common/dangerous operations.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit d70f7230de5e606e97d1f897e82a842693500f24
+Author: David Aguilar <davvid@gmail.com>
+Date:   Thu Nov 13 00:19:46 2008 -0800
+
+    controllers: disable single and double-click staging for unmerged items
+    
+    Accidentally staging an unmerged file loses the ability to launch
+    git mergetool on the unmerged path.  This disables the convenient
+    staging UI shortcuts for unmerged paths so that someone doesn't
+    accidentally stage a file they are still merging.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 8df5059755371658fec78e81140fd7363377fb83
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 12 23:42:46 2008 -0800
+
+    models: clear out the unmerged list when checking for updates
+    
+    The unmerged list was never getting reset, is bad since we'd end
+    up in an incorrect state.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5b2fb776a6bd64ad87e99d81984c4dca471a15a8
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 12 23:36:36 2008 -0800
+
+    controllers: extend delete_file to delete multiple files
+    
+    delete_files now respects multiple selection in the status tree.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 08709bf2964ec6a5a6a5ca4a08f2fca12598ce46
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 12 23:35:50 2008 -0800
+
+    views: fix a bug when selecting an untracked item
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 58831dedc00fbfdc1bbf0355bbf1b5cc7db8b770
+Author: Barry Roberts <blr@robertsr.us>
+Date:   Thu Nov 13 00:07:49 2008 -0700
+
+    Add "delete" context menu to untracked files
+    
+    Signed-off-by: Barry Roberts <blr@robertsr.us>
+
+commit 2e5c32841cb8a450f1dfe3b60c718228f289ff51 (tag: refs/tags/v1.3.1)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 12 02:47:53 2008 -0800
+
+    cola: completely rework the cola user interface
+    
+    git-cola now provides a repository status view that closely matches the
+    output of 'git status'.
+    
+    The staged and unstaged lists were replaced by a single tree view.
+    Likewise, rest of the UI was simplified to account for this --
+    e.g. there are no more dock widgets in use.
+    
+    New icons were added for the Staged, Modified, and Unmerged categories.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 6e8c1357ba538684a2b9e8244d123196f0e611e6 (refs/remotes/origin/maint)
+Author: David Aguilar <davvid@gmail.com>
+Date:   Wed Nov 12 02:43:55 2008 -0800
+
+    views: allow arbitrary input in the combobox and listwidget choosers
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit a55a4486e20512926837e086cd4731ff476cea23
+Author: David Aguilar <davvid@gmail.com>
+Date:   Tue Nov 11 20:24:55 2008 -0800
+
+    controllers: import new merge messages if they're available
+    
+    Previously, we would only import new merge messages at startup.
+    We now 'git hash-object' the merge messages and import new ones
+    whenever the hash changes.
+    
+    Signed-off-by: David Aguilar <davvid@gmail.com>
+
+commit 5ea2f4ea88a0c8d09ad6496a28aadb7eebcde166
 Author: David Aguilar <davvid@gmail.com>
 Date:   Fri Nov 7 22:46:06 2008 -0800
 

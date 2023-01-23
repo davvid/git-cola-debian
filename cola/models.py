@@ -1,4 +1,7 @@
 # Copyright (c) 2008 David Aguilar
+"""This module provides the cola model class.
+"""
+
 import os
 import sys
 import re
@@ -9,6 +12,7 @@ from cStringIO import StringIO
 from cola import git
 from cola import utils
 from cola import model
+from cola.core import encode, decode
 
 #+-------------------------------------------------------------------------
 #+ A regex for matching the output of git(log|rev-list) --pretty=oneline
@@ -93,7 +97,7 @@ class GitCola(git.Git):
 def eval_path(path):
     """handles quoted paths."""
     if path.startswith('"') and path.endswith('"'):
-        return eval(path).decode('utf-8')
+        return decode(eval(path))
     else:
         return path
 
@@ -130,6 +134,7 @@ class Model(model.Model):
             #####################################################
             # Used in various places
             currentbranch = '',
+            directory = '',
             remotes = [],
             remotename = '',
             local_branch = '',
@@ -144,7 +149,6 @@ class Model(model.Model):
             unstaged = [],
             untracked = [],
             unmerged = [],
-            show_untracked = True,
 
             #####################################################
             # Used by the create branch dialog
@@ -155,7 +159,6 @@ class Model(model.Model):
 
             #####################################################
             # Used by the commit/repo browser
-            directory = '',
             revisions = [],
             summaries = [],
 
@@ -278,7 +281,7 @@ class Model(model.Model):
 
     def get_diff_filenames(self, arg):
         diff_zstr = self.git.diff(arg, name_only=True, z=True).rstrip('\0')
-        return [ f.decode('utf-8') for f in diff_zstr.split('\0') if f ]
+        return [ decode(f) for f in diff_zstr.split('\0') if f ]
 
     def branch_list(self, remote=False):
         branches = map(lambda x: x.lstrip('* '),
@@ -379,7 +382,7 @@ class Model(model.Model):
                 self.subtree_sha1s.append(self.sha1s[idx])
                 self.subtree_names.append(name)
 
-    def add_or_remove(self, *to_process):
+    def add_or_remove(self, to_process):
         """Invokes 'git add' to index the filenames in to_process that exist
         and 'git rm' for those that do not exist."""
 
@@ -390,7 +393,7 @@ class Model(model.Model):
         to_remove = []
 
         for filename in to_process:
-            encfilename = filename.encode('utf-8')
+            encfilename = encode(filename)
             if os.path.exists(encfilename):
                 to_add.append(filename)
 
@@ -461,7 +464,7 @@ class Model(model.Model):
 
     def load_commitmsg(self, path):
         file = open(path, 'r')
-        contents = file.read().decode('utf-8')
+        contents = decode(file.read())
         file.close()
         self.set_commitmsg(contents)
 
@@ -469,7 +472,7 @@ class Model(model.Model):
         """Queries git for the latest commit message and sets it in
         self.commitmsg."""
         commit_msg = []
-        commit_lines = self.git.show('HEAD').decode('utf-8').split('\n')
+        commit_lines = decode(self.git.show('HEAD')).split('\n')
         for idx, msg in enumerate(commit_lines):
             if idx < 4:
                 continue
@@ -493,45 +496,14 @@ class Model(model.Model):
         notify_enabled = self.get_notify()
         self.set_notify(False)
 
-        # Reset the staged and unstaged model lists
-        # NOTE: the model's unstaged list is used to
-        # hold both modified and untracked files.
-        self.staged = []
-        self.modified = []
-        self.untracked = []
-
-        # Read git status items
-        (staged_items,
-         modified_items,
-         untracked_items,
-         unmerged_items) = self.get_workdir_state(amend=amend)
-
-        # Gather items to be committed
-        for staged in staged_items:
-            if staged not in self.get_staged():
-                self.add_staged(staged)
-
-        # Gather unindexed items
-        for modified in modified_items:
-            if modified not in self.get_modified():
-                self.add_modified(modified)
-
-        # Gather untracked items
-        for untracked in untracked_items:
-            if untracked not in self.get_untracked():
-                self.add_untracked(untracked)
-
-        # Gather unmerged items
-        for unmerged in unmerged_items:
-            if unmerged not in self.get_unmerged():
-                self.add_unmerged(unmerged)
-
+        (self.staged,
+         self.modified,
+         self.unmerged,
+         self.untracked) = self.get_workdir_state(amend=amend)
+        # NOTE: the model's unstaged list holds an aggregate of the
+        # the modified, unmerged, and untracked file lists.
+        self.set_unstaged(self.modified + self.unmerged + self.untracked)
         self.set_currentbranch(self.current_branch())
-        if self.get_show_untracked():
-            self.set_unstaged(self.get_modified() + self.get_unmerged() +
-                              self.get_untracked())
-        else:
-            self.set_unstaged(self.get_modified() + self.get_unmerged())
         self.set_remotes(self.git.remote().splitlines())
         self.set_remote_branches(self.branch_list(remote=True))
         self.set_local_branches(self.branch_list(remote=False))
@@ -584,7 +556,7 @@ class Model(model.Model):
         filename = self.get_filename(idx, staged=staged)
         if not filename:
             return (None, None, None)
-        encfilename = filename.encode('utf-8')
+        encfilename = encode(filename)
         if staged:
             if os.path.exists(encfilename):
                 status = 'Staged for commit'
@@ -622,7 +594,7 @@ class Model(model.Model):
         return output
 
     def stage_untracked(self):
-        output = self.git.add(self.get_untracked())
+        output = self.git.add(*self.get_untracked())
         self.update_status()
         return output
 
@@ -632,11 +604,36 @@ class Model(model.Model):
         return output
 
     def unstage_all(self):
-        self.git.reset('--', *self.get_staged())
+        output = self.git.reset()
         self.update_status()
+        return output
 
-    def save_gui_settings(self):
-        self.config_set('cola.geometry', utils.get_geom(), local=False)
+    def stage_all(self):
+        output = self.git.add(v=True,u=True)
+        self.update_status()
+        return output
+
+    def get_window_geom(self):
+        return self.parse_geom_str(self.get_cola_config('geometry'))
+
+    def set_window_geom(self, w, h, x, y):
+        self._w = w
+        self._h = h
+        self._x = x
+        self._y = y
+        self.config_set('cola.geometry', '%dx%d+%d,%d' % self.window_geom(),
+                        local=False)
+
+    def window_geom(self):
+        return (self._w, self._h, self._x, self._y)
+
+    def parse_geom_str(self, geomstr):
+        regex = re.compile('^(\d+)x(\d+)\+(\d+),(\d+).*?')
+        match = regex.match(geomstr)
+        if match:
+            self.set_window_geom(int(match.group(1)), int(match.group(2)),
+                                 int(match.group(3)), int(match.group(4)))
+        return self.window_geom()
 
     def config_set(self, key=None, value=None, local=True):
         if key and value is not None:
@@ -665,7 +662,7 @@ class Model(model.Model):
         newdict = {}
         for line in config_lines:
             k, v = line.split('=', 1)
-            v = v.decode('utf-8')
+            v = decode(v)
             k = k.replace('.','_') # git -> model
             if v == 'true' or v == 'false':
                 v = bool(eval(v.title()))
@@ -786,7 +783,7 @@ class Model(model.Model):
         del_tag = 'deleted file mode '
 
         headers = []
-        deleted = cached and not os.path.exists(filename.encode('utf-8'))
+        deleted = cached and not os.path.exists(encode(filename))
 
         diffoutput = self.git.diff(R=reverse,
                                    cached=cached,
@@ -795,19 +792,18 @@ class Model(model.Model):
                                    with_raw_output=True,
                                    *argv)
         diff = diffoutput.splitlines()
-        for line in diff:
-            line = unicode(line.decode('utf-8'))
+        for line in map(decode, diff):
             if not start and '@@' == line[:2] and '@@' in line[2:]:
                 start = True
             if start or(deleted and del_tag in line):
-                output.write(line.encode('utf-8') + '\n')
+                output.write(encode(line) + '\n')
             else:
                 if with_diff_header:
                     headers.append(line)
                 elif not suppress_header:
-                    output.write(line.encode('utf-8') + '\n')
+                    output.write(encode(line) + '\n')
 
-        result = output.getvalue().decode('utf-8')
+        result = decode(output.getvalue())
         output.close()
 
         if with_diff_header:
@@ -852,20 +848,20 @@ class Model(model.Model):
         head = 'HEAD'
         if amend:
             head = 'HEAD^'
-        (staged, unstaged, unmerged, untracked) = ([], [], [], [])
+        (staged, modified, unmerged, untracked) = ([], [], [], [])
         try:
             for name in self.git.diff_index(head).splitlines():
                 rest, name = name.split('\t')
                 status = rest[-1]
                 name = eval_path(name)
                 if status == 'M' or status == 'D':
-                    unstaged.append(name)
+                    modified.append(name)
         except:
             # handle git init
             for name in (self.git.ls_files(modified=True, z=True)
                                  .split('\0')):
                 if name:
-                    unstaged.append(name.decode('utf-8'))
+                    modified.append(decode(name))
 
         try:
             for name in (self.git.diff_index(head, cached=True)
@@ -878,30 +874,35 @@ class Model(model.Model):
                     # is this file partially staged?
                     diff = self.git.diff('--', name, name_only=True, z=True)
                     if not diff.strip():
-                        unstaged.remove(name)
+                        modified.remove(name)
                     else:
                         self.partially_staged.add(name)
                 elif status == 'A':
                     staged.append(name)
                 elif status == 'D':
                     staged.append(name)
-                    unstaged.remove(name)
+                    modified.remove(name)
                 elif status == 'U':
                     unmerged.append(name)
         except:
             # handle git init
             for name in self.git.ls_files(z=True).strip('\0').split('\0'):
                 if name:
-                    staged.append(name.decode('utf-8'))
+                    staged.append(decode(name))
 
         for name in self.git.ls_files(others=True, exclude_standard=True,
                                       z=True).split('\0'):
             if name:
-                untracked.append(name.decode('utf-8'))
+                untracked.append(decode(name))
 
-        return (staged, unstaged, untracked, unmerged)
+        # remove duplicate merged and modified entries
+        for u in unmerged:
+            if u in modified:
+                modified.remove(u)
 
-    def reset_helper(self, *args):
+        return (staged, modified, unmerged, untracked)
+
+    def reset_helper(self, args):
         """Removes files from the index.
         This handles the git init case, which is why it's not
         just git.reset(name).
@@ -1064,7 +1065,7 @@ class Model(model.Model):
         commit_list = self.parse_rev_list(rev_list)
         commit_list.reverse()
         commits = map(lambda x: x[0], commit_list)
-        descriptions = map(lambda x: x[1].decode('utf-8'), commit_list)
+        descriptions = map(lambda x: decode(x[1]), commit_list)
         if show_versions:
             fancy_descr_list = map(lambda x: self.describe(*x), commit_list)
             self.set_descriptions_start(fancy_descr_list)
@@ -1081,8 +1082,7 @@ class Model(model.Model):
     def get_changed_files(self, start, end):
         zfiles_str = self.git.diff('%s..%s' % (start, end),
                                    name_only=True, z=True).strip('\0')
-        return [ enc.decode('utf-8')
-                    for enc in zfiles_str.split('\0') if enc ]
+        return [ decode(enc) for enc in zfiles_str.split('\0') if enc ]
 
     def get_renamed_files(self, start, end):
         files = []

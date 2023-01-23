@@ -1,13 +1,18 @@
 # Copyright(C) 2008, David Aguilar <davvid@gmail.com>
+"""This module provides the main() routine used by the
+git-cola launcher script.
+"""
 
 import optparse
 import sys
 import os
 
 from cola import utils
-from cola import version
+
 
 def main():
+    """Parses the command-line arguments and starts git-cola.
+    """
     parser = optparse.OptionParser(usage='%prog [options]')
 
     parser.add_option('-v', '--version',
@@ -29,6 +34,9 @@ def main():
     opts, args = parser.parse_args()
 
     if opts.version or 'version' in args:
+        from cola import git
+        git.Git.execute(['git', 'update-index', '--refresh'])
+        from cola import version
         print "cola version", version.version
         sys.exit(0)
 
@@ -58,9 +66,12 @@ def main():
                 trtxt = trtxt[:-6]
             return trtxt
 
+    # Initialize the ap
     app = ColaApplication(sys.argv)
-    QtGui.QApplication.translate = app.translate
     app.setWindowIcon(QtGui.QIcon(utils.get_icon('git.png')))
+
+    # Handle i18n -- load translation files and install a translator
+    QtGui.QApplication.translate = app.translate
     locale = str(QtCore.QLocale().system().name())
     qmfile = utils.get_qm_for_locale(locale)
     if os.path.exists(qmfile):
@@ -94,6 +105,7 @@ def main():
             print >> sys.stderr, ("warn: '%s' is not a valid style."
                                   % opts.style)
 
+    # Initialize the model/view/controller framework
     from cola.models import Model
     from cola.views import View
     from cola.controllers import Controller
@@ -101,14 +113,17 @@ def main():
     model = Model()
     view = View(app.activeWindow())
 
+    # Ensure that we're working in a valid git repository.
+    # If not, try to find one.  When found, chdir there.
     valid = model.use_worktree(repo)
     while not valid:
         gitdir = qtutils.opendir_dialog(view, 'Open Git Repository...', os.getcwd())
         if not gitdir:
             sys.exit(-1)
         valid = model.use_worktree(gitdir)
-
     os.chdir(model.git.get_work_tree())
-    ctl = Controller(model, view)
+
+    # Show the GUI and start the event loop
     view.show()
+    ctl = Controller(model, view)
     sys.exit(app.exec_())
