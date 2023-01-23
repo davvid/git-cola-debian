@@ -1,3 +1,242 @@
+git-cola v2.0.5
+===============
+Usability, bells and whistles
+-----------------------------
+* New Brazillian Portuguese translation thanks to Vitor Lobo.
+
+* New Indonesian translation thanks to Samsul Ma'arif.
+
+* Updated Simplified Chinese translation thanks to Zhang Han.
+
+* `Ctrl+Backspace` is now a hotkey for "delete untracked files" in
+  the status widget.
+
+* Fetch/Push/Pull dialogs now use the configured remote of the current
+  branch by default.
+
+  https://github.com/git-cola/git-cola/pull/324
+
+Fixes
+-----
+* We now use `os.getcwd()` on Python3.
+
+  https://github.com/git-cola/git-cola/pull/316
+
+  https://github.com/git-cola/git-cola/pull/326
+
+* The `Ctrl+P` hotkey was overloaded to both "push" and "cherry-pick",
+  so "cherry-pick" was moved to `Shift+Ctrl+C`.
+
+* Custom GUI tools with mixed-case names are now properly supported.
+
+* "Diff Region" is now referred to as "Diff Hunk" for consistency
+  with common terminology from diff/patch tools.
+
+  https://github.com/git-cola/git-cola/issues/328
+
+* git-cola's test suite is now portable to MS Windows.
+
+  https://github.com/git-cola/git-cola/pull/332
+
+git-cola v2.0.4
+===============
+Usability, bells and whistles
+-----------------------------
+* We now handle the case when inotify `add_watch()` fails
+  and display instructions on how to increase the number of watches.
+
+  https://github.com/git-cola/git-cola/issues/263
+
+* New and improved zh_TW localization thanks to Ｖ字龍(Vdragon).
+
+  https://github.com/git-cola/git-cola/pull/265
+
+  https://github.com/git-cola/git-cola/pull/267
+
+  https://github.com/git-cola/git-cola/pull/268
+
+  https://github.com/git-cola/git-cola/issues/269
+
+  https://github.com/git-cola/git-cola/pull/270
+
+  https://github.com/git-cola/git-cola/pull/271
+
+  https://github.com/git-cola/git-cola/pull/272
+
+* New hotkeys: `Ctrl+F` for fetch, `Ctrl+P` for push,
+  and `Shift+Ctrl+P` for pull.
+
+* The bookmarks widget's context menu actions were made clearer.
+
+  https://github.com/git-cola/git-cola/issues/281
+
+* The term "Staging Area" is used consistently in the UI
+  to allow for better localization.
+
+  https://github.com/git-cola/git-cola/issues/283
+
+* The "Section" term is now referred to as "Diff Region"
+  in the UI.
+
+  https://github.com/git-cola/git-cola/issues/297
+
+* The localization documentation related to the LANGUAGE
+  environment variable was improved.
+
+  https://github.com/git-cola/git-cola/pull/293
+
+* The "Actions" panel now contains tooltips for each button
+  in case the button labels gets truncated by Qt.
+
+  https://github.com/git-cola/git-cola/issues/292
+
+* Custom `git config`-defined actions can now be run in the
+  background by setting `guitool.<name>.background` to `true`.
+
+Fixes
+-----
+* We now use bold fonts instead of SmallCaps to avoid
+  artifacts on several configurations.
+
+* We now pickup `user.email`, `cola.tabwidth`, and similar settings
+  when defined in /etc/gitconfig.
+
+  https://github.com/git-cola/git-cola/issues/259
+
+* Better support for unicode paths when using inotify.
+
+  https://bugzilla.redhat.com/show_bug.cgi?id=1104181
+
+* Unicode fixes for non-ascii locales.
+
+  https://github.com/git-cola/git-cola/issues/266
+
+  https://github.com/git-cola/git-cola/issues/273
+
+  https://github.com/git-cola/git-cola/issues/276
+
+  https://github.com/git-cola/git-cola/issues/282
+
+  https://github.com/git-cola/git-cola/issues/298
+
+  https://github.com/git-cola/git-cola/issues/302
+
+  https://github.com/git-cola/git-cola/issues/303
+
+  https://github.com/git-cola/git-cola/issues/305
+
+* Viewing history from the file browser was fixed for Python3.
+
+  https://github.com/git-cola/git-cola/issues/274
+
+* setup.py was fixed to install the `*.rst` documentation.
+
+  https://github.com/git-cola/git-cola/issues/279
+
+* Patch export was fixed for Python3.
+
+  https://github.com/git-cola/git-cola/issues/290
+
+* Fixed adding a bookmark with trailing slashes.
+
+  https://github.com/git-cola/git-cola/pull/295
+
+* The default `git dag` layout is now setup so that its widgets
+  can be freely resized on Linux.
+
+  https://github.com/git-cola/git-cola/issues/299
+
+* Invalid tag names are now reported when creating tags.
+
+  https://github.com/git-cola/git-cola/pull/296
+
+git-cola v2.0.3
+===============
+Usability, bells and whistles
+-----------------------------
+* `git cola` no longer prompts after successfully creating a new branch.
+
+  https://github.com/git-cola/git-cola/pull/251
+
+* Hitting enter on simple dialogs now accepts them.
+
+  https://github.com/git-cola/git-cola/pull/255
+
+Fixes
+-----
+* `git dag` no longer relies on `sys.maxint`, which is
+  not available in Python3.
+
+  https://github.com/git-cola/git-cola/issues/249
+
+* Python3-related fixes.
+
+  https://github.com/git-cola/git-cola/pull/254
+
+* Python3-on-Windows-related fixes.
+
+  https://github.com/git-cola/git-cola/pull/250
+
+  https://github.com/git-cola/git-cola/pull/252
+
+  https://github.com/git-cola/git-cola/pull/253
+
+* Switching repositories using the bookmarks widget was not
+  refreshing the inotify watcher.
+
+  https://github.com/git-cola/git-cola/pull/256
+
+* Special commit messages trailers (e.g. "Acked-by:") are now special-cased to
+  fix word wrapping lines that start with "foo:".
+
+  https://github.com/git-cola/git-cola/issues/257
+
+* `git dag` sometimes left behind selection artifacts.
+  We now refresh the view to avoid them.
+
+  https://github.com/git-cola/git-cola/issues/204
+
+git-cola v2.0.2
+===============
+Usability, bells and whistles
+-----------------------------
+* Better inotify support for file creation and deletion.
+
+  https://github.com/git-cola/git-cola/issues/240
+
+* `git cola` now supports the X11 Session Management Protocol
+  and remembers its state across logout/reboot.
+
+  https://github.com/git-cola/git-cola/issues/164
+
+* `git cola` has a new icon.
+
+  https://github.com/git-cola/git-cola/issues/190
+
+Packaging
+---------
+* Building the documentation no longer requires `asciidoc`.
+  We now use `Sphinx <http://sphinx-doc.org/>`_ for building
+  html documentation and man pages.
+
+Fixes
+-----
+* Reworked the git-dag gravatar icon code to avoid a unicode
+  error in Python 2.
+
+* Commit message line-wrapping was made to better match the GUI editor.
+
+  https://github.com/git-cola/git-cola/issues/242
+
+* Better support for Python3 on Windows
+
+  https://github.com/git-cola/git-cola/issues/246
+
+Packaging
+---------
+* git-cola no longer depends on Asciidoc for building its documentation
+  and man-pages.  We now depend on [Sphinx](http://sphinx-doc.org/) only.
+
 git-cola v2.0.1
 ===============
 Usability, bells and whistles
@@ -256,7 +495,7 @@ Usability, bells and whistles
 
   https://github.com/git-cola/git-cola/pull/175
 
-* Ctrl+M can now be used to toggle the "Amend last commit"
+* `Ctrl+M` can now be used to toggle the "Amend last commit"
   checkbox in the commit message editor.
 
   https://github.com/git-cola/git-cola/pull/161
@@ -341,9 +580,9 @@ Usability, bells and whistles
 -----------------------------
 * `git dag` got a big visual upgrade.
 
-* Ctrl+G now launches the "Grep" tool.
+* `Ctrl+G` now launches the "Grep" tool.
 
-* Ctrl+D launches difftool and Ctrl+E launches your editor
+* `Ctrl+D` launches difftool and `Ctrl+E` launches your editor
   when in the diff panel.
 
 * git-cola can now be told to use an alternative language.

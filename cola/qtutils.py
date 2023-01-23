@@ -294,6 +294,13 @@ def icon(basename):
     return QtGui.QIcon(resources.icon(basename))
 
 
+def copy_path(filename):
+        """Copy a filename prefixed by current directory to the clipboard"""
+        if filename is not None:
+            curdir = core.getcwd()
+            set_clipboard(os.path.join(curdir, filename))
+
+
 def set_clipboard(text):
     """Sets the copy/paste buffer to text."""
     if not text:
@@ -592,7 +599,7 @@ class DockTitleBarWidget(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
         self.label = label = QtGui.QLabel()
         font = label.font()
-        font.setCapitalization(QtGui.QFont.SmallCaps)
+        font.setBold(True)
         label.setFont(font)
         label.setText(title)
 

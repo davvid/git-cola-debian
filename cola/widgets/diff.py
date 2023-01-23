@@ -79,11 +79,12 @@ class DiffEditor(DiffTextEdit):
         titlebar.add_corner_widget(self.diffopts_button)
 
         self.action_process_section = qtutils.add_action(self,
-                N_('Process Section'),
+                N_('Process Diff Hunk'),
                 self.apply_section, Qt.Key_H)
         self.action_process_selection = qtutils.add_action(self,
                 N_('Process Selection'),
                 self.apply_selection, Qt.Key_S)
+        self.action_process_selection.setEnabled(False)
 
         self.launch_editor = qtutils.add_action(self,
                 cmds.LaunchEditor.name(), run(cmds.LaunchEditor),
@@ -101,22 +102,20 @@ class DiffEditor(DiffTextEdit):
                 self.stage_selection)
         self.action_stage_selection.setIcon(qtutils.icon('add.svg'))
         self.action_stage_selection.setShortcut(Qt.Key_S)
+        self.action_stage_selection.setEnabled(False)
 
         self.action_revert_selection = qtutils.add_action(self,
                 N_('Revert Selected Lines...'),
                 self.revert_selection)
         self.action_revert_selection.setIcon(qtutils.icon('undo.svg'))
+        self.action_revert_selection.setEnabled(False)
 
         self.action_unstage_selection = qtutils.add_action(self,
                 N_('Unstage &Selected Lines'),
                 self.unstage_selection)
         self.action_unstage_selection.setIcon(qtutils.icon('remove.svg'))
         self.action_unstage_selection.setShortcut(Qt.Key_S)
-
-        self.action_apply_selection = qtutils.add_action(self,
-                N_('Apply Diff Selection to Work Tree'),
-                self.stage_selection)
-        self.action_apply_selection.setIcon(qtutils.apply_icon())
+        self.action_unstage_selection.setEnabled(False)
 
         model.add_observer(model.message_diff_text_changed, self._emit_text)
 
@@ -159,13 +158,13 @@ class DiffEditor(DiffTextEdit):
                                         core.abspath(s.modified[0])))
             elif s.modified:
                 action = menu.addAction(qtutils.icon('add.svg'),
-                                        N_('Stage Section'),
+                                        N_('Stage Diff Hunk'),
                                         self.stage_section)
                 action.setShortcut(Qt.Key_H)
                 menu.addAction(self.action_stage_selection)
                 menu.addSeparator()
                 menu.addAction(qtutils.icon('undo.svg'),
-                               N_('Revert Section...'),
+                               N_('Revert Diff Hunk...'),
                                self.revert_section)
                 menu.addAction(self.action_revert_selection)
 
@@ -181,7 +180,7 @@ class DiffEditor(DiffTextEdit):
                                        core.abspath(s.staged[0])))
             elif s.staged:
                 action = menu.addAction(qtutils.icon('remove.svg'),
-                                        N_('Unstage Section'),
+                                        N_('Unstage Diff Hunk'),
                                         self.unstage_section)
                 action.setShortcut(Qt.Key_H)
                 menu.addAction(self.action_unstage_selection)
@@ -279,7 +278,7 @@ class DiffEditor(DiffTextEdit):
 
     # Mutators
     def enable_selection_actions(self, enabled):
-        self.action_apply_selection.setEnabled(enabled)
+        self.action_process_selection.setEnabled(enabled)
         self.action_revert_selection.setEnabled(enabled)
         self.action_unstage_selection.setEnabled(enabled)
         self.action_stage_selection.setEnabled(enabled)
@@ -316,11 +315,11 @@ class DiffEditor(DiffTextEdit):
 
     def revert_section(self):
         """Destructively remove a section from a worktree file."""
-        if not qtutils.confirm(N_('Revert Section?'),
+        if not qtutils.confirm(N_('Revert Diff Hunk?'),
                                N_('This operation drops uncommitted changes.\n'
                                   'These changes cannot be recovered.'),
                                N_('Revert the uncommitted changes?'),
-                               N_('Revert Section'),
+                               N_('Revert Diff Hunk'),
                                default=True,
                                icon=qtutils.icon('undo.svg')):
             return
@@ -363,7 +362,7 @@ class DiffWidget(QtGui.QWidget):
         summary_font = QtGui.QFont(author_font)
         summary_font.setWeight(QtGui.QFont.Bold)
 
-        policy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding,
+        policy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding,
                                    QtGui.QSizePolicy.Minimum)
 
         self.gravatar_label = gravatar.GravatarLabel()

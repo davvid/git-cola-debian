@@ -14,6 +14,9 @@ import subprocess
 
 from cola.decorators import interruptable
 from cola.compat import ustr
+from cola.compat import PY2
+from cola.compat import PY3
+from cola.compat import WIN32
 
 # Some files are not in UTF-8; some other aren't in any codification.
 # Remember that GIT doesn't care about encodings (saves binary data)
@@ -53,9 +56,17 @@ def encode(string, encoding=None):
     return string.encode(encoding or 'utf-8', 'replace')
 
 
+def mkpath(path, encoding=None):
+    # The Windows API requires unicode strings regardless of python version
+    if WIN32:
+        return decode(path, encoding=encoding)
+    # UNIX prefers bytes
+    return encode(path, encoding=encoding)
+
+
 def read(filename, size=-1, encoding=None):
     """Read filename and return contents"""
-    with xopen(filename, 'r') as fh:
+    with xopen(filename, 'rb') as fh:
         return fread(fh, size=size, encoding=encoding)
 
 
@@ -89,11 +100,12 @@ def readline(fh, encoding=None):
 
 
 @interruptable
-def start_command(cmd, cwd=None, shell=False, add_env=None,
+def start_command(cmd, cwd=None, add_env=None,
                   universal_newlines=False,
                   stdin=subprocess.PIPE,
                   stdout=subprocess.PIPE,
-                  stderr=subprocess.PIPE):
+                  stderr=subprocess.PIPE,
+                  **extra):
     """Start the given command, and return a subprocess object.
 
     This provides a simpler interface to the subprocess module.
@@ -103,10 +115,30 @@ def start_command(cmd, cwd=None, shell=False, add_env=None,
     if add_env is not None:
         env = os.environ.copy()
         env.update(add_env)
-    cmd = [encode(c) for c in cmd]
+
+    if PY3:
+        # Python3 on windows always goes through list2cmdline() internally inside
+        # of subprocess.py so we must provide unicode strings here otherwise
+        # Python3 breaks when bytes are provided.
+        #
+        # Additionally, the preferred usage on Python3 is to pass unicode
+        # strings to subprocess.  Python will automatically encode into the
+        # default encoding (utf-8) when it gets unicode strings.
+        cmd = [decode(c) for c in cmd]
+    else:
+        cmd = [encode(c) for c in cmd]
+
+    if WIN32 and cwd == getcwd():
+        # Windows cannot deal with passing a cwd that contains unicode
+        # but we luckily can pass None when the supplied cwd is the same
+        # as our current directory and get the same effect.
+        # Not doing this causes unicode encoding errors when launching
+        # the subprocess.
+        cwd = None
+
     return subprocess.Popen(cmd, bufsize=1, stdin=stdin, stdout=stdout,
-                            stderr=stderr, cwd=cwd, shell=shell, env=env,
-                            universal_newlines=universal_newlines)
+                            stderr=stderr, cwd=cwd, env=env,
+                            universal_newlines=universal_newlines, **extra)
 
 
 @interruptable
@@ -143,35 +175,51 @@ def _fork_win32(args, cwd=None):
     if args[0] == 'git-dag':
         # win32 can't exec python scripts
         args = [sys.executable] + args
+    args[0] = _win32_find_exe(args[0])
 
-    argv = [encode(arg) for arg in args]
-    abspath = _win32_abspath(argv[0])
-    if abspath:
-        # e.g. fork(['git', 'difftool', '--no-prompt', '--', 'path'])
-        argv[0] = abspath
+    if PY3:
+        # see comment in start_command()
+        argv = [decode(arg) for arg in args]
     else:
-        # e.g. fork(['gitk', '--all'])
-        cmdstr = subprocess.list2cmdline(argv)
-        sh_exe = _win32_abspath('sh')
-        argv = [sh_exe, '-c', cmdstr]
-
+        argv = [encode(arg) for arg in args]
     DETACHED_PROCESS = 0x00000008 # Amazing!
     return subprocess.Popen(argv, cwd=cwd, creationflags=DETACHED_PROCESS).pid
 
 
-def _win32_abspath(exe):
-    """Return the absolute path to an .exe if it exists"""
-    if exists(exe):
-        return exe
-    if not exe.endswith('.exe'):
-        exe += '.exe'
-    if exists(exe):
-        return exe
-    for path in getenv('PATH', '').split(os.pathsep):
-        abspath = os.path.join(path, exe)
-        if exists(abspath):
-            return abspath
-    return None
+def _win32_find_exe(exe):
+    """Find the actual file for a Windows executable.
+
+    This function goes through the same process that the Windows shell uses to
+    locate an executable, taking into account the PATH and PATHEXT environment
+    variables.  This allows us to avoid passing shell=True to subprocess.Popen.
+
+    For reference, see:
+    http://technet.microsoft.com/en-us/library/cc723564.aspx#XSLTsection127121120120
+
+    """
+    # try the argument itself
+    candidates = [exe]
+    # if argument does not have an extension, also try it with each of the
+    # extensions specified in PATHEXT
+    if '.' not in exe:
+        extensions = getenv('PATHEXT', '').split(os.pathsep)
+        candidates.extend([exe+ext for ext in extensions
+                            if ext.startswith('.')])
+    # search the current directory first
+    for candidate in candidates:
+        if exists(candidate):
+            return candidate
+    # if the argument does not include a path separator, search each of the
+    # directories on the PATH
+    if not os.path.dirname(exe):
+        for path in getenv('PATH').split(os.pathsep):
+            if path:
+                for candidate in candidates:
+                    full_path = os.path.join(path, candidate)
+                    if exists(full_path):
+                        return full_path
+    # not found, punt and return the argument unchanged
+    return exe
 
 
 # Portability wrappers
@@ -202,15 +250,21 @@ def getenv(name, default=None):
 
 
 def xopen(path, mode='r', encoding=None):
-    return open(encode(path, encoding=encoding), mode)
+    return open(mkpath(path, encoding=encoding), mode)
 
 
 def stdout(msg):
-    sys.stdout.write(encode(msg) + '\n')
+    msg = msg + '\n'
+    if PY2:
+        msg = encode(msg, encoding='utf-8')
+    sys.stdout.write(msg)
 
 
 def stderr(msg):
-    sys.stderr.write(encode(msg) + '\n')
+    msg = msg + '\n'
+    if PY2:
+        msg = encode(msg, encoding='utf-8')
+    sys.stderr.write(msg)
 
 
 @interruptable
@@ -218,20 +272,23 @@ def node():
     return platform.node()
 
 
-abspath = wrap(encode, os.path.abspath, decorator=decode)
-chdir = wrap(encode, os.chdir)
-exists = wrap(encode, os.path.exists)
+abspath = wrap(mkpath, os.path.abspath, decorator=decode)
+chdir = wrap(mkpath, os.chdir)
+exists = wrap(mkpath, os.path.exists)
 expanduser = wrap(encode, os.path.expanduser, decorator=decode)
-getcwd = decorate(decode, os.getcwd)
-isdir = wrap(encode, os.path.isdir)
-isfile = wrap(encode, os.path.isfile)
-islink = wrap(encode, os.path.islink)
-makedirs = wrap(encode, os.makedirs)
+try:  # Python 2
+    getcwd = os.getcwdu
+except AttributeError:
+    getcwd = os.getcwd
+isdir = wrap(mkpath, os.path.isdir)
+isfile = wrap(mkpath, os.path.isfile)
+islink = wrap(mkpath, os.path.islink)
+makedirs = wrap(mkpath, os.makedirs)
 try:
-    readlink = wrap(encode, os.readlink, decorator=decode)
+    readlink = wrap(mkpath, os.readlink, decorator=decode)
 except AttributeError:
     readlink = lambda p: p
-realpath = wrap(encode, os.path.realpath, decorator=decode)
-stat = wrap(encode, os.stat)
-unlink = wrap(encode, os.unlink)
-walk = wrap(encode, os.walk)
+realpath = wrap(mkpath, os.path.realpath, decorator=decode)
+stat = wrap(mkpath, os.stat)
+unlink = wrap(mkpath, os.unlink)
+walk = wrap(mkpath, os.walk)

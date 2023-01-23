@@ -124,7 +124,10 @@ class MainModel(Observable):
 
     def save_commitmsg(self, msg):
         path = self.git.git_path('GIT_COLA_MSG')
-        core.write(path, msg)
+        try:
+            core.write(path, msg)
+        except:
+            pass
 
     def set_diff_text(self, txt):
         self.diff_text = txt
@@ -339,20 +342,6 @@ class MainModel(Observable):
             newdict[k]=v
         return newdict
 
-    def commit_with_msg(self, msg, tmpfile, amend=False):
-        """Creates a git commit."""
-
-        if not msg.endswith('\n'):
-            msg += '\n'
-
-        # Create the commit message file
-        core.write(tmpfile, msg)
-
-        # Run 'git commit'
-        status, out, err = self.git.commit(F=tmpfile, v=True, amend=amend)
-        core.unlink(tmpfile)
-        return (status, out, err)
-
     def remote_url(self, name, action):
         if action == 'push':
             url = self.git.config('remote.%s.pushurl' % name,
@@ -489,7 +478,7 @@ class MainModel(Observable):
         return status, out, err
 
     def getcwd(self):
-        """If we've chosen a directory then use it, otherwise os.getcwd()."""
+        """If we've chosen a directory then use it, otherwise use current"""
         if self.directory:
             return self.directory
         return core.getcwd()

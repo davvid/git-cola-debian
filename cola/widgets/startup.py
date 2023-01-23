@@ -7,18 +7,17 @@ found at startup.
 """
 from __future__ import division, absolute_import, unicode_literals
 
-import os
-
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
+from cola import core
 from cola import guicmds
-from cola import settings
 from cola import qtutils
-from cola.i18n import N_
-from cola.widgets import defs
 from cola.compat import ustr
+from cola.i18n import N_
+from cola.settings import Settings
+from cola.widgets import defs
 
 
 class StartupDialog(QtGui.QDialog):
@@ -50,7 +49,8 @@ class StartupDialog(QtGui.QDialog):
         self._layt.addStretch()
         self._layt.addWidget(self._close_btn)
 
-        self.model = settings.Settings()
+        settings = Settings()
+        settings.load()
 
         self._vlayt = QtGui.QVBoxLayout()
         self._vlayt.setMargin(defs.margin)
@@ -66,7 +66,7 @@ class StartupDialog(QtGui.QDialog):
         self._bookmark_model.appendRow(item)
 
         added = set()
-        all_repos = self.model.bookmarks + self.model.recent
+        all_repos = settings.bookmarks + settings.recent
 
         for repo in all_repos:
             if repo in added:
@@ -125,7 +125,7 @@ class StartupDialog(QtGui.QDialog):
         self._gitdir = self._get_selected_bookmark()
         if not self._gitdir:
             self._gitdir = qtutils.opendir_dialog(N_('Open Git Repository...'),
-                                                  os.getcwd())
+                                                  core.getcwd())
         if self._gitdir:
             self.accept()
 

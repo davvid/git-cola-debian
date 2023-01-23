@@ -10,6 +10,7 @@ try:
     import pyinotify
     from pyinotify import ProcessEvent
     from pyinotify import WatchManager
+    from pyinotify import WatchManagerError
     from pyinotify import Notifier
     from pyinotify import EventsCodes
     AVAILABLE = True
@@ -32,8 +33,8 @@ if utils.is_win32():
 from PyQt4 import QtCore
 
 from cola import gitcfg
-from cola import cmds
 from cola import core
+from cola.compat import ustr
 from cola.git import STDOUT
 from cola.i18n import N_
 from cola.interaction import Interaction
@@ -41,6 +42,12 @@ from cola.models import main
 
 
 _thread = None
+_observers = []
+
+
+def observer(fn):
+    _observers.append(fn)
+
 
 def start():
     global _thread
@@ -102,7 +109,8 @@ class Handler():
     def broadcast(self):
         """Broadcasts a list of all files touched since last broadcast"""
         with self._lock:
-            cmds.do(cmds.UpdateFileStatus)
+            for observer in _observers:
+                observer()
             self._timer = None
 
     def handle(self, path):
@@ -126,10 +134,8 @@ class FileSysEvent(ProcessEvent):
         """Queues up inotify events for broadcast"""
         if not event.name:
             return
-        path = os.path.join(event.path, event.name)
-        if os.path.exists(path):
-            path = os.path.relpath(path)
-            self._handler.handle(path)
+        path = os.path.relpath(os.path.join(event.path, event.name))
+        self._handler.handle(path)
 
 
 class GitNotifier(QtCore.QThread):
@@ -150,10 +156,13 @@ class GitNotifier(QtCore.QThread):
         self._dirs_seen = set()
         ## The inotify watch manager instantiated in run()
         self._wmgr = None
+        ## Has add_watch() failed?
+        self._add_watch_failed = False
         ## Events to capture
         if utils.is_linux():
             self._mask = (EventsCodes.ALL_FLAGS['IN_ATTRIB'] |
                           EventsCodes.ALL_FLAGS['IN_CLOSE_WRITE'] |
+                          EventsCodes.ALL_FLAGS['IN_CREATE'] |
                           EventsCodes.ALL_FLAGS['IN_DELETE'] |
                           EventsCodes.ALL_FLAGS['IN_MODIFY'] |
                           EventsCodes.ALL_FLAGS['IN_MOVED_TO'])
@@ -165,14 +174,30 @@ class GitNotifier(QtCore.QThread):
 
     def _watch_directory(self, directory):
         """Set up a directory for monitoring by inotify"""
-        if not self._wmgr:
+        if self._wmgr is None or self._add_watch_failed:
             return
         directory = core.realpath(directory)
-        if not core.exists(directory):
+        if directory in self._dirs_seen:
             return
-        if directory not in self._dirs_seen:
-            self._wmgr.add_watch(directory, self._mask)
-            self._dirs_seen.add(directory)
+        self._dirs_seen.add(directory)
+        if core.exists(directory):
+            encoded_dir = core.encode(directory)
+            try:
+                self._wmgr.add_watch(encoded_dir, self._mask, quiet=False)
+            except WatchManagerError as e:
+                self._add_watch_failed = True
+                self._add_watch_failed_warning(directory, e)
+
+    def _add_watch_failed_warning(self, directory, e):
+        core.stderr('inotify: failed to watch "%s"' % directory)
+        core.stderr(ustr(e))
+        core.stderr('')
+        core.stderr('If you have run out of watches then you may be able to')
+        core.stderr('increase the number of allowed watches by running:')
+        core.stderr('')
+        core.stderr('    echo fs.inotify.max_user_watches=100000 |')
+        core.stderr('    sudo tee -a /etc/sysctl.conf &&')
+        core.stderr('    sudo sysctl -p\n')
 
     def _is_pyinotify_08x(self):
         """Is this pyinotify 0.8.x?

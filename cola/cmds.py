@@ -9,6 +9,7 @@ from cola import compat
 from cola import core
 from cola import gitcfg
 from cola import gitcmds
+from cola import inotify
 from cola import utils
 from cola import difftool
 from cola import resources
@@ -48,10 +49,12 @@ class BaseCommand(object):
         return 'Unknown'
 
     def do(self):
-        raise NotImplementedError('%s.do() is unimplemented' % self.__class__.__name__)
+        raise NotImplementedError('%s.do() is unimplemented'
+                                  % self.__class__.__name__)
 
     def undo(self):
-        raise NotImplementedError('%s.undo() is unimplemented' % self.__class__.__name__)
+        raise NotImplementedError('%s.undo() is unimplemented'
+                                  % self.__class__.__name__)
 
 
 class Command(BaseCommand):
@@ -329,9 +332,16 @@ class Commit(ResetMode):
         self.new_commitmsg = ''
 
     def do(self):
+        # Create the commit message file
+        msg = self.strip_comments(self.msg)
         tmpfile = utils.tmp_filename('commit-message')
-        status, out, err = self.model.commit_with_msg(self.msg, tmpfile,
-                                                      amend=self.amend)
+        core.write(tmpfile, msg)
+
+        # Run 'git commit'
+        status, out, err = self.model.git.commit(F=tmpfile, v=True,
+                                                 amend=self.amend)
+        core.unlink(tmpfile)
+
         if status == 0:
             ResetMode.do(self)
             self.model.set_commitmsg(self.new_commitmsg)
@@ -342,13 +352,24 @@ class Commit(ResetMode):
 
         return status, out, err
 
+    @staticmethod
+    def strip_comments(msg):
+        # Strip off comments
+        message_lines = [line for line in msg.split('\n')
+                            if not line.startswith('#')]
+        msg = '\n'.join(message_lines)
+        if not msg.endswith('\n'):
+            msg += '\n'
+
+        return msg
+
 
 class Ignore(Command):
     """Add files to .gitignore"""
 
     def __init__(self, filenames):
         Command.__init__(self)
-        self.filenames = filenames
+        self.filenames = list(filenames)
 
     def do(self):
         if not self.filenames:
@@ -365,6 +386,8 @@ class Ignore(Command):
 
 class Delete(Command):
     """Delete files."""
+
+    SHORTCUT = 'Ctrl+Backspace'
 
     def __init__(self, filenames):
         Command.__init__(self)
@@ -501,7 +524,7 @@ class Edit(Command):
 
     @staticmethod
     def name():
-        return N_('Edit')
+        return N_('Launch Editor')
 
     def __init__(self, filenames, line_number=None):
         Command.__init__(self)
@@ -537,10 +560,10 @@ class Edit(Command):
         try:
             core.fork(utils.shell_split(editor) + opts)
         except Exception as e:
-            message = (N_('Cannot exec "%s": please configure your editor') %
-                       editor)
-            Interaction.critical(N_('Error Editing File'),
-                                 message, str(e))
+            message = (N_('Cannot exec "%s": please configure your editor')
+                       % editor)
+            details = core.decode(e.strerror)
+            Interaction.critical(N_('Error Editing File'), message, details)
 
 
 class FormatPatch(Command):
@@ -548,8 +571,8 @@ class FormatPatch(Command):
 
     def __init__(self, to_export, revs):
         Command.__init__(self)
-        self.to_export = to_export
-        self.revs = revs
+        self.to_export = list(to_export)
+        self.revs = list(revs)
 
     def do(self):
         status, out, err = gitcmds.format_patchsets(self.to_export, self.revs)
@@ -574,15 +597,18 @@ class LaunchDifftool(BaseCommand):
             if utils.is_win32():
                 core.fork(['git', 'mergetool', '--no-prompt', '--'] + paths)
             else:
-                core.fork(['xterm', '-e',
-                           'git', 'mergetool', '--no-prompt', '--'] + paths)
+                cmd = _config.terminal()
+                argv = utils.shell_split(cmd)
+                argv.extend(['git', 'mergetool', '--no-prompt', '--'])
+                argv.extend(paths)
+                core.fork(argv)
         else:
             difftool.run()
 
 
 class LaunchTerminal(BaseCommand):
 
-    SHORTCUT = 'Ctrl+t'
+    SHORTCUT = 'Ctrl+T'
 
     @staticmethod
     def name():
@@ -593,9 +619,9 @@ class LaunchTerminal(BaseCommand):
         self.path = path
 
     def do(self):
-        cmd = _config.get('cola.terminal', 'xterm -e $SHELL')
-        cmd = os.path.expandvars(cmd)
+        cmd = _config.terminal()
         argv = utils.shell_split(cmd)
+        argv.append(os.getenv('SHELL', '/bin/sh'))
         core.fork(argv, cwd=self.path)
 
 
@@ -678,20 +704,23 @@ class LoadFixupMessage(LoadCommitMessageFromSHA1):
 
 
 class Merge(Command):
-    def __init__(self, revision, no_commit, squash):
+    def __init__(self, revision, no_commit, squash, noff):
         Command.__init__(self)
         self.revision = revision
+        self.no_ff = noff
         self.no_commit = no_commit
         self.squash = squash
 
     def do(self):
         squash = self.squash
         revision = self.revision
+        no_ff = self.no_ff
         no_commit = self.no_commit
         msg = gitcmds.merge_message(revision)
 
         status, out, err = self.model.git.merge('-m', msg,
                                                 revision,
+                                                no_ff=no_ff,
                                                 no_commit=no_commit,
                                                 squash=squash)
 
@@ -767,6 +796,8 @@ class OpenRepo(Command):
         core.chdir(new_worktree)
         self.model.set_directory(self.repo_path)
         _config.reset()
+        inotify.stop()
+        inotify.start()
         self.model.update_status()
 
 
@@ -958,7 +989,10 @@ class RunConfigAction(Command):
         Interaction.log(N_('Running command: %s') % title)
         cmd = ['sh', '-c', cmd]
 
-        if opts.get('noconsole'):
+        if opts.get('background'):
+            core.fork(cmd)
+            status, out, err = (0, '', '')
+        elif opts.get('noconsole'):
             status, out, err = core.run_command(cmd)
         else:
             status, out, err = Interaction.run_command(title, cmd)
@@ -967,7 +1001,7 @@ class RunConfigAction(Command):
                                out and (N_('Output: %s') % out) or '',
                                err and (N_('Errors: %s') % err) or '')
 
-        if not opts.get('norescan'):
+        if not opts.get('background') and not opts.get('norescan'):
             self.model.update_status()
         return status
 
@@ -1137,6 +1171,7 @@ class Tag(Command):
         Interaction.log_status(status, log_msg, err)
         if status == 0:
             self.model.update_status()
+        return (status, output, err)
 
 
 class Unstage(Command):
@@ -1235,7 +1270,7 @@ class VisualizePaths(Command):
         Command.__init__(self)
         browser = utils.shell_split(prefs.history_browser())
         if paths:
-            self.argv = browser + paths
+            self.argv = browser + list(paths)
         else:
             self.argv = browser
 

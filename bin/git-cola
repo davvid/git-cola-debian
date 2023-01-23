@@ -20,12 +20,13 @@ GNU General Public License for more details.
 
 """
 
+import argparse
 import os
 import sys
 import subprocess
-from argparse import ArgumentParser
 from os.path import abspath
 from os.path import dirname
+from os.path import join
 from os.path import realpath
 
 
@@ -33,16 +34,21 @@ def setup_environment():
     """Provides access to the cola modules"""
     # Try to detect where it is run from and set prefix and the search path.
     # It is assumed that the user installed Cola using the --prefix= option
+    python2 = sys.version_info[0] == 2
     prefix = dirname(dirname(realpath(abspath(__file__))))
+    if python2:
+        cola_mod = join(prefix, str('cola'), str('__init__.py'))
+        install_lib = join(prefix, str('share'), str('git-cola'), str('lib'))
+    else:
+        # Look for modules in the source or install trees
+        cola_mod = os.path.join(prefix, 'cola', '__init__.py')
+        install_lib = os.path.join(prefix, 'share', 'git-cola', 'lib')
 
-    # Look for modules in the source or install trees
-    cola_mod = os.path.join(prefix, 'cola', '__init__.py')
     if os.path.exists(cola_mod):
         # Source tree
         sys.path.insert(1, prefix)
     else:
         # Install tree
-        install_lib = os.path.join(prefix, 'share', 'git-cola', 'lib')
         sys.path.insert(1, install_lib)
 setup_environment()
 
@@ -72,7 +78,7 @@ def main():
 
 
 def parse_args():
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(title='valid commands')
 
     add_cola_command(subparser)
@@ -177,6 +183,8 @@ def add_rebase_command(subparser):
     parser = add_command(subparser, 'rebase', 'interactive rebase', cmd_rebase)
     parser.add_argument('branch', metavar='<branch>',
                         help='New upstream branch')
+    parser.add_argument('-i', '--interactive', default=True, action='store_true',
+                        help=argparse.SUPPRESS)
 
 
 def add_remote_command(subparser):
@@ -210,7 +218,7 @@ def add_version_command(subparser):
 def cmd_cola(args):
     context = application_init(args)
     from cola.widgets.main import MainView
-    view = MainView(context.model)
+    view = MainView(context.model, settings=args.settings)
     if args.amend:
         cmds.do(cmds.AmendMode, True)
     return application_start(context, view)
@@ -257,7 +265,7 @@ def cmd_config(args):
 def cmd_dag(args):
     context = application_init(args)
     from cola.widgets.dag import git_dag
-    view = git_dag(context.model, args=args)
+    view = git_dag(context.model, args=args, settings=args.settings)
     return application_start(context, view)
 
 

@@ -1,7 +1,5 @@
 from __future__ import division, absolute_import, unicode_literals
 
-import os
-
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
@@ -71,15 +69,15 @@ class Browser(standard.Widget):
 
     def _updated_callback(self):
         branch = self.model.currentbranch
-        curdir = os.getcwd()
+        curdir = core.getcwd()
         msg = N_('Repository: %s') % curdir
         msg += '\n'
         msg += N_('Branch: %s') % branch
         self.setToolTip(msg)
 
-        title = N_('%s: %s - Browse') % (self.model.project, branch)
+        title = N_('%(project)s: %(branch)s - Browse') % dict(project=self.model.project, branch=branch)
         if self.mode == self.model.mode_amend:
-            title += ' (%s)' % N_('Amending')
+            title += ' %s' % N_('(Amending)')
         self.setWindowTitle(title)
 
 
@@ -95,7 +93,9 @@ class RepoTreeView(standard.TreeView):
 
         # Observe model updates
         model = main.model()
-        model.add_observer(model.message_updated, self.update_actions)
+        model.add_observer(model.message_updated, self.emit_update)
+
+        self.connect(self, SIGNAL('update()'), self.update_actions)
 
         # The non-Qt cola application model
         self.connect(self, SIGNAL('expanded(QModelIndex)'), self.size_columns)
@@ -132,6 +132,7 @@ class RepoTreeView(standard.TreeView):
                                     N_('Launch git-difftool on the current path.'),
                                     cmds.run(cmds.LaunchDifftool),
                                     cmds.LaunchDifftool.SHORTCUT)
+
         self.action_difftool_predecessor =\
                 self._create_action(N_('Diff Against Predecessor...'),
                                     N_('Launch git-difftool against previous versions.'),
@@ -146,11 +147,14 @@ class RepoTreeView(standard.TreeView):
                 self._create_action(cmds.LaunchEditor.name(),
                                     N_('Edit selected path(s).'),
                                     cmds.run(cmds.LaunchEditor),
-                                    cmds.LaunchDifftool.SHORTCUT)
+                                    cmds.LaunchEditor.SHORTCUT)
 
     def size_columns(self):
         """Set the column widths."""
         self.resizeColumnToContents(0)
+
+    def emit_update(self):
+        self.emit(SIGNAL('update()'))
 
     def update_actions(self):
         """Enable/disable actions."""
@@ -354,7 +358,7 @@ class BrowserController(QtCore.QObject):
 
     def view_history(self, entries):
         """Launch the configured history browser path-limited to entries."""
-        entries = map(ustr, entries)
+        entries = list(map(ustr, entries))
         cmds.do(cmds.VisualizePaths, entries)
 
     def query_model(self, model_index):

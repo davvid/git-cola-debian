@@ -142,10 +142,30 @@ exists. That is normally the case when you run the *msysGit bash* and
 not the *Git for Windows bash* (look [here](http://msysgit.github.com/)
 for the differences).
 
+## DOCUMENTATION
+
+* [HTML documentation](http://git-cola.github.io/share/doc/git-cola/html/index.html)
+
+* [git-cola manual](share/doc/git-cola/git-cola.rst)
+
+* [git-dag manual](share/doc/git-cola/git-dag.rst)
+
+* [Keyboard shortcuts](http://git-cola.github.io/share/doc/git-cola/hotkeys.html)
+
+* [Contributing guidelines](CONTRIBUTING.md)
+
 ## GOODIES
 
 *git-cola* ships with an interactive rebase editor called *git-xbase*.
-*git-xbase* can be used to reorder and choose commits and can be launched
-independently of the main *git-cola* interface, e.g.:
+*git-xbase* can be used to reorder and choose commits and is typically
+launched through the *git-cola*'s "Rebase" menu.
 
-    GIT_SEQUENCE_EDITOR=$PWD/share/git-cola/bin/git-xbase git rebase -i master
+*git-xbase* can also be launched independently of the main *git-cola* interface
+by telling `git rebase` to use it as its editor:
+
+    GIT_SEQUENCE_EDITOR=$PWD/share/git-cola/bin/git-xbase git rebase -i origin/master
+
+You can also launch *git-xbase* via the *git-cola* rebase sub-command
+(as well as various other sub-commands):
+
+    bin/git-cola rebase origin/master

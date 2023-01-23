@@ -2,7 +2,6 @@ from __future__ import division, absolute_import, unicode_literals
 
 import collections
 import math
-import sys
 
 from PyQt4 import QtGui
 from PyQt4 import QtCore
@@ -32,7 +31,7 @@ from cola.widgets.filelist import FileWidget
 from cola.compat import ustr
 
 
-def git_dag(model, args=None):
+def git_dag(model, args=None, settings=None):
     """Return a pre-populated git DAG widget."""
     branch = model.currentbranch
     # disambiguate between branch names and filenames by using '--'
@@ -40,7 +39,7 @@ def git_dag(model, args=None):
     dag = DAG(branch_doubledash, 1000)
     dag.set_arguments(args)
 
-    view = DAGView(model, dag)
+    view = GitDAG(model, dag, settings=settings)
     if dag.ref:
         view.display()
     return view
@@ -318,19 +317,20 @@ class CommitTreeWidget(ViewerMixin, TreeWidget):
         QtGui.QTreeWidget.mousePressEvent(self, event)
 
 
-class DAGView(MainWindow):
+class GitDAG(MainWindow):
     """The git-dag widget."""
 
-    def __init__(self, model, dag, parent=None):
+    def __init__(self, model, dag, parent=None, settings=None):
         MainWindow.__init__(self, parent)
 
         self.setAttribute(Qt.WA_MacMetalStyle)
         self.setMinimumSize(420, 420)
 
         # change when widgets are added/removed
-        self.widget_version = 1
+        self.widget_version = 2
         self.model = model
         self.dag = dag
+        self.settings = settings
 
         self.commits = {}
         self.commit_list = []
@@ -423,11 +423,10 @@ class DAGView(MainWindow):
 
         left = Qt.LeftDockWidgetArea
         right = Qt.RightDockWidgetArea
-        bottom = Qt.BottomDockWidgetArea
         self.addDockWidget(left, self.log_dock)
+        self.addDockWidget(left, self.diff_dock)
         self.addDockWidget(right, self.graphview_dock)
         self.addDockWidget(right, self.file_dock)
-        self.addDockWidget(bottom, self.diff_dock)
 
         # Update fields affected by model
         self.revtext.setText(dag.ref)
@@ -435,7 +434,7 @@ class DAGView(MainWindow):
         self.update_window_title()
 
         # Also re-loads dag.* from the saved state
-        if not self.restore_state():
+        if not self.restore_state(settings=settings):
             self.resize_to_desktop()
 
         qtutils.connect_button(self.zoom_out, self.graphview.zoom_out)
@@ -487,7 +486,7 @@ class DAGView(MainWindow):
     def update_window_title(self):
         project = self.model.project
         if self.dag.ref:
-            self.setWindowTitle(N_('%s: %s - DAG') % (project, self.dag.ref))
+            self.setWindowTitle(N_('%(project)s: %(ref)s - DAG') % dict(project=project, ref=self.dag.ref))
         else:
             self.setWindowTitle(project + N_(' - DAG'))
 
@@ -1185,7 +1184,7 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
         self_commits = self.commits
         self_items = self.items
 
-        commits = self_commits[-2:]
+        commits = self_commits[-8:]
         items = [self_items[c.sha1] for c in commits]
         self.fit_view_to_items(items)
 
@@ -1199,10 +1198,11 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
         if not items:
             rect = self.scene().itemsBoundingRect()
         else:
-            x_min = sys.maxint
-            y_min = sys.maxint
-            x_max = -sys.maxint
-            ymax = -sys.maxint
+            maxint = 9223372036854775807
+            x_min = maxint
+            y_min = maxint
+            x_max = -maxint
+            ymax = -maxint
             for item in items:
                 pos = item.pos()
                 item_rect = item.boundingRect()
@@ -1236,10 +1236,10 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
             item.setSelected(True)
 
     def handle_event(self, event_handler, event):
-        self.update()
         self.save_selection(event)
         event_handler(self, event)
         self.restore_selection(event)
+        self.update()
 
     def set_selecting(self, selecting):
         self.selecting = selecting
@@ -1457,6 +1457,8 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
         self.last_mouse[0] = pos.x()
         self.last_mouse[1] = pos.y()
         self.handle_event(QtGui.QGraphicsView.mouseMoveEvent, event)
+        if self.pressed:
+            self.viewport().repaint()
 
     def mouseReleaseEvent(self, event):
         self.pressed = False
@@ -1465,6 +1467,7 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
             return
         self.handle_event(QtGui.QGraphicsView.mouseReleaseEvent, event)
         self.selection_list = []
+        self.viewport().repaint()
 
     def wheelEvent(self, event):
         """Handle Qt mouse wheel events."""

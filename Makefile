@@ -45,6 +45,7 @@ ifdef DESTDIR
     setup_args += --root=$(DESTDIR)
     export DESTDIR
 endif
+export prefix
 
 all::
 	$(PYTHON) setup.py build
@@ -62,34 +63,41 @@ dist:
 		$(GZIP) -f -9 - >$(cola_dist).tar.gz
 
 doc:
-	$(MAKE) -C share/doc/git-cola prefix=$(prefix) all
+	$(MAKE) -C share/doc/git-cola all
 
 html:
-	$(MAKE) -C share/doc/git-cola prefix=$(prefix) html
+	$(MAKE) -C share/doc/git-cola html
+
+man:
+	$(MAKE) -C share/doc/git-cola man
 
 install-doc:
-	$(MAKE) -C share/doc/git-cola prefix=$(prefix) install
+	$(MAKE) -C share/doc/git-cola install
 
 install-html:
-	$(MAKE) -C share/doc/git-cola prefix=$(prefix) install-html
+	$(MAKE) -C share/doc/git-cola install-html
+
+install-man:
+	$(MAKE) -C share/doc/git-cola install-man
 
 uninstall:
 	$(RM) $(DESTDIR)$(prefix)/bin/git-cola
 	$(RM) $(DESTDIR)$(prefix)/bin/git-dag
 	$(RM) $(DESTDIR)$(prefix)/bin/cola
 	$(RM) $(DESTDIR)$(prefix)/share/applications/git-cola.desktop
+	$(RM) $(DESTDIR)$(prefix)/share/applications/git-cola-folder-handler.desktop
 	$(RM) $(DESTDIR)$(prefix)/share/applications/git-dag.desktop
 	$(RM_R) $(DESTDIR)$(prefix)/share/git-cola
 	$(RM_R) $(DESTDIR)$(prefix)/share/doc/git-cola
 	$(RM) $(DESTDIR)$(prefix)/share/locale/*/LC_MESSAGES/git-cola.mo
-	$(RMDIR) $(DESTDIR)$(prefix)/share/locale/*/LC_MESSAGES 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix)/share/locale/* 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix)/share/locale 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix)/share/doc 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix)/share/applications 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix)/share 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix)/bin 2>/dev/null || true
-	$(RMDIR) $(DESTDIR)$(prefix) 2>/dev/null || true
+	-$(RMDIR) $(DESTDIR)$(prefix)/share/locale/*/LC_MESSAGES 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix)/share/locale/* 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix)/share/locale 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix)/share/doc 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix)/share/applications 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix)/share 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix)/bin 2>/dev/null
+	-$(RMDIR) $(DESTDIR)$(prefix) 2>/dev/null
 
 test: all
 	$(NOSETESTS) $(all_test_flags)
@@ -101,14 +109,14 @@ clean:
 	$(MAKE) -C share/doc/git-cola clean
 	$(FIND) . -name .noseids -print0 | xargs -0 rm -f
 	$(FIND) . -name '*.py[co]' -print0 | xargs -0 rm -f
-	$(RM_R) build dist tmp tags git-cola.app
+	$(RM_R) build dist tags git-cola.app
 	$(RM_R) share/locale
 
 tags:
 	$(FIND) . -name '*.py' -print0 | xargs -0 $(CTAGS) -f tags
 
 pot:
-	$(PYTHON) setup.py build_pot -N -d .
+	$(PYTHON) setup.py build_pot -N -d po
 
 mo:
 	$(PYTHON) setup.py build_mo -f
