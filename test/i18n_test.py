@@ -16,8 +16,7 @@ class ColaI18nTestCase(unittest.TestCase):
         """Test that strings with @@noun are translated
         """
         i18n.install('ja_JP')
-        expect = (uchr(0x30b3) + uchr(0x30df) +
-                  uchr(0x30c3) + uchr(0x30c8))
+        expect = uchr(0x30B3) + uchr(0x30DF) + uchr(0x30C3) + uchr(0x30C8)
         actual = N_('Commit@@verb')
         self.assertEqual(expect, actual)
 
@@ -51,6 +50,16 @@ class ColaI18nTestCase(unittest.TestCase):
         i18n.install('en_US.UTF-8')
         expect = 'Random'
         actual = N_('Random')
+        self.assertEqual(expect, actual)
+
+    def test_translate_push_pull_french(self):
+        i18n.install('fr_FR')
+        expect = 'Tirer'
+        actual = N_('Pull')
+        self.assertEqual(expect, actual)
+
+        expect = 'Pousser'
+        actual = N_('Push')
         self.assertEqual(expect, actual)
 
 

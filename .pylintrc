@@ -19,7 +19,7 @@ persistent=yes
 load-plugins=
 
 # Use multiple processes to speed up Pylint.
-jobs=2
+jobs=4
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -184,7 +184,7 @@ notes=FIXME,XXX,TODO
 [FORMAT]
 
 # Maximum number of characters on a single line.
-max-line-length=80
+max-line-length=88
 
 # Regexp for a line that is allowed to be longer than the limit.
 ignore-long-lines=^\s*(# )?<?https?://\S+>?$

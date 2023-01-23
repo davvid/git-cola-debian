@@ -7,9 +7,8 @@ import os
 from os.path import abspath, dirname, join, realpath
 import sys
 
-
 __copyright__ = """
-Copyright (C) 2007-2018 David Aguilar and contributors
+Copyright (C) 2007-2020 David Aguilar and contributors
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 2 as
@@ -48,7 +47,7 @@ def setup_environment():
 
 setup_environment()
 
-
 if __name__ == '__main__':
     from cola.main import main
+
     sys.exit(main())
