@@ -2,6 +2,7 @@ import os
 import sys
 
 from cStringIO import StringIO
+import commands
 
 import cola
 from cola import i18n
@@ -579,7 +580,7 @@ class RunConfigAction(Command):
                                      'Please select a file',
                                      '"%s" requires a selected file' % cmd)
                 return
-            os.environ['FILENAME'] = utils.shell_quote(filename)
+            os.environ['FILENAME'] = commands.mkarg(filename)
 
 
         if opts.get('revprompt') or opts.get('argprompt'):
@@ -672,22 +673,29 @@ class Tag(Command):
 
     def do(self):
         log_msg = 'Tagging: "%s" as "%s"' % (self._revision, self._name)
+        opts = {}
+        if self._message:
+            opts['F'] = self.model.tmp_filename()
+            utils.write(opts['F'], self._message)
+
         if self._sign:
             log_msg += ', GPG-signed'
-            path = self.model.tmp_filename()
-            utils.write(path, self._message)
+            opts['s'] = True
             status, output = self.model.git.tag(self._name,
                                                 self._revision,
-                                                s=True,
-                                                F=path,
                                                 with_status=True,
-                                                with_stderr=True)
-            os.unlink(path)
+                                                with_stderr=True,
+                                                **opts)
         else:
+            opts['a'] = bool(self._message)
             status, output = self.model.git.tag(self._name,
                                                 self._revision,
                                                 with_status=True,
-                                                with_stderr=True)
+                                                with_stderr=True,
+                                                **opts)
+        if 'F' in opts:
+            os.unlink(opts['F'])
+
         if output:
             log_msg += '\nOutput:\n%s' % output
 
