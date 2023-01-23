@@ -7,6 +7,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 
 from ..compat import uchr
+from ..git import STDOUT
 from ..i18n import N_
 from ..interaction import Interaction
 from ..widgets import defs
@@ -39,12 +40,13 @@ def add_branch_to_menu(menu, branch, remote_branch, remote, upstream, fn):
 class AsyncGitActionTask(qtutils.Task):
     """Run git action asynchronously"""
 
-    def __init__(self, parent, git_helper, action, args, kwarg):
-        qtutils.Task.__init__(self, parent)
+    def __init__(self, git_helper, action, args, kwarg, update_refs):
+        qtutils.Task.__init__(self)
         self.git_helper = git_helper
         self.action = action
         self.args = args
         self.kwarg = kwarg
+        self.update_refs = update_refs
 
     def task(self):
         """Runs action and captures the result"""
@@ -53,8 +55,6 @@ class AsyncGitActionTask(qtutils.Task):
 
 
 class BranchesWidget(QtWidgets.QFrame):
-    updated = Signal()
-
     def __init__(self, context, parent):
         QtWidgets.QFrame.__init__(self, parent)
         self.model = model = context.model
@@ -96,8 +96,7 @@ class BranchesWidget(QtWidgets.QFrame):
             self.sort_order_button, cmds.run(cmds.CycleReferenceSort, context)
         )
 
-        self.updated.connect(self.refresh, Qt.QueuedConnection)
-        model.add_observer(model.message_refs_updated, self.updated.emit)
+        model.refs_updated.connect(self.refresh, Qt.QueuedConnection)
 
     def toggle_filter(self):
         shown = not self.filter_widget.isVisible()
@@ -113,7 +112,6 @@ class BranchesWidget(QtWidgets.QFrame):
     def refresh(self):
         icon = self.order_icon(self.model.ref_sort)
         self.sort_order_button.setIcon(icon)
-        self.tree.refresh()
 
 
 # pylint: disable=too-many-ancestors
@@ -123,7 +121,6 @@ class BranchesTreeWidget(standard.TreeWidget):
     def __init__(self, context, parent=None):
         standard.TreeWidget.__init__(self, parent)
 
-        model = context.model
         self.context = context
 
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
@@ -132,15 +129,17 @@ class BranchesTreeWidget(standard.TreeWidget):
         self.setColumnCount(1)
         self.setExpandsOnDoubleClick(False)
 
-        self.tree_helper = BranchesTreeHelper()
-        self.git_helper = GitHelper(context)
         self.current_branch = None
-
+        self.tree_helper = BranchesTreeHelper(self)
+        self.git_helper = GitHelper(context)
         self.runtask = qtutils.RunTask(parent=self)
-        self._active = False
+
+        self._visible = False
+        self._needs_refresh = False
+        self._tree_states = None
 
         self.updated.connect(self.refresh, type=Qt.QueuedConnection)
-        model.add_observer(model.message_updated, self.updated.emit)
+        context.model.updated.connect(self.updated)
 
         # Expand items when they are clicked
         # pylint: disable=no-member
@@ -150,12 +149,19 @@ class BranchesTreeWidget(standard.TreeWidget):
         self.doubleClicked.connect(self.checkout_action)
 
     def refresh(self):
-        if not self._active:
+        """Refresh the UI widgets to match the current state"""
+        self._needs_refresh = True
+        self._refresh()
+
+    def _refresh(self):
+        """Refresh the UI to match the updated state"""
+        # There is no need to refresh the UI when this widget is inactive.
+        if not self._visible:
             return
         model = self.context.model
         self.current_branch = model.currentbranch
 
-        states = self.save_tree_state()
+        self._tree_states = self._save_tree_state()
         ellipsis = icons.ellipsis()
 
         local_tree = create_tree_entries(model.local_branches)
@@ -174,19 +180,26 @@ class BranchesTreeWidget(standard.TreeWidget):
 
         self.clear()
         self.addTopLevelItems([local, remote, tags])
-        self.update_select_branch()
-        self.load_tree_state(states)
+
+        if self._tree_states:
+            self._load_tree_state(self._tree_states)
+            self._tree_states = None
+
+        self._update_branches()
 
     def showEvent(self, event):
         """Defer updating widgets until the widget is visible"""
-        if not self._active:
-            self._active = True
-            self.refresh()
+        if not self._visible:
+            self._visible = True
+            if self._needs_refresh:
+                self.refresh()
         return super(BranchesTreeWidget, self).showEvent(event)
 
     def _toggle_expanded(self, index):
         """Toggle expanded/collapsed state when items are clicked"""
-        self.setExpanded(index, not self.isExpanded(index))
+        item = self.itemFromIndex(index)
+        if item and item.childCount():
+            self.setExpanded(index, not self.isExpanded(index))
 
     def contextMenuEvent(self, event):
         """Build and execute the context menu"""
@@ -346,19 +359,27 @@ class BranchesTreeWidget(standard.TreeWidget):
         if remote and r_branch:
             cmds.do(cmds.SetUpstreamBranch, context, branch, remote, r_branch)
 
-    def save_tree_state(self):
+    def _save_tree_state(self):
+        """Save the tree state into a dictionary"""
         states = {}
         for item in self.items():
             states.update(self.tree_helper.save_state(item))
-
         return states
 
-    def load_tree_state(self, states):
-        for item in self.items():
-            if item.name in states:
-                self.tree_helper.load_state(item, states[item.name])
+    def _load_tree_state(self, states):
+        """Restore expanded items after rebuilding UI widgets"""
+        # Disable animations to eliminate redraw flicker.
+        animated = self.isAnimated()
+        self.setAnimated(False)
 
-    def update_select_branch(self):
+        for item in self.items():
+            self.tree_helper.load_state(item, states.get(item.name, {}))
+        self.tree_helper.set_current_item()
+
+        self.setAnimated(animated)
+
+    def _update_branches(self):
+        """Query branch details using a background task"""
         context = self.context
         current_branch = self.current_branch
         top_item = self.topLevelItem(0)
@@ -368,32 +389,33 @@ class BranchesTreeWidget(standard.TreeWidget):
             expand_item_parents(item)
             item.setIcon(0, icons.star())
 
-            tracked_branch = gitcmds.tracked_branch(context, current_branch)
-            if current_branch and tracked_branch:
-                status = {'ahead': 0, 'behind': 0}
-                status_str = ''
+            branch_details_task = BranchDetailsTask(
+                context, current_branch, self.git_helper
+            )
+            self.runtask.start(
+                branch_details_task, finish=self._update_branches_finished
+            )
 
-                origin = tracked_branch + '..' + self.current_branch
-                log = self.git_helper.log(origin)
-                status['ahead'] = len(log[1].splitlines())
+    def _update_branches_finished(self, task):
+        """Update the UI with the branch details once the background task completes"""
+        current_branch, tracked_branch, ahead, behind = task.result
+        top_item = self.topLevelItem(0)
+        item = find_by_refname(top_item, current_branch)
+        if current_branch and tracked_branch and item is not None:
+            status_str = ''
+            if ahead > 0:
+                status_str += '%s%s' % (uchr(0x2191), ahead)
 
-                origin = self.current_branch + '..' + tracked_branch
-                log = self.git_helper.log(origin)
-                status['behind'] = len(log[1].splitlines())
+            if behind > 0:
+                status_str += '  %s%s' % (uchr(0x2193), behind)
 
-                if status['ahead'] > 0:
-                    status_str += '%s%s' % (uchr(0x2191), status['ahead'])
+            if status_str:
+                item.setText(0, '%s\t%s' % (item.text(0), status_str))
 
-                if status['behind'] > 0:
-                    status_str += '  %s%s' % (uchr(0x2193), status['behind'])
-
-                if status_str:
-                    item.setText(0, '%s\t%s' % (item.text(0), status_str))
-
-    def git_action_async(self, action, args, kwarg=None):
+    def git_action_async(self, action, args, kwarg=None, update_refs=False):
         if kwarg is None:
             kwarg = {}
-        task = AsyncGitActionTask(self, self.git_helper, action, args, kwarg)
+        task = AsyncGitActionTask(self.git_helper, action, args, kwarg, update_refs)
         progress = standard.progress(
             N_('Executing action %s') % action, N_('Updating'), self
         )
@@ -402,7 +424,8 @@ class BranchesTreeWidget(standard.TreeWidget):
     def git_action_completed(self, task):
         status, out, err = task.result
         self.git_helper.show_result(task.action, status, out, err)
-        self.context.model.update_refs()
+        if task.update_refs:
+            self.context.model.update_refs()
 
     def push_action(self):
         context = self.context
@@ -413,7 +436,7 @@ class BranchesTreeWidget(standard.TreeWidget):
             if remote and branch_name:
                 # we assume that user wants to "Push" the selected local
                 # branch to a remote with same name
-                self.git_action_async('push', [remote, branch_name])
+                self.git_action_async('push', [remote, branch_name], update_refs=True)
 
     def rename_action(self):
         branch = self.selected_refname()
@@ -421,7 +444,7 @@ class BranchesTreeWidget(standard.TreeWidget):
             N_('Enter New Branch Name'), title=N_('Rename branch'), text=branch
         )
         if ok and new_branch:
-            self.git_action_async('rename', [branch, new_branch])
+            self.git_action_async('rename', [branch, new_branch], update_refs=True)
 
     def pull_action(self):
         context = self.context
@@ -432,7 +455,7 @@ class BranchesTreeWidget(standard.TreeWidget):
         if remote_branch:
             remote, branch_name = gitcmds.parse_remote_branch(remote_branch)
             if remote and branch_name:
-                self.git_action_async('pull', [remote, branch_name])
+                self.git_action_async('pull', [remote, branch_name], update_refs=True)
 
     def delete_action(self):
         branch = self.selected_refname()
@@ -441,6 +464,8 @@ class BranchesTreeWidget(standard.TreeWidget):
 
         remote = False
         root = get_toplevel_item(self.selected_item())
+        if not root:
+            return
         if root.name == N_('Remote'):
             remote = True
 
@@ -459,16 +484,49 @@ class BranchesTreeWidget(standard.TreeWidget):
     def checkout_action(self):
         branch = self.selected_refname()
         if branch and branch != self.current_branch:
-            self.git_action_async('checkout', [branch])
+            self.git_action_async('checkout', [branch], update_refs=True)
 
     def checkout_new_branch_action(self):
         branch = self.selected_refname()
         if branch and branch != self.current_branch:
             _, new_branch = gitcmds.parse_remote_branch(branch)
-            self.git_action_async('checkout', ['-b', new_branch, branch])
+            self.git_action_async(
+                'checkout', ['-b', new_branch, branch], update_refs=True
+            )
 
     def selected_refname(self):
         return getattr(self.selected_item(), 'refname', None)
+
+
+class BranchDetailsTask(qtutils.Task):
+    """Lookup branch details in a background task"""
+
+    def __init__(self, context, current_branch, git_helper):
+        super(BranchDetailsTask, self).__init__()
+        self.context = context
+        self.current_branch = current_branch
+        self.git_helper = git_helper
+
+    def task(self):
+        """Query git for branch details"""
+        tracked_branch = gitcmds.tracked_branch(self.context, self.current_branch)
+        ahead = 0
+        behind = 0
+
+        if self.current_branch and tracked_branch:
+            origin = tracked_branch + '..' + self.current_branch
+            our_commits = self.git_helper.log(origin)[STDOUT]
+            ahead = our_commits.count('\n')
+            if our_commits:
+                ahead += 1
+
+            origin = self.current_branch + '..' + tracked_branch
+            their_commits = self.git_helper.log(origin)[STDOUT]
+            behind = their_commits.count('\n')
+            if their_commits:
+                behind += 1
+
+        return self.current_branch, tracked_branch, ahead, behind
 
 
 class BranchTreeWidgetItem(QtWidgets.QTreeWidgetItem):
@@ -615,7 +673,8 @@ def expand_item_parents(item):
     """Expand tree parents from item"""
     parent = item.parent()
     while parent is not None:
-        parent.setExpanded(True)
+        if not parent.isExpanded():
+            parent.setExpanded(True)
         parent = parent.parent()
 
 
@@ -648,24 +707,49 @@ def get_toplevel_item(item):
 
 
 class BranchesTreeHelper(object):
+    """Save and restore the tree state"""
+
+    def __init__(self, tree):
+        self.tree = tree
+        self.current_item = None
+
+    def set_current_item(self):
+        """Reset the current item"""
+        if self.current_item is not None:
+            self.tree.setCurrentItem(self.current_item)
+        self.current_item = None
+
     def load_state(self, item, state):
         """Load expanded items from a dict"""
-        if state.keys():
+        if not state:
+            return
+        if state.get('expanded', False) and not item.isExpanded():
             item.setExpanded(True)
+        if state.get('selected', False) and not item.isSelected():
+            item.setSelected(True)
+            self.current_item = item
 
+        children_state = state.get('children', {})
+        if not children_state:
+            return
         for i in range(item.childCount()):
             child = item.child(i)
-            if child.name in state:
-                self.load_state(child, state[child.name])
+            self.load_state(child, children_state.get(child.name, {}))
 
     def save_state(self, item):
-        """Save expanded items in a dict"""
-        result = {item.name: {}}
-
-        if item.isExpanded():
-            for i in range(item.childCount()):
-                child = item.child(i)
-                result[item.name].update(self.save_state(child))
+        """Save the selected and expanded item state into a dict"""
+        expanded = item.isExpanded()
+        selected = item.isSelected()
+        children = {}
+        entry = {
+            'children': children,
+            'expanded': expanded,
+            'selected': selected,
+        }
+        result = {item.name: entry}
+        for i in range(item.childCount()):
+            child = item.child(i)
+            children.update(self.save_state(child))
 
         return result
 
@@ -676,7 +760,7 @@ class GitHelper(object):
         self.git = context.git
 
     def log(self, origin):
-        return self.git.log(origin, oneline=True)
+        return self.git.log(origin, abbrev=7, pretty='format:%h', _readonly=True)
 
     def push(self, remote, branch):
         return self.git.push(remote, branch, verbose=True)

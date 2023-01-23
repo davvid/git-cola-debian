@@ -104,8 +104,8 @@ def get_default_remote(context):
 class ActionTask(qtutils.Task):
     """Run actions asynchronously"""
 
-    def __init__(self, parent, model_action, remote, kwargs):
-        qtutils.Task.__init__(self, parent)
+    def __init__(self, model_action, remote, kwargs):
+        qtutils.Task.__init__(self)
         self.model_action = model_action
         self.remote = remote
         self.kwargs = kwargs
@@ -185,7 +185,7 @@ class RemoteActionDialog(standard.Dialog):
 
         text = N_('No fast-forward')
         tooltip = N_(
-            'Create a merge commit even when the merge resolves as a ' 'fast-forward'
+            'Create a merge commit even when the merge resolves as a fast-forward'
         )
         self.no_ff_checkbox = qtutils.checkbox(
             checked=False, text=text, tooltip=tooltip
@@ -203,7 +203,7 @@ class RemoteActionDialog(standard.Dialog):
         self.tags_checkbox = qtutils.checkbox(text=N_('Include tags '))
 
         tooltip = N_(
-            'Remove remote-tracking branches that no longer ' 'exist on the remote'
+            'Remove remote-tracking branches that no longer exist on the remote'
         )
         self.prune_checkbox = qtutils.checkbox(text=N_('Prune '), tooltip=tooltip)
 
@@ -631,7 +631,7 @@ class RemoteActionDialog(standard.Dialog):
         self.buttons.setEnabled(False)
 
         # Use a thread to update in the background
-        task = ActionTask(self, model_action, remote, kwargs)
+        task = ActionTask(model_action, remote, kwargs)
         self.runtask.start(task, progress=self.progress, finish=self.action_completed)
 
     def action_completed(self, task):

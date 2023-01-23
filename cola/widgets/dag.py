@@ -20,7 +20,6 @@ from .. import difftool
 from .. import gitcmds
 from .. import hotkeys
 from .. import icons
-from .. import observable
 from .. import qtcompat
 from .. import qtutils
 from .. import utils
@@ -267,7 +266,7 @@ class ViewerMixin(object):
 
 
 def set_icon(icon, action):
-    """"Set the icon for an action and return the action"""
+    """ "Set the icon for an action and return the action"""
     action.setIcon(icon)
     return action
 
@@ -401,10 +400,11 @@ class CommitTreeWidgetItem(QtWidgets.QTreeWidgetItem):
 # pylint: disable=too-many-ancestors
 class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
 
+    commits_selected = Signal(object)
     diff_commits = Signal(object, object)
     zoom_to_fit = Signal()
 
-    def __init__(self, context, notifier, parent):
+    def __init__(self, context, parent):
         standard.TreeWidget.__init__(self, parent)
         ViewerMixin.__init__(self)
 
@@ -414,7 +414,6 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
         self.context = context
         self.oidmap = {}
         self.menu_actions = None
-        self.notifier = notifier
         self.selecting = False
         self.commits = []
         self._adjust_columns = False
@@ -431,7 +430,6 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
             self, N_('Zoom to Fit'), self.zoom_to_fit.emit, hotkeys.FIT
         )
 
-        notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
         # pylint: disable=no-member
         self.itemSelectionChanged.connect(self.selection_changed)
 
@@ -504,10 +502,10 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
         if not items:
             return
         self.set_selecting(True)
-        self.notifier.notify_observers(diff.COMMITS_SELECTED, [i.commit for i in items])
+        self.commits_selected.emit([i.commit for i in items])
         self.set_selecting(False)
 
-    def commits_selected(self, commits):
+    def select_commits(self, commits):
         if self.selecting:
             return
         with qtutils.BlockSignals(self):
@@ -564,7 +562,7 @@ class CommitTreeWidget(standard.TreeWidget, ViewerMixin):
 class GitDAG(standard.MainWindow):
     """The git-dag widget."""
 
-    updated = Signal()
+    commits_selected = Signal(object)
 
     def __init__(self, context, params, parent=None):
         super(GitDAG, self).__init__(parent)
@@ -601,17 +599,23 @@ class GitDAG(standard.MainWindow):
             tooltip=N_('Zoom to Fit'), icon=icons.zoom_fit_best()
         )
 
-        self.notifier = notifier = observable.Observable()
-        self.notifier.refs_updated = refs_updated = 'refs_updated'
-        self.notifier.add_observer(refs_updated, self.display)
-        self.notifier.add_observer(filelist.HISTORIES_SELECTED, self.histories_selected)
-        self.notifier.add_observer(filelist.DIFFTOOL_SELECTED, self.difftool_selected)
-        self.notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
+        self.treewidget = CommitTreeWidget(context, self)
+        self.diffwidget = diff.DiffWidget(context, self, is_commit=True)
+        self.filewidget = filelist.FileWidget(context, self)
+        self.graphview = GraphView(context, self)
 
-        self.treewidget = CommitTreeWidget(context, notifier, self)
-        self.diffwidget = diff.DiffWidget(context, notifier, self, is_commit=True)
-        self.filewidget = filelist.FileWidget(context, notifier, self)
-        self.graphview = GraphView(context, notifier, self)
+        self.treewidget.commits_selected.connect(self.commits_selected)
+        self.graphview.commits_selected.connect(self.commits_selected)
+
+        self.commits_selected.connect(self.select_commits)
+        self.commits_selected.connect(self.diffwidget.commits_selected)
+        self.commits_selected.connect(self.filewidget.commits_selected)
+        self.commits_selected.connect(self.graphview.select_commits)
+        self.commits_selected.connect(self.treewidget.select_commits)
+
+        self.filewidget.files_selected.connect(self.diffwidget.files_selected)
+        self.filewidget.difftool_selected.connect(self.difftool_selected)
+        self.filewidget.histories_selected.connect(self.histories_selected)
 
         self.proxy = FocusRedirectProxy(
             self.treewidget, self.graphview, self.filewidget
@@ -707,8 +711,7 @@ class GitDAG(standard.MainWindow):
 
         # The model is updated in another thread so use
         # signals/slots to bring control back to the main GUI thread
-        self.model.add_observer(self.model.message_updated, self.updated.emit)
-        self.updated.connect(self.model_updated, type=Qt.QueuedConnection)
+        self.model.updated.connect(self.model_updated, type=Qt.QueuedConnection)
 
         qtutils.add_action(self, 'Focus', self.focus_input, hotkeys.FOCUS)
         qtutils.add_close_action(self)
@@ -830,7 +833,7 @@ class GitDAG(standard.MainWindow):
         self.old_count = count
         self.old_refs = refs
 
-    def commits_selected(self, commits):
+    def select_commits(self, commits):
         if commits:
             self.selection = commits
 
@@ -871,10 +874,10 @@ class GitDAG(standard.MainWindow):
         new_commits = [c for c in new_commits if c is not None]
         if new_commits:
             # The old selection exists in the new state
-            self.notifier.notify_observers(diff.COMMITS_SELECTED, new_commits)
+            self.commits_selected.emit(new_commits)
         else:
             # The old selection is now empty.  Select the top-most commit
-            self.notifier.notify_observers(diff.COMMITS_SELECTED, [commit_obj])
+            self.commits_selected.emit([commit_obj])
 
         self.graphview.set_initial_view()
 
@@ -987,7 +990,7 @@ class Cache(object):
 
 
 class Edge(QtWidgets.QGraphicsItem):
-    item_type = QtWidgets.QGraphicsItem.UserType + 1
+    item_type = qtutils.standard_item_type_value(1)
 
     def __init__(self, source, dest):
 
@@ -1139,7 +1142,7 @@ class EdgeColor(object):
 
 
 class Commit(QtWidgets.QGraphicsItem):
-    item_type = QtWidgets.QGraphicsItem.UserType + 2
+    item_type = qtutils.standard_item_type_value(2)
     commit_radius = 12.0
     merge_radius = 18.0
 
@@ -1172,7 +1175,6 @@ class Commit(QtWidgets.QGraphicsItem):
     def __init__(
         self,
         commit,
-        notifier,
         selectable=QtWidgets.QGraphicsItem.ItemIsSelectable,
         cursor=Qt.PointingHandCursor,
         xpos=commit_radius / 2.0 + 1.0,
@@ -1183,7 +1185,6 @@ class Commit(QtWidgets.QGraphicsItem):
         QtWidgets.QGraphicsItem.__init__(self)
 
         self.commit = commit
-        self.notifier = notifier
         self.selected = False
 
         self.setZValue(0)
@@ -1208,19 +1209,8 @@ class Commit(QtWidgets.QGraphicsItem):
 
         self.edges = {}
 
-    def blockSignals(self, blocked):
-        """Disable notifications during sections that cause notification loops"""
-        self.notifier.notification_enabled = not blocked
-
     def itemChange(self, change, value):
         if change == QtWidgets.QGraphicsItem.ItemSelectedHasChanged:
-            # Broadcast selection to other widgets
-            selected_items = self.scene().selectedItems()
-            commits = [item.commit for item in selected_items]
-            self.scene().parent().set_selecting(True)
-            self.notifier.notify_observers(diff.COMMITS_SELECTED, commits)
-            self.scene().parent().set_selecting(False)
-
             # Cache the pen for use in paint()
             if value:
                 self.brush = self.commit_selected_color
@@ -1277,7 +1267,7 @@ class Commit(QtWidgets.QGraphicsItem):
 
 class Label(QtWidgets.QGraphicsItem):
 
-    item_type = QtWidgets.QGraphicsItem.UserType + 3
+    item_type = qtutils.graphics_item_type_value(3)
 
     head_color = QtGui.QColor(Qt.green)
     other_color = QtGui.QColor(Qt.white)
@@ -1387,6 +1377,7 @@ class Label(QtWidgets.QGraphicsItem):
 # pylint: disable=too-many-ancestors
 class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
 
+    commits_selected = Signal(object)
     diff_commits = Signal(object, object)
 
     x_adjust = int(Commit.commit_radius * 4 / 3)
@@ -1395,7 +1386,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
     x_off = -18
     y_off = -24
 
-    def __init__(self, context, notifier, parent):
+    def __init__(self, context, parent):
         QtWidgets.QGraphicsView.__init__(self, parent)
         ViewerMixin.__init__(self)
 
@@ -1407,7 +1398,6 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         self.columns = {}
         self.selection_list = []
         self.menu_actions = None
-        self.notifier = notifier
         self.commits = []
         self.items = {}
         self.mouse_start = [0, 0]
@@ -1431,6 +1421,9 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         scene = QtWidgets.QGraphicsScene(self)
         scene.setItemIndexMethod(QtWidgets.QGraphicsScene.NoIndex)
         self.setScene(scene)
+
+        # pylint: disable=no-member
+        scene.selectionChanged.connect(self.selection_changed)
 
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.setViewportUpdateMode(self.BoundingRectViewportUpdate)
@@ -1470,8 +1463,6 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
             self, N_('Select Newest Child'), self._select_newest_child, hotkeys.MOVE_UP
         )
 
-        notifier.add_observer(diff.COMMITS_SELECTED, self.commits_selected)
-
     def clear(self):
         EdgeColor.reset()
         self.scene().clear()
@@ -1492,10 +1483,19 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
     def zoom_out(self):
         self.scale_view(1.0 / 1.5)
 
-    def commits_selected(self, commits):
+    def selection_changed(self):
+        # Broadcast selection to other widgets
+        selected_items = self.scene().selectedItems()
+        commits = [item.commit for item in selected_items]
+        self.set_selecting(True)
+        self.commits_selected.emit(commits)
+        self.set_selecting(False)
+
+    def select_commits(self, commits):
         if self.selecting:
             return
-        self.select([commit.oid for commit in commits])
+        with qtutils.BlockSignals(self.scene()):
+            self.select([commit.oid for commit in commits])
 
     def select(self, oids):
         """Select the item for the oids"""
@@ -1505,8 +1505,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
                 item = self.items[oid]
             except KeyError:
                 continue
-            with qtutils.BlockSignals(item):
-                item.setSelected(True)
+            item.setSelected(True)
             item_rect = item.sceneTransform().mapRect(item.boundingRect())
             self.ensureVisible(item_rect)
 
@@ -1764,7 +1763,7 @@ class GraphView(QtWidgets.QGraphicsView, ViewerMixin):
         self.commits.extend(commits)
         scene = self.scene()
         for commit in commits:
-            item = Commit(commit, self.notifier)
+            item = Commit(commit)
             self.items[commit.oid] = item
             for ref in commit.tags:
                 self.items[ref] = item

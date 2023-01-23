@@ -58,8 +58,7 @@ def test_diff():
     assert len(hunks[2].lines) == 16
     assert hunks[2].lines[0] == '@@ -43,11 +52,10 @@ class DiffParser(object):\n'
     assert hunks[2].lines[-1] == (
-        '         """Writes a new diff corresponding to the user\'s'
-        ' selection."""\n'
+        '         """Writes a new diff corresponding to the user\'s' ' selection."""\n'
     )
 
 
@@ -75,12 +74,7 @@ def test_diff_at_start():
     assert hunks[0].new_start == 1
     assert hunks[0].new_count == 4
     assert parser.generate_patch(1, 3) == (
-        '--- a/foo bar/a\n'
-        '+++ b/foo bar/a\n'
-        '@@ -1 +1,3 @@\n'
-        ' bar\n'
-        '+a\n'
-        '+b\n'
+        '--- a/foo bar/a\n' '+++ b/foo bar/a\n' '@@ -1 +1,3 @@\n' ' bar\n' '+a\n' '+b\n'
     )
     assert parser.generate_patch(0, 4) == (
         '--- a/foo bar/a\n'
@@ -120,18 +114,10 @@ def test_diff_that_empties_file():
     assert hunks[0].new_start == 0
     assert hunks[0].new_count == 0
     assert parser.generate_patch(1, 1) == (
-        '--- a/filename\n'
-        '+++ b/filename\n'
-        '@@ -1,2 +1 @@\n'
-        '-first\n'
-        ' second\n'
+        '--- a/filename\n' '+++ b/filename\n' '@@ -1,2 +1 @@\n' '-first\n' ' second\n'
     )
     assert parser.generate_patch(0, 2) == (
-        '--- a/filename\n'
-        '+++ b/filename\n'
-        '@@ -1,2 +0,0 @@\n'
-        '-first\n'
-        '-second\n'
+        '--- a/filename\n' '+++ b/filename\n' '@@ -1,2 +0,0 @@\n' '-first\n' '-second\n'
     )
 
 
@@ -264,10 +250,10 @@ def test_diff_line_count_ranges(difflines_data):
     current_new += count
     current_old += count
 
-    expect_max_old = 54
+    expect_max_old = 53
     assert expect_max_old == parser.old.max_value
 
-    expect_max_new = 62
+    expect_max_new = 61
     assert expect_max_new == parser.new.max_value
 
     assert parser.digits() == 2
@@ -303,6 +289,18 @@ def test_diff_line_for_merge(difflines_data):
     assert lines[3][0] == 2
     assert lines[3][1] == parser.EMPTY
     assert lines[3][2] == 3
+
+
+def test_diff_line_digits(difflines_data):
+    parser = difflines_data.parser
+
+    text = """@@ -1,99 +1,99 @@"""
+    parser.parse(text)
+    assert parser.digits() == 2
+
+    text = """@@ -2,99 +2,99 @@"""
+    parser.parse(text)
+    assert parser.digits() == 3
 
 
 def test_format_basic():

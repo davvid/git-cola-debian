@@ -5,6 +5,7 @@ import os
 from os.path import join
 import subprocess
 import threading
+import time
 
 from . import core
 from .compat import int_types
@@ -261,6 +262,7 @@ class Git(object):
         :param _cwd: working directory, defaults to the current directory.
         :param _decode: whether to decode output, defaults to True.
         :param _encoding: default encoding, defaults to None (utf-8).
+        :param _readonly: avoid taking the index lock. Assume the command is read-only.
         :param _raw: do not strip trailing whitespace.
         :param _stdin: optional stdin filehandle.
         :returns (status, out, err): exit status, stdout, stderr
@@ -278,6 +280,8 @@ class Git(object):
             # SSH_ASKPASS environment variable is not enough).  To detach a
             # process from the console it should fork and call os.setsid().
             extra['preexec_fn'] = os.setsid
+
+        start_time = time.time()
 
         # Start the process
         # Guard against thread-unsafe .git/index.lock files
@@ -299,22 +303,28 @@ class Git(object):
             if not _readonly:
                 _index_lock.release()
 
+        end_time = time.time()
+        elapsed_time = abs(end_time - start_time)
+
         if not _raw and out is not None:
             out = core.UStr(out.rstrip('\n'), out.encoding)
 
         cola_trace = GIT_COLA_TRACE
         if cola_trace == 'trace':
-            msg = 'trace: ' + core.list2cmdline(command)
+            msg = 'trace: %.3fs: %s' % (elapsed_time, core.list2cmdline(command))
             Interaction.log_status(status, msg, '')
         elif cola_trace == 'full':
             if out or err:
                 core.print_stderr(
-                    "%s -> %d: '%s' '%s'" % (' '.join(command), status, out, err)
+                    "# %.3fs: %s -> %d: '%s' '%s'"
+                    % (elapsed_time, ' '.join(command), status, out, err)
                 )
             else:
-                core.print_stderr("%s -> %d" % (' '.join(command), status))
+                core.print_stderr(
+                    '# %.3fs: %s -> %d' % (elapsed_time, ' '.join(command), status)
+                )
         elif cola_trace:
-            core.print_stderr(' '.join(command))
+            core.print_stderr('# %.3fs: %s' % (elapsed_time, ' '.join(command)))
 
         # Allow access to the command's status code
         return (status, out, err)

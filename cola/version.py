@@ -3,18 +3,23 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import sys
 
+from .git import STDOUT
+from .decorators import memoize
+from ._version import VERSION
+
+try:
+    if sys.version_info < (3, 8):
+        import importlib_metadata as metadata
+    else:
+        from importlib import metadata
+except (ImportError, OSError):
+    metadata = None
+
+
 if __name__ == '__main__':
     srcdir = os.path.dirname(os.path.dirname(__file__))
     sys.path.insert(1, srcdir)
 
-from .git import STDOUT  # noqa
-from .decorators import memoize  # noqa
-from ._version import VERSION  # noqa
-
-try:
-    from ._build_version import BUILD_VERSION
-except ImportError:
-    BUILD_VERSION = ''
 
 # minimum version requirements
 _versions = {
@@ -35,14 +40,20 @@ _versions = {
     'force-with-lease': '1.8.5',
     # git submodule update --recursive was introduced in 1.6.5
     'submodule-update-recursive': '1.6.5',
-    # git include.path pseudo-variable was introduced in 1.7.10
+    # git include.path pseudo-variable was introduced in 1.7.10.
     'config-includes': '1.7.10',
+    # git config --show-scope was introduced in 2.26.0
+    'config-show-scope': '2.26.0',
+    # git config --show-origin was introduced in 2.8.0
+    'config-show-origin': '2.8.0',
     # git for-each-ref --sort=version:refname
     'version-sort': '2.7.0',
     # Qt support for QT_AUTO_SCREEN_SCALE_FACTOR and QT_SCALE_FACTOR
     'qt-hidpi-scale': '5.6.0',
     # git rev-parse --show-superproject-working-tree was added in 2.13.0
     'show-superproject-working-tree': '2.13.0',
+    # git rebase --update-refs was added in 2.38.0
+    'rebase-update-refs': '2.38.0',
 }
 
 
@@ -53,12 +64,13 @@ def get(key):
 
 def version():
     """Returns the current version"""
-    return VERSION
-
-
-def build_version():
-    """Return the build version, which includes the Git ID"""
-    return BUILD_VERSION
+    pkg_version = VERSION
+    if metadata is not None:
+        try:
+            pkg_version = metadata.version('git-cola')
+        except (ImportError, OSError):
+            pass
+    return pkg_version
 
 
 @memoize
@@ -96,7 +108,7 @@ def version_to_list(value):
 def git_version_str(context):
     """Returns the current GIT version"""
     git = context.git
-    return git.version()[STDOUT].strip()
+    return git.version(_readonly=True)[STDOUT].strip()
 
 
 @memoize
@@ -111,20 +123,14 @@ def git_version(context):
     return result
 
 
-def cola_version(build=False):
-    if build:
-        suffix = build_version() or version()
-    else:
-        suffix = version()
+def cola_version():
+    suffix = version()
     return 'cola version %s' % suffix
 
 
-def print_version(brief=False, build=False):
+def print_version(brief=False):
     if brief:
-        if build:
-            msg = build_version()
-        else:
-            msg = version()
+        msg = version()
     else:
-        msg = cola_version(build=build)
+        msg = cola_version()
     sys.stdout.write('%s\n' % msg)

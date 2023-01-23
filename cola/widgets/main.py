@@ -60,7 +60,6 @@ from . import toolbar
 
 class MainView(standard.MainWindow):
     config_actions_changed = Signal(object)
-    updated = Signal()
 
     def __init__(self, context, parent=None):
         # pylint: disable=too-many-statements,too-many-locals
@@ -70,7 +69,7 @@ class MainView(standard.MainWindow):
         self.context = context
         self.git = context.git
         self.dag = None
-        self.model = model = context.model
+        self.model = context.model
         self.prefs_model = prefs_model = prefs.PreferencesModel(context)
         self.toolbar_state = toolbar.ToolBarState(context, self)
 
@@ -109,7 +108,7 @@ class MainView(standard.MainWindow):
             'Favorites',
             N_('Favorites'),
             self,
-            fn=lambda dock: bookmarks.bookmark(context, dock)
+            fn=lambda dock: bookmarks.bookmark(context, dock),
         )
         bookmarkswidget = self.bookmarksdock.widget()
         qtutils.hide_dock(self.bookmarksdock)
@@ -118,7 +117,7 @@ class MainView(standard.MainWindow):
             'Recent',
             N_('Recent'),
             self,
-            fn=lambda dock: bookmarks.recent(context, dock)
+            fn=lambda dock: bookmarks.recent(context, dock),
         )
         recentwidget = self.recentdock.widget()
         qtutils.hide_dock(self.recentdock)
@@ -126,10 +125,7 @@ class MainView(standard.MainWindow):
 
         # "Branch" widgets
         self.branchdock = create_dock(
-            'Branches',
-            N_('Branches'),
-            self,
-            fn=partial(branch.BranchesWidget, context)
+            'Branches', N_('Branches'), self, fn=partial(branch.BranchesWidget, context)
         )
         self.branchwidget = self.branchdock.widget()
         titlebar = self.branchdock.titleBarWidget()
@@ -141,7 +137,7 @@ class MainView(standard.MainWindow):
             'Submodules',
             N_('Submodules'),
             self,
-            fn=partial(submodules.SubmodulesWidget, context)
+            fn=partial(submodules.SubmodulesWidget, context),
         )
         self.submoduleswidget = self.submodulesdock.widget()
 
@@ -280,7 +276,6 @@ class MainView(standard.MainWindow):
             N_('Find Files'),
             partial(finder.finder, context),
             hotkeys.FINDER,
-            hotkeys.FINDER_SECONDARY,
         )
         self.find_files_action.setIcon(icons.search())
 
@@ -807,12 +802,12 @@ class MainView(standard.MainWindow):
         self.tabifyDockWidget(self.actionsdock, self.logdock)
 
         # Listen for model notifications
-        model.add_observer(model.message_updated, self.updated.emit)
-        model.add_observer(model.message_mode_changed, lambda mode: self.updated.emit())
-
-        prefs_model.add_observer(
-            prefs_model.message_config_updated, self._config_updated
+        self.model.updated.connect(self.refresh, type=Qt.QueuedConnection)
+        self.model.mode_changed.connect(
+            lambda mode: self.refresh(), type=Qt.QueuedConnection
         )
+
+        prefs_model.config_updated.connect(self._config_updated)
 
         # Set a default value
         self.show_cursor_position(1, 0)
@@ -827,8 +822,6 @@ class MainView(standard.MainWindow):
 
         self.commiteditor.up.connect(self.statuswidget.move_up)
         self.commiteditor.down.connect(self.statuswidget.move_down)
-
-        self.updated.connect(self.refresh, type=Qt.QueuedConnection)
 
         self.config_actions_changed.connect(
             lambda names_and_shortcuts: _install_config_actions(
@@ -885,6 +878,8 @@ class MainView(standard.MainWindow):
         """Save state in the settings"""
         commit_msg = self.commiteditor.commit_message(raw=True)
         self.model.save_commitmsg(msg=commit_msg)
+        for browser in list(self.context.browser_windows):
+            browser.close()
         standard.MainWindow.closeEvent(self, event)
 
     def create_view_menu(self):
@@ -1001,7 +996,7 @@ class MainView(standard.MainWindow):
     def start(self, context):
         """Do the expensive "get_config_actions()" call in the background"""
         # Install .git-config-defined actions
-        task = qtutils.SimpleTask(self, self.get_config_actions)
+        task = qtutils.SimpleTask(self.get_config_actions)
         context.runtask.start(task)
 
     def get_config_actions(self):

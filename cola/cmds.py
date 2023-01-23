@@ -62,7 +62,7 @@ class EditModel(ContextCommand):
 
     def do(self):
         """Perform the operation."""
-        self.model.set_filename(self.new_filename)
+        self.model.filename = self.new_filename
         self.model.set_mode(self.new_mode)
         self.model.set_diff_text(self.new_diff_text)
         self.model.set_diff_type(self.new_diff_type)
@@ -70,7 +70,7 @@ class EditModel(ContextCommand):
 
     def undo(self):
         """Undo the operation."""
-        self.model.set_filename(self.old_filename)
+        self.model.filename = self.old_filename
         self.model.set_mode(self.old_mode)
         self.model.set_diff_text(self.old_diff_text)
         self.model.set_diff_type(self.old_diff_type)
@@ -348,7 +348,7 @@ class ApplyPatches(ContextCommand):
 
 
 class Archive(ContextCommand):
-    """"Export archives using the "git archive" command"""
+    """ "Export archives using the "git archive" command"""
 
     def __init__(self, context, ref, fmt, prefix, filename):
         super(Archive, self).__init__(context)
@@ -1061,13 +1061,17 @@ class DeleteRemoteBranch(DeleteBranch):
         return command % (self.remote, self.branch)
 
 
-def get_mode(model, staged, modified, unmerged, untracked):
+def get_mode(context, filename, staged, modified, unmerged, untracked):
+    model = context.model
     if staged:
         mode = model.mode_index
     elif modified or unmerged:
         mode = model.mode_worktree
     elif untracked:
-        mode = model.mode_untracked
+        if gitcmds.is_binary(context, filename):
+            mode = model.mode_untracked
+        else:
+            mode = model.mode_untracked_diff
     else:
         mode = model.mode
     return mode
@@ -1116,7 +1120,9 @@ class DiffImage(EditModel):
         self.new_filename = filename
         self.new_diff_type = self.get_diff_type(filename)
         self.new_file_type = main.Types.IMAGE
-        self.new_mode = get_mode(self.model, staged, modified, unmerged, untracked)
+        self.new_mode = get_mode(
+            context, filename, staged, modified, unmerged, untracked
+        )
         self.staged = staged
         self.modified = modified
         self.unmerged = unmerged
@@ -1670,37 +1676,58 @@ class OpenDefaultApp(ContextCommand):
 
     def __init__(self, context, filenames):
         super(OpenDefaultApp, self).__init__(context)
-        if utils.is_darwin():
-            launcher = 'open'
-        else:
-            launcher = 'xdg-open'
-        self.launcher = launcher
         self.filenames = filenames
 
     def do(self):
         if not self.filenames:
             return
-        core.fork([self.launcher] + self.filenames)
+        utils.launch_default_app(self.filenames)
 
 
-class OpenParentDir(OpenDefaultApp):
+class OpenDir(OpenDefaultApp):
+    """Open directories using the OS default."""
+
+    @staticmethod
+    def name():
+        return N_('Open Directory')
+
+    @property
+    def _dirnames(self):
+        return self.filenames
+
+    def do(self):
+        dirnames = self._dirnames
+        if not dirnames:
+            return
+        # An empty dirname defaults to CWD.
+        dirs = [(dirname or core.getcwd()) for dirname in dirnames]
+        utils.launch_default_app(dirs)
+
+
+class OpenParentDir(OpenDir):
     """Open parent directories using the OS default."""
 
     @staticmethod
     def name():
         return N_('Open Parent Directory')
 
-    def __init__(self, context, filenames):
-        OpenDefaultApp.__init__(self, context, filenames)
-
-    def do(self):
-        if not self.filenames:
-            return
+    @property
+    def _dirnames(self):
         dirnames = list(set([os.path.dirname(x) for x in self.filenames]))
-        # os.path.dirname() can return an empty string so we fallback to
-        # the current directory
-        dirs = [(dirname or core.getcwd()) for dirname in dirnames]
-        core.fork([self.launcher] + dirs)
+        return dirnames
+
+
+class OpenWorktree(OpenDir):
+    """Open worktree directory using the OS default."""
+
+    @staticmethod
+    def name():
+        return N_('Open Worktree')
+
+    # The _unused parameter is needed by worktree_dir_action() -> common.cmd_action().
+    def __init__(self, context, _unused=None):
+        dirnames = [context.git.worktree()]
+        super(OpenWorktree, self).__init__(context, dirnames)
 
 
 class OpenNewRepo(ContextCommand):
@@ -1731,7 +1758,7 @@ class OpenRepo(EditModel):
         if self.model.set_worktree(self.repo_path):
             self.fsmonitor.stop()
             self.fsmonitor.start()
-            self.model.update_status()
+            self.model.update_status(reset=True)
             # Check if template should be loaded
             if self.context.cfg.get(prefs.AUTOTEMPLATE):
                 template_loader = LoadCommitMessageFromTemplate(self.context)
@@ -1886,6 +1913,30 @@ class Rebase(ContextCommand):
         kwargs['interactive'] = True
         kwargs['autosquash'] = self.kwargs.get('autosquash', True)
         kwargs.update(self.kwargs)
+
+        # Prompt to determine whether or not to use "git rebase --update-refs".
+        has_update_refs = version.check_git(self.context, 'rebase-update-refs')
+        if has_update_refs and not kwargs.get('update_refs', False):
+            title = N_('Update stacked branches when rebasing?')
+            text = N_(
+                '"git rebase --update-refs" automatically force-updates any\n'
+                'branches that point to commits that are being rebased.\n\n'
+                'Any branches that are checked out in a worktree are not updated.\n\n'
+                'Using this feature is helpful for "stacked" branch workflows.'
+            )
+            info = N_('Update stacked branches when rebasing?')
+            ok_text = N_('Update stacked branches')
+            cancel_text = N_('Do not update stacked branches')
+            update_refs = Interaction.confirm(
+                title,
+                text,
+                info,
+                ok_text,
+                default=True,
+                cancel_text=cancel_text,
+            )
+            if update_refs:
+                kwargs['update_refs'] = True
 
         if upstream:
             args.append(upstream)
@@ -2342,7 +2393,7 @@ def is_conflict_free(path):
     """Return True if `path` contains no conflict markers"""
     rgx = re.compile(r'^(<<<<<<<|\|\|\|\|\|\|\||>>>>>>>) ')
     try:
-        with core.xopen(path, 'r') as f:
+        with core.xopen(path, 'rb') as f:
             for line in f:
                 line = core.decode(line, errors='ignore')
                 if rgx.match(line):
@@ -2402,6 +2453,9 @@ class Stage(ContextCommand):
 
         add = []
         remove = []
+        status = 0
+        out = ''
+        err = ''
 
         for path in set(paths):
             if core.exists(path) or core.islink(path):
@@ -2512,6 +2566,7 @@ class StageModifiedAndUntracked(StageCarefully):
 
 class StageOrUnstageAll(ContextCommand):
     """If the selection is staged, unstage it, otherwise stage"""
+
     @staticmethod
     def name():
         return N_('Stage / Unstage All')
@@ -2724,7 +2779,7 @@ class UntrackedSummary(EditModel):
         self.new_diff_text = io.getvalue()
         self.new_diff_type = main.Types.TEXT
         self.new_file_type = main.Types.TEXT
-        self.new_mode = self.model.mode_untracked
+        self.new_mode = self.model.mode_display
 
 
 class VisualizeAll(ContextCommand):

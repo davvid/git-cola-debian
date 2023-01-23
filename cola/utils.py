@@ -287,7 +287,7 @@ def shell_split(s):
 
 def tmp_filename(label, suffix=''):
     label = 'git-cola-' + label.replace('/', '-').replace('\\', '-')
-    fd = tempfile.NamedTemporaryFile(prefix=label + '-', suffix=suffix)
+    fd = tempfile.NamedTemporaryFile(prefix=label + '-', suffix=suffix, delete=False)
     fd.close()
     return fd.name
 
@@ -309,7 +309,23 @@ def is_darwin():
 
 def is_win32():
     """Return True on win32"""
-    return sys.platform == 'win32' or sys.platform == 'cygwin'
+    return sys.platform in {'win32', 'cygwin'}
+
+
+def launch_default_app(paths):
+    """Execute the default application on the specified paths"""
+    if is_win32():
+        for path in paths:
+            if hasattr(os, 'startfile'):
+                os.startfile(path)  # pylint: disable=no-member
+        return
+
+    if is_darwin():
+        launcher = 'open'
+    else:
+        launcher = 'xdg-open'
+
+    core.fork([launcher] + paths)
 
 
 def expandpath(path):
