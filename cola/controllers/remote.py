@@ -3,6 +3,10 @@
 
 import os
 import fnmatch
+from PyQt4 import QtGui
+from PyQt4 import QtCore
+from PyQt4.QtCore import Qt
+from PyQt4.QtCore import SIGNAL
 from PyQt4.QtGui import QDialog
 
 import cola
@@ -26,6 +30,7 @@ def remote_action(parent, action):
     controller = RemoteController(model, view, action)
     view.show()
 
+
 class RemoteController(QObserver):
     """Provides control for the remote-action dialog."""
     def __init__(self, model, view, action):
@@ -47,6 +52,13 @@ class RemoteController(QObserver):
             'push': self.gen_remote_callback(self.model.push_helper),
             'pull': self.gen_remote_callback(self.model.pull_helper),
         }   [action]
+        self.action_result = None
+        self._tasks = []
+        self.progress = QtGui.QProgressDialog(self.view)
+        self.progress.setRange(0, 0)
+        self.progress.setCancelButton(None)
+        self.progress.setWindowTitle('git ' + action)
+        self.progress.setWindowModality(Qt.WindowModal)
         """Callbacks corresponding to the 3 (fetch/push/pull) modes"""
 
         self.add_actions(remotes = self.display_remotes)
@@ -54,6 +66,8 @@ class RemoteController(QObserver):
                            remotes = self.update_remotes,
                            local_branches = self.update_local_branches,
                            remote_branches = self.update_remote_branches)
+        self.view.connect(self.view, SIGNAL('action_completed'),
+                          self._action_completed)
         self.refresh_view()
         remotes = self.model.remotes
         if 'origin' in remotes:
@@ -204,10 +218,55 @@ class RemoteController(QObserver):
                 if not qtutils.question(self.view,
                         'Force %s?' % action.title(), msg, default=False):
                     return
-            status, output = modelaction(remote, **kwargs)
-            if not output: # git fetch --tags --verbose doesn't print anything...
-                output = self.tr('Already up-to-date.')
-            # Force the status to 1 so that we always display the log
-            qtutils.log(1, output)
-            self.view.accept()
+
+            # Disable the GUI by default
+            self.view.setEnabled(False)
+            self.progress.setEnabled(True)
+            QtGui.QApplication.setOverrideCursor(Qt.WaitCursor)
+
+            # Show a nice progress bar
+            self.progress.setLabelText('Connecting to %s...' % remote)
+            self.progress.show()
+
+            # Use a thread to update in the background
+            task = ActionTask(self.view, modelaction, remote, kwargs)
+            self._tasks.append(task)
+            QtCore.QThreadPool.globalInstance().start(task)
+
         return remote_callback
+
+
+    def _action_completed(self, task, status, output):
+        # Grab the results of the action and finish up
+        if task in self._tasks:
+            self._tasks.remove(task)
+
+        if not output: # git fetch --tags --verbose doesn't print anything...
+            output = self.tr('Already up-to-date.')
+        # Force the status to 1 so that we always display the log
+        qtutils.log(1, output)
+
+        self.progress.close()
+        QtGui.QApplication.restoreOverrideCursor()
+
+        if status != 0 and self.action == 'push':
+            message = 'Error pushing to "%s".\n\nPull first?' % remote
+            qtutils.critical('Push Error',
+                             message=message, details=output)
+
+        self.action_completed = True
+        self.view.accept()
+
+
+class ActionTask(QtCore.QRunnable):
+    def __init__(self, sender, modelaction, remote, kwargs):
+        QtCore.QRunnable.__init__(self)
+        self._sender = sender
+        self._modelaction = modelaction
+        self._remote = remote
+        self._kwargs = kwargs
+
+    def run(self):
+        """Runs the model action and captures the result"""
+        status, output = self._modelaction(self._remote, **self._kwargs)
+        self._sender.emit(SIGNAL('action_completed'), self, status, output)

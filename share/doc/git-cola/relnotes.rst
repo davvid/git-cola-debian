@@ -1,5 +1,42 @@
 .. |beta(TM)| unicode:: beta U+2122
 
+git-cola v1.4.3.4
+=================
+Usability, bells and whistles
+-----------------------------
+* We now provide better feedback when `git push` fails.
+
+  http://github.com/davvid/git-cola/issues/closed#issue/69
+
+* The Fetch, Push, and Pull dialogs now give better feedback
+  when interacting with remotes.  The dialogs are modal and
+  a progress dialog is used.
+
+Fixes
+-----
+* More unicode fixes, again.  It is now possible to have
+  unicode branch names, repository paths, home directories, etc.
+  This continued the work initiated by Redhat's bugzilla #694806.
+
+  https://bugzilla.redhat.com/show_bug.cgi?id=694806
+
+git-cola v1.4.3.3
+=================
+Usability, bells and whistles
+-----------------------------
+* The `git-cola` desktop launchers now prompt for a repo
+  by default.  This is done by using the new `--prompt`
+  flag which tells `git-cola` to ignore any git repositories
+  in the current directory and prompt for one instead.
+
+Fixes
+-----
+* More Unicode fixes for repositories and home directories with
+  embedded unicode characters.  Thanks to Christian Jann for
+  patience and helpful bug reports.
+
+* Fix the 'Clone' button in the startup dialog.
+
 git-cola v1.4.3.2
 =================
 Usability, bells and whistles

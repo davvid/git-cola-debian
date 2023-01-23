@@ -68,7 +68,7 @@ def current_branch(git=git):
 
     for refs_prefix in ('refs/heads/', 'refs/remotes/'):
         if data.startswith(refs_prefix):
-            value = data[len(refs_prefix):]
+            value = core.decode(data[len(refs_prefix):])
             _current_branch.key = key
             _current_branch.value = value
             return value
@@ -87,7 +87,7 @@ def _read_git_head(head, default='master', git=git):
 
     # Common .git/HEAD "ref: refs/heads/master" file
     elif os.path.isfile(head):
-        data = utils.slurp(head).rstrip()
+        data = utils.slurp(core.decode(head)).rstrip()
         ref_prefix = 'ref: '
         if data.startswith(ref_prefix):
             return data[len(ref_prefix):]
@@ -112,7 +112,8 @@ def branch_list(remote=False):
 
 def for_each_ref_basename(refs, git=git):
     """Return refs starting with 'refs'."""
-    output = git.for_each_ref(refs, format='%(refname)').splitlines()
+    git_output = git.for_each_ref(refs, format='%(refname)')
+    output = core.decode(git_output).splitlines()
     non_heads = filter(lambda x: not x.endswith('/HEAD'), output)
     return map(lambda x: x[len(refs) + 1:], non_heads)
 
@@ -126,7 +127,8 @@ def all_refs(split=False, git=git):
     query = (triple('refs/tags', tags),
              triple('refs/heads', local_branches),
              triple('refs/remotes', remote_branches))
-    for ref in git.for_each_ref(format='%(refname)').splitlines():
+    cmdout = core.decode(git.for_each_ref(format='%(refname)'))
+    for ref in cmdout.splitlines():
         for prefix, prefix_len, dst in query:
             if ref.startswith(prefix) and not ref.endswith('/HEAD'):
                 dst.append(ref[prefix_len:])

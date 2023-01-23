@@ -45,11 +45,7 @@ class MainWindow(MainWindowBase):
         self.stash_button = qt.create_button('Stash...', layout)
         self.alt_button = qt.create_button('Exit Diff Mode', layout)
         self.alt_button.hide()
-
-        self.action_spacer = QtGui.QSpacerItem(1, 1,
-                                               QtGui.QSizePolicy.MinimumExpanding,
-                                               QtGui.QSizePolicy.MinimumExpanding)
-        self.actiondockwidgetcontents.layout().addItem(self.action_spacer)
+        layout.addStretch()
         self.actiondockwidget.setWidget(self.actiondockwidgetcontents)
 
         # "Repository Status" widget
@@ -61,10 +57,12 @@ class MainWindow(MainWindowBase):
         self.commitdockwidgetcontents = QtGui.QWidget()
 
         self.commitdockwidgetlayout = QtGui.QVBoxLayout(self.commitdockwidgetcontents)
-        self.commitdockwidgetlayout.setMargin(4)
+        self.commitdockwidgetlayout.setMargin(0)
+        self.commitdockwidgetlayout.setSpacing(0)
 
         self.vboxlayout = QtGui.QVBoxLayout()
-        self.vboxlayout.setSpacing(0)
+        self.vboxlayout.setSpacing(2)
+        self.vboxlayout.setMargin(0)
 
         self.commitmsg = QtGui.QTextEdit(self.commitdockwidgetcontents)
         self.commitmsg.setMinimumSize(QtCore.QSize(1, 1))
@@ -73,11 +71,10 @@ class MainWindow(MainWindowBase):
         self.commitmsg.setSizePolicy(policy)
         self.commitmsg.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         self.commitmsg.setAcceptRichText(False)
-        self.vboxlayout.addWidget(self.commitmsg)
 
         self.hboxlayout = QtGui.QHBoxLayout()
-        self.hboxlayout.setSpacing(3)
-        self.hboxlayout.setContentsMargins(2, 6, 2, 0)
+        self.hboxlayout.setSpacing(0)
+        self.hboxlayout.setMargin(0)
 
         # Sign off and commit buttons
         self.signoff_button = qt.create_button('Sign Off')
@@ -87,10 +84,6 @@ class MainWindow(MainWindowBase):
         self.position_label = QtGui.QLabel(self.actiondockwidgetcontents)
         self.position_label.setAlignment(Qt.AlignLeft)
 
-        # Spacer between position and amend
-        self.spacer = QtGui.QSpacerItem(1, 1,
-                                        QtGui.QSizePolicy.MinimumExpanding,
-                                        QtGui.QSizePolicy.Minimum)
         # Amend checkbox
         self.amend_checkbox = QtGui.QCheckBox(self.commitdockwidgetcontents)
         self.amend_checkbox.setText(tr('Amend Last Commit'))
@@ -98,10 +91,12 @@ class MainWindow(MainWindowBase):
         self.hboxlayout.addWidget(self.signoff_button)
         self.hboxlayout.addWidget(self.commit_button)
         self.hboxlayout.addWidget(self.position_label)
-        self.hboxlayout.addItem(self.spacer)
+        self.hboxlayout.addStretch()
         self.hboxlayout.addWidget(self.amend_checkbox)
 
+        self.vboxlayout.addWidget(self.commitmsg)
         self.vboxlayout.addLayout(self.hboxlayout)
+
         self.commitdockwidgetlayout.addLayout(self.vboxlayout)
         self.commitdockwidget.setWidget(self.commitdockwidgetcontents)
 
@@ -114,7 +109,7 @@ class MainWindow(MainWindowBase):
         self.diffdockwidget = self.create_dock('Diff Viewer')
         self.diffdockwidgetcontents = QtGui.QWidget()
         self.diffdockwidgetlayout = QtGui.QVBoxLayout(self.diffdockwidgetcontents)
-        self.diffdockwidgetlayout.setMargin(3)
+        self.diffdockwidgetlayout.setMargin(0)
 
         self.display_text = QtGui.QTextEdit(self.diffdockwidgetcontents)
         self.display_text.setMinimumSize(QtCore.QSize(1, 1))
@@ -142,7 +137,7 @@ class MainWindow(MainWindowBase):
         self.menu_copy = self.create_action('Copy', local=True)
         self.menu_paste = self.create_action('Paste')
         self.menu_select_all = self.create_action('Select All')
-        self.menu_options = self.create_action('Options')
+        self.menu_options = self.create_action('Preferences')
         self.menu_delete = self.create_action('Delete')
         self.menu_undo = self.create_action('Undo')
         self.menu_redo = self.create_action('Redo')
