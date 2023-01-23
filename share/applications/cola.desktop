@@ -1,0 +1,11 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=cola
+Comment=cola: a highly caffeinated git gui
+Exec=git cola
+Icon=/usr/share/cola/icons/git.png
+StartupNotify=true
+Terminal=false
+Type=Application
+Categories=Development
+X-KDE-SubstituteUID=false
