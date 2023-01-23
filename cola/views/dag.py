@@ -9,19 +9,47 @@ if __name__ == "__main__":
     src = os.path.join(os.path.dirname(__file__), '..', '..')
     sys.path.insert(0, os.path.abspath(src))
 
+from cola import observable
 from cola import qtutils
-from cola.models import commit
-from cola.views import standard
+from cola import signals
+from cola import gitcmds
 from cola.compat import set
 from cola.decorators import memoize
+from cola.models import commit
+from cola.views import standard
+from cola.views import syntax
 
 
 def git_dag(log_args=None, parent=None):
     """Return a pre-populated git DAG widget."""
     view = GitDAGWidget(parent)
-    view.thread.start(QtCore.QThread.LowPriority)
+    view.resize_to_desktop()
+    view.raise_()
     view.show()
+    view.thread.start(QtCore.QThread.LowPriority)
     return view
+
+
+class GitCommitView(QtGui.QWidget):
+    def __init__(self, parent=None, nodecom=None):
+        QtGui.QWidget.__init__(self, parent)
+
+        self.diff = QtGui.QTextEdit()
+        self.diff.setLineWrapMode(QtGui.QTextEdit.NoWrap)
+        self.diff.setReadOnly(True)
+        self.diff_syn = syntax.DiffSyntaxHighlighter(self.diff.document())
+        qtutils.set_diff_font(self.diff)
+
+        self._layt = QtGui.QVBoxLayout()
+        self._layt.addWidget(self.diff)
+        self.setLayout(self._layt)
+
+        sig = signals.sha1_selected
+        nodecom.add_message_observer(sig, self._node_selected)
+
+    def _node_selected(self, sha1):
+        self.diff.setText(gitcmds.diff_info(sha1))
+        qtutils.set_clipboard(sha1)
 
 
 class GitDAGWidget(standard.StandardDialog):
@@ -32,6 +60,9 @@ class GitDAGWidget(standard.StandardDialog):
     def delete(self):
         self._instances.remove(self)
 
+    def splitter(self):
+        return self._splitter
+
     def __init__(self, parent=None, args=None):
         standard.StandardDialog.__init__(self, parent)
         self._instances.add(self)
@@ -39,12 +70,20 @@ class GitDAGWidget(standard.StandardDialog):
         self.setObjectName('dag')
         self.setWindowTitle(self.tr('git dag'))
         self.setMinimumSize(1, 1)
-        self.resize(777, 666)
 
-        self._graphview = GraphView()
-        layt = QtGui.QHBoxLayout()
-        layt.setMargin(1)
-        layt.addWidget(self._graphview)
+        self._splitter = QtGui.QSplitter()
+        self._splitter.setOrientation(QtCore.Qt.Vertical)
+
+        self._nodecom = observable.Observable()
+        self._graphview = GraphView(nodecom=self._nodecom)
+        self._widget = GitCommitView(nodecom=self._nodecom)
+
+        self._splitter.insertWidget(0, self._graphview)
+        self._splitter.insertWidget(1, self._widget)
+
+        self._layt = layt = QtGui.QHBoxLayout()
+        layt.setMargin(0)
+        layt.addWidget(self._splitter)
         self.setLayout(layt)
 
         qtutils.add_close_action(self)
@@ -52,8 +91,7 @@ class GitDAGWidget(standard.StandardDialog):
             qtutils.center_on_screen(self)
 
         self.thread = ReaderThread(self, args)
-        self.thread.connect(self.thread,
-                            self.thread.commit_ready,
+        self.thread.connect(self.thread, self.thread.commit_ready,
                             self._add_commit)
 
     def _add_commit(self, sha1):
@@ -78,6 +116,13 @@ class GitDAGWidget(standard.StandardDialog):
         self.thread.stop = False
         self.thread.mutex.unlock()
         self.thread.condition.wakeOne()
+
+    def resize_to_desktop(self):
+        desktop = QtGui.QApplication.instance().desktop()
+        width = desktop.width()
+        height = desktop.height()
+        self.resize(width/2, height)
+        self.splitter().setSizes([height/2, height/2])
 
 
 class ReaderThread(QtCore.QThread):
@@ -201,11 +246,14 @@ class Node(QtGui.QGraphicsItem):
     _bound = _shape.boundingRect()
     _glyph = QtCore.QRectF(-_width/2., -9, _width/4., 18)
 
-    def __init__(self, commit):
+    def __init__(self, commit, nodecom):
         QtGui.QGraphicsItem.__init__(self)
         self.setZValue(0)
         self.setFlag(QtGui.QGraphicsItem.ItemIsSelectable)
+
         self.commit = commit
+        self._nodecom = nodecom
+
         # Starts with enough space for two tags. Any more and the node
         # needs to be taller to accomodate.
         if len(self.commit.tags) > 1:
@@ -262,7 +310,7 @@ class Node(QtGui.QGraphicsItem):
 
         # Draw glyph
         painter.drawEllipse(self.glyph())
-        sha1_text = self.commit.sha1
+        sha1_text = self.commit.sha1[:8]
         font = painter.font()
         font.setPointSize(5)
         painter.setFont(font)
@@ -287,9 +335,11 @@ class Node(QtGui.QGraphicsItem):
         painter.drawText(text_box, tag_text, text_options)
 
     def mousePressEvent(self, event):
-        self.selected = self.isSelected()
         self.pressed = True
+        self.selected = self.isSelected()
+        sig = signals.sha1_selected
         QtGui.QGraphicsItem.mousePressEvent(self, event)
+        self._nodecom.notify_message_observers(sig, self.commit.sha1)
 
     def mouseMoveEvent(self, event):
         if self.pressed:
@@ -314,7 +364,7 @@ class Node(QtGui.QGraphicsItem):
 
 
 class GraphView(QtGui.QGraphicsView):
-    def __init__(self):
+    def __init__(self, nodecom):
         QtGui.QGraphicsView.__init__(self)
 
         self._xoff = 200
@@ -325,6 +375,7 @@ class GraphView(QtGui.QGraphicsView):
         self._items = []
         self._selected = []
         self._nodes = {}
+        self._nodecom = nodecom
 
         self._loc = {}
         self._cols = {}
@@ -332,20 +383,18 @@ class GraphView(QtGui.QGraphicsView):
         self._panning = False
         self._last_mouse = [0, 0]
 
-        self._zoom = 1
+        self._zoom = 2
         self.scale(self._zoom, self._zoom)
         self.setDragMode(self.RubberBandDrag)
 
-        size = 30000
         scene = QtGui.QGraphicsScene(self)
         scene.setItemIndexMethod(QtGui.QGraphicsScene.NoIndex)
-        scene.setSceneRect(-size/4, -size/2, size/2, size)
         self.setScene(scene)
 
         self.setCacheMode(QtGui.QGraphicsView.CacheBackground)
         self.setRenderHint(QtGui.QPainter.Antialiasing)
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
-        self.setResizeAnchor(QtGui.QGraphicsView.AnchorViewCenter)
+        self.setResizeAnchor(QtGui.QGraphicsView.NoAnchor)
         self.setBackgroundColor()
 
     def add_commits(self, commits):
@@ -356,6 +405,7 @@ class GraphView(QtGui.QGraphicsView):
 
     def keyPressEvent(self, event):
         key = event.key()
+        QtGui.QGraphicsView.keyPressEvent(self, event)
 
         if key == QtCore.Qt.Key_Plus:
             self._scale_view(1.5)
@@ -363,10 +413,6 @@ class GraphView(QtGui.QGraphicsView):
             self._scale_view(1 / 1.5)
         elif key == QtCore.Qt.Key_F:
             self._view_fit()
-        elif event.key() == QtCore.Qt.Key_Z:
-            self._move_nodes_to_mouse_position()
-        else:
-            QtGui.QGraphicsView.keyPressEvent(self, event)
 
     def _view_fit(self):
         """Fit selected items into the viewport"""
@@ -504,29 +550,6 @@ class GraphView(QtGui.QGraphicsView):
         self.setTransformationAnchor(QtGui.QGraphicsView.NoAnchor)
         self.setMatrix(matrix)
 
-    def _move_nodes_to_mouse_position(self):
-        items = self.scene().selectedItems()
-        if not items:
-            return
-        dx = 0
-        dy = 0
-        min_distance = sys.maxint
-        for item in items:
-            width = item.boundingRect().width()
-            pos = item.pos()
-            tmp_dx = self._last_mouse[0] - pos.x() - width/2.0
-            tmp_dy = self._last_mouse[1] - pos.y() - width/2.0
-            distance = math.sqrt(tmp_dx ** 2 + tmp_dy ** 2)
-            if distance < min_distance:
-                min_distance = distance
-                dx = tmp_dx
-                dy = tmp_dy
-        for item in items:
-            pos = item.pos()
-            x = pos.x();
-            y = pos.y()
-            item.setPos( x + dx, y + dy )
-
     def setBackgroundColor(self, color=None):
         # To set a gradient background brush we need to use StretchToDeviceMode
         # but that seems to be segfaulting. Use a solid background.
@@ -546,7 +569,7 @@ class GraphView(QtGui.QGraphicsView):
     def add(self, commits):
         scene = self.scene()
         for commit in commits:
-            node = Node(commit)
+            node = Node(commit, self._nodecom)
             scene.addItem(node)
             self._nodes[commit.sha1] = node
             self._items.append(node)
@@ -601,14 +624,17 @@ class GraphView(QtGui.QGraphicsView):
             node = self._nodes[sha1]
             node.setPos(xmax, ymax)
 
-        xpad = 333
-        ypad = 66
+        xpad = 99
         self._xmax = gxmax
         self._ymax = gymax
-        self.scene().setSceneRect(-xpad, -ypad, gxmax+xpad, gymax+ypad)
+        self.scene().setSceneRect(-xpad, 0, gxmax, gymax)
 
 
 if __name__ == "__main__":
+    from cola.models import main
+
+    model = main.model()
+    model._init_config_data()
     app = QtGui.QApplication(sys.argv)
     view = git_dag()
     sys.exit(app.exec_())
