@@ -10,8 +10,6 @@ are always available in the model without having to worry about the
 different ways to query Qt widgets.
 
 """
-import types
-
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4.QtCore import SIGNAL
@@ -158,7 +156,7 @@ class QObserver(observer.Observer, QtCore.QObject):
                              getattr(self, doubleclick))
 
         elif isinstance(widget, QtGui.QAbstractButton):
-            self.add_signals('released()', widget)
+            self.add_signals('clicked()', widget)
         elif isinstance(widget, QtGui.QAction):
             self.add_signals('triggered()', widget)
         elif isinstance(widget, QtGui.QCheckBox):

@@ -2,12 +2,9 @@
 """Provides the cola QApplication subclass"""
 # style note: we use camelCase here since we're masquerading a Qt class
 
-import os
-
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 
-from cola import utils
 from cola import resources
 from cola import i18n
 from cola.decorators import memoize
@@ -27,9 +24,7 @@ class ColaApplication(object):
     def __init__(self, argv, locale=None, gui=True):
         """Initialize our QApplication for translation
         """
-        if locale:
-            os.environ['LANG'] = locale
-        i18n.install()
+        i18n.install(locale)
 
         # monkey-patch Qt's translate() to use our translate()
         if gui:
@@ -42,7 +37,7 @@ class ColaApplication(object):
             self._translate_base = QtCore.QCoreApplication.translate
             QtCore.QCoreApplication.translate = self.translate
 
-    def translate(self, context, txt):
+    def translate(self, domain, txt):
         """
         Translate strings with gettext
 

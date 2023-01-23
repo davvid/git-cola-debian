@@ -8,7 +8,6 @@ from cola import gitcfg
 from cola import qtutils
 from cola import qtcompat
 from cola import qt
-from cola.views import log
 from cola.qtutils import tr
 from cola.views import status
 from cola.views.standard import create_standard_widget
@@ -50,7 +49,7 @@ class MainWindow(MainWindowBase):
 
         # "Repository Status" widget
         self.statusdockwidget = self.create_dock('Repository Status')
-        self.statusdockwidget.setWidget(status.widget())
+        self.statusdockwidget.setWidget(status.StatusWidget(self))
 
         # "Commit Message Editor" widget
         self.commitdockwidget = self.create_dock('Commit Message Editor')
@@ -60,10 +59,6 @@ class MainWindow(MainWindowBase):
         self.commitdockwidgetlayout.setMargin(0)
         self.commitdockwidgetlayout.setSpacing(0)
 
-        self.vboxlayout = QtGui.QVBoxLayout()
-        self.vboxlayout.setSpacing(2)
-        self.vboxlayout.setMargin(0)
-
         self.commitmsg = QtGui.QTextEdit(self.commitdockwidgetcontents)
         self.commitmsg.setMinimumSize(QtCore.QSize(1, 1))
         policy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum,
@@ -72,32 +67,37 @@ class MainWindow(MainWindowBase):
         self.commitmsg.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         self.commitmsg.setAcceptRichText(False)
 
-        self.hboxlayout = QtGui.QHBoxLayout()
-        self.hboxlayout.setSpacing(0)
-        self.hboxlayout.setMargin(0)
+        self.commit_ctrls_layt = QtGui.QHBoxLayout()
+        self.commit_ctrls_layt.setSpacing(4)
+        self.commit_ctrls_layt.setMargin(4)
 
         # Sign off and commit buttons
-        self.signoff_button = qt.create_button('Sign Off')
-        self.commit_button = qt.create_button('Commit@@verb')
+        self.signoff_button = qt.create_toolbutton(self,
+                                                   text='Sign Off',
+                                                   tooltip='Sign off on this commit',
+                                                   icon=qtutils.apply_icon())
 
+        self.commit_button = qt.create_toolbutton(self,
+                                                  text='Commit@@verb',
+                                                  tooltip='Commit staged changes',
+                                                  icon=qtutils.save_icon())
         # Position display
         self.position_label = QtGui.QLabel(self.actiondockwidgetcontents)
-        self.position_label.setAlignment(Qt.AlignLeft)
+        self.position_label.setAlignment(Qt.AlignCenter | Qt.AlignVCenter)
 
         # Amend checkbox
         self.amend_checkbox = QtGui.QCheckBox(self.commitdockwidgetcontents)
         self.amend_checkbox.setText(tr('Amend Last Commit'))
 
-        self.hboxlayout.addWidget(self.signoff_button)
-        self.hboxlayout.addWidget(self.commit_button)
-        self.hboxlayout.addWidget(self.position_label)
-        self.hboxlayout.addStretch()
-        self.hboxlayout.addWidget(self.amend_checkbox)
+        self.commit_ctrls_layt.addWidget(self.signoff_button)
+        self.commit_ctrls_layt.addWidget(self.commit_button)
+        self.commit_ctrls_layt.addWidget(self.position_label)
+        self.commit_ctrls_layt.addStretch()
+        self.commit_ctrls_layt.addWidget(self.amend_checkbox)
 
-        self.vboxlayout.addWidget(self.commitmsg)
-        self.vboxlayout.addLayout(self.hboxlayout)
+        self.commitdockwidgetlayout.addWidget(self.commitmsg)
+        self.commitdockwidgetlayout.addLayout(self.commit_ctrls_layt)
 
-        self.commitdockwidgetlayout.addLayout(self.vboxlayout)
         self.commitdockwidget.setWidget(self.commitdockwidgetcontents)
 
         # "Command Output" widget
@@ -152,7 +152,6 @@ class MainWindow(MainWindowBase):
         self.menu_search_revision_range =\
                 self.create_action('Revision Range...')
         self.menu_search_date_range = self.create_action('Latest Commits...')
-        self.menu_search_message = self.create_action('Commit Messages...')
         self.menu_search_diff =\
                 self.create_action('Content Introduced in Commit...')
         self.menu_search_author = self.create_action('Commits By Author...')
@@ -160,7 +159,7 @@ class MainWindow(MainWindowBase):
                 self.create_action('Commits By Committer...')
         self.menu_manage_bookmarks = self.create_action('Bookmarks...')
         self.menu_save_bookmark = self.create_action('Bookmark Current...')
-        self.menu_search_grep = self.create_action('Grep')
+        self.menu_grep = self.create_action('Grep')
         self.menu_merge_local = self.create_action('Merge...')
         self.menu_merge_abort = self.create_action('Abort Merge...')
         self.menu_fetch = self.create_action('Fetch...')
@@ -178,7 +177,8 @@ class MainWindow(MainWindowBase):
                 self.create_action('Visualize Current Branch...')
         self.menu_visualize_all =\
                 self.create_action('Visualize All Branches...')
-        self.menu_browse_commits = self.create_action('Browse Commits...')
+        self.menu_browse_commits = self.create_action('Browse...')
+        self.menu_search_commits = self.create_action('Search...')
         self.menu_browse_branch =\
                 self.create_action('Browse Current Branch...')
         self.menu_browse_other_branch =\
@@ -244,6 +244,7 @@ class MainWindow(MainWindowBase):
         self.commit_menu.addAction(self.menu_unstage_selected)
         self.commit_menu.addSeparator()
         self.commit_menu.addAction(self.menu_browse_commits)
+        self.commit_menu.addAction(self.menu_search_commits)
         # Add to menubar
         self.menubar.addAction(self.commit_menu.menuAction())
 
@@ -266,25 +267,6 @@ class MainWindow(MainWindowBase):
         # Add to menubar
         self.menubar.addAction(self.branch_menu.menuAction())
 
-        # Search Menu
-        self.search_menu = self.create_menu('&Search', self.menubar)
-        self.search_menu.addAction(self.menu_search_date_range)
-        self.search_menu.addAction(self.menu_search_grep)
-        self.search_menu.addSeparator()
-        # Search / More Menu
-        self.menu_search_more = self.create_menu('More...', self.search_menu)
-        self.menu_search_more.addAction(self.menu_search_author)
-        self.menu_search_more.addAction(self.menu_search_path)
-        self.menu_search_more.addAction(self.menu_search_message)
-        self.menu_search_more.addSeparator()
-        self.menu_search_more.addAction(self.menu_search_revision_range)
-        self.menu_search_more.addAction(self.menu_search_revision)
-        self.menu_search_more.addSeparator()
-        self.menu_search_more.addAction(self.menu_search_diff)
-        self.search_menu.addAction(self.menu_search_more.menuAction())
-        # Add to menubar
-        self.menubar.addAction(self.search_menu.menuAction())
-
         # Actions menu
         self.actions_menu = self.create_menu('Act&ions', self.menubar)
         self.actions_menu.addAction(self.menu_merge_local)
@@ -300,6 +282,7 @@ class MainWindow(MainWindowBase):
         self.actions_menu.addAction(self.menu_cherry_pick)
         self.actions_menu.addSeparator()
         self.actions_menu.addAction(self.menu_merge_abort)
+        self.actions_menu.addAction(self.menu_grep)
         # Add to menubar
         self.menubar.addAction(self.actions_menu.menuAction())
 

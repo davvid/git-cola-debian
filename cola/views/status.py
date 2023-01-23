@@ -11,14 +11,6 @@ from cola.compat import set
 from cola.qtutils import SLOT
 
 
-_widget = None
-def widget(parent=None):
-    global _widget
-    if not _widget:
-        _widget = StatusWidget(parent)
-    return _widget
-
-
 class StatusWidget(QtGui.QWidget):
     """
     Provides a git-status-like repository widget.
@@ -52,11 +44,13 @@ class StatusWidget(QtGui.QWidget):
         self.tree.headerItem().setHidden(True)
         self.tree.setAllColumnsShowFocus(True)
         self.tree.setSortingEnabled(False)
+        self.tree.setUniformRowHeights(True)
+        self.tree.setAnimated(True)
 
-        self.add_item('Staged', 'plus.png')
-        self.add_item('Modified', 'modified.png')
-        self.add_item('Unmerged', 'unmerged.png')
-        self.add_item('Untracked', 'untracked.png')
+        self.add_item('Staged', 'plus.png', hide=True)
+        self.add_item('Modified', 'modified.png', hide=True)
+        self.add_item('Unmerged', 'unmerged.png', hide=True)
+        self.add_item('Untracked', 'untracked.png', hide=True)
 
         # Used to restore the selection
         self.old_selection = None
@@ -87,11 +81,13 @@ class StatusWidget(QtGui.QWidget):
                      SIGNAL('itemClicked(QTreeWidgetItem*, int)'),
                      self.tree_click)
 
-    def add_item(self, txt, path):
+    def add_item(self, txt, path, hide=False):
         """Create a new top-level item in the status tree."""
         item = QtGui.QTreeWidgetItem(self.tree)
         item.setText(0, self.tr(txt))
         item.setIcon(0, qtutils.icon(path))
+        if hide:
+            self.tree.setItemHidden(item, True)
 
     def restore_selection(self):
         if not self.old_selection:
@@ -329,6 +325,10 @@ class StatusWidget(QtGui.QWidget):
             menu.addSeparator()
             menu.addAction(self.tr('Delete File(s)'),
                            SLOT(signals.delete, self.untracked()))
+            menu.addSeparator()
+            menu.addAction(self.tr('Add to .gitignore'),
+                           SLOT(signals.ignore,
+                                map(lambda x: '/' + x, self.untracked())))
 
         return menu
 

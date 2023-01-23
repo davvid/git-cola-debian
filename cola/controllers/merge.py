@@ -1,8 +1,6 @@
 """This controller handles the merge dialog."""
 
-
 from PyQt4 import QtGui
-from PyQt4.Qt import Qt
 
 import cola
 from cola import gitcmds
@@ -15,12 +13,19 @@ from cola.views.merge import MergeView
 def abort_merge():
     """Prompts before aborting a merge in progress
     """
-    txt = ('Abort merge?\n'
+    title = 'Abort Merge...'
+    txt = ('Abort merge?\n\n'
            'Aborting the current merge will cause '
            '*ALL* uncommitted changes to be lost.\n\n'
            'Continue with aborting the current merge?')
+    info = 'Recovering uncommitted changes will not be possible'
     parent = QtGui.QApplication.instance().activeWindow()
-    answer = qtutils.question(parent, 'Abort Merge?', txt, default=False)
+    ok_text = qtutils.tr('Abort Merge...')
+    if ok_text.endswith(unichr(0x2026)):
+        ok_text = ok_text[:-1]
+    elif ok_text.endswith('...'):
+        ok_text = ok_text[:-3]
+    answer = qtutils.confirm(parent, title, txt, info, ok_text)
     if answer:
         gitcmds.abort_merge()
 

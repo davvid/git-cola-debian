@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 
 from PyQt4 import QtCore
@@ -33,7 +32,7 @@ class Columns(object):
 class GitRepoModel(QtGui.QStandardItemModel):
     """Provides an interface into a git repository for browsing purposes."""
     def __init__(self, parent):
-        QtGui.QStandardItem.__init__(self, parent)
+        QtGui.QStandardItemModel.__init__(self, parent)
         self._interesting_paths = self._get_paths()
         self._known_paths = set()
 
@@ -163,15 +162,16 @@ class GitRepoModel(QtGui.QStandardItemModel):
         entries = dirname.split('/')
         curdir = []
         parent = self.invisibleRootItem()
+        curdir_append = curdir.append
+        self_add_directory = self.add_directory
         for entry in entries:
-            curdir.append(entry)
+            curdir_append(entry)
             path = '/'.join(curdir)
             if path in direntries:
                 parent = direntries[path]
             else:
                 grandparent = parent
-                parent_path = '/'.join(curdir[:-1])
-                parent = self.add_directory(grandparent, path)
+                parent = self_add_directory(grandparent, path)
                 direntries[path] = parent
         return parent
 
@@ -187,11 +187,52 @@ class GitRepoEntryManager(object):
     static_entries = {}
 
     @classmethod
-    def entry(cls, path):
+    def entry(cls, path, _static_entries=static_entries):
         """Return a static instance of a GitRepoEntry."""
-        if path not in cls.static_entries:
-            cls.static_entries[path] = GitRepoEntry(path)
-        return cls.static_entries[path]
+        try:
+            e = _static_entries[path]
+        except KeyError:
+            e = _static_entries[path] = GitRepoEntry(path)
+        return e
+
+
+class TaskRunner(object):
+    """Manages QRunnable task instances to avoid python's garbage collector
+
+    When PyQt stops referencing a QRunnable instance Python cleans it up
+    which leads to segfaults, e.g. the dreaded "C++ object has gone away".
+
+    This class keeps track of tasks and cleans up references to them as they
+    complete.
+
+    """
+    singleton = None
+
+    @classmethod
+    def instance(cls):
+        if cls.singleton is None:
+            cls.singleton = TaskRunner()
+        return cls.singleton
+
+    def __init__(self):
+        self.tasks = set()
+        self.threadpool = QtCore.QThreadPool.globalInstance()
+        self.notifier = QtCore.QObject()
+        self.notifier.connect(self.notifier, SIGNAL('task_done'), self.task_done)
+
+    def run(self, task):
+        if not hasattr(QtCore, 'QThreadPool'):
+            # TODO: provide a fallback implementation
+            return
+        self.tasks.add(task)
+        self.threadpool.start(task)
+
+    def task_done(self, task):
+        if task in self.tasks:
+            self.tasks.remove(task)
+
+    def cleanup_task(self, task):
+        self.notifier.emit(SIGNAL('task_done'), task)
 
 
 class GitRepoEntry(QtCore.QObject):
@@ -204,7 +245,6 @@ class GitRepoEntry(QtCore.QObject):
     def __init__(self, path):
         QtCore.QObject.__init__(self)
         self.path = path
-        self.task = None
 
     def update_name(self):
         """Emits a signal corresponding to the entry's name."""
@@ -216,12 +256,8 @@ class GitRepoEntry(QtCore.QObject):
     def update(self):
         """Starts a GitRepoInfoTask to calculate info for entries."""
         # GitRepoInfoTask handles expensive lookups
-        if not hasattr(QtCore, 'QThreadPool'):
-            # TODO: provide a fallback implementation
-            return
-        threadpool = QtCore.QThreadPool.globalInstance()
-        self.task = GitRepoInfoTask(self.path)
-        threadpool.start(self.task)
+        task = GitRepoInfoTask(self.path)
+        TaskRunner.instance().run(task)
 
     def event(self, e):
         """Receive GitRepoInfoEvents and emit corresponding Qt signals."""
@@ -258,10 +294,10 @@ class GitRepoInfoTask(QRunnable):
                                             M=True,
                                             all=True,
                                             no_color=True,
-                                            pretty='format:%ar%x00%s%x00%an')
+                                            pretty='format:%ar%x01%s%x01%an')
             if log_line:
                 log_line = core.decode(log_line)
-                date, message, author = log_line.split('\0', 2)
+                date, message, author = log_line.split(chr(0x01), 2)
                 self._data['date'] = date
                 self._data['message'] = message
                 self._data['author'] = author
@@ -335,6 +371,8 @@ class GitRepoInfoTask(QRunnable):
                 GitRepoInfoEvent(Columns.WHO, self.data('author')))
         app.postEvent(entry,
                 GitRepoInfoEvent(Columns.STATUS, self.status()))
+
+        TaskRunner.instance().cleanup_task(self)
 
 
 class GitRepoInfoEvent(QtCore.QEvent):

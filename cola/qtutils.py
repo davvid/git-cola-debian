@@ -80,15 +80,31 @@ def cached_icon_from_path(filename):
     return QtGui.QIcon(filename)
 
 
-def information(title, message=None):
-    """Launches a QMessageBox information with the
-    provided title and message."""
+def information(title, message=None, parent=None, details=None, informative_text=None):
+    """Show information with the provided title and message."""
     if message is None:
         message = title
     title = tr(title)
     message = tr(message)
-    parent = QtGui.QApplication.instance().activeWindow()
-    QtGui.QMessageBox.information(parent, title, message)
+    if parent is None:
+        parent = QtGui.QApplication.instance().activeWindow()
+    mbox = QtGui.QMessageBox(parent)
+    mbox.setStandardButtons(QtGui.QMessageBox.Close)
+    mbox.setDefaultButton(QtGui.QMessageBox.Close)
+    mbox.setWindowTitle(title)
+    mbox.setWindowModality(QtCore.Qt.WindowModal)
+    mbox.setTextFormat(QtCore.Qt.PlainText)
+    mbox.setText(message)
+    if informative_text:
+        mbox.setInformativeText(tr(informative_text))
+    if details:
+        mbox.setDetailedText(details)
+    # Render git.svg into a 1-inch wide pixmap
+    pixmap = QtGui.QPixmap(resources.icon('git.svg'))
+    xres = pixmap.physicalDpiX()
+    pixmap = pixmap.scaledToHeight(xres, QtCore.Qt.SmoothTransformation)
+    mbox.setIconPixmap(pixmap)
+    mbox.exec_()
 
 
 def critical(title, message=None, details=None):
@@ -123,12 +139,15 @@ def selected_treeitem(tree_widget):
         selected = True
     return(id_number, selected)
 
+
 def selected_row(list_widget):
     """Returns a(row_number, is_selected) tuple for a QListWidget."""
-    row = list_widget.currentRow()
-    item = list_widget.item(row)
-    selected = item is not None and item.isSelected()
-    return(row, selected)
+    items = list_widget.selectedItems()
+    if not items:
+        return (-1, False)
+    item = items[0]
+    return (list_widget.row(item), True)
+
 
 def selection_list(listwidget, items):
     """Returns an array of model items that correspond to
@@ -157,8 +176,12 @@ def tree_selection(treeitem, items):
 
 def selected_item(list_widget, items):
     """Returns the selected item in a QListWidget."""
-    row, selected = selected_row(list_widget)
-    if selected and row < len(items):
+    widget_items = list_widget.selectedItems()
+    if not widget_items:
+        return None
+    widget_item = widget_items[0]
+    row = list_widget.row(widget_item)
+    if row < len(items):
         return items[row]
     else:
         return None
@@ -209,6 +232,21 @@ def question(parent, title, message, default=True):
     result = QtGui.QMessageBox.question(parent, title, message,
                                         buttons, default)
     return result == QtGui.QMessageBox.Yes
+
+
+def confirm(parent, title, text, informative_text, ok_text, icon=None):
+    """Confirm that an action should take place"""
+    if icon is None:
+        icon = ok_icon()
+    msgbox = QtGui.QMessageBox(parent)
+    msgbox.setWindowTitle(tr(title))
+    msgbox.setText(tr(text))
+    msgbox.setInformativeText(tr(informative_text))
+    ok = msgbox.addButton(tr(ok_text), QtGui.QMessageBox.ActionRole)
+    ok.setIcon(icon)
+    msgbox.addButton(QtGui.QMessageBox.Cancel)
+    msgbox.exec_()
+    return msgbox.clickedButton() == ok
 
 
 def set_clipboard(text):
@@ -282,7 +320,7 @@ def create_treeitem(filename, staged=False, untracked=False, check=True):
 
 
 def update_file_icons(widget, items, staged=True,
-            untracked=False, offset=0):
+                      untracked=False, offset=0):
     """Populate a QListWidget with custom icon items."""
     for idx, model_item in enumerate(items):
         item = widget.item(idx+offset)
@@ -309,6 +347,31 @@ def dir_icon():
 def file_icon():
     """Return a standard icon for a file."""
     return cached_icon(QtGui.QStyle.SP_FileIcon)
+
+
+def apply_icon():
+    """Return a standard Apply icon"""
+    return cached_icon(QtGui.QStyle.SP_DialogApplyButton)
+
+
+def save_icon():
+    """Return a standard Save icon"""
+    return cached_icon(QtGui.QStyle.SP_DialogSaveButton)
+
+
+def ok_icon():
+    """Return a standard Ok icon"""
+    return cached_icon(QtGui.QStyle.SP_DialogOkButton)
+
+
+def discard_icon():
+    """Return a standard Discard icon"""
+    return cached_icon(QtGui.QStyle.SP_DialogDiscardButton)
+
+
+def close_icon():
+    """Return a standard Close icon"""
+    return cached_icon(QtGui.QStyle.SP_DialogCloseButton)
 
 
 def diff_font():

@@ -25,12 +25,11 @@ _config = gitcfg.instance()
 
 class Command(object):
     """Base class for all commands; provides the command pattern."""
-    def __init__(self, update=False):
+    def __init__(self):
         """Initialize the command and stash away values for use in do()"""
         # These are commonly used so let's make it easier to write new commands.
         self.undoable = False
         self.model = cola.model()
-        self.update = update
 
         self.old_diff_text = self.model.diff_text
         self.old_filename = self.model.filename
@@ -48,8 +47,6 @@ class Command(object):
         self.model.set_filename(self.new_filename)
         self.model.set_head(self.new_head)
         self.model.set_mode(self.new_mode)
-        if self.update:
-            self.model.update_status()
 
     def is_undoable(self):
         """Can this be undone?"""
@@ -61,8 +58,6 @@ class Command(object):
         self.model.set_filename(self.old_filename)
         self.model.set_head(self.old_head)
         self.model.set_mode(self.old_mode)
-        if self.update:
-            self.model.update_status()
 
     def name(self):
         """Return this command's name."""
@@ -72,7 +67,7 @@ class Command(object):
 class AmendMode(Command):
     """Try to amend a commit."""
     def __init__(self, amend):
-        Command.__init__(self, update=True)
+        Command.__init__(self)
         self.undoable = True
         self.skip = False
         self.amending = amend
@@ -119,17 +114,19 @@ class AmendMode(Command):
         _notifier.broadcast(signals.amend, self.amending)
         self.model.set_commitmsg(self.new_commitmsg)
         Command.do(self)
+        self.model.update_file_status()
 
     def undo(self):
         if self.skip:
             return
         self.model.set_commitmsg(self.old_commitmsg)
         Command.undo(self)
+        self.model.update_file_status()
 
 
 class ApplyDiffSelection(Command):
     def __init__(self, staged, selected, offset, selection, apply_to_worktree):
-        Command.__init__(self, update=True)
+        Command.__init__(self)
         self.staged = staged
         self.selected = selected
         self.offset = offset
@@ -143,6 +140,7 @@ class ApplyDiffSelection(Command):
                                 filename=self.model.filename,
                                 cached=False,
                                 branch=self.model.head)
+            status, output = \
             parser.process_diff_selection(self.selected,
                                           self.offset,
                                           self.selection,
@@ -153,18 +151,21 @@ class ApplyDiffSelection(Command):
                                 filename=self.model.filename,
                                 cached=self.staged,
                                 reverse=self.apply_to_worktree)
+            status, output = \
             parser.process_diff_selection(self.selected,
                                           self.offset,
                                           self.selection,
                                           apply_to_worktree=
                                               self.apply_to_worktree)
+        _notifier.broadcast(signals.log_cmd, status, output)
         # Redo the diff to show changes
         if self.staged:
             diffcmd = DiffStaged([self.model.filename])
         else:
             diffcmd = Diff([self.model.filename])
         diffcmd.do()
-        self.model.update_status()
+        self.model.update_file_status()
+
 
 class ApplyPatches(Command):
     def __init__(self, patches):
@@ -201,13 +202,19 @@ class ApplyPatches(Command):
                             (len(self.patches),
                              '\n'.join(map(os.path.basename, self.patches))))
 
+        self.model.update_file_status()
+
 
 class HeadChangeCommand(Command):
     """Changes the model's current head."""
     def __init__(self, treeish):
-        Command.__init__(self, update=True)
+        Command.__init__(self)
         self.new_head = treeish
         self.new_diff_text = ''
+
+    def do(self):
+        Command.do(self)
+        self.model.update_file_status()
 
 
 class BranchMode(HeadChangeCommand):
@@ -228,21 +235,25 @@ class Checkout(Command):
     'argv' is handed off directly to git.
 
     """
-    def __init__(self, argv):
+    def __init__(self, argv, checkout_branch=False):
         Command.__init__(self)
         self.argv = argv
+        self.checkout_branch = checkout_branch
 
     def do(self):
         status, output = self.model.git.checkout(with_stderr=True,
                                                  with_status=True, *self.argv)
         _notifier.broadcast(signals.log_cmd, status, output)
         self.model.set_diff_text('')
-        self.model.update_status()
+        if self.checkout_branch:
+            self.model.update_status()
+        else:
+            self.model.update_file_status()
 
 
 class CheckoutBranch(Checkout):
     """Checkout a branch."""
-    def __init__(self, branch):
+    def __init__(self, branch, checkout_branch=True):
         Checkout.__init__(self, [branch])
 
 
@@ -254,15 +265,20 @@ class CherryPick(Command):
 
     def do(self):
         self.model.cherry_pick_list(self.commits)
+        self.model.update_file_status()
 
 
 class ResetMode(Command):
     """Reset the mode and clear the model's diff text."""
     def __init__(self):
-        Command.__init__(self, update=True)
+        Command.__init__(self)
         self.new_mode = self.model.mode_none
         self.new_head = 'HEAD'
         self.new_diff_text = ''
+
+    def do(self):
+        Command.do(self)
+        self.model.update_file_status()
 
 
 class Commit(ResetMode):
@@ -285,6 +301,28 @@ class Commit(ResetMode):
         _notifier.broadcast(signals.log_cmd, status, title+output)
 
 
+class Ignore(Command):
+    """Add files to .gitignore"""
+    def __init__(self, filenames):
+        Command.__init__(self)
+        self.filenames = filenames
+
+    def do(self):
+        new_additions = ''
+        for fname in self.filenames:
+            new_additions = new_additions + fname + '\n'
+        for_status = new_additions
+        if new_additions:
+            if '.gitignore' in gitcmds.all_files():
+                current_list = utils.slurp('.gitignore')
+                new_additions = new_additions + current_list
+            utils.write('.gitignore', new_additions)
+            _notifier.broadcast(signals.log_cmd,
+                                0,
+                                'Added to .gitignore:\n%s' % for_status)
+            self.model.update_file_status()
+
+
 class Delete(Command):
     """Simply delete files."""
     def __init__(self, filenames):
@@ -304,7 +342,7 @@ class Delete(Command):
                                         'Error'
                                         'Deleting "%s" failed.' % filename)
         if rescan:
-            self.model.update_status()
+            self.model.update_file_status()
 
 class DeleteBranch(Command):
     """Delete a git branch."""
@@ -529,17 +567,21 @@ class Clone(Command):
 
 class Rescan(Command):
     """Rescans for changes."""
-    def __init__(self):
-        Command.__init__(self, update=True)
+    def do(self):
+        self.model.update_status(update_index=True)
 
 
 class ReviewBranchMode(Command):
     """Enter into review-branch mode."""
     def __init__(self, branch):
-        Command.__init__(self, update=True)
+        Command.__init__(self)
         self.new_mode = self.model.mode_review
         self.new_head = gitcmds.merge_base_parent(branch)
         self.new_diff_text = ''
+
+    def do(self):
+        Command.do(self)
+        self.model.update_status()
 
 
 class RunConfigAction(Command):
@@ -711,9 +753,6 @@ class Unstage(Command):
 
 class UnstageAll(Command):
     """Unstage all files; resets the index."""
-    def __init__(self):
-        Command.__init__(self, update=True)
-
     def do(self):
         self.model.unstage_all()
 
@@ -735,8 +774,18 @@ class UntrackedSummary(Command):
         if untracked:
             io.write('# possible .gitignore rule%s:\n' % suffix)
             for u in untracked:
-                io.write('/%s\n' % u)
-        self.new_diff_text = io.getvalue()
+                io.write('/'+core.encode(u))
+        self.new_diff_text = core.decode(io.getvalue())
+
+
+class UpdateStatus(Command):
+    """Update the status of a list of files."""
+    def __init__(self, files):
+        Command.__init__(self)
+        self.files = files
+
+    def do(self):
+        self.model.update_status_of_files(self.files)
 
 
 class VisualizeAll(Command):
@@ -796,6 +845,7 @@ def register():
         signals.edit: Edit,
         signals.format_patch: FormatPatch,
         signals.grep: GrepMode,
+        signals.ignore: Ignore,
         signals.load_commit_message: LoadCommitMessage,
         signals.load_commit_template: LoadCommitTemplate,
         signals.modified_summary: Diffstat,
@@ -815,6 +865,7 @@ def register():
         signals.unstage_all: UnstageAll,
         signals.unstage_selected: UnstageSelected,
         signals.untracked_summary: UntrackedSummary,
+        signals.update_status: UpdateStatus,
         signals.visualize_all: VisualizeAll,
         signals.visualize_current: VisualizeCurrent,
         signals.visualize_paths: VisualizePaths,
