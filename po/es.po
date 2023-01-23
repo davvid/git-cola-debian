@@ -326,6 +326,10 @@ msgstr ""
 "¿Incluirlo en \"Stage\" de todas formas?"
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr "%s no es un repositorio Git."
 
@@ -856,8 +860,15 @@ msgid "Copy..."
 msgstr "Copiar..."
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "No fue posible procesar la Git URL: \"%s\""
+
+msgid "Create"
+msgstr ""
 
 msgid "Create Branch"
 msgstr "Crear rama"
@@ -885,6 +896,9 @@ msgstr "Crear un \"merge commit\" incluso cuando el \"merge\" se resuelva como u
 
 msgid "Create a new remote branch?"
 msgstr "¿Desea crear una nueva rama remota?"
+
+msgid "Create a new repository at that location?"
+msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
 msgstr ""
@@ -1120,6 +1134,9 @@ msgstr "Error al arrancar el Blame Viewer"
 msgid "Error Launching History Browser"
 msgstr "Error al arrancar el navegador del historial"
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "Error al crear el repositorio remoto \"%s\""
@@ -1292,6 +1309,9 @@ msgid "Flat light grey"
 msgstr ""
 
 msgid "Flat light red"
+msgstr ""
+
+msgid "Folder"
 msgstr ""
 
 msgid "Font Size"
@@ -1473,6 +1493,9 @@ msgid "Launch git-difftool on the current path"
 msgstr "Ejecutar git-difftool en la ruta actual"
 
 msgid "Light Theme"
+msgstr ""
+
+msgid "List"
 msgstr ""
 
 msgid "Load Commit Message"
@@ -1761,6 +1784,9 @@ msgstr "Solicitar que al hacer \"push\" cree nuevas ramas en el repositorio remo
 msgid "Prune "
 msgstr "Prune "
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 msgid "Pull"
 msgstr "Pull"
 
@@ -1862,6 +1888,9 @@ msgstr "Eliminar el seguimiento de ramas remotas que ya no existen en el reposit
 msgid "Remove selected (Delete)"
 msgstr "Eliminar seleccionados (Delete)"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "Renombrar"
 
@@ -1894,6 +1923,9 @@ msgstr "¿Desea renombrar el repositorio remoto \"%(current)s\" como \"%(new)s\"
 msgid "Rename selected paths"
 msgstr "Renombrar las rutas seleccionadas"
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, python-format
 msgid "Repository: %s"
 msgstr "Repositorio: %s"
@@ -1905,47 +1937,63 @@ msgstr "Reiniciar"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "¿Reiniciar \"%(branch)s\" a \"%(revision)s\"?"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "Reiniciar rama"
 
-msgid "Reset Branch Head"
-msgstr "Reiniciar inicio (head) de rama"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "¿Reiniciar rama?"
 
-msgid "Reset Hard"
-msgstr "Reinicio duro (hard)"
-
 msgid "Reset Layout"
 msgstr ""
 
-msgid "Reset Merge"
-msgstr "Reiniciar \"merge\""
+msgid "Reset Worktree and Reset All?"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "Reinicio suave (soft)"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Worktree"
-msgstr "Reiniciar el árbol de trabajo"
-
-msgid "Reset hard?"
-msgstr "¿Reinicio duro (hard)?"
-
-msgid "Reset merge?"
-msgstr "¿Reiniciar \"merge\"?"
-
-msgid "Reset soft?"
-msgstr "¿Reinicio suave (soft)?"
-
-msgid "Reset worktree?"
-msgstr "¿Reiniciar el árbol de trabajo de trabajo?"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Reiniciar \"%(branch)s\" a \"%(revision)s\" hara que se pierdan los \"commits\"."
 
 msgid "Restart the application after changing appearance settings."
+msgstr ""
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
 msgstr ""
 
 msgid "Revert"
@@ -2139,14 +2187,8 @@ msgstr "Seleccionar padre"
 msgid "Select Previous Version"
 msgstr "Seleccionar una versión previa"
 
-msgid "Select Repository..."
-msgstr "Seleccionar repositorio..."
-
 msgid "Select a parent directory for the new clone"
 msgstr "Seleccione un directorio padre para el nuevo clonado"
-
-msgid "Select manually..."
-msgstr "Seleccionar manualmente..."
 
 msgid "Select output dir"
 msgstr ""
@@ -2390,14 +2432,6 @@ msgid "The branch will be no longer available."
 msgstr "La rama no volverá a estar disponible."
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "La rama será reiniciada utilizando \"git reset --hard %s\""
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "La rama será reiniciada utilizando \"git reset --merge %s\""
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "La rama será reiniciada utilizando \"git reset --mixed %s\""
 
@@ -2415,6 +2449,18 @@ msgstr "El archivo \"%s\" ya existe y será sobrescrito."
 msgid "The following files will be deleted:"
 msgstr "Los siguientes archivos serán eliminados:"
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr "La expresión de revisión no puede estar vacía."
 
@@ -2431,8 +2477,8 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "El árbol de trabajo será reiniciado utilizando \"git reset --keep %s\""
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "Esto no puede ser deshecho. ¿Limpiar el mensaje del commit?"
@@ -2532,6 +2578,15 @@ msgstr "Imposible especificar la URL para \"%(name)s\" a \"%(url)s\""
 
 msgid "Undo"
 msgstr "Deshacer"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr ""
@@ -2722,5 +2777,47 @@ msgstr "aaaa-MM-dd"
 #~ msgid "Hide Details.."
 #~ msgstr "Ocultar detalles..."
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "Reiniciar inicio (head) de rama"
+
+#~ msgid "Reset Hard"
+#~ msgstr "Reinicio duro (hard)"
+
+#~ msgid "Reset Merge"
+#~ msgstr "Reiniciar \"merge\""
+
+#~ msgid "Reset Soft"
+#~ msgstr "Reinicio suave (soft)"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "Reiniciar el árbol de trabajo"
+
+#~ msgid "Reset hard?"
+#~ msgstr "¿Reinicio duro (hard)?"
+
+#~ msgid "Reset merge?"
+#~ msgstr "¿Reiniciar \"merge\"?"
+
+#~ msgid "Reset soft?"
+#~ msgstr "¿Reinicio suave (soft)?"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "¿Reiniciar el árbol de trabajo de trabajo?"
+
+#~ msgid "Select Repository..."
+#~ msgstr "Seleccionar repositorio..."
+
+#~ msgid "Select manually..."
+#~ msgstr "Seleccionar manualmente..."
+
 #~ msgid "Show Details..."
 #~ msgstr "Mostrar detalles..."
+
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "La rama será reiniciada utilizando \"git reset --hard %s\""
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "La rama será reiniciada utilizando \"git reset --merge %s\""
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "El árbol de trabajo será reiniciado utilizando \"git reset --keep %s\""

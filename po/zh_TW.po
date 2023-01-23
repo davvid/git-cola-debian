@@ -327,6 +327,10 @@ msgstr ""
 "無論如何都要將它移入新修訂版準備區域嗎？"
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr "%s 不是一個 Git 版控庫。"
 
@@ -859,8 +863,15 @@ msgid "Copy..."
 msgstr "複製……"
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "無法分析 Git URL：「%s」"
+
+msgid "Create"
+msgstr ""
 
 msgid "Create Branch"
 msgstr "建立一個新的分支"
@@ -888,6 +899,9 @@ msgstr "就算該合併是一個快速前移式合併也總是建立一個合併
 
 msgid "Create a new remote branch?"
 msgstr "要建立新的遠端分支嗎？"
+
+msgid "Create a new repository at that location?"
+msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
 msgstr ""
@@ -1124,6 +1138,9 @@ msgstr "啟動指謫(Blame)檢視器時發生錯誤"
 msgid "Error Launching History Browser"
 msgstr "無法啟動變動紀錄瀏覽器"
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "建立「%s」遠端分支時發生錯誤"
@@ -1297,6 +1314,9 @@ msgid "Flat light grey"
 msgstr ""
 
 msgid "Flat light red"
+msgstr ""
+
+msgid "Folder"
 msgstr ""
 
 msgid "Font Size"
@@ -1478,6 +1498,9 @@ msgid "Launch git-difftool on the current path"
 msgstr "在當前路徑中啟動 git-difftool"
 
 msgid "Light Theme"
+msgstr ""
+
+msgid "List"
 msgstr ""
 
 msgid "Load Commit Message"
@@ -1767,6 +1790,9 @@ msgstr "在建立新的遠端分支時提示使用者"
 msgid "Prune "
 msgstr "清除(prune) "
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 msgid "Pull"
 msgstr "自遠端分支撈取並合併(pull)"
 
@@ -1868,6 +1894,9 @@ msgstr "移除不再存在於遠端板控庫上的遠端追蹤分支"
 msgid "Remove selected (Delete)"
 msgstr "移除被選取的項目（刪除）"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "重新命名"
 
@@ -1900,6 +1929,9 @@ msgstr "要將「%(current)s」遠端版控庫改名為「%(new)s」嗎？"
 msgid "Rename selected paths"
 msgstr "重新命名選取的路徑"
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, python-format
 msgid "Repository: %s"
 msgstr "版控庫：%s"
@@ -1911,47 +1943,63 @@ msgstr "重設"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "要重設「%(branch)s」分支到 「%(revision)s」修訂版嗎？"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "重設分支"
 
-msgid "Reset Branch Head"
-msgstr "重設分支 Head"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "要重設分支嗎？"
 
-msgid "Reset Hard"
-msgstr "硬式重設"
-
 msgid "Reset Layout"
 msgstr ""
 
-msgid "Reset Merge"
-msgstr "合併式重設"
+msgid "Reset Worktree and Reset All?"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "軟式重設"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Worktree"
-msgstr "重設工作目錄樹"
-
-msgid "Reset hard?"
-msgstr "要進行硬式重設嗎？"
-
-msgid "Reset merge?"
-msgstr "要進行合併式重設嗎？"
-
-msgid "Reset soft?"
-msgstr "要進行軟式重設嗎？"
-
-msgid "Reset worktree?"
-msgstr "要重設工作目錄樹嗎？"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "重置「%(branch)s」分支到「%(revision)s」修訂版將導致修訂版提交的丟失。"
 
 msgid "Restart the application after changing appearance settings."
+msgstr ""
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
 msgstr ""
 
 msgid "Revert"
@@ -2145,14 +2193,8 @@ msgstr "選取"
 msgid "Select Previous Version"
 msgstr "選擇先前版本"
 
-msgid "Select Repository..."
-msgstr "選擇版控庫……"
-
 msgid "Select a parent directory for the new clone"
 msgstr "選取新克隆的 Git 版控庫要放置的目錄"
-
-msgid "Select manually..."
-msgstr "手動選取……"
 
 msgid "Select output dir"
 msgstr "選取輸出目錄"
@@ -2396,14 +2438,6 @@ msgid "The branch will be no longer available."
 msgstr "此分支將不再存在。"
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "這個分支將會被用「git reset --hard %s」命令重設"
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "這個分支將會被用「git reset --merge %s」命令重設"
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "這個分支將會被用「git reset --mixed %s」命令重設"
 
@@ -2421,6 +2455,18 @@ msgstr "檔案「%s」已存在且將會被覆寫。"
 msgid "The following files will be deleted:"
 msgstr "下列檔案將會被移除："
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr "修訂版表達式不可以是空的。"
 
@@ -2437,8 +2483,8 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "工作目錄樹將被用「git reset --keep %s」命令重設"
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
 msgstr "此操作將無法復原。要清除提交訊息嗎？"
@@ -2538,6 +2584,15 @@ msgstr "無法將「%(name)s」的 URL 設定為 %(url)s"
 
 msgid "Undo"
 msgstr "撤銷"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr "尚未合併"
@@ -3426,6 +3481,21 @@ msgstr "yyyy-MM-dd"
 #~ msgid "Rescan"
 #~ msgstr "重新掃瞄"
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "重設分支 Head"
+
+#~ msgid "Reset Hard"
+#~ msgstr "硬式重設"
+
+#~ msgid "Reset Merge"
+#~ msgstr "合併式重設"
+
+#~ msgid "Reset Soft"
+#~ msgstr "軟式重設"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "重設工作目錄樹"
+
 #~ msgid ""
 #~ "Reset changes?\n"
 #~ "\n"
@@ -3439,6 +3509,18 @@ msgstr "yyyy-MM-dd"
 #~ "\n"
 #~ "是否要繼續復位當前的改動?"
 
+#~ msgid "Reset hard?"
+#~ msgstr "要進行硬式重設嗎？"
+
+#~ msgid "Reset merge?"
+#~ msgstr "要進行合併式重設嗎？"
+
+#~ msgid "Reset soft?"
+#~ msgstr "要進行軟式重設嗎？"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "要重設工作目錄樹嗎？"
+
 #~ msgid "Revert Uncommitted Changes..."
 #~ msgstr "撤銷尚未建立修訂版提交的內容變動"
 
@@ -3448,8 +3530,14 @@ msgstr "yyyy-MM-dd"
 #~ msgid "Select File"
 #~ msgstr "選取檔案"
 
+#~ msgid "Select Repository..."
+#~ msgstr "選擇版控庫……"
+
 #~ msgid "Select file from \"%s\""
 #~ msgstr "於「%s」中選取檔案"
+
+#~ msgid "Select manually..."
+#~ msgstr "手動選取……"
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "共享方式 (最快, 不推薦, 不做備份)"
@@ -3511,6 +3599,12 @@ msgstr "yyyy-MM-dd"
 #~ msgid "The 'main' branch has not been initialized."
 #~ msgstr "'main'分支尚未初始化."
 
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "這個分支將會被用「git reset --hard %s」命令重設"
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "這個分支將會被用「git reset --merge %s」命令重設"
+
 #~ msgid "The following branches are not completely merged into %s:"
 #~ msgstr "下列分支沒有完全被合併到 %s:"
 
@@ -3522,6 +3616,9 @@ msgstr "yyyy-MM-dd"
 #~ "下列分支沒有被全部合併到 %s 中:\n"
 #~ "\n"
 #~ " - %s"
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "工作目錄樹將被用「git reset --keep %s」命令重設"
 
 #~ msgid ""
 #~ "There is nothing to amend.\n"

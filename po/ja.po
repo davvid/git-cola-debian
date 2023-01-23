@@ -2,7 +2,7 @@
 # Copyright (C) 2007 Shawn Pearce at el.
 # This file is distributed under the same license as the git-cola package.
 # しらいし ななこ <nanako3@bluebottle.com>, 2007.
-# fu7mu4 <fu7mu4@gmail.com>, 2018-2019.
+# fu7mu4 <fu7mu4@gmail.com>, 2020.
 # Shun Sakai <sorairolake@protonmail.ch>, 2019.
 #
 msgid ""
@@ -322,6 +322,10 @@ msgstr ""
 "これをステージングしますか？"
 
 #, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr "%s を開けませんでした。ブックマークから削除しますか?"
+
+#, python-format
 msgid "%s is not a Git repository."
 msgstr "%s は Gitのリポジトリではありません。"
 
@@ -453,10 +457,10 @@ msgid "Add Separator"
 msgstr "セパレータの追加"
 
 msgid "Add Submodule"
-msgstr ""
+msgstr "サブモジュールの追加"
 
 msgid "Add Submodule..."
-msgstr ""
+msgstr "サブモジュールの追加..."
 
 msgid "Add Toolbar"
 msgstr "ツールバーの追加"
@@ -484,7 +488,7 @@ msgid "Add remote"
 msgstr "リモートを追加"
 
 msgid "Add this submodule?"
-msgstr ""
+msgstr "このサブモジュールを追加しますか？"
 
 msgid "Add to .gitignore"
 msgstr ".gitignoreに追加"
@@ -496,10 +500,10 @@ msgid "Add to Git LFS"
 msgstr "Git LFSに追加"
 
 msgid "Add to exclusions"
-msgstr ""
+msgstr "exclusionsに追加"
 
 msgid "Add to local .git/info/exclude"
-msgstr ""
+msgstr "ローカルの .git/info/exclude に追加"
 
 msgid "Additions"
 msgstr "追加"
@@ -591,10 +595,10 @@ msgid "Auto-Wrap Lines"
 msgstr "自動行折り返し"
 
 msgid "Autocomplete Paths"
-msgstr ""
+msgstr "自動補完パス"
 
 msgid "Automatically Load Commit Message Template"
-msgstr ""
+msgstr "自動的にコミットメッセージテンプレート読み込み"
 
 msgid "Basic Regexp"
 msgstr "基本正規表現"
@@ -637,7 +641,7 @@ msgid "Branch Name"
 msgstr "ブランチ名"
 
 msgid "Branch name"
-msgstr ""
+msgstr "ブランチ名"
 
 #, python-format
 msgid "Branch: %s"
@@ -706,7 +710,7 @@ msgid "Changed Upstream"
 msgstr "変更したアップストリーム"
 
 msgid "Check Published Commits when Amending"
-msgstr ""
+msgstr "アメンド時の発行したコミットを確認"
 
 msgid "Check Spelling"
 msgstr "スペルチェック"
@@ -715,7 +719,7 @@ msgid "Check spelling"
 msgstr "スペルチェック"
 
 msgid "Check whether a commit has been published when amending"
-msgstr ""
+msgstr "アメンド時にコミットを発行したかどうかを確認"
 
 msgid "Checkout"
 msgstr "チェックアウト"
@@ -852,8 +856,15 @@ msgid "Copy..."
 msgstr "コピー中..."
 
 #, python-format
+msgid "Could not open %s."
+msgstr "%s を開けませんでした。"
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
 msgstr "Git URL \"%s\"がパースできません。"
+
+msgid "Create"
+msgstr "作成"
 
 msgid "Create Branch"
 msgstr "ブランチを作成"
@@ -882,8 +893,11 @@ msgstr "マージコミットを作成するそれがファーストフォワー
 msgid "Create a new remote branch?"
 msgstr "リモートブランチを作成しますか？"
 
+msgid "Create a new repository at that location?"
+msgstr "この場所に新しいリポジトリを作成しますか?"
+
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
-msgstr ""
+msgstr "指定した数まで履歴を切り詰めた浅いクローンを作成します。0 は完全なクローンになります。"
 
 msgid "Create..."
 msgstr "作成…"
@@ -956,7 +970,7 @@ msgstr "リモートブランチの削除中..."
 
 #, python-format
 msgid "Delete branch \"%s\"?"
-msgstr ""
+msgstr "ブランチ \"%s\" を削除しますか?"
 
 msgid "Delete remote"
 msgstr "リモートの削除"
@@ -1021,10 +1035,10 @@ msgid "Difftool"
 msgstr "差分ツール"
 
 msgid "Directory Exists"
-msgstr "ディレクトリの存在"
+msgstr "ディレクトリが存在"
 
 msgid "Disable"
-msgstr ""
+msgstr "無効"
 
 msgid "Display Untracked Files"
 msgstr "未トラックファイルの表示"
@@ -1079,7 +1093,7 @@ msgid "Email contributor"
 msgstr "メールコントリビュータ"
 
 msgid "Enable path autocompletion in tools"
-msgstr ""
+msgstr "ツールのパス自動補完を有効にする"
 
 msgid "Enabled"
 msgstr "有効"
@@ -1117,6 +1131,9 @@ msgstr "責任者ビューア起動エラー"
 msgid "Error Launching History Browser"
 msgstr "履歴ブラウザ起動エラー"
 
+msgid "Error Opening Repository"
+msgstr "履歴オープン時のエラー"
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr "リモート \"%s\"作成エラー"
@@ -1126,7 +1143,7 @@ msgstr "スタッシュ作成エラー"
 
 #, python-format
 msgid "Error deleting branch \"%s\""
-msgstr ""
+msgstr "ブランチ削除エラー \"%s\""
 
 #, python-format
 msgid "Error deleting remote \"%s\""
@@ -1269,28 +1286,31 @@ msgid "Fixup Previous Commit"
 msgstr "以前のコミットを修正"
 
 msgid "Flat dark blue"
-msgstr ""
+msgstr "フラットダークブルー"
 
 msgid "Flat dark green"
-msgstr ""
+msgstr "フラットダークグリーン"
 
 msgid "Flat dark grey"
-msgstr ""
+msgstr "フラットダークグレー"
 
 msgid "Flat dark red"
-msgstr ""
+msgstr "フラットダークレッド"
 
 msgid "Flat light blue"
-msgstr ""
+msgstr "フラットライトブルー"
 
 msgid "Flat light green"
-msgstr ""
+msgstr "フラットライトグリーン"
 
 msgid "Flat light grey"
-msgstr ""
+msgstr "フラットライトグレー"
 
 msgid "Flat light red"
-msgstr ""
+msgstr "フラットライトレッド"
+
+msgid "Folder"
+msgstr "フォルダ"
 
 msgid "Font Size"
 msgstr "フォントサイズ"
@@ -1401,7 +1421,7 @@ msgid "Ignore filename or pattern"
 msgstr "ファイル名またはパターンで無視を指定する"
 
 msgid "Ignore..."
-msgstr ""
+msgstr "無視..."
 
 msgid "Include tags "
 msgstr "タグを含める "
@@ -1431,7 +1451,7 @@ msgid "Invalid Revision"
 msgstr "無効なリビジョン"
 
 msgid "Japanese translation"
-msgstr ""
+msgstr "日本語翻訳"
 
 msgid "Keep *.orig Merge Backups"
 msgstr "*.orig マージバックアップを保持"
@@ -1472,6 +1492,9 @@ msgstr "git差分ツールを現在のパスに対して起動"
 
 msgid "Light Theme"
 msgstr "ライトテーマ"
+
+msgid "List"
+msgstr "リスト"
 
 msgid "Load Commit Message"
 msgstr "コミットメッセージをロード"
@@ -1760,6 +1783,9 @@ msgstr "新規のリモートブランチを作成するプッシュ時のプロ
 msgid "Prune "
 msgstr "Prune "
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 msgid "Pull"
 msgstr "プル"
 
@@ -1819,13 +1845,13 @@ msgid "Reduce commit history to minimum"
 msgstr "コミット履歴を最小に減らす"
 
 msgid "Reference Repository"
-msgstr ""
+msgstr "参照リポジトリ"
 
 msgid "Reference URL"
-msgstr ""
+msgstr "参照URL"
 
 msgid "Reference repository to use when cloning (optional)"
-msgstr ""
+msgstr "clone時に使用する参照リポジトリ(任意)"
 
 msgid "Refresh"
 msgstr "再読み込み"
@@ -1861,6 +1887,9 @@ msgstr "リモートリポジトリ上に今は存在するしないブランチ
 msgid "Remove selected (Delete)"
 msgstr "選択したものを削除 (Delete)"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "名前変更"
 
@@ -1893,6 +1922,9 @@ msgstr "リモートの\"%(current)s\" を \"%(new)s\" と名前を変更しま�
 msgid "Rename selected paths"
 msgstr "選択したパスの名前を変更"
 
+msgid "Repository Not Found"
+msgstr "リポジトリが見付かりません"
+
 #, python-format
 msgid "Repository: %s"
 msgstr "リポジトリ: %s"
@@ -1904,47 +1936,63 @@ msgstr "リセット"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr "ブランチの \"%(branch)s\" を \"%(revision)s\" リビジョンにリセットしますか？"
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 msgid "Reset Branch"
 msgstr "ブランチのリセット"
 
-msgid "Reset Branch Head"
-msgstr "ブランチをHeadにリセット"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 msgid "Reset Branch?"
 msgstr "ブランチをリセットしますか?"
 
-msgid "Reset Hard"
-msgstr "ハードリセット"
-
 msgid "Reset Layout"
+msgstr "レイアウトのリセット"
+
+msgid "Reset Worktree and Reset All?"
 msgstr ""
 
-msgid "Reset Merge"
-msgstr "マージリセット"
+msgid "Reset and Restore"
+msgstr ""
 
-msgid "Reset Soft"
-msgstr "ソフトリセット"
-
-msgid "Reset Worktree"
-msgstr "ワークツリーをリセット"
-
-msgid "Reset hard?"
-msgstr "ハードリセットをしますか?"
-
-msgid "Reset merge?"
-msgstr " マージリセットをしますか?"
-
-msgid "Reset soft?"
-msgstr "ソフトリセットをしますか?"
-
-msgid "Reset worktree?"
-msgstr "ワークツリーをリセットしますか?"
+msgid "Reset branch?"
+msgstr ""
 
 #, python-format
 msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "\"%(branch)s\" ブランチを \"%(revision)s\" リビジョンにリセットするとコミットが失われます。"
 
 msgid "Restart the application after changing appearance settings."
+msgstr "外観の設定を変更後にこのアプリケーションを再起動します。"
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
 msgstr ""
 
 msgid "Revert"
@@ -2138,14 +2186,8 @@ msgstr "親を選択"
 msgid "Select Previous Version"
 msgstr "以前のバージョンを選択"
 
-msgid "Select Repository..."
-msgstr "リポジトリを選択..."
-
 msgid "Select a parent directory for the new clone"
 msgstr "新しいクローン用に親ディレクトリを選択"
-
-msgid "Select manually..."
-msgstr "マニュアルで選択..."
 
 msgid "Select output dir"
 msgstr "出力ディレクトリを選択"
@@ -2169,6 +2211,8 @@ msgid ""
 "Set the sort order for branches and tags.\n"
 "Toggle between date-based and version-name-based sorting."
 msgstr ""
+"ブランチやタグのソート順番を設定します。\n"
+"ソートを日付順とバージョン名順を切り替えます。"
 
 msgid "Set upstream"
 msgstr "アップストリームを設定"
@@ -2201,7 +2245,7 @@ msgid "Show History"
 msgstr "履歴の表示"
 
 msgid "Show file counts in Status titles"
-msgstr ""
+msgstr "ステータスタイトリにファイル数を表示"
 
 msgid ""
 "Show help\n"
@@ -2347,13 +2391,13 @@ msgid "Stop tracking paths"
 msgstr "パスのトラッキングを中止する"
 
 msgid "Submodule URL (can be relative, ex: ../repo.git)"
-msgstr ""
+msgstr "サブモジュールのURL(取得可能なもの、例: ../repo.git)"
 
 msgid "Submodule branch to track (optional)"
-msgstr ""
+msgstr "追跡するサブモジュールのブランチ(任意)"
 
 msgid "Submodule path within the current repository (optional)"
-msgstr ""
+msgstr "現在のリポジトリ内のサブモジュールのパス (任意)"
 
 msgid "Submodules"
 msgstr "サブモジュール"
@@ -2389,14 +2433,6 @@ msgid "The branch will be no longer available."
 msgstr "このブランチはもう利用できません。"
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr "このブランチは\"git reset --hard %s\"でリセットする。"
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr "このブランチは\"git reset --merge %s\"でリセットする。"
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr "このブランチは\"git reset --mixed %s\"でリセットする。"
 
@@ -2414,6 +2450,18 @@ msgstr "このファイル \"%s\"は存在します。そんため上書きさ�
 msgid "The following files will be deleted:"
 msgstr "以下のファイルは削除されます。:"
 
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
+msgstr ""
+
 msgid "The revision expression cannot be empty."
 msgstr "このリビジョン表記を空にできません。"
 
@@ -2422,19 +2470,23 @@ msgid ""
 "The submodule will be added using\n"
 "\"%s\""
 msgstr ""
+"\"%s\"を使ってサブモジュールを\n"
+"追加します"
 
 #, python-format
 msgid ""
 "The submodule will be updated using\n"
 "\"%s\""
 msgstr ""
+"\"%s\"を使ってサブモジュールを\n"
+"更新"
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
-msgstr "このワークツリーは\"git reset --keep %s\"でリセットする。"
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
+msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
-msgstr "ジレは元に戻せません。コミットメッセージをクリアしますか？"
+msgstr "これは元に戻せません。コミットメッセージをクリアしますか？"
 
 msgid ""
 "This commit has already been published.\n"
@@ -2486,7 +2538,7 @@ msgid "Toggle Enabled"
 msgstr "有効に切り替えます。"
 
 msgid "Toggle image diff"
-msgstr ""
+msgstr "イメージ差分を切り替えます"
 
 msgid "Toggle the branches filter"
 msgstr "ブランチフィルタを切り替えます"
@@ -2504,7 +2556,7 @@ msgid "Traditional Chinese (Taiwan) translation"
 msgstr "伝統的中国語(台湾)翻訳"
 
 msgid "Translation"
-msgstr ""
+msgstr "翻訳"
 
 msgid "Translators"
 msgstr "翻訳者"
@@ -2531,6 +2583,15 @@ msgstr "URLの\"%(name)s\" を \"%(url)s\" に設定できません。"
 
 msgid "Undo"
 msgstr "元に戻す"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 msgid "Unmerged"
 msgstr "マージされていない"
@@ -2568,7 +2629,7 @@ msgid "Untracking: %s"
 msgstr "トラック解除中:%s"
 
 msgid "Update All Submodules..."
-msgstr ""
+msgstr "全てのサブモジュールを更新..."
 
 msgid "Update Existing Branch:"
 msgstr "既存のブランチを更新:"
@@ -2586,18 +2647,18 @@ msgstr "サブモジュールを初期化する"
 
 #, fuzzy
 msgid "Update all submodules?"
-msgstr "サブモジュールを初期化する"
+msgstr "サブモジュールを初期化しますか?"
 
 #, fuzzy
 msgid "Update submodules..."
-msgstr "サブモジュールを初期化する"
+msgstr "サブモジュールを初期化する..."
 
 #, fuzzy
 msgid "Update this submodule"
 msgstr "サブモジュールを初期化する"
 
 msgid "Update this submodule?"
-msgstr ""
+msgstr "このサブモジュールを更新しますか?"
 
 msgid "Updating"
 msgstr "更新"
@@ -2688,7 +2749,7 @@ msgid "git-cola diff"
 msgstr "git-cola diff"
 
 msgid "git://git.example.com/repo.git"
-msgstr ""
+msgstr "git://git.example.com/repo.git"
 
 msgid "grep result..."
 msgstr "grep 結果..."
@@ -2697,10 +2758,10 @@ msgid "hotkeys.html"
 msgstr "hotkeys.html"
 
 msgid "path/to/submodule"
-msgstr ""
+msgstr "path/to/submodule"
 
 msgid "title"
-msgstr ""
+msgstr "タイトル"
 
 msgid "unknown"
 msgstr "不明"
@@ -3375,6 +3436,21 @@ msgstr "yyyy-MM-dd"
 #~ msgid "Rescan"
 #~ msgstr "再スキャン"
 
+#~ msgid "Reset Branch Head"
+#~ msgstr "ブランチをHeadにリセット"
+
+#~ msgid "Reset Hard"
+#~ msgstr "ハードリセット"
+
+#~ msgid "Reset Merge"
+#~ msgstr "マージリセット"
+
+#~ msgid "Reset Soft"
+#~ msgstr "ソフトリセット"
+
+#~ msgid "Reset Worktree"
+#~ msgstr "ワークツリーをリセット"
+
 #~ msgid ""
 #~ "Reset changes?\n"
 #~ "\n"
@@ -3388,14 +3464,32 @@ msgstr "yyyy-MM-dd"
 #~ "\n"
 #~ "リセットしてよろしいですか？"
 
+#~ msgid "Reset hard?"
+#~ msgstr "ハードリセットをしますか?"
+
+#~ msgid "Reset merge?"
+#~ msgstr " マージリセットをしますか?"
+
+#~ msgid "Reset soft?"
+#~ msgstr "ソフトリセットをしますか?"
+
+#~ msgid "Reset worktree?"
+#~ msgstr "ワークツリーをリセットしますか?"
+
 #~ msgid "Revert changes in these %i files?"
 #~ msgstr "これら %i 個のファイルにした変更を元に戻しますか？"
 
 #~ msgid "Select File"
 #~ msgstr "全て選択"
 
+#~ msgid "Select Repository..."
+#~ msgstr "リポジトリを選択..."
+
 #~ msgid "Select file from \"%s\""
 #~ msgstr "%s からブランチを削除しています。"
+
+#~ msgid "Select manually..."
+#~ msgstr "マニュアルで選択..."
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "共有(最高速・非推奨・バックアップ無し)"
@@ -3469,6 +3563,12 @@ msgstr "yyyy-MM-dd"
 #~ msgid "The 'main' branch has not been initialized."
 #~ msgstr "'main' ブランチが初期化されていません"
 
+#~ msgid "The branch will be reset using \"git reset --hard %s\""
+#~ msgstr "このブランチは\"git reset --hard %s\"でリセットする。"
+
+#~ msgid "The branch will be reset using \"git reset --merge %s\""
+#~ msgstr "このブランチは\"git reset --merge %s\"でリセットする。"
+
 #~ msgid "The following branches are not completely merged into %s:"
 #~ msgstr "以下のブランチは %s に完全にマージされていません:"
 
@@ -3480,6 +3580,9 @@ msgstr "yyyy-MM-dd"
 #~ "以下のブランチは %s に完全にマージされていません:\n"
 #~ "\n"
 #~ " - %s"
+
+#~ msgid "The worktree will be reset using \"git reset --keep %s\""
+#~ msgstr "このワークツリーは\"git reset --keep %s\"でリセットする。"
 
 #~ msgid ""
 #~ "There is nothing to amend.\n"

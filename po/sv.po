@@ -214,6 +214,10 @@ msgid ""
 "Stage it anyways?"
 msgstr ""
 
+#, python-format
+msgid "%s could not be opened. Remove from bookmarks?"
+msgstr ""
+
 #, fuzzy, python-format
 msgid "%s is not a Git repository."
 msgstr "Gitarkiv"
@@ -779,7 +783,14 @@ msgid "Copy..."
 msgstr "Kopiera"
 
 #, python-format
+msgid "Could not open %s."
+msgstr ""
+
+#, python-format
 msgid "Could not parse Git URL: \"%s\""
+msgstr ""
+
+msgid "Create"
 msgstr ""
 
 msgid "Create Branch"
@@ -814,6 +825,9 @@ msgstr ""
 #, fuzzy
 msgid "Create a new remote branch?"
 msgstr "Skapa ny gren"
+
+msgid "Create a new repository at that location?"
+msgstr ""
 
 msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
 msgstr ""
@@ -1083,6 +1097,9 @@ msgstr "Filbläddrare"
 msgid "Error Launching History Browser"
 msgstr "Filbläddrare"
 
+msgid "Error Opening Repository"
+msgstr ""
+
 #, python-format
 msgid "Error creating remote \"%s\""
 msgstr ""
@@ -1271,6 +1288,9 @@ msgstr ""
 msgid "Flat light red"
 msgstr ""
 
+msgid "Folder"
+msgstr ""
+
 msgid "Font Size"
 msgstr "Storlek"
 
@@ -1454,6 +1474,9 @@ msgid "Launch git-difftool on the current path"
 msgstr ""
 
 msgid "Light Theme"
+msgstr ""
+
+msgid "List"
 msgstr ""
 
 #, fuzzy
@@ -1776,6 +1799,9 @@ msgstr "Skapa ny gren"
 msgid "Prune "
 msgstr "Ta bort från"
 
+msgid "Prune Missing Entries"
+msgstr ""
+
 #, fuzzy
 msgid "Pull"
 msgstr "Sänd..."
@@ -1892,6 +1918,9 @@ msgstr ""
 msgid "Remove selected (Delete)"
 msgstr "Byt namn på gren"
 
+msgid "Remove stale entries for repositories that no longer exist"
+msgstr ""
+
 msgid "Rename"
 msgstr "Byt namn"
 
@@ -1931,6 +1960,9 @@ msgstr ""
 msgid "Rename selected paths"
 msgstr "Byt namn på gren"
 
+msgid "Repository Not Found"
+msgstr ""
+
 #, fuzzy, python-format
 msgid "Repository: %s"
 msgstr "Arkiv:"
@@ -1942,49 +1974,33 @@ msgstr "Återställ"
 msgid "Reset \"%(branch)s\" to \"%(revision)s\"?"
 msgstr ""
 
+msgid "Reset All (Keep Unstaged Changes)"
+msgstr ""
+
 #, fuzzy
 msgid "Reset Branch"
 msgstr "Ta bort gren"
 
-#, fuzzy
-msgid "Reset Branch Head"
-msgstr "Ta bort gren"
+msgid "Reset Branch (Soft)"
+msgstr ""
+
+msgid "Reset Branch and Stage (Mixed)"
+msgstr ""
 
 #, fuzzy
 msgid "Reset Branch?"
 msgstr "Ta bort gren"
 
-#, fuzzy
-msgid "Reset Hard"
-msgstr "Ta bort gren"
-
 msgid "Reset Layout"
 msgstr ""
 
-#, fuzzy
-msgid "Reset Merge"
-msgstr "Revisioner att slå ihop"
-
-#, fuzzy
-msgid "Reset Soft"
-msgstr "Återställ"
-
-msgid "Reset Worktree"
+msgid "Reset Worktree and Reset All?"
 msgstr ""
 
-#, fuzzy
-msgid "Reset hard?"
-msgstr "Ta bort gren"
+msgid "Reset and Restore"
+msgstr ""
 
-#, fuzzy
-msgid "Reset merge?"
-msgstr "Ta bort gren"
-
-#, fuzzy
-msgid "Reset soft?"
-msgstr "Återställa \"%s\"?"
-
-msgid "Reset worktree?"
+msgid "Reset branch?"
 msgstr ""
 
 #, fuzzy, python-format
@@ -1992,6 +2008,31 @@ msgid "Resetting \"%(branch)s\" to \"%(revision)s\" will lose commits."
 msgstr "Om du återställer \"%s\" till \"%s\" går följande incheckningar förlorade:"
 
 msgid "Restart the application after changing appearance settings."
+msgstr ""
+
+msgid "Restore Worktree"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Hard)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Changes)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Keep Unstaged Edits)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All (Merge)"
+msgstr ""
+
+msgid "Restore Worktree and Reset All?"
+msgstr ""
+
+#, python-format
+msgid "Restore Worktree to %s?"
+msgstr ""
+
+msgid "Restore worktree, reset, and preserve unstaged edits?"
 msgstr ""
 
 msgid "Revert"
@@ -2206,16 +2247,8 @@ msgstr "Välj"
 msgid "Select Previous Version"
 msgstr ""
 
-#, fuzzy
-msgid "Select Repository..."
-msgstr "Gitarkiv"
-
 msgid "Select a parent directory for the new clone"
 msgstr ""
-
-#, fuzzy
-msgid "Select manually..."
-msgstr "Markera alla"
 
 #, fuzzy
 msgid "Select output dir"
@@ -2490,14 +2523,6 @@ msgid "The branch will be no longer available."
 msgstr ""
 
 #, python-format
-msgid "The branch will be reset using \"git reset --hard %s\""
-msgstr ""
-
-#, python-format
-msgid "The branch will be reset using \"git reset --merge %s\""
-msgstr ""
-
-#, python-format
 msgid "The branch will be reset using \"git reset --mixed %s\""
 msgstr ""
 
@@ -2514,6 +2539,18 @@ msgid "The file \"%s\" exists and will be overwritten."
 msgstr ""
 
 msgid "The following files will be deleted:"
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --hard %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --keep %s\""
+msgstr ""
+
+#, python-format
+msgid "The repository will be reset using \"git reset --merge %s\""
 msgstr ""
 
 #, fuzzy
@@ -2533,7 +2570,7 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "The worktree will be reset using \"git reset --keep %s\""
+msgid "The worktree will be restored using \"git read-tree --reset -u %s\""
 msgstr ""
 
 msgid "This cannot be undone.  Clear commit message?"
@@ -2622,6 +2659,15 @@ msgstr ""
 
 msgid "Undo"
 msgstr "Ångra"
+
+msgid "Undo Last Commit"
+msgstr ""
+
+msgid "Undo last commit?"
+msgstr ""
+
+msgid "Undo the published commit?"
+msgstr ""
 
 #, fuzzy
 msgid "Unmerged"
@@ -3482,6 +3528,22 @@ msgstr ""
 #~ msgid "Rescan"
 #~ msgstr "Sök på nytt"
 
+#, fuzzy
+#~ msgid "Reset Branch Head"
+#~ msgstr "Ta bort gren"
+
+#, fuzzy
+#~ msgid "Reset Hard"
+#~ msgstr "Ta bort gren"
+
+#, fuzzy
+#~ msgid "Reset Merge"
+#~ msgstr "Revisioner att slå ihop"
+
+#, fuzzy
+#~ msgid "Reset Soft"
+#~ msgstr "Återställ"
+
 #~ msgid ""
 #~ "Reset changes?\n"
 #~ "\n"
@@ -3495,6 +3557,18 @@ msgstr ""
 #~ "\n"
 #~ "Gå vidare med att återställa de aktuella ändringarna?"
 
+#, fuzzy
+#~ msgid "Reset hard?"
+#~ msgstr "Ta bort gren"
+
+#, fuzzy
+#~ msgid "Reset merge?"
+#~ msgstr "Ta bort gren"
+
+#, fuzzy
+#~ msgid "Reset soft?"
+#~ msgstr "Återställa \"%s\"?"
+
 #~ msgid "Revert changes in these %i files?"
 #~ msgstr "Återställ ändringarna i dessa %i filer?"
 
@@ -3503,8 +3577,16 @@ msgstr ""
 #~ msgstr "Markera alla"
 
 #, fuzzy
+#~ msgid "Select Repository..."
+#~ msgstr "Gitarkiv"
+
+#, fuzzy
 #~ msgid "Select file from \"%s\""
 #~ msgstr "Tar bort grenar från %s"
+
+#, fuzzy
+#~ msgid "Select manually..."
+#~ msgstr "Markera alla"
 
 #~ msgid "Shared (Fastest, Not Recommended, No Backup)"
 #~ msgstr "Delad (snabbast, rekommenderas ej, ingen säkerhetskopia)"
