@@ -15,7 +15,6 @@ from .. import gitcmds
 from .. import icons
 from .. import qtutils
 from .. import utils
-from .standard import ProgressDialog
 from . import defs
 from . import standard
 
@@ -129,7 +128,7 @@ class RemoteActionDialog(standard.Dialog):
             self.setWindowModality(Qt.WindowModal)
 
         self.runtask = qtutils.RunTask(parent=self)
-        self.progress = ProgressDialog(title, N_('Updating'), self)
+        self.progress = standard.progress(title, N_('Updating'), self)
 
         self.local_label = QtWidgets.QLabel()
         self.local_label.setText(N_('Local Branch'))
@@ -268,12 +267,16 @@ class RemoteActionDialog(standard.Dialog):
             self.top_layout, self.options_layout)
         self.setLayout(self.main_layout)
 
-        # Select the upstream remote if configured, or "origin"
         default_remote = gitcmds.upstream_remote(context) or 'origin'
-        if self.select_remote_by_name(default_remote):
-            self.set_remote_name(default_remote)
-        elif self.select_first_remote():
-            self.set_remote_name(model.remotes[0])
+
+        remotes = self.model.remotes
+        if default_remote in remotes:
+            idx = remotes.index(default_remote)
+            if self.select_remote(idx):
+                self.set_remote_name(default_remote)
+        else:
+            if self.select_first_remote():
+                self.set_remote_name(remotes[0])
 
         # Trim the remote list to just the default remote
         self.update_remotes()
@@ -666,8 +669,6 @@ class Push(RemoteActionDialog):
         """Export persistent settings"""
         state = RemoteActionDialog.export_state(self)
         state['prompt'] = get(self.prompt_checkbox)
-        state['remote'] = get(self.remote_name)
-        state['selection'] = self.selected_remotes
         state['tags'] = get(self.tags_checkbox)
         return state
 
@@ -678,15 +679,6 @@ class Push(RemoteActionDialog):
         # Restore the "prompt on creation" checkbox
         prompt = bool(state.get('prompt', True))
         self.prompt_checkbox.setChecked(prompt)
-
-        # Restore the "remote" text
-        remote = state.get('remote', None)
-        if remote is not None:
-            self.set_remote_name(remote)
-
-        # Restore selected remotes
-        selection = state.get('selection', [])
-        self.set_selected_remotes(selection)
 
         # Restore the "tags" checkbox
         tags = bool(state.get('tags', False))

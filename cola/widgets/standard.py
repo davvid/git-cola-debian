@@ -771,9 +771,6 @@ class MessageBox(Dialog):
         ok_icon = icons.mkicon(ok_icon, icons.ok)
         self.button_ok = qtutils.create_button(text=ok_text, icon=ok_icon)
 
-        self.button_toggle_details = qtutils.create_button(
-            text=N_('Show Details...'))
-
         self.button_close = qtutils.close_button(
             text=cancel_text, icon=cancel_icon)
 
@@ -782,21 +779,13 @@ class MessageBox(Dialog):
         else:
             self.button_ok.hide()
 
-        if default:
-            self.button_ok.setDefault(True)
-            self.button_ok.setFocus()
-        else:
-            self.button_close.setDefault(True)
-            self.button_close.setFocus()
-
         self.details_text = QtWidgets.QPlainTextEdit()
         self.details_text.setReadOnly(True)
-        self.details_text.hide()
         if details:
             self.details_text.setFont(qtutils.default_monospace_font())
             self.details_text.setPlainText(details)
         else:
-            self.button_toggle_details.hide()
+            self.details_text.hide()
 
         self.info_layout = qtutils.vbox(
             defs.large_margin, defs.button_spacing,
@@ -808,7 +797,7 @@ class MessageBox(Dialog):
 
         self.buttons_layout = qtutils.hbox(
             defs.no_margin, defs.button_spacing, qtutils.STRETCH,
-            self.button_toggle_details, self.button_close, self.button_ok)
+            self.button_close, self.button_ok)
 
         self.main_layout = qtutils.vbox(
             defs.margin, defs.button_spacing,
@@ -818,31 +807,21 @@ class MessageBox(Dialog):
         self.main_layout.setStretchFactor(self.details_text, 2)
         self.setLayout(self.main_layout)
 
+        if default:
+            self.button_ok.setDefault(True)
+            self.button_ok.setFocus()
+        else:
+            self.button_close.setDefault(True)
+            self.button_close.setFocus()
+
         qtutils.connect_button(self.button_ok, self.accept)
         qtutils.connect_button(self.button_close, self.reject)
-        qtutils.connect_button(self.button_toggle_details, self.toggle_details)
         self.init_state(None, self.set_initial_size)
 
     def set_initial_size(self):
         width = defs.dialog_w
         height = defs.msgbox_h
         self.resize(width, height)
-
-    def toggle_details(self):
-        if self.details_text.isVisible():
-            text = N_('Show Details...')
-            self.details_text.hide()
-            QtCore.QTimer.singleShot(
-                0, lambda: self.resize(self.width(), defs.msgbox_h))
-        else:
-            text = N_('Hide Details..')
-            self.details_text.show()
-            new_height = defs.msgbox_h * 4
-            if self.height() < new_height:
-                QtCore.QTimer.singleShot(
-                    0, lambda: self.resize(self.width(), new_height))
-
-        self.button_toggle_details.setText(text)
 
     def keyPressEvent(self, event):
         """Handle Y/N hotkeys"""
@@ -851,7 +830,15 @@ class MessageBox(Dialog):
             QtCore.QTimer.singleShot(0, self.accept)
         elif key in (Qt.Key_N, Qt.Key_Q):
             QtCore.QTimer.singleShot(0, self.reject)
-        return Dialog.keyPressEvent(self, event)
+        elif key == Qt.Key_Tab:
+            if self.button_ok.isVisible():
+                event.accept()
+                if self.focusWidget() == self.button_close:
+                    self.button_ok.setFocus()
+                else:
+                    self.button_close.setFocus()
+                return
+        Dialog.keyPressEvent(self, event)
 
     def run(self):
         self.show()
@@ -900,6 +887,11 @@ def information(title, message=None, details=None, informative_text=None):
         parent=qtutils.active_window(), title=title, text=message,
         info=informative_text, details=details, logo=icons.cola())
     mbox.run()
+
+
+def progress(title, text, parent):
+    """Create a new ProgressDialog"""
+    return ProgressDialog(title, text, parent)
 
 
 def question(title, text, default=True):
