@@ -13,12 +13,15 @@ from .. import core
 from .. import gitcfg
 from .. import qtcompat
 from .. import qtutils
+from .. import utils
 from ..settings import Settings
 from . import defs
 
-
 class WidgetMixin(object):
     """Mix-in for common utilities and serialization of widget state"""
+
+    def __init__(self):
+        self._unmaximized_rect = None
 
     def center(self):
         parent = self.parent()
@@ -36,7 +39,17 @@ class WidgetMixin(object):
         desktop = QtWidgets.QApplication.instance().desktop()
         width = desktop.width()
         height = desktop.height()
-        self.resize(width, height)
+        if utils.is_darwin():
+            self.resize(width, height)
+        else:
+            shown = self.isVisible()
+            # earlier show() fools Windows focus stealing prevention. the main
+            # window is blocked for the duration of "git rebase" and we don't
+            # want to present a blocked window with git-xbase hidden somewhere.
+            self.show()
+            self.setWindowState(Qt.WindowMaximized)
+            if not shown:
+                self.hide()
 
     def name(self):
         """Returns the name of the view class"""
@@ -49,6 +62,33 @@ class WidgetMixin(object):
         if gitcfg.current().get('cola.savewindowsettings', True):
             settings.save_gui_state(self)
 
+    def resizeEvent(self, event):
+        super(WidgetMixin, self).resizeEvent(event)
+        # Use a timer to so that the window size and state is up to date.
+        # If we ask for the window state here it will never realize that
+        # we have been maximized because the window state change is processed
+        # after the resize event.  Using a timer event causes it to happen
+        # after all the events have been processsed.
+        # Timer with a delay of zero will trigger immediately after control
+        # returns to the main loop.
+        QtCore.QTimer.singleShot(0, lambda: self._store_unmaximized_dimensions())
+
+    def moveEvent(self, event):
+        super(WidgetMixin, self).moveEvent(event)
+        # as per the QObject::resizeEvent() override
+        QtCore.QTimer.singleShot(0, lambda: self._store_unmaximized_dimensions())
+
+    def _store_unmaximized_dimensions(self):
+        state = self.windowState()
+        maximized = bool(state & Qt.WindowMaximized)
+        if not maximized:
+            size = self.size()
+            width, height = size.width(), size.height()
+            x, y = self.x(), self.y()
+            # XXX can width and height ever not be over zero?
+            if width > 0 and height > 0:
+                self._unmaximized_rect = (x, y, width, height)
+
     def restore_state(self, settings=None):
         if settings is None:
             settings = Settings()
@@ -60,16 +100,22 @@ class WidgetMixin(object):
         """Imports data for view save/restore"""
         result = True
         try:
-            self.resize(state['width'], state['height'])
-        except:
-            result = False
-        try:
-            self.move(state['x'], state['y'])
+            x, y = int(state['x']), int(state['y'])
+            self.move(x, y)
+
+            width, height = int(state['width']), int(state['height'])
+            self.resize(width, height)
+
+            # calling resize/move won't invoke QWidget::{resize,move}Event
+            self._unmaximized_rect = (x, y, width, height)
         except:
             result = False
         try:
             if state['maximized']:
-                self.showMaximized()
+                try:
+                    self.resize_to_desktop()
+                except:
+                    pass
         except:
             result = False
         self._apply_state_applied = result
@@ -79,13 +125,23 @@ class WidgetMixin(object):
         """Exports data for view save/restore"""
         state = self.windowState()
         maximized = bool(state & Qt.WindowMaximized)
-        return {
-            'x': self.x(),
-            'y': self.y(),
-            'width': self.width(),
-            'height': self.height(),
+
+        ret = {
             'maximized': maximized,
         }
+
+        # when maximized we don't want to overwrite saved x/y/width/height with
+        # desktop dimensions.
+        if maximized:
+            try:
+                ret['x'], ret['y'], ret['width'], ret['height'] = self._unmaximized_rect
+            except:
+                pass
+        else:
+            ret['width'], ret['height'] = self.width(), self.height()
+            ret['x'], ret['y'] = self.x(), self.y()
+
+        return ret
 
     def save_settings(self):
         settings = Settings()

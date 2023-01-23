@@ -503,7 +503,9 @@ class MainModel(Observable):
 def remote_args(remote,
                 local_branch='',
                 remote_branch='',
-                ffwd=True,
+                ff_only=False,
+                force=False,
+                no_ff=False,
                 tags=False,
                 rebase=False,
                 pull=False,
@@ -512,36 +514,43 @@ def remote_args(remote,
     """Return arguments for git fetch/push/pull"""
 
     args = [remote]
-    what = refspec_arg(local_branch, remote_branch, ffwd, pull, push)
+    what = refspec_arg(local_branch, remote_branch, pull, push)
     if what:
         args.append(what)
 
     kwargs = {
         'verbose': True,
-        'tags': tags,
     }
-    if pull and rebase:
-        kwargs['rebase'] = rebase
+    if pull:
+        if rebase:
+            kwargs['rebase'] = True
+        elif ff_only:
+            kwargs['ff_only'] = True
+        elif no_ff:
+            kwargs['no_ff'] = True
+    elif force:
+        kwargs['force'] = True
+
     if push and set_upstream:
-        kwargs['set_upstream'] = set_upstream
+        kwargs['set_upstream'] = True
+    if tags:
+        kwargs['tags'] = True
 
     return (args, kwargs)
 
 
-def refspec(src, dst, ffwd, push=False):
+def refspec(src, dst, push=False):
     if push and src == dst:
         spec = src
     else:
         spec = '%s:%s' % (src, dst)
-    if not ffwd:
-        spec = '+' + spec
     return spec
 
 
-def refspec_arg(local_branch, remote_branch, ffwd, pull, push):
+def refspec_arg(local_branch, remote_branch, pull, push):
     """Return the refspec for a fetch or pull command"""
     if not pull and local_branch and remote_branch:
-        what = refspec(remote_branch, local_branch, ffwd, push=push)
+        what = refspec(remote_branch, local_branch, push=push)
     else:
         what = local_branch or remote_branch or None
     return what

@@ -5,7 +5,6 @@ e.g. when python raises an IOError or OSError with errno == EINTR.
 
 """
 from __future__ import division, absolute_import, unicode_literals
-
 import os
 import functools
 import sys
@@ -18,6 +17,20 @@ from .compat import ustr
 from .compat import PY2
 from .compat import PY3
 from .compat import WIN32
+
+# /usr/include/stdlib.h
+#define EXIT_SUCCESS    0   /* Successful exit status.  */
+#define EXIT_FAILURE    1   /* Failing exit status.  */
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+
+# /usr/include/sysexits.h
+# #define EX_USAGE        64  /* command line usage error */
+# #define EX_NOINPUT      66  /* cannot open input */
+# #define EX_UNAVAILABLE  69  /* service unavailable */
+EXIT_USAGE = 64
+EXIT_NOINPUT = 66
+EXIT_UNAVAILABLE = 69
 
 # Some files are not in UTF-8; some other aren't in any codification.
 # Remember that GIT doesn't care about encodings (saves binary data)
@@ -72,23 +85,23 @@ def list2cmdline(cmd):
 def read(filename, size=-1, encoding=None, errors='strict'):
     """Read filename and return contents"""
     with xopen(filename, 'rb') as fh:
-        return fread(fh, size=size, encoding=encoding, errors=errors)
+        return xread(fh, size=size, encoding=encoding, errors=errors)
 
 
 def write(path, contents, encoding=None):
     """Writes a unicode string to a file"""
     with xopen(path, 'wb') as fh:
-        return fwrite(fh, contents, encoding=encoding)
+        return xwrite(fh, contents, encoding=encoding)
 
 
 @interruptable
-def fread(fh, size=-1, encoding=None, errors='strict'):
+def xread(fh, size=-1, encoding=None, errors='strict'):
     """Read from a filehandle and retry when interrupted"""
     return decode(fh.read(size), encoding=encoding, errors=errors)
 
 
 @interruptable
-def fwrite(fh, content, encoding=None):
+def xwrite(fh, content, encoding=None):
     """Write to a filehandle and retry when interrupted"""
     return fh.write(encode(content, encoding=encoding))
 
@@ -109,6 +122,7 @@ def start_command(cmd, cwd=None, add_env=None,
                   universal_newlines=False,
                   stdin=subprocess.PIPE,
                   stdout=subprocess.PIPE,
+                  no_win32_startupinfo=False,
                   stderr=subprocess.PIPE,
                   **extra):
     """Start the given command, and return a subprocess object.
@@ -143,8 +157,18 @@ def start_command(cmd, cwd=None, add_env=None,
         cwd = encode(cwd)
 
     if WIN32:
-        CREATE_NO_WINDOW = 0x08000000
-        extra['creationflags'] = CREATE_NO_WINDOW
+        # If git-cola is invoked on Windows using "start pythonw git-cola",
+        # a console window will briefly flash on the screen each time
+        # git-cola invokes git, which is very annoying.  The code below
+        # prevents this by ensuring that any window will be hidden.
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        extra['startupinfo'] = startupinfo
+
+        if WIN32 and not no_win32_startupinfo:
+            CREATE_NO_WINDOW = 0x08000000
+            extra['creationflags'] = CREATE_NO_WINDOW
 
     return subprocess.Popen(cmd, bufsize=1, stdin=stdin, stdout=stdout,
                             stderr=stderr, cwd=cwd, env=env,
@@ -288,18 +312,23 @@ def xopen(path, mode='r', encoding=None):
     return open(mkpath(path, encoding=encoding), mode)
 
 
-def stdout(msg):
-    msg = msg + '\n'
+def stdout(msg, linesep='\n'):
+    msg = msg + linesep
     if PY2:
         msg = encode(msg, encoding='utf-8')
     sys.stdout.write(msg)
 
 
-def stderr(msg):
-    msg = msg + '\n'
+def stderr(msg, linesep='\n'):
+    msg = msg + linesep
     if PY2:
         msg = encode(msg, encoding='utf-8')
     sys.stderr.write(msg)
+
+
+def error(msg, status=EXIT_FAILURE, linesep='\n'):
+    stderr(msg, linesep=linesep)
+    sys.exit(status)
 
 
 @interruptable

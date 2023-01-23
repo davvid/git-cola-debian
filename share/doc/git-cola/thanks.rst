@@ -8,6 +8,7 @@ Thanks
 * AJ Bagwell
 * Alex Chernetz
 * Alexander Kozienko
+* Alf Eaton
 * anderben
 * Andreas Sommer
 * Andrew Chen
@@ -32,10 +33,14 @@ Thanks
 * David Aguilar
 * David LeGare
 * David Martínez Martí
+* Dawid Drozd
 * Dennis Gilmore
 * deniz1a
 * Dmitry Kann
+* Drugoy
 * Eric Drechsel
+* Fabio Coatti
+* Garoe Dorta
 * Geoffrey van Wyk
 * geotavros
 * `Git Hackers <http://git-scm.com/about>`_
@@ -43,6 +48,7 @@ Thanks
 * Guillaume de Bure
 * Guo Yunhe
 * Harro Verton
+* Igor Galarraga
 * Ilya Tumaykin
 * Ingo Weinhold
 * Ismael Juma
@@ -63,14 +69,17 @@ Thanks
 * Kerrick Staley
 * Kevin Kofler
 * Kirit Sælensminde
+* László Böszörményi
 * Leho Kraav
 * Libor Jelinek
 * Liviu Cristian Mirea-Ghiban
+* Łukasz Wojniłowicz
 * Luke Bakken
 * Maarten Nieber
 * Maaaks
 * Maciej Filipiak
 * Mahmoud Hossam
+* Mateusz Kedzior
 * Maicon D. Filippsen
 * Marco Costalba
 * Markus Heidelberg
@@ -80,6 +89,7 @@ Thanks
 * Micha Rosenbaum
 * Michael Geddes
 * Michael Homer
+* MikHulk
 * Minarto Margoliono
 * Naraesk
 * Nicolas Dietrich
@@ -93,8 +103,10 @@ Thanks
 * Paulo Fidalgo
 * Peter Dave Hello
 * Peter Júnoš
+* Philip Stark
 * Pilar Molina Lopez
 * Raghavendra Karunanidhi
+* Rainer Müller
 * Rolando Espinoza La fuente
 * Rustam Safin
 * Samsul Ma'arif
@@ -112,6 +124,7 @@ Thanks
 * Trevor Alexander
 * Ugo Riboni
 * Uri Okrent
+* Utku Karatas
 * Ｖ字龍 (Vdragon)
 * Vaibhav Sagar
 * Vaiz

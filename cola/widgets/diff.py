@@ -35,20 +35,22 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
     """Implements the diff syntax highlighting"""
 
     INITIAL_STATE = -1
-    DIFFSTAT_STATE = 0
-    DIFF_FILE_HEADER_STATE = 1
-    DIFF_STATE = 2
-    SUBMODULE_STATE = 3
+    DEFAULT_STATE = 0
+    DIFFSTAT_STATE = 1
+    DIFF_FILE_HEADER_STATE = 2
+    DIFF_STATE = 3
+    SUBMODULE_STATE = 4
 
     DIFF_FILE_HEADER_START_RGX = re.compile(r'diff --git a/.* b/.*')
     DIFF_HUNK_HEADER_RGX = re.compile(r'(?:@@ -[0-9,]+ \+[0-9,]+ @@)|'
                                       r'(?:@@@ (?:-[0-9,]+ ){2}\+[0-9,]+ @@@)')
     BAD_WHITESPACE_RGX = re.compile(r'\s+$')
 
-    def __init__(self, doc, whitespace=True):
+    def __init__(self, doc, whitespace=True, is_commit=False):
         QtGui.QSyntaxHighlighter.__init__(self, doc)
         self.whitespace = whitespace
         self.enabled = True
+        self.is_commit = is_commit
 
         cfg = gitcfg.current()
         self.color_text = RGB(cfg.color('text', '030303'))
@@ -64,6 +66,7 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
         self.diff_remove_fmt = make_format(fg=self.color_text,
                                            bg=self.color_remove)
         self.bad_whitespace_fmt = make_format(bg=Qt.red)
+        self.setCurrentBlockState(self.INITIAL_STATE)
 
     def set_enabled(self, enabled):
         self.enabled = enabled
@@ -71,10 +74,15 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
     def highlightBlock(self, text):
         if not self.enabled or not text:
             return
+
         state = self.previousBlockState()
         if state == self.INITIAL_STATE:
             if text.startswith('Submodule '):
                 state = self.SUBMODULE_STATE
+            elif text.startswith('diff --git '):
+                state = self.DIFFSTAT_STATE
+            elif self.is_commit:
+                state = self.DEFAULT_STATE
             else:
                 state = self.DIFFSTAT_STATE
 
@@ -119,10 +127,11 @@ class DiffSyntaxHighlighter(QtGui.QSyntaxHighlighter):
 
 class DiffTextEdit(VimMonoTextView):
 
-    def __init__(self, parent, whitespace=True):
+    def __init__(self, parent, is_commit=False, whitespace=True):
         VimMonoTextView.__init__(self, parent)
         # Diff/patch syntax highlighter
         self.highlighter = DiffSyntaxHighlighter(self.document(),
+                                                 is_commit=is_commit,
                                                  whitespace=whitespace)
 
 
@@ -464,7 +473,7 @@ class DiffEditor(DiffTextEdit):
 
 class DiffWidget(QtWidgets.QWidget):
 
-    def __init__(self, notifier, parent):
+    def __init__(self, notifier, parent, is_commit=False):
         QtWidgets.QWidget.__init__(self, parent)
 
         self.runtask = qtutils.RunTask(parent=self)
@@ -494,17 +503,17 @@ class DiffWidget(QtWidgets.QWidget):
         self.summary_label.setAlignment(Qt.AlignTop)
         self.summary_label.elide()
 
-        self.sha1_label = TextLabel()
-        self.sha1_label.setTextFormat(Qt.PlainText)
-        self.sha1_label.setSizePolicy(policy)
-        self.sha1_label.setAlignment(Qt.AlignTop)
-        self.sha1_label.elide()
+        self.oid_label = TextLabel()
+        self.oid_label.setTextFormat(Qt.PlainText)
+        self.oid_label.setSizePolicy(policy)
+        self.oid_label.setAlignment(Qt.AlignTop)
+        self.oid_label.elide()
 
-        self.diff = DiffTextEdit(self, whitespace=False)
+        self.diff = DiffTextEdit(self, is_commit=is_commit, whitespace=False)
 
         self.info_layout = qtutils.vbox(defs.no_margin, defs.no_spacing,
                                         self.author_label, self.summary_label,
-                                        self.sha1_label)
+                                        self.oid_label)
 
         self.logo_layout = qtutils.hbox(defs.no_margin, defs.button_spacing,
                                         self.gravatar_label, self.info_layout)
@@ -517,9 +526,9 @@ class DiffWidget(QtWidgets.QWidget):
         notifier.add_observer(COMMITS_SELECTED, self.commits_selected)
         notifier.add_observer(FILES_SELECTED, self.files_selected)
 
-    def set_diff_sha1(self, sha1, filename=None):
+    def set_diff_oid(self, oid, filename=None):
         self.diff.setText('+++ ' + N_('Loading...'))
-        task = DiffInfoTask(sha1, filename, self)
+        task = DiffInfoTask(oid, filename, self)
         task.connect(self.diff.setText)
         self.runtask.start(task)
 
@@ -527,7 +536,7 @@ class DiffWidget(QtWidgets.QWidget):
         if len(commits) != 1:
             return
         commit = commits[0]
-        self.sha1 = commit.sha1
+        self.oid = commit.oid
 
         email = commit.email or ''
         summary = commit.summary or ''
@@ -547,15 +556,15 @@ class DiffWidget(QtWidgets.QWidget):
         author_template = '%(author)s <%(email)s>' % template_args
         self.author_label.set_template(author_text, author_template)
         self.summary_label.set_text(summary)
-        self.sha1_label.set_text(self.sha1)
+        self.oid_label.set_text(self.oid)
 
-        self.set_diff_sha1(self.sha1)
+        self.set_diff_oid(self.oid)
         self.gravatar_label.set_email(email)
 
     def files_selected(self, filenames):
         if not filenames:
             return
-        self.set_diff_sha1(self.sha1, filenames[0])
+        self.set_diff_oid(self.oid, filenames[0])
 
 
 class TextLabel(QtWidgets.QLabel):
@@ -609,10 +618,10 @@ class TextLabel(QtWidgets.QLabel):
 
 class DiffInfoTask(qtutils.Task):
 
-    def __init__(self, sha1, filename, parent):
+    def __init__(self, oid, filename, parent):
         qtutils.Task.__init__(self, parent)
-        self.sha1 = sha1
+        self.oid = oid
         self.filename = filename
 
     def task(self):
-        return gitcmds.diff_info(self.sha1, filename=self.filename)
+        return gitcmds.diff_info(self.oid, filename=self.filename)

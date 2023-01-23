@@ -273,7 +273,7 @@ class MainView(standard.MainWindow):
             self, N_('Get Commit Message Template'),
             cmds.run(cmds.LoadCommitMessageFromTemplate))
         self.help_about_action = add_action(
-            self, N_('About'), about.launch_about_dialog)
+            self, N_('About'), about.about_dialog)
 
         self.diff_expression_action = add_action(
             self, N_('Expression...'), guicmds.diff_expression)
@@ -537,8 +537,8 @@ class MainView(standard.MainWindow):
         menu = self.open_recent_menu
         menu.clear()
         for r in recent:
-            name = os.path.basename(r)
-            directory = os.path.dirname(r)
+            name = r['name']
+            directory = r['path']
             text = '%s %s %s' % (name, unichr(0x2192), directory)
             menu.addAction(text, cmds.run(cmd, r))
 
@@ -707,8 +707,7 @@ class MainView(standard.MainWindow):
         return prefs_widget.preferences(model=self.prefs_model, parent=self)
 
     def git_dag(self):
-        if self.dag is None:
-            self.dag = dag.git_dag(self.model)
+        self.dag = dag.git_dag(self.model, existing_view=self.dag)
         view = self.dag
         view.show()
         view.raise_()

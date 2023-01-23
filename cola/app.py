@@ -5,29 +5,11 @@ import os
 import signal
 import sys
 
-
 __copyright__ = """
 Copyright (C) 2009-2016 David Aguilar and contributors
 """
 
-# Make homebrew work by default
-if sys.platform == 'darwin':
-    from distutils import sysconfig
-    python_version = sysconfig.get_python_version()
-    homebrew_mods = '/usr/local/lib/python%s/site-packages' % python_version
-    if os.path.isdir(homebrew_mods):
-        sys.path.append(homebrew_mods)
-
-# /usr/include/sysexits.h
-# #define EX_OK           0   /* successful termination */
-# #define EX_USAGE        64  /* command line usage error */
-# #define EX_NOINPUT      66  /* cannot open input */
-# #define EX_UNAVAILABLE  69  /* service unavailable */
-EX_OK = 0
-EX_USAGE = 64
-EX_NOINPUT = 66
-EX_UNAVAILABLE = 69
-
+from . import core
 try:
     from qtpy import QtCore
 except ImportError:
@@ -36,12 +18,18 @@ Sorry, you do not seem to have PyQt5, Pyside, or PyQt4 installed.
 Please install it before using git-cola, e.g.:
     $ sudo apt-get install python-qt4
 """
-    sys.stderr.write(errmsg)
-    sys.exit(EX_UNAVAILABLE)
+    core.error(errmsg)
 
 from qtpy import QtWidgets
 
 # Import cola modules
+from .decorators import memoize
+from .i18n import N_
+from .interaction import Interaction
+from .models import main
+from .widgets import cfgactions
+from .widgets import startup
+from .settings import Session
 from . import cmds
 from . import core
 from . import compat
@@ -54,13 +42,6 @@ from . import qtcompat
 from . import qtutils
 from . import resources
 from . import version
-from .decorators import memoize
-from .i18n import N_
-from .interaction import Interaction
-from .models import main
-from .widgets import cfgactions
-from .widgets import startup
-from .settings import Session
 
 
 def setup_environment():
@@ -212,7 +193,7 @@ def process_args(args):
     if args.version:
         # Accept 'git cola --version' or 'git cola version'
         version.print_version()
-        sys.exit(EX_OK)
+        sys.exit(core.EXIT_SUCCESS)
 
     # Handle session management
     restore_session(args)
@@ -226,7 +207,7 @@ def process_args(args):
         errmsg = N_('fatal: "%s" is not a directory.  '
                     'Please specify a correct --repo <path>.') % repo
         core.stderr(errmsg)
-        sys.exit(EX_USAGE)
+        sys.exit(core.EXIT_USAGE)
 
 
 def restore_session(args):
@@ -257,7 +238,7 @@ def application_init(args, update=False):
     return ApplicationContext(args, app, cfg, model)
 
 
-def application_start(context, view, monitor_refs_only=False):
+def application_start(context, view):
     """Show the GUI and start the main event loop"""
     # Store the view for session management
     context.app.set_view(view)
@@ -271,7 +252,7 @@ def application_start(context, view, monitor_refs_only=False):
     init_update_task(view, runtask, context.model)
 
     # Start the filesystem monitor thread
-    fsmonitor.current().start(monitor_refs_only)
+    fsmonitor.current().start()
 
     msg_timer = QtCore.QTimer()
     msg_timer.setSingleShot(True)
@@ -318,7 +299,7 @@ def new_model(app, repo, prompt=False, settings=None):
         valid = model.set_worktree(repo)
         if not valid:
             # We are not currently in a git repository so we need to find one.
-            # Before prompting the user for a repostiory, check if they've
+            # Before prompting the user for a repository, check if they've
             # configured a default repository and attempt to use it.
             default_repo = gitcfg.current().get('cola.defaultrepo')
             if default_repo:
@@ -332,7 +313,7 @@ def new_model(app, repo, prompt=False, settings=None):
                                             settings=settings)
         gitdir = startup_dlg.find_git_repo()
         if not gitdir:
-            sys.exit(EX_NOINPUT)
+            sys.exit(core.EXIT_NOINPUT)
         valid = model.set_worktree(gitdir)
 
     return model

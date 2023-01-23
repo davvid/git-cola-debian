@@ -1,5 +1,4 @@
 from __future__ import division, absolute_import, unicode_literals
-
 import os
 import re
 import sys
@@ -569,10 +568,11 @@ class RemoteRename(RemoteCommand):
 
 class RemoveFromSettings(ConfirmAction):
 
-    def __init__(self, settings, repo, icon=None):
+    def __init__(self, settings, repo, name, icon=None):
         ConfirmAction.__init__(self)
         self.settings = settings
         self.repo = repo
+        self.name = name
         self.icon = icon
 
     def success(self):
@@ -582,14 +582,14 @@ class RemoveFromSettings(ConfirmAction):
 class RemoveBookmark(RemoveFromSettings):
 
     def confirm(self):
-        repo = self.repo
+        name = self.name
         title = msg = N_('Delete Bookmark?')
-        info = N_('%s will be removed from your bookmarks.') % repo
+        info = N_('%s will be removed from your bookmarks.') % name
         ok_text = N_('Delete Bookmark')
         return Interaction.confirm(title, msg, info, ok_text, icon=self.icon)
 
     def action(self):
-        self.settings.remove_bookmark(self.repo)
+        self.settings.remove_bookmark(self.repo, self.name)
         return (0, '', '')
 
 
@@ -961,14 +961,14 @@ class LoadCommitMessageFromTemplate(LoadCommitMessageFromFile):
         return LoadCommitMessageFromFile.do(self)
 
 
-class LoadCommitMessageFromSHA1(Command):
+class LoadCommitMessageFromOID(Command):
     """Load a previous commit message"""
 
-    def __init__(self, sha1, prefix=''):
+    def __init__(self, oid, prefix=''):
         Command.__init__(self)
-        self.sha1 = sha1
+        self.oid = oid
         self.old_commitmsg = self.model.commitmsg
-        self.new_commitmsg = prefix + self.model.prev_commitmsg(sha1)
+        self.new_commitmsg = prefix + self.model.prev_commitmsg(oid)
         self.undoable = True
 
     def do(self):
@@ -978,11 +978,11 @@ class LoadCommitMessageFromSHA1(Command):
         self.model.set_commitmsg(self.old_commitmsg)
 
 
-class LoadFixupMessage(LoadCommitMessageFromSHA1):
+class LoadFixupMessage(LoadCommitMessageFromOID):
     """Load a fixup message"""
 
-    def __init__(self, sha1):
-        LoadCommitMessageFromSHA1.__init__(self, sha1, prefix='fixup! ')
+    def __init__(self, oid):
+        LoadCommitMessageFromOID.__init__(self, oid, prefix='fixup! ')
         if self.new_commitmsg:
             self.new_commitmsg = self.new_commitmsg.splitlines()[0]
 
@@ -1049,7 +1049,10 @@ class OpenParentDir(OpenDefaultApp):
     def do(self):
         if not self.filenames:
             return
-        dirs = list(set(map(os.path.dirname, self.filenames)))
+        dirnames = list(set([os.path.dirname(x) for x in self.filenames]))
+        # os.path.dirname() can return an empty string so we fallback to
+        # the current directory
+        dirs = [(dirname or core.getcwd()) for dirname in dirnames]
         core.fork([self.launcher] + dirs)
 
 
@@ -1072,7 +1075,7 @@ class OpenRepo(Command):
 
     def do(self):
         git = self.model.git
-        old_repo = git.gitcwd()
+        old_repo = git.getcwd()
         if self.model.set_worktree(self.repo_path):
             fsmonitor.current().stop()
             fsmonitor.current().start()
@@ -1194,7 +1197,12 @@ class Rebase(Command):
         with GitXBaseContext(
                 GIT_XBASE_TITLE=N_('Rebase onto %s') % upstream_title,
                 GIT_XBASE_ACTION=N_('Rebase')):
-            status, out, err = self.model.git.rebase(*args, **kwargs)
+                # XXX this blocks the user interface window for the duration of our
+                # git-xbase's invocation. would need to implement signals for
+                # QProcess and continue running the main thread. alternatively we
+                # could hide the main window while rebasing. that doesn't require
+                # as much effort.
+                status, out, err = self.model.git.rebase(*args, _no_win32_startupinfo=True, **kwargs)
         Interaction.log_status(status, out, err)
         self.model.update_status()
         return status, out, err
@@ -1353,7 +1361,7 @@ class RunConfigAction(Command):
         self.model = main.model()
 
     def do(self):
-        for env in ('FILENAME', 'REVISION', 'ARGS'):
+        for env in ('ARGS', 'DIRNAME', 'FILENAME', 'REVISION'):
             try:
                 compat.unsetenv(env)
             except KeyError:
@@ -1377,7 +1385,9 @@ class RunConfigAction(Command):
                         N_('Please select a file'),
                         N_('"%s" requires a selected file.') % cmd)
                 return False
+            dirname = utils.dirname(filename, current_dir='.')
             compat.setenv('FILENAME', filename)
+            compat.setenv('DIRNAME', dirname)
 
         if opts.get('revprompt') or opts.get('argprompt'):
             while True:
@@ -1425,9 +1435,10 @@ class RunConfigAction(Command):
 
 class SetDefaultRepo(Command):
 
-    def __init__(self, repo):
+    def __init__(self, repo, name):
         Command.__init__(self)
         self.repo = repo
+        self.name = name
 
     def do(self):
         gitcfg.current().set_user('cola.defaultrepo', self.repo)

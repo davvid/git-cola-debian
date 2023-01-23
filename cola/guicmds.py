@@ -2,20 +2,21 @@ from __future__ import division, absolute_import, unicode_literals
 import os
 import re
 
-from . import cmds
-from . import core
-from . import difftool
-from . import gitcmds
-from . import icons
-from . import qtutils
-from . import utils
-from . import git
 from .i18n import N_
 from .interaction import Interaction
 from .models import main
 from .widgets import completion
 from .widgets.browse import BrowseDialog
 from .widgets.selectcommits import select_commits
+from . import cmds
+from . import core
+from . import difftool
+from . import gitcmds
+from . import hotkeys
+from . import icons
+from . import qtutils
+from . import utils
+from . import git
 
 
 def delete_branch():
@@ -263,7 +264,7 @@ class CloneTask(qtutils.Task):
 
 
 def clone_repo(parent, runtask, progress, finish, spawn):
-    """Clone a repostiory asynchronously with progress animation"""
+    """Clone a repository asynchronously with progress animation"""
     result = prompt_for_clone()
     if result is None:
         return
