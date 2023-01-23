@@ -1,6 +1,7 @@
-# Copyright (c) 2008 David Aguilar
+# Copyright (C) 2007-2018 David Aguilar and contributors
 """This module provides miscellaneous utility functions."""
 from __future__ import division, absolute_import, unicode_literals
+import copy
 import os
 import random
 import re
@@ -13,6 +14,24 @@ import traceback
 from . import core
 
 random.seed(hash(time.time()))
+
+
+def asint(obj, default=0):
+    """Make any value into a int, even if the cast fails"""
+    try:
+        value = int(obj)
+    except TypeError:
+        value = default
+    return value
+
+
+def clamp(value, lo, hi):
+    """Clamp a value to the specified range"""
+    return min(hi, max(lo, value))
+
+
+def epoch_millis():
+    return int(time.time() * 1000)
 
 
 def add_parents(paths):
@@ -126,6 +145,36 @@ def dirname(path, current_dir=''):
     return path.rsplit('/', 1)[0]
 
 
+def splitpath(path):
+    """Split paths using '/' regardless of platform
+
+    """
+    return path.split('/')
+
+
+def join(*paths):
+    """Join paths using '/' regardless of platform
+
+    """
+    return '/'.join(paths)
+
+def pathset(path):
+    """Return all of the path components for the specified path
+
+    >>> pathset('foo/bar/baz') == ['foo', 'foo/bar', 'foo/bar/baz']
+    True
+
+    """
+    result = []
+    parts = splitpath(path)
+    prefix = ''
+    for part in parts:
+        result.append(prefix + part)
+        prefix += part + '/'
+
+    return result
+
+
 def select_directory(paths):
     """Return the first directory in a list of paths"""
     if not paths:
@@ -179,9 +228,9 @@ else:
         return [core.decode(arg) for arg in _shell_split(s)]
 
 
-def tmp_filename(label):
+def tmp_filename(label, suffix=''):
     label = 'git-cola-' + label.replace('/', '-').replace('\\', '-')
-    fd = tempfile.NamedTemporaryFile(prefix=label+'-')
+    fd = tempfile.NamedTemporaryFile(prefix=label+'-', suffix=suffix)
     fd.close()
     return fd.name
 
@@ -240,3 +289,70 @@ class Proxy(object):
 
     def __getattr__(self, name):
         return getattr(self._obj, name)
+
+
+def slice_fn(input_items, map_fn):
+    """Slice input_items and call map_fn over every slice
+
+    This exists because of "errno: Argument list too long"
+
+    """
+    # This comment appeared near the top of include/linux/binfmts.h
+    # in the Linux source tree:
+    #
+    # /*
+    #  * MAX_ARG_PAGES defines the number of pages allocated for arguments
+    #  * and envelope for the new program. 32 should suffice, this gives
+    #  * a maximum env+arg of 128kB w/4KB pages!
+    #  */
+    # #define MAX_ARG_PAGES 32
+    #
+    # 'size' is a heuristic to keep things highly performant by minimizing
+    # the number of slices.  If we wanted it to run as few commands as
+    # possible we could call "getconf ARG_MAX" and make a better guess,
+    # but it's probably not worth the complexity (and the extra call to
+    # getconf that we can't do on Windows anyways).
+    #
+    # In my testing, getconf ARG_MAX on Mac OS X Mountain Lion reported
+    # 262144 and Debian/Linux-x86_64 reported 2097152.
+    #
+    # The hard-coded max_arg_len value is safely below both of these
+    # real-world values.
+
+    # 4K pages x 32 MAX_ARG_PAGES
+    max_arg_len = (32 * 4096) // 4  # allow plenty of space for the environment
+    max_filename_len = 256
+    size = max_arg_len // max_filename_len
+
+    status = 0
+    outs = []
+    errs = []
+
+    items = copy.copy(input_items)
+    while items:
+        stat, out, err = map_fn(items[:size])
+        if stat < 0:
+            status = min(stat, status)
+        else:
+            status = max(stat, status)
+        outs.append(out)
+        errs.append(err)
+        items = items[size:]
+
+    return (status, '\n'.join(outs), '\n'.join(errs))
+
+
+class seq(object):
+
+    def __init__(self, seq):
+        self.seq = seq
+
+    def index(self, item, default=-1):
+        try:
+            idx = self.seq.index(item)
+        except ValueError:
+            idx = default
+        return idx
+
+    def __getitem__(self, idx):
+        return self.seq[idx]

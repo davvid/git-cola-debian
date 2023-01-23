@@ -10,13 +10,12 @@ from ..models.browse import GitRepoModel
 from ..models.browse import GitRepoNameItem
 from ..models.selection import State
 from ..models.selection import selection_model
-from ..cmds import BaseCommand
+from ..cmds import CommandMixin
 from ..git import git
 from ..i18n import N_
 from ..interaction import Interaction
 from ..models import browse
 from ..models import main
-from ..compat import ustr
 from .. import cmds
 from .. import core
 from .. import gitcmds
@@ -159,6 +158,10 @@ class RepoTreeView(standard.TreeView):
                 self, N_('Untrack Selected'),
                 N_('Stop tracking paths'),
                 self.untrack_selected)
+
+        self.action_rename = qtutils.add_action_with_status_tip(
+                self, N_('Rename'), N_('Rename selected paths'),
+                self.rename_selected)
 
         self.action_difftool = qtutils.add_action_with_status_tip(
                 self, cmds.LaunchDifftool.name(),
@@ -349,6 +352,7 @@ class RepoTreeView(standard.TreeView):
 
         self.action_stage.setEnabled(staged or unstaged)
         self.action_untrack.setEnabled(tracked)
+        self.action_rename.setEnabled(tracked)
         self.action_difftool.setEnabled(staged or modified)
         self.action_difftool_predecessor.setEnabled(tracked)
         self.action_revert_unstaged.setEnabled(revertable)
@@ -368,6 +372,7 @@ class RepoTreeView(standard.TreeView):
         menu.addAction(self.action_revert_unstaged)
         menu.addAction(self.action_revert_uncommitted)
         menu.addAction(self.action_untrack)
+        menu.addAction(self.action_rename)
         if not utils.is_win32():
             menu.addSeparator()
             menu.addAction(self.action_default_app)
@@ -489,6 +494,10 @@ class RepoTreeView(standard.TreeView):
         """untrack selected paths."""
         cmds.do(cmds.Untrack, self.selected_tracked_paths())
 
+    def rename_selected(self):
+        """untrack selected paths."""
+        cmds.do(cmds.Rename, self.selected_tracked_paths())
+
     def diff_predecessor(self):
         """Diff paths against previous versions."""
         paths = self.selected_tracked_paths()
@@ -518,10 +527,9 @@ class BrowseModel(object):
         self.filename = filename
 
 
-class SaveBlob(BaseCommand):
+class SaveBlob(CommandMixin):
 
     def __init__(self, model):
-        BaseCommand.__init__(self)
         self.model = model
 
     def do(self):

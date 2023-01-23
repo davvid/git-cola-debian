@@ -53,8 +53,10 @@ class FormWidget(QtWidgets.QWidget):
             widget.toggled.connect(self._bool_config_changed(config))
 
         elif isinstance(widget, QtWidgets.QLineEdit):
-            widget.editingFinished.connect(self._text_config_changed(config))
-            widget.returnPressed.connect(self._text_config_changed(config))
+            widget.editingFinished.connect(
+                    self._text_config_changed(config, widget))
+            widget.returnPressed.connect(
+                    self._text_config_changed(config, widget))
 
     def _int_config_changed(self, config):
         def runner(value):
@@ -66,9 +68,9 @@ class FormWidget(QtWidgets.QWidget):
             cmds.do(prefs.SetConfig, self.model, self.source, config, value)
         return runner
 
-    def _text_config_changed(self, config):
+    def _text_config_changed(self, config, widget):
         def runner():
-            value = self.sender().text()
+            value = widget.text()
             cmds.do(prefs.SetConfig, self.model, self.source, config, value)
         return runner
 
@@ -102,31 +104,32 @@ class RepoFormWidget(FormWidget):
 
         self.name = QtWidgets.QLineEdit()
         self.email = QtWidgets.QLineEdit()
-        self.merge_verbosity = QtWidgets.QSpinBox()
-        self.merge_verbosity.setMinimum(0)
-        self.merge_verbosity.setMaximum(5)
-        self.merge_verbosity.setProperty('value', 5)
 
-        self.diff_context = QtWidgets.QSpinBox()
-        self.diff_context.setMinimum(2)
-        self.diff_context.setMaximum(99)
-        self.diff_context.setProperty('value', 5)
+        self.merge_verbosity = standard.SpinBox(value=5, maxi=5)
+        self.diff_context = standard.SpinBox(value=5, mini=2, maxi=9995)
 
         self.merge_summary = qtutils.checkbox(checked=True)
         self.merge_diffstat = qtutils.checkbox(checked=True)
         self.display_untracked = qtutils.checkbox(checked=True)
+        self.show_path = qtutils.checkbox(checked=True)
 
         tooltip = N_('Detect conflict markers in unmerged files')
         self.check_conflicts = qtutils.checkbox(checked=True, tooltip=tooltip)
+
+        tooltip = N_(
+            'Prevent "Stage" from staging all files when nothing is selected')
+        self.safe_mode = qtutils.checkbox(checked=False, tooltip=tooltip)
 
         self.add_row(N_('User Name'), self.name)
         self.add_row(N_('Email Address'), self.email)
         self.add_row(N_('Merge Verbosity'), self.merge_verbosity)
         self.add_row(N_('Number of Diff Context Lines'), self.diff_context)
         self.add_row(N_('Summarize Merge Commits'), self.merge_summary)
+        self.add_row(N_('Show Full Paths in the Window Title'), self.show_path)
         self.add_row(N_('Show Diffstat After Merge'), self.merge_diffstat)
         self.add_row(N_('Display Untracked Files'), self.display_untracked)
         self.add_row(N_('Detect Conflict Markers'), self.check_conflicts)
+        self.add_row(N_('Safe Mode'), self.safe_mode)
 
         self.set_config({
             prefs.CHECKCONFLICTS: (self.check_conflicts, True),
@@ -137,6 +140,8 @@ class RepoFormWidget(FormWidget):
             prefs.MERGE_DIFFSTAT: (self.merge_diffstat, True),
             prefs.MERGE_SUMMARY: (self.merge_summary, True),
             prefs.MERGE_VERBOSITY: (self.merge_verbosity, 5),
+            prefs.SAFE_MODE: (self.safe_mode, False),
+            prefs.SHOW_PATH: (self.show_path, True),
         })
 
 
@@ -146,26 +151,19 @@ class SettingsFormWidget(FormWidget):
         FormWidget.__init__(self, model, parent)
 
         self.fixed_font = QtWidgets.QFontComboBox()
+        self.font_size = standard.SpinBox(value=12, mini=8, maxi=192)
 
-        self.font_size = QtWidgets.QSpinBox()
-        self.font_size.setMinimum(8)
-        self.font_size.setProperty('value', 12)
-        self._font_str = None
+        self.maxrecent = standard.SpinBox(maxi=99)
+        self.tabwidth = standard.SpinBox(maxi=42)
+        self.textwidth = standard.SpinBox(maxi=150)
 
-        self.tabwidth = QtWidgets.QSpinBox()
-        self.tabwidth.setWrapping(True)
-        self.tabwidth.setMaximum(42)
-
-        self.textwidth = QtWidgets.QSpinBox()
-        self.textwidth.setWrapping(True)
-        self.textwidth.setMaximum(150)
-
-        self.linebreak = qtutils.checkbox()
         self.editor = QtWidgets.QLineEdit()
         self.historybrowser = QtWidgets.QLineEdit()
         self.blameviewer = QtWidgets.QLineEdit()
         self.difftool = QtWidgets.QLineEdit()
         self.mergetool = QtWidgets.QLineEdit()
+
+        self.linebreak = qtutils.checkbox()
         self.keep_merge_backups = qtutils.checkbox()
         self.sort_bookmarks = qtutils.checkbox()
         self.bold_headers = qtutils.checkbox()
@@ -184,8 +182,9 @@ class SettingsFormWidget(FormWidget):
         self.add_row(N_('Blame Viewer'), self.blameviewer)
         self.add_row(N_('Diff Tool'), self.difftool)
         self.add_row(N_('Merge Tool'), self.mergetool)
-        self.add_row(N_('Keep *.orig Merge Backups'), self.keep_merge_backups)
+        self.add_row(N_('Recent repository count'), self.maxrecent)
         self.add_row(N_('Sort bookmarks alphabetically'), self.sort_bookmarks)
+        self.add_row(N_('Keep *.orig Merge Backups'), self.keep_merge_backups)
         self.add_row(N_('Bold with dark background font instead of italic '
                         'headers (restart required)'), self.bold_headers)
         self.add_row(N_('Save GUI Settings'), self.save_gui_settings)
@@ -197,6 +196,7 @@ class SettingsFormWidget(FormWidget):
             prefs.EXPANDTAB: (self.expandtab, False),
             prefs.TEXTWIDTH: (self.textwidth, 72),
             prefs.LINEBREAK: (self.linebreak, True),
+            prefs.MAXRECENT: (self.maxrecent, 8),
             prefs.SORT_BOOKMARKS: (self.sort_bookmarks, True),
             prefs.BOLD_HEADERS: (self.bold_headers, False),
             prefs.DIFFTOOL: (self.difftool, 'xxdiff'),

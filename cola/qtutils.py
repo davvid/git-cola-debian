@@ -1,6 +1,7 @@
-# Copyright (c) 2008-2017 David Aguilar
+# Copyright (C) 2007-2018 David Aguilar and contributors
 """Miscellaneous Qt utility functions."""
 from __future__ import division, absolute_import, unicode_literals
+import os
 
 from qtpy import compat
 from qtpy import QtGui
@@ -15,7 +16,6 @@ from . import hotkeys
 from . import icons
 from . import utils
 from .i18n import N_
-from .interaction import Interaction
 from .compat import int_types
 from .compat import ustr
 from .models import prefs
@@ -49,6 +49,11 @@ def connect_button(button, fn):
     # Some versions of Qt send the `bool` argument to the clicked callback,
     # and some do not.  The lambda consumes all callback-provided arguments.
     button.clicked.connect(lambda *args, **kwargs: fn())
+
+
+def connect_checkbox(checkbox, fn):
+    """Connect a checkbox to a function taking bool"""
+    checkbox.clicked.connect(lambda *args, **kwargs: fn(checkbox.isChecked()))
 
 
 def connect_released(button, fn):
@@ -188,6 +193,25 @@ def label(text=None, align=None, fmt=None, selectable=True):
     return widget
 
 
+class ComboBox(QtWidgets.QComboBox):
+    """Custom read-only combobox with a convenient API"""
+
+    def __init__(self, items=None, editable=False, parent=None):
+        super(ComboBox, self).__init__(parent)
+        self.setEditable(editable)
+        if items:
+            self.addItems(items)
+
+    def set_index(self, idx):
+        idx = utils.clamp(idx, 0, self.count()-1)
+        self.setCurrentIndex(idx)
+
+
+def combo(items, editable=False, parent=None):
+    """Create a readonly (by default) combobox from a list of items"""
+    return ComboBox(editable=editable, items=items, parent=parent)
+
+
 def textbrowser(text=None):
     """Create a QTextBrowser for the specified text"""
     widget = QtWidgets.QTextBrowser()
@@ -205,12 +229,14 @@ def add_completer(widget, items):
     widget.setCompleter(completer)
 
 
-def prompt(msg, title=None, text=''):
+def prompt(msg, title=None, text='', parent=None):
     """Presents the user with an input widget and returns the input."""
     if title is None:
         title = msg
+    if parent is None:
+        parent = active_window()
     result = QtWidgets.QInputDialog.getText(
-            active_window(), msg, title,
+            parent, title, msg,
             QtWidgets.QLineEdit.Normal, text)
     return (result[0], result[1])
 
@@ -302,117 +328,6 @@ def paths_from_items(items,
         item_filter = _true_filter
     return [i.path for i in items
             if i.type() == item_type and item_filter(i)]
-
-
-def confirm(title, text, informative_text, ok_text,
-            icon=None, default=True,
-            cancel_text=None, cancel_icon=None):
-    """Confirm that an action should take place"""
-    msgbox = QtWidgets.QMessageBox(active_window())
-    msgbox.setWindowModality(Qt.WindowModal)
-    msgbox.setWindowTitle(title)
-    msgbox.setText(text)
-    msgbox.setInformativeText(informative_text)
-
-    icon = icons.mkicon(icon, icons.ok)
-    ok = msgbox.addButton(ok_text, QtWidgets.QMessageBox.ActionRole)
-    ok.setIcon(icon)
-
-    cancel = msgbox.addButton(QtWidgets.QMessageBox.Cancel)
-    cancel_icon = icons.mkicon(cancel_icon, icons.close)
-    cancel.setIcon(cancel_icon)
-    if cancel_text:
-        cancel.setText(cancel_text)
-
-    if default:
-        msgbox.setDefaultButton(ok)
-    else:
-        msgbox.setDefaultButton(cancel)
-    msgbox.exec_()
-    return msgbox.clickedButton() == ok
-
-
-class ResizeableMessageBox(QtWidgets.QMessageBox):
-
-    def __init__(self, parent):
-        QtWidgets.QMessageBox.__init__(self, parent)
-        self.setMouseTracking(True)
-        self.setSizeGripEnabled(True)
-
-    def event(self, event):
-        res = QtWidgets.QMessageBox.event(self, event)
-        event_type = event.type()
-        if (event_type == QtCore.QEvent.MouseMove or
-                event_type == QtCore.QEvent.MouseButtonPress):
-            maxi = QtCore.QSize(defs.max_size, defs.max_size)
-            self.setMaximumSize(maxi)
-            text = self.findChild(QtWidgets.QTextEdit)
-            if text is not None:
-                expand = QtWidgets.QSizePolicy.Expanding
-                text.setSizePolicy(QtWidgets.QSizePolicy(expand, expand))
-                text.setMaximumSize(maxi)
-        return res
-
-
-def critical(title, message=None, details=None):
-    """Show a warning with the provided title and message."""
-    if message is None:
-        message = title
-    mbox = ResizeableMessageBox(active_window())
-    mbox.setWindowTitle(title)
-    mbox.setTextFormat(Qt.PlainText)
-    mbox.setText(message)
-    mbox.setIcon(QtWidgets.QMessageBox.Critical)
-    mbox.setStandardButtons(QtWidgets.QMessageBox.Close)
-    mbox.setDefaultButton(QtWidgets.QMessageBox.Close)
-    if details:
-        mbox.setDetailedText(details)
-    mbox.exec_()
-
-
-def command_error(title, cmd, status, out, err):
-    """Report an error message about a failed command"""
-    details = Interaction.format_out_err(out, err)
-    message = Interaction.format_command_status(cmd, status)
-    critical(title, message=message, details=details)
-
-
-def information(title, message=None, details=None, informative_text=None):
-    """Show information with the provided title and message."""
-    if message is None:
-        message = title
-    mbox = QtWidgets.QMessageBox(active_window())
-    mbox.setStandardButtons(QtWidgets.QMessageBox.Close)
-    mbox.setDefaultButton(QtWidgets.QMessageBox.Close)
-    mbox.setWindowTitle(title)
-    mbox.setWindowModality(Qt.WindowModal)
-    mbox.setTextFormat(Qt.PlainText)
-    mbox.setText(message)
-    if informative_text:
-        mbox.setInformativeText(informative_text)
-    if details:
-        mbox.setDetailedText(details)
-    # Render into a 1-inch wide pixmap
-    pixmap = icons.cola().pixmap(defs.large_icon)
-    mbox.setIconPixmap(pixmap)
-    mbox.exec_()
-
-
-def question(title, msg, default=True):
-    """Launches a QMessageBox question with the provided title and message.
-    Passing "default=False" will make "No" the default choice."""
-    yes = QtWidgets.QMessageBox.Yes
-    no = QtWidgets.QMessageBox.No
-    buttons = yes | no
-    if default:
-        default = yes
-    else:
-        default = no
-
-    parent = active_window()
-    MessageBox = QtWidgets.QMessageBox
-    result = MessageBox.question(parent, title, msg, buttons, default)
-    return result == QtWidgets.QMessageBox.Yes
 
 
 def tree_selection(tree_item, items):
@@ -537,7 +452,8 @@ def persist_clipboard():
 
 def add_action_bool(widget, text, fn, checked, *shortcuts):
     tip = text
-    action = _add_action(widget, text, tip, fn, connect_action_bool, *shortcuts)
+    action = _add_action(widget, text, tip, fn,
+                         connect_action_bool, *shortcuts)
     action.setCheckable(True)
     action.setChecked(checked)
     return action
@@ -617,12 +533,17 @@ def desktop():
     return app().desktop()
 
 
-def center_on_screen(widget):
-    """Move widget to the center of the default screen"""
+def desktop_size():
     desk = desktop()
     rect = desk.screenGeometry(QtGui.QCursor().pos())
-    cy = rect.height()//2
-    cx = rect.width()//2
+    return (rect.width(), rect.height())
+
+
+def center_on_screen(widget):
+    """Move widget to the center of the default screen"""
+    width, height = desktop_size()
+    cx = width // 2
+    cy = height // 2
     widget.move(cx - widget.width()//2, cy - widget.height()//2)
 
 
@@ -666,8 +587,9 @@ def create_button(text='', layout=None, tooltip=None, icon=None,
     """Create a button, set its title, and add it to the parent."""
     button = QtWidgets.QPushButton()
     button.setCursor(Qt.PointingHandCursor)
+    button.setFocusPolicy(Qt.NoFocus)
     if text:
-        button.setText(text)
+        button.setText(' ' + text)
     if icon is not None:
         button.setIcon(icon)
         button.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
@@ -685,6 +607,7 @@ def create_button(text='', layout=None, tooltip=None, icon=None,
 def create_action_button(tooltip=None, icon=None):
     button = QtWidgets.QPushButton()
     button.setCursor(Qt.PointingHandCursor)
+    button.setFocusPolicy(Qt.NoFocus)
     button.setFlat(True)
     if tooltip is not None:
         button.setToolTip(tooltip)
@@ -826,8 +749,28 @@ def create_dock(title, parent, stretch=True, widget=None, fn=None):
 
 def create_menu(title, parent):
     """Create a menu and set its title."""
-    qmenu = QtWidgets.QMenu(title, parent)
+    qmenu = DebouncingMenu(title, parent)
     return qmenu
+
+
+class DebouncingMenu(QtWidgets.QMenu):
+    """Menu that debounces mouse release action ie. stops it if occurred
+    right after menu creation.
+
+    Disables annoying behaviour when RMB is pressed to show menu, cursor is
+    moved accidentally 1px onto newly created menu and released causing to
+    execute menu action
+    """
+
+    threshold_ms = 400
+
+    def __init__(self, title, parent):
+        QtWidgets.QMenu.__init__(self, title, parent)
+        self.created_at = utils.epoch_millis()
+
+    def mouseReleaseEvent(self, event):
+        if (utils.epoch_millis() - self.created_at) > DebouncingMenu.threshold_ms:
+            QtWidgets.QMenu.mouseReleaseEvent(self, event)
 
 
 def add_menu(title, parent):
@@ -842,11 +785,12 @@ def create_toolbutton(text=None, layout=None, tooltip=None, icon=None):
     button.setAutoRaise(True)
     button.setAutoFillBackground(True)
     button.setCursor(Qt.PointingHandCursor)
+    button.setFocusPolicy(Qt.NoFocus)
     if icon is not None:
         button.setIcon(icon)
         button.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
     if text is not None:
-        button.setText(text)
+        button.setText(' ' + text)
         button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
     if tooltip is not None:
         button.setToolTip(tooltip)
@@ -923,13 +867,10 @@ class Task(QtCore.QRunnable):
     def run(self):
         self.result = self.task()
         self.channel.result.emit(self.result)
-        self.done()
+        self.channel.finished.emit(self)
 
     def task(self):
         return None
-
-    def done(self):
-        self.channel.finished.emit(self)
 
     def connect(self, handler):
         self.channel.result.connect(handler, type=Qt.QueuedConnection)
@@ -957,16 +898,17 @@ class RunTask(QtCore.QObject):
         self.tasks = []
         self.task_details = {}
         self.threadpool = QtCore.QThreadPool.globalInstance()
+        self.result_fn = None
 
-    def start(self, task, progress=None, finish=None):
+    def start(self, task, progress=None, finish=None, result=None):
         """Start the task and register a callback"""
+        self.result_fn = result
         if progress is not None:
             progress.show()
         # prevents garbage collection bugs in certain PyQt4 versions
         self.tasks.append(task)
         task_id = id(task)
-        self.task_details[task_id] = (progress, finish)
-
+        self.task_details[task_id] = (progress, finish, result)
         task.channel.finished.connect(self.finish, type=Qt.QueuedConnection)
         self.threadpool.start(task)
 
@@ -977,13 +919,16 @@ class RunTask(QtCore.QObject):
         except:
             pass
         try:
-            progress, finish = self.task_details[task_id]
+            progress, finish, result = self.task_details[task_id]
             del self.task_details[task_id]
         except KeyError:
-            finish = progress = None
+            finish = progress = result = None
 
         if progress is not None:
             progress.hide()
+
+        if result is not None:
+            result(task.result)
 
         if finish is not None:
             finish(task)
@@ -1028,9 +973,16 @@ def make_format(fg=None, bg=None, bold=False):
     return fmt
 
 
-def install():
-    Interaction.critical = staticmethod(critical)
-    Interaction.confirm = staticmethod(confirm)
-    Interaction.question = staticmethod(question)
-    Interaction.information = staticmethod(information)
-    Interaction.command_error = staticmethod(command_error)
+class ImageFormats(object):
+
+    def __init__(self):
+        # returns a list of QByteArray objects
+        formats_qba = QtGui.QImageReader.supportedImageFormats()
+        # portability: python3 data() returns bytes, python2 returns str
+        decode = core.decode
+        formats = [decode(x.data()) for x in formats_qba]
+        self.extensions = set(['.' + fmt for fmt in formats])
+
+    def ok(self, filename):
+        _, ext = os.path.splitext(filename)
+        return ext.lower() in self.extensions

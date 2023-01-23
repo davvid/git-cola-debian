@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright © 2014-2015 Colin Duquesnoy
-# Copyright © 2009- The Spyder Developmet Team
+# Copyright © 2009- The Spyder Development Team
 #
 # Licensed under the terms of the MIT License
 # (see LICENSE.txt for details)
@@ -10,11 +10,13 @@
 Provides QtTest and functions
 """
 
-from . import PYQT5, PYQT4, PYSIDE, PythonQtError
+from . import PYQT5,PYSIDE2, PYQT4, PYSIDE, PythonQtError
 
 
 if PYQT5:
     from PyQt5.QtTest import QTest
+elif PYSIDE2:
+    from PySide2.QtTest import QTest
 elif PYQT4:
     from PyQt4.QtTest import QTest as OldQTest
 

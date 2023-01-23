@@ -1,6 +1,7 @@
-"""Provides commands and queries for Git."""
+"""Git commands and queries for Git"""
 from __future__ import division, absolute_import, unicode_literals
-
+import json
+import os
 import re
 from io import StringIO
 
@@ -11,9 +12,11 @@ from . import version
 from .git import git
 from .git import STDOUT
 from .i18n import N_
+from .interaction import Interaction
 
 
 # Object ID / SHA1-related constants
+MISSING_BLOB_OID = '0000000000000000000000000000000000000000'
 EMPTY_TREE_OID = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 OID_LENGTH = 40
 
@@ -22,11 +25,48 @@ class InvalidRepositoryError(Exception):
     pass
 
 
-def default_remote(config=None):
-    """Return the remote tracked by the current branch."""
+def add(items, u=False):
+    """Run "git add" while preventing argument overflow"""
+    add = git.add
+    return utils.slice_fn(
+        items, lambda paths: add('--', force=True, verbose=True, u=u, *paths))
+
+
+def apply_diff(filename):
+    return git.apply(filename, index=True, cached=True)
+
+
+def apply_diff_to_worktree(filename):
+    return git.apply(filename)
+
+
+def get_branch(branch):
+    if branch is None:
+        branch = current_branch()
+    return branch
+
+
+def get_config(config):
     if config is None:
         config = gitcfg.current()
-    return config.get('branch.%s.remote' % current_branch())
+    return config
+
+
+
+def upstream_remote(branch=None, config=None):
+    """Return the remote associated with the specified branch"""
+    config = get_config(config)
+    branch = get_branch(branch)
+    return config.get('branch.%s.remote' % branch)
+
+
+def remote_url(remote, push=False, config=None):
+    """Return the URL for the specified remote"""
+    config = get_config(config)
+    url = config.get('remote.%s.url' % remote, '')
+    if push:
+        url = config.get('remote.%s.pushurl' % remote, url)
+    return url
 
 
 def diff_index_filenames(ref):
@@ -42,30 +82,25 @@ def diff_filenames(*args):
     return _parse_diff_filenames(out)
 
 
-def listdir(dirname, ref='HEAD'):
-    """Get the contents of a directory according to Git
+def listdir(dirname):
+    """Get the contents of a directory
 
-    Query Git for the content of a directory, taking ignored
-    files into account.
+    Scan the filesystem while categorizing directories and files.
 
     """
     dirs = []
     files = []
 
-    # first, parse git ls-tree to get the tracked files
-    # in a list of (type, path) tuples
-    entries = ls_tree(dirname, ref=ref)
-    for entry in entries:
-        if entry[0][0] == 't':  # tree
-            dirs.append(entry[1])
+    for relpath in os.listdir(dirname):
+        if relpath == '.git':
+            continue
+        if dirname == './':
+            path = relpath
         else:
-            files.append(entry[1])
+            path = dirname + relpath
 
-    # gather untracked files
-    untracked = untracked_files(paths=[dirname], directory=True)
-    for path in untracked:
-        if path.endswith('/'):
-            dirs.append(path[:-1])
+        if os.path.isdir(path):
+            dirs.append(path)
         else:
             files.append(path)
 
@@ -229,8 +264,7 @@ def all_refs(split=False, git=git):
 
 def tracked_branch(branch=None, config=None):
     """Return the remote branch associated with 'branch'."""
-    if config is None:
-        config = gitcfg.current()
+    config = get_config(config)
     if branch is None:
         branch = current_branch()
     if branch is None:
@@ -245,6 +279,18 @@ def tracked_branch(branch=None, config=None):
     if merge_ref.startswith(refs_heads):
         return remote + '/' + merge_ref[len(refs_heads):]
     return None
+
+
+def parse_remote_branch(branch):
+    """Split a remote branch apart into (remote, name) components"""
+    rgx = re.compile(r'^(?P<remote>[^/]+)/(?P<branch>.+)$')
+    match = rgx.match(branch)
+    remote = ''
+    branch = ''
+    if match:
+        remote = match.group('remote')
+        branch = match.group('branch')
+    return (remote, branch)
 
 
 def untracked_files(git=git, paths=None, **kwargs):
@@ -288,15 +334,16 @@ def update_diff_overrides(space_at_eol, space_change,
 
 
 def common_diff_opts(config=None):
-    if config is None:
-        config = gitcfg.current()
+    config = get_config(config)
+    # Default to --patience when diff.algorithm is unset
+    patience = not config.get('diff.algorithm', default='')
     submodule = version.check('diff-submodule', version.git_version())
     opts = {
-        'patience': True,
+        'patience': patience,
         'submodule': submodule,
         'no_color': True,
         'no_ext_diff': True,
-        'unified': config.get('gui.diffcontext', 3),
+        'unified': config.get('gui.diffcontext', default=3),
         '_raw': True,
     }
     opts.update(_diff_overrides)
@@ -419,7 +466,7 @@ def extract_diff_header(status, deleted,
     headers.close()
 
     if with_diff_header:
-        return(headers_text, output_text)
+        return (headers_text, output_text)
     else:
         return output_text
 
@@ -480,6 +527,13 @@ def format_patchsets(to_export, revs, output='patches'):
 def export_patchset(start, end, output='patches', **kwargs):
     """Export patches from start^ to end."""
     return git.format_patch('-o', output, start + '^..' + end, **kwargs)
+
+
+def reset_paths(items):
+    """Run "git reset" while preventing argument overflow"""
+    reset = git.reset
+    status, out, err = utils.slice_fn(items, lambda paths: reset('--', *paths))
+    return (status, out, err)
 
 
 def unstage_paths(args, head='HEAD'):
@@ -721,9 +775,8 @@ def merge_message_path():
 
 def prepare_commit_message_hook(config=None):
     default_hook = git.git_path('hooks', 'cola-prepare-commit-msg')
-    if config is None:
-        config = gitcfg.current()
-    return config.get('cola.preparecommitmessagehook', default_hook)
+    config = get_config(config)
+    return config.get('cola.preparecommitmessagehook', default=default_hook)
 
 
 def abort_merge():
@@ -758,3 +811,97 @@ def parse_refs(argv):
     else:
         oids = argv
     return oids
+
+
+def prev_commitmsg(*args):
+    """Queries git for the latest commit message."""
+    return git.log('-1', no_color=True, pretty='format:%s%n%n%b',
+                   *args)[STDOUT]
+
+
+def rev_parse(name):
+    """Call git rev-parse and return the output"""
+    status, out, err = git.rev_parse(name)
+    if status == 0:
+        result = out.strip()
+    else:
+        result = name
+    return result
+
+
+def write_blob(oid, filename):
+    """Write a blob to a temporary file and return the path
+
+    Modern versions of Git allow invoking filters.  Older versions
+    get the object content as-is.
+
+    """
+    if version.check_git('cat-file-filters-path'):
+        return cat_file_to_path(filename, oid)
+    else:
+        return cat_file_blob(filename, oid)
+
+
+def cat_file_blob(filename, oid):
+    return cat_file(filename, 'blob', oid)
+
+
+def cat_file_to_path(filename, oid):
+    return cat_file(filename, oid, path=filename, filters=True)
+
+
+def cat_file(filename, *args, **kwargs):
+    """Redirect git cat-file output to a path"""
+    result = None
+    # Use the original filename in the suffix so that the generated filename
+    # has the correct extension, and so that it resembles the original name.
+    basename = os.path.basename(filename)
+    suffix = '-' + basename  # ensures the correct filename extension
+    path = utils.tmp_filename('blob', suffix=suffix)
+    with open(path, 'wb') as fp:
+        status, out, err = git.cat_file(
+            _raw=True, _readonly=True, _stdout=fp, *args, **kwargs)
+        Interaction.command(
+            N_('Error'), 'git cat-file', status, out, err)
+        if status == 0:
+            result = path
+    if not result:
+        core.unlink(path)
+    return result
+
+
+def write_blob_path(head, oid, filename):
+    """Use write_blob() when modern git is available"""
+    if version.check_git('cat-file-filters-path'):
+        return write_blob(oid, filename)
+    else:
+        return cat_file_blob(filename, head + ':' + filename)
+
+
+def annex_path(head, filename, config=None):
+    """Return the git-annex path for a filename at the specified commit"""
+    config = get_config(config)
+    path = None
+    annex_info = {}
+
+    # unfortunately there's no way to filter this down to a single path
+    # so we just have to scan all reported paths
+    status, out, err = git.annex('findref', '--json', head)
+    if status == 0:
+        for line in out.splitlines():
+            info = json.loads(line)
+            try:
+                annex_file = info['file']
+            except (ValueError, KeyError):
+                continue
+            # we only care about this file so we can skip the rest
+            if annex_file == filename:
+                annex_info = info
+                break
+    key = annex_info.get('key', '')
+    if key:
+        status, out, err = git.annex('contentlocation', key)
+        if status == 0 and os.path.exists(out):
+            path = out
+
+    return path

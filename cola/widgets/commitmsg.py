@@ -16,7 +16,7 @@ from .. import hotkeys
 from .. import icons
 from .. import textwrap
 from .. import qtutils
-from ..cmds import Interaction
+from ..interaction import Interaction
 from ..gitcmds import commit_message_path
 from ..i18n import N_
 from ..models import dag
@@ -36,10 +36,10 @@ class CommitMessageEditor(QtWidgets.QWidget):
     up = Signal()
     updated = Signal()
 
-    def __init__(self, model, parent):
+    def __init__(self, parent, context):
         QtWidgets.QWidget.__init__(self, parent)
-
-        self.model = model
+        self.context = context
+        self.model = model = context.model
         self.spellcheck_initialized = False
 
         self._linebreak = None
@@ -47,20 +47,20 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self._tabwidth = None
 
         # Actions
-        self.signoff_action = qtutils.add_action(self, cmds.SignOff.name(),
-                                                 cmds.run(cmds.SignOff),
-                                                 hotkeys.SIGNOFF)
+        self.signoff_action = qtutils.add_action(
+            self, cmds.SignOff.name(),
+            cmds.run(cmds.SignOff, self.context), hotkeys.SIGNOFF)
         self.signoff_action.setToolTip(N_('Sign off on this commit'))
 
         self.commit_action = qtutils.add_action(self,
                                                 N_('Commit@@verb'),
                                                 self.commit, hotkeys.COMMIT)
-        self.commit_action.setIcon(icons.download())
+        self.commit_action.setIcon(icons.commit())
         self.commit_action.setToolTip(N_('Commit staged changes'))
         self.clear_action = qtutils.add_action(self, N_('Clear...'), self.clear)
 
         self.launch_editor = actions.launch_editor(self)
-        self.launch_difftool = actions.launch_difftool(self)
+        self.launch_difftool = actions.launch_difftool(self, self.context)
         self.stage_or_unstage = actions.stage_or_unstage(self)
 
         self.move_up = actions.move_up(self)
@@ -85,6 +85,10 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.summary.setMinimumHeight(defs.tool_button_height)
         self.summary.menu_actions.extend(menu_actions)
 
+        cfg = gitcfg.current()
+        self.summary_validator = MessageValidator(cfg, parent=self.summary)
+        self.summary.setValidator(self.summary_validator)
+
         self.description = CommitMessageTextEdit()
         self.description.menu_actions.extend(menu_actions)
 
@@ -92,7 +96,7 @@ class CommitMessageEditor(QtWidgets.QWidget):
                                    'Shortcut: Ctrl+Enter')
         self.commit_button = qtutils.create_toolbutton(
             text=N_('Commit@@verb'), tooltip=commit_button_tooltip,
-            icon=icons.download())
+            icon=icons.commit())
         self.commit_group = Group(self.commit_action, self.commit_button)
 
         self.actions_menu = qtutils.create_menu(N_('Actions'), self)
@@ -120,18 +124,19 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.bypass_commit_hooks_action.setChecked(False)
 
         # Sign commits
-        cfg = gitcfg.current()
         self.sign_action = self.actions_menu.addAction(
                 N_('Create Signed Commit'))
         self.sign_action.setCheckable(True)
-        self.sign_action.setChecked(cfg.get('cola.signcommits', False))
+        signcommits = cfg.get('cola.signcommits', default=False)
+        self.sign_action.setChecked(signcommits)
 
         # Spell checker
         self.check_spelling_action = self.actions_menu.addAction(
                 N_('Check Spelling'))
         self.check_spelling_action.setCheckable(True)
-        self.check_spelling_action.setChecked(prefs.spellcheck())
-        self.toggle_check_spelling(prefs.spellcheck())
+        spellcheck = prefs.spellcheck()
+        self.check_spelling_action.setChecked(spellcheck)
+        self.toggle_check_spelling(spellcheck)
 
         # Line wrapping
         self.autowrap_action = self.actions_menu.addAction(
@@ -311,7 +316,7 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.update_actions()
 
     def clear(self):
-        if not qtutils.confirm(
+        if not Interaction.confirm(
                 N_('Clear commit message?'),
                 N_('The commit message will be cleared.'),
                 N_('This cannot be undone.  Clear commit message?'),
@@ -436,7 +441,7 @@ class CommitMessageEditor(QtWidgets.QWidget):
             if self.model.modified:
                 informative_text = N_('Would you like to stage and '
                                       'commit all modified files?')
-                if not qtutils.confirm(
+                if not Interaction.confirm(
                         N_('Stage and commit?'), error_msg, informative_text,
                         N_('Stage and Commit'),
                         default=True, icon=icons.save()):
@@ -449,13 +454,13 @@ class CommitMessageEditor(QtWidgets.QWidget):
         # Warn that amending published commits is generally bad
         amend = self.amend_action.isChecked()
         if (amend and self.model.is_commit_published() and
-            not qtutils.confirm(
-                        N_('Rewrite Published Commit?'),
-                        N_('This commit has already been published.\n'
-                           'This operation will rewrite published history.\n'
-                           'You probably don\'t want to do this.'),
-                        N_('Amend the published commit?'),
-                        N_('Amend Commit'), default=False, icon=icons.save())):
+            not Interaction.confirm(
+                    N_('Rewrite Published Commit?'),
+                    N_('This commit has already been published.\n'
+                       'This operation will rewrite published history.\n'
+                       'You probably don\'t want to do this.'),
+                    N_('Amend the published commit?'),
+                    N_('Amend Commit'), default=False, icon=icons.save())):
             return
         no_verify = self.bypass_commit_hooks_action.isChecked()
         sign = self.sign_action.isChecked()
@@ -536,6 +541,40 @@ class CommitMessageEditor(QtWidgets.QWidget):
         self.description.highlighter.enable(enabled)
 
 
+class MessageValidator(QtGui.QValidator):
+    """Prevent invalid branch names"""
+
+    config_updated = Signal()
+
+    def __init__(self, cfg, parent=None):
+        super(MessageValidator, self).__init__(parent)
+        self._comment_char = None
+        self._cfg = cfg
+        self.refresh()
+        self.config_updated.connect(self.refresh, type=Qt.QueuedConnection)
+        cfg.add_observer(cfg.message_updated, self.emit_config_updated)
+        self.destroyed.connect(self.teardown)
+
+    def teardown(self):
+        self._cfg.remove_observer(self.emit_model_updated)
+
+    def emit_config_updated(self):
+        self.config_updated.emit()
+
+    def refresh(self):
+        """Update comment char in response to config changes"""
+        self._comment_char = prefs.comment_char()
+
+    def validate(self, string, idx):
+        """Scrub whitespace and validate the commit message"""
+        string = string.lstrip()
+        if string.startswith(self._comment_char):
+            state = self.Invalid
+        else:
+            state = self.Acceptable
+        return (state, string, idx)
+
+
 class CommitSummaryLineEdit(HintedLineEdit):
 
     cursor = Signal(int, int)
@@ -544,12 +583,6 @@ class CommitSummaryLineEdit(HintedLineEdit):
         hint = N_('Commit summary')
         HintedLineEdit.__init__(self, hint, parent=parent)
         self.menu_actions = []
-
-        comment_char = prefs.comment_char()
-        re_comment_char = re.escape(comment_char)
-        regex = QtCore.QRegExp(r'^\s*[^%s \t].*' % re_comment_char)
-        self._validator = QtGui.QRegExpValidator(regex, self)
-        self.setValidator(self._validator)
 
     def build_menu(self):
         menu = self.createStandardContextMenu()

@@ -1,4 +1,4 @@
-"""Covers interfaces used by the classic view."""
+"""Covers interfaces used by the browser (git cola browse)"""
 from __future__ import absolute_import, division, unicode_literals
 
 from cola import core
@@ -9,7 +9,7 @@ from test import helper
 
 
 class ClassicModelTestCase(helper.GitRepositoryTestCase):
-    """Tests interfaces used by the classic view."""
+    """Tests interfaces used by the browser (git cola browse)"""
 
     def setUp(self):
         helper.GitRepositoryTestCase.setUp(self, commit=False)
@@ -19,7 +19,8 @@ class ClassicModelTestCase(helper.GitRepositoryTestCase):
         """Test stage_paths() with an untracked file."""
         core.makedirs('foo/bar')
         self.touch('foo/bar/baz')
-        self.model.stage_paths(['foo'])
+        gitcmds.add(['foo'])
+        self.model.update_file_status()
 
         self.assertTrue('foo/bar/baz' in self.model.staged)
         self.assertTrue('foo/bar/baz' not in self.model.modified)

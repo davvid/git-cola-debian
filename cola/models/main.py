@@ -1,21 +1,22 @@
-# Copyright (c) 2008 David Aguilar
+# Copyright (C) 2007-2018 David Aguilar
 """This module provides the central cola model.
 """
 from __future__ import division, absolute_import, unicode_literals
 
-import copy
 import os
 
 from .. import core
 from .. import git
 from .. import gitcmds
 from .. import gitcfg
-from ..git import STDOUT
-from ..observable import Observable
-from ..decorators import memoize
-from ..models.selection import selection_model
-from ..models import prefs
 from ..compat import ustr
+from ..decorators import memoize
+from ..git import STDOUT
+from ..interaction import Interaction
+from ..i18n import N_
+from ..observable import Observable
+from .selection import selection_model
+from . import prefs
 
 
 @memoize
@@ -25,13 +26,17 @@ def model():
 
 
 class MainModel(Observable):
-    """Provides a friendly wrapper for doing common git operations."""
+    """Repository status model"""
+    # TODO this class can probably be split apart into a DiffModel,
+    # CommitMessageModel, StatusModel, and an AppStatusStateMachine.
 
     # Observable messages
     message_about_to_update = 'about_to_update'
     message_commit_message_changed = 'commit_message_changed'
     message_diff_text_changed = 'diff_text_changed'
+    message_diff_type_changed = 'diff_type_changed'
     message_filename_changed = 'filename_changed'
+    message_images_changed = 'images_changed'
     message_mode_about_to_change = 'mode_about_to_change'
     message_mode_changed = 'mode_changed'
     message_updated = 'updated'
@@ -57,18 +62,24 @@ class MainModel(Observable):
             lambda self: self.modified + self.unmerged + self.untracked)
     """An aggregate of the modified, unmerged, and untracked file lists."""
 
-    def __init__(self, cwd=None):
+    def __init__(self, cwd=None, context=None):
         """Reads git repository settings and sets several methods
         so that they refer to the git module.  This object
         encapsulates cola's interaction with git."""
         Observable.__init__(self)
 
         # Initialize the git command object
-        self.git = git.current()
+        self.git = context and context.git or git.current()
+        self.cfg = context and context.cfg or gitcfg.current()
+        self.selection = context and context.selection or selection_model()
+        # TODO make context required
 
         self.initialized = False
+        self.annex = False
+        self.lfs = False
         self.head = 'HEAD'
         self.diff_text = ''
+        self.diff_type = 'text'  # text, image
         self.mode = self.mode_none
         self.filename = None
         self.is_merging = False
@@ -78,6 +89,7 @@ class MainModel(Observable):
         self.project = ''
         self.remotes = []
         self.filter_paths = None
+        self.images = []
 
         self.commitmsg = ''  # current commit message
         self._auto_commitmsg = ''  # e.g. .git/MERGE_MSG
@@ -123,7 +135,10 @@ class MainModel(Observable):
             self.project = os.path.basename(cwd)
             self.set_directory(cwd)
             core.chdir(cwd)
-            gitcfg.current().reset()
+            self.cfg.reset()
+            self.annex = self.cfg.is_annex()
+            lfs = self.git.git_path('lfs')
+            self.lfs = bool(lfs and core.exists(lfs))
         return is_valid
 
     def set_commitmsg(self, msg, notify=True):
@@ -144,8 +159,19 @@ class MainModel(Observable):
         return path
 
     def set_diff_text(self, txt):
+        """Update the text displayed in the diff editor"""
         self.diff_text = txt
         self.notify_observers(self.message_diff_text_changed, txt)
+
+    def set_diff_type(self, diff_type):  # text, image
+        """Set the diff type to either text or image"""
+        self.diff_type = diff_type
+        self.notify_observers(self.message_diff_type_changed, diff_type)
+
+    def set_images(self, images):
+        """Update the images shown in the preview pane"""
+        self.images = images
+        self.notify_observers(self.message_images_changed, images)
 
     def set_directory(self, path):
         self.directory = path
@@ -169,29 +195,23 @@ class MainModel(Observable):
         self.mode = mode
         self.notify_observers(self.message_mode_changed, mode)
 
-    def apply_diff(self, filename):
-        return self.git.apply(filename, index=True, cached=True)
-
-    def apply_diff_to_worktree(self, filename):
-        return self.git.apply(filename)
-
-    def prev_commitmsg(self, *args):
-        """Queries git for the latest commit message."""
-        return self.git.log('-1', no_color=True, pretty='format:%s%n%n%b',
-                            *args)[STDOUT]
-
     def update_path_filter(self, filter_paths):
         self.filter_paths = filter_paths
         self.update_file_status()
 
-    def update_file_status(self, update_index=False):
+    def emit_about_to_update(self):
         self.notify_observers(self.message_about_to_update)
-        self._update_files(update_index=update_index)
+
+    def emit_updated(self):
         self.notify_observers(self.message_updated)
+
+    def update_file_status(self, update_index=False):
+        self.emit_about_to_update()
+        self.update_files(update_index=update_index, emit=True)
 
     def update_status(self, update_index=False):
         # Give observers a chance to respond
-        self.notify_observers(self.message_about_to_update)
+        self.emit_about_to_update()
         self.initialized = True
         self._update_merge_rebase_status()
         self._update_files(update_index=update_index)
@@ -199,7 +219,12 @@ class MainModel(Observable):
         self._update_branches_and_tags()
         self._update_branch_heads()
         self._update_commitmsg()
-        self.notify_observers(self.message_updated)
+        self.emit_updated()
+
+    def update_files(self, update_index=False, emit=False):
+        self._update_files(update_index=update_index)
+        if emit:
+            self.emit_updated()
 
     def _update_files(self, update_index=False):
         display_untracked = prefs.display_untracked()
@@ -216,12 +241,12 @@ class MainModel(Observable):
         self.unstaged_deleted = state.get('unstaged_deleted', set())
         self.submodules = state.get('submodules', set())
 
-        sel = selection_model()
+        selection = self.selection
         if self.is_empty():
-            sel.reset()
+            selection.reset()
         else:
-            sel.update(self)
-        if selection_model().is_empty():
+            selection.update(self)
+        if selection.is_empty():
             self.set_diff_text('')
 
     def is_empty(self):
@@ -284,134 +309,15 @@ class MainModel(Observable):
 
     def rename_branch(self, branch, new_branch):
         status, out, err = self.git.branch(branch, new_branch, M=True)
-        self.notify_observers(self.message_about_to_update)
+        self.emit_about_to_update()
         self._update_branches_and_tags()
         self._update_branch_heads()
-        self.notify_observers(self.message_updated)
+        self.emit_updated()
         return status, out, err
 
-    def _sliced_op(self, input_items, map_fn):
-        """Slice input_items and call map_fn over every slice
-
-        This exists because of "errno: Argument list too long"
-
-        """
-        # This comment appeared near the top of include/linux/binfmts.h
-        # in the Linux source tree:
-        #
-        # /*
-        #  * MAX_ARG_PAGES defines the number of pages allocated for arguments
-        #  * and envelope for the new program. 32 should suffice, this gives
-        #  * a maximum env+arg of 128kB w/4KB pages!
-        #  */
-        # #define MAX_ARG_PAGES 32
-        #
-        # 'size' is a heuristic to keep things highly performant by minimizing
-        # the number of slices.  If we wanted it to run as few commands as
-        # possible we could call "getconf ARG_MAX" and make a better guess,
-        # but it's probably not worth the complexity (and the extra call to
-        # getconf that we can't do on Windows anyways).
-        #
-        # In my testing, getconf ARG_MAX on Mac OS X Mountain Lion reported
-        # 262144 and Debian/Linux-x86_64 reported 2097152.
-        #
-        # The hard-coded max_arg_len value is safely below both of these
-        # real-world values.
-
-        max_arg_len = 32 * 4 * 1024
-        avg_filename_len = 300
-        size = max_arg_len // avg_filename_len
-
-        status = 0
-        outs = []
-        errs = []
-
-        items = copy.copy(input_items)
-        while items:
-            stat, out, err = map_fn(items[:size])
-            status = max(stat, status)
-            outs.append(out)
-            errs.append(err)
-            items = items[size:]
-
-        return (status, '\n'.join(outs), '\n'.join(errs))
-
-    def _sliced_add(self, items):
-        add = self.git.add
-        return self._sliced_op(
-                items, lambda x: add('--', force=True, verbose=True, *x))
-
-    def stage_modified(self):
-        status, out, err = self._sliced_add(self.modified)
-        self.update_file_status()
-        return (status, out, err)
-
-    def stage_untracked(self):
-        status, out, err = self._sliced_add(self.untracked)
-        self.update_file_status()
-        return (status, out, err)
-
-    def reset(self, *items):
-        reset = self.git.reset
-        status, out, err = self._sliced_op(items, lambda x: reset('--', *x))
-        self.update_file_status()
-        return (status, out, err)
-
-    def unstage_all(self):
-        """Unstage all files, even while amending"""
-        status, out, err = self.git.reset(self.head, '--', '.')
-        self.update_file_status()
-        return (status, out, err)
-
-    def stage_all(self):
-        status, out, err = self.git.add(v=True, u=True)
-        self.update_file_status()
-        return (status, out, err)
-
-    def config_set(self, key, value, local=True):
-        # git config category.key value
-        strval = ustr(value)
-        if type(value) is bool:
-            # git uses "true" and "false"
-            strval = strval.lower()
-        if local:
-            argv = [key, strval]
-        else:
-            argv = ['--global', key, strval]
-        return self.git.config(*argv)
-
-    def config_dict(self, local=True):
-        """parses the lines from git config --list into a dictionary"""
-
-        kwargs = {
-            'list': True,
-            'global': not local,  # global is a python keyword
-        }
-        config_lines = self.git.config(**kwargs)[STDOUT].splitlines()
-        newdict = {}
-        for line in config_lines:
-            try:
-                k, v = line.split('=', 1)
-            except:
-                # value-less entry in .gitconfig
-                continue
-            k = k.replace('.', '_')  # git -> model
-            if v == 'true' or v == 'false':
-                v = bool(eval(v.title()))
-            try:
-                v = int(eval(v))
-            except:
-                pass
-            newdict[k] = v
-        return newdict
-
     def remote_url(self, name, action):
-        if action == 'push':
-            url = self.git.config('remote.%s.pushurl' % name,
-                                  get=True)[STDOUT]
-            if url:
-                return url
-        return self.git.config('remote.%s.url' % name, get=True)[STDOUT]
+        push = action == 'push'
+        return gitcmds.remote_url(name, push=push)
 
     def fetch(self, remote, **opts):
         return run_remote_action(self.git.fetch, remote, **opts)
@@ -455,48 +361,8 @@ class MainModel(Observable):
             return pstr
 
     def is_commit_published(self):
-        head = self.git.rev_parse('HEAD')[STDOUT]
-        return bool(self.git.branch(r=True, contains=head)[STDOUT])
-
-    def stage_paths(self, paths):
-        """Stages add/removals to git."""
-        if not paths:
-            self.stage_all()
-            return
-
-        add = []
-        remove = []
-
-        for path in set(paths):
-            if core.exists(path) or core.islink(path):
-                if path.endswith('/'):
-                    path = path.rstrip('/')
-                add.append(path)
-            else:
-                remove.append(path)
-
-        self.notify_observers(self.message_about_to_update)
-
-        # `git add -u` doesn't work on untracked files
-        if add:
-            self._sliced_add(add)
-
-        # If a path doesn't exist then that means it should be removed
-        # from the index.   We use `git add -u` for that.
-        if remove:
-            while remove:
-                self.git.add('--', u=True, *remove[:42])
-                remove = remove[42:]
-
-        self._update_files()
-        self.notify_observers(self.message_updated)
-
-    def unstage_paths(self, paths):
-        if not paths:
-            self.unstage_all()
-            return
-        gitcmds.unstage_paths(paths, head=self.head)
-        self.update_file_status()
+        """Return True if the latest commit exists in any remote branch"""
+        return bool(self.git.branch(r=True, contains='HEAD')[STDOUT])
 
     def untrack_paths(self, paths):
         status, out, err = gitcmds.untrack_paths(paths, head=self.head)

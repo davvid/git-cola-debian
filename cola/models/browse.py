@@ -1,5 +1,4 @@
 from __future__ import division, absolute_import, unicode_literals
-import collections
 import time
 
 from qtpy import QtCore
@@ -145,6 +144,10 @@ class GitRepoModel(QtGui.QStandardItemModel):
 
     def add_directory(self, parent, path):
         """Add a directory entry to the model."""
+        # First, try returning an existing item
+        current_item = self.get(path)
+        if current_item is not None:
+            return current_item[0]
 
         # Create model items
         row_items = self.create_row(path, is_dir=True)
@@ -159,6 +162,10 @@ class GitRepoModel(QtGui.QStandardItemModel):
     def add_file(self, parent, path):
         """Add a file entry to the model."""
 
+        file_entry = self.get(path)
+        if file_entry is not None:
+            return file_entry
+
         # Create model items
         row_items = self.create_row(path)
         name_item = row_items[0]
@@ -169,18 +176,34 @@ class GitRepoModel(QtGui.QStandardItemModel):
         # Add file paths at the end of the list
         parent.appendRow(row_items)
 
+        return name_item
+
     def populate_dir(self, parent, path):
         """Populate a subtree"""
         dirs, paths = gitcmds.listdir(path)
 
         # Insert directories before file paths
         for dirname in dirs:
-            self.add_directory(parent, dirname)
+            dir_parent = parent
+            if '/' in dirname:
+                dir_parent = self.add_parent_directories(parent, dirname)
+            self.add_directory(dir_parent, dirname)
             self.update_entry(dirname)
 
         for filename in paths:
-            self.add_file(parent, filename)
+            file_parent = parent
+            if '/' in filename:
+                file_parent = self.add_parent_directories(parent, filename)
+            self.add_file(file_parent, filename)
             self.update_entry(filename)
+
+    def add_parent_directories(self, parent, dirname):
+        """Ensure that all parent directory entries exist"""
+        sub_parent = parent
+        parent_dir = utils.dirname(dirname)
+        for dirname in utils.pathset(parent_dir):
+            sub_parent = self.add_directory(sub_parent, dirname)
+        return sub_parent
 
     def path_is_interesting(self, path):
         """Return True if path has a status."""

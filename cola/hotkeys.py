@@ -21,7 +21,7 @@ DIFF = hotkey(Qt.CTRL + Qt.Key_D)
 DIFF_SECONDARY = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_D)
 EDIT = hotkey(Qt.CTRL + Qt.Key_E)
 EDIT_SECONDARY = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_E)
-EXPORT = hotkey(Qt.ALT + Qt.Key_E)
+EXPORT = hotkey(Qt.ALT + Qt.SHIFT + Qt.Key_E)
 FIT = hotkey(Qt.Key_F)
 FETCH = hotkey(Qt.CTRL + Qt.Key_F)
 FILTER = hotkey(Qt.CTRL + Qt.SHIFT + Qt.Key_F)
@@ -95,6 +95,7 @@ CTRL_RETURN = hotkey(Qt.CTRL + Qt.Key_Return)
 CTRL_ENTER = hotkey(Qt.CTRL + Qt.Key_Enter)
 
 # Rebase
+REBASE_START_AND_CONTINUE = hotkey(Qt.ALT + Qt.Key_R)
 REBASE_PICK = (hotkey(Qt.Key_1), hotkey(Qt.Key_P))
 REBASE_REWORD = (hotkey(Qt.Key_2), hotkey(Qt.Key_R))
 REBASE_EDIT = (hotkey(Qt.Key_3), hotkey(Qt.Key_E))
@@ -112,3 +113,4 @@ PASTE = QKeySequence.Paste
 DELETE = QKeySequence.Delete
 NEW = QKeySequence.New
 OPEN = QKeySequence.Open
+SELECT_ALL = QKeySequence.SelectAll

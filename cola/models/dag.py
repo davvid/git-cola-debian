@@ -225,8 +225,8 @@ class Commit(object):
 
 class RepoReader(object):
 
-    def __init__(self, ctx, git=git):
-        self.ctx = ctx
+    def __init__(self, params, git=git):
+        self.params = params
         self.git = git
         self._proc = None
         self._objects = {}
@@ -262,7 +262,7 @@ class RepoReader(object):
         self.reset()
         return self
 
-    def next(self):
+    def __next__(self):
         if self._cached:
             try:
                 self._idx += 1
@@ -272,8 +272,8 @@ class RepoReader(object):
                 raise StopIteration
 
         if self._proc is None:
-            ref_args = utils.shell_split(self.ctx.ref)
-            cmd = self._cmd + ['-%d' % self.ctx.count] + ref_args
+            ref_args = utils.shell_split(self.params.ref)
+            cmd = self._cmd + ['-%d' % self.params.count] + ref_args
             self._proc = core.start_command(cmd)
             self._topo_list = []
 
@@ -294,10 +294,13 @@ class RepoReader(object):
             self._topo_list.append(c)
             return c
 
-    __next__ = next  # for Python 3
+    next = __next__  # python2
+
+    def __iter__(self):
+        return self
 
     def __getitem__(self, oid):
         return self._objects[oid]
 
     def items(self):
-        return self._objects.items()
+        return list(self._objects.items())

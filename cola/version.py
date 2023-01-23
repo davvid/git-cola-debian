@@ -1,4 +1,4 @@
-# Copyright (c) David Aguilar
+# Copyright (C) 2007-2018 David Aguilar and contributors
 """Provide git-cola's version number"""
 from __future__ import division, absolute_import, unicode_literals
 
@@ -32,6 +32,9 @@ _versions = {
     'check-ignore': '1.8.5',
     # git for-each-ref --sort=version:refname
     'version-sort': '2.7.0',
+    # new: git cat-file --filters --path=<path> SHA1
+    # old: git cat-file --filters blob SHA1:<path>
+    'cat-file-filters-path': '2.11.0',
 }
 
 
@@ -100,17 +103,20 @@ def git_version():
         return '1.6.3'
 
 
-def cola_version():
-    return 'cola version %s' % version()
-
-
-def print_version(brief=False):
-    if brief:
-        msg = version()
+def cola_version(build=False):
+    if build:
+        suffix = build_version() or version()
     else:
-        msg = cola_version()
+        suffix = version()
+    return 'cola version %s' % suffix
+
+
+def print_version(brief=False, build=False):
+    if brief:
+        if build:
+            msg = build_version()
+        else:
+            msg = version()
+    else:
+        msg = cola_version(build=build)
     sys.stdout.write('%s\n' % msg)
-
-
-if __name__ == '__main__':
-    print_version(brief=True)

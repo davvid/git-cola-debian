@@ -8,6 +8,7 @@ from .. import observable
 from .. import utils
 
 
+BACKGROUND_EDITOR = 'cola.backgroundeditor'
 BLAME_VIEWER = 'cola.blameviewer'
 BOLD_HEADERS = 'cola.boldheaders'
 CHECKCONFLICTS = 'cola.checkconflicts'
@@ -19,6 +20,7 @@ EDITOR = 'gui.editor'
 FONTDIFF = 'cola.fontdiff'
 HISTORY_BROWSER = 'gui.historybrowser'
 LINEBREAK = 'cola.linebreak'
+MAXRECENT = 'cola.maxrecent'
 MERGE_DIFFSTAT = 'merge.diffstat'
 MERGE_KEEPBACKUP = 'merge.keepbackup'
 MERGE_SUMMARY = 'merge.summary'
@@ -31,6 +33,8 @@ TABWIDTH = 'cola.tabwidth'
 TEXTWIDTH = 'cola.textwidth'
 USER_EMAIL = 'user.email'
 USER_NAME = 'user.name'
+SAFE_MODE = 'cola.safemode'
+SHOW_PATH = 'cola.showpath'
 SPELL_CHECK = 'cola.spellcheck'
 
 
@@ -40,28 +44,37 @@ def default_blame_viewer():
 
 def blame_viewer():
     default = default_blame_viewer()
-    return gitcfg.current().get(BLAME_VIEWER, default)
+    return gitcfg.current().get(BLAME_VIEWER, default=default)
 
 
 def bold_headers():
-    return gitcfg.current().get(BOLD_HEADERS, False)
+    return gitcfg.current().get(BOLD_HEADERS, default=False)
 
 
 def check_conflicts():
-    return gitcfg.current().get(CHECKCONFLICTS, True)
+    return gitcfg.current().get(CHECKCONFLICTS, default=True)
 
 
 def display_untracked():
-    return gitcfg.current().get(DISPLAY_UNTRACKED, True)
+    return gitcfg.current().get(DISPLAY_UNTRACKED, default=True)
 
 
 def editor():
-    app = gitcfg.current().get(EDITOR, 'gvim')
+    app = gitcfg.current().get(EDITOR, default='gvim')
+    return _remap_editor(app)
+
+
+def background_editor():
+    app = gitcfg.current().get(BACKGROUND_EDITOR, default=editor())
+    return _remap_editor(app)
+
+
+def _remap_editor(app):
     return {'vim': 'gvim -f'}.get(app, app)
 
 
 def comment_char():
-    return gitcfg.current().get(COMMENT_CHAR, '#')
+    return gitcfg.current().get(COMMENT_CHAR, default='#')
 
 
 def default_history_browser():
@@ -69,9 +82,10 @@ def default_history_browser():
         # On Windows, a sensible default is "python git-cola dag"
         # which is different than `gitk` below, but is preferred
         # because we don't have to guess paths.
-        git_cola = sys.argv[0].replace("\\", '/')
-        python = sys.executable.replace("\\", '/')
-        argv = [python, git_cola, 'dag']
+        git_cola = sys.argv[0].replace('\\', '/')
+        python = sys.executable.replace('\\', '/')
+        cwd = core.getcwd().replace('\\', '/')
+        argv = [python, git_cola, 'dag', '--repo', cwd]
         argv = core.prep_for_subprocess(argv)
         default = core.list2cmdline(argv)
     else:
@@ -82,31 +96,35 @@ def default_history_browser():
 
 def history_browser():
     default = default_history_browser()
-    return gitcfg.current().get(HISTORY_BROWSER, default)
+    return gitcfg.current().get(HISTORY_BROWSER, default=default)
 
 
 def linebreak():
-    return gitcfg.current().get(LINEBREAK, True)
+    return gitcfg.current().get(LINEBREAK, default=True)
+
+
+def maxrecent():
+    return gitcfg.current().get(MAXRECENT, default=8)
 
 
 def spellcheck():
-    return gitcfg.current().get(SPELL_CHECK, False)
+    return gitcfg.current().get(SPELL_CHECK, default=False)
 
 
 def expandtab():
-    return gitcfg.current().get(EXPANDTAB, False)
+    return gitcfg.current().get(EXPANDTAB, default=False)
 
 
 def sort_bookmarks():
-    return gitcfg.current().get(SORT_BOOKMARKS, True)
+    return gitcfg.current().get(SORT_BOOKMARKS, default=True)
 
 
 def tabwidth():
-    return gitcfg.current().get(TABWIDTH, 8)
+    return gitcfg.current().get(TABWIDTH, default=8)
 
 
 def textwidth():
-    return gitcfg.current().get(TEXTWIDTH, 72)
+    return gitcfg.current().get(TEXTWIDTH, default=72)
 
 
 class PreferencesModel(observable.Observable):

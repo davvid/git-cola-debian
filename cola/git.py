@@ -78,10 +78,12 @@ def read_git_file(path):
 class Paths(object):
     """Git repository paths of interest"""
 
-    def __init__(self, git_dir=None, git_file=None, worktree=None):
+    def __init__(self, git_dir=None, git_file=None,
+                 worktree=None, common_dir=None):
         self.git_dir = git_dir
         self.git_file = git_file
         self.worktree = worktree
+        self.common_dir = common_dir
 
 
 def find_git_directory(curpath):
@@ -123,6 +125,17 @@ def find_git_directory(curpath):
         if git_dir_path:
             paths.git_file = paths.git_dir
             paths.git_dir = git_dir_path
+
+            commondir_file = join(git_dir_path, 'commondir')
+            if core.exists(commondir_file):
+                common_path = core.read(commondir_file).strip()
+                if common_path:
+                    if os.path.isabs(common_path):
+                        common_dir = common_path
+                    else:
+                        common_dir = os.path.join(git_dir_path, common_path)
+                        common_dir = os.path.normpath(common_dir)
+                    paths.common_dir = common_dir
 
     return paths
 
@@ -177,10 +190,13 @@ class Git(object):
         return valid
 
     def git_path(self, *paths):
+        result = None
         if self.paths.git_dir:
             result = join(self.paths.git_dir, *paths)
-        else:
-            result = None
+        if result and self.paths.common_dir and not core.exists(result):
+            common_result = join(self.paths.common_dir, *paths)
+            if core.exists(common_result):
+                result = common_result
         return result
 
     def git_dir(self):
@@ -245,7 +261,7 @@ class Git(object):
                 INDEX_LOCK.release()
 
         if not _raw and out is not None:
-            out = out.rstrip('\n')
+            out = core.UStr(out.rstrip('\n'), out.encoding)
 
         cola_trace = GIT_COLA_TRACE
         if cola_trace == 'trace':
@@ -262,39 +278,6 @@ class Git(object):
 
         # Allow access to the command's status code
         return (status, out, err)
-
-    def transform_kwargs(self, **kwargs):
-        """Transform kwargs into git command line options
-
-        Callers can assume the following behavior:
-
-        Passing foo=None ignores foo, so that callers can
-        use default values of None that are ignored unless
-        set explicitly.
-
-        Passing foo=False ignore foo, for the same reason.
-
-        Passing foo={string-or-number} results in ['--foo=<value>']
-        in the resulting arguments.
-
-        """
-        args = []
-        types_to_stringify = set((ustr, float, str) + int_types)
-
-        for k, v in kwargs.items():
-            if len(k) == 1:
-                dashes = '-'
-                join = ''
-            else:
-                dashes = '--'
-                join = '='
-            type_of_value = type(v)
-            if v is True:
-                args.append('%s%s' % (dashes, dashify(k)))
-            elif type_of_value in types_to_stringify:
-                args.append('%s%s%s%s' % (dashes, dashify(k), join, v))
-
-        return args
 
     def git(self, cmd, *args, **kwargs):
         # Handle optional arguments prior to calling transform_kwargs
@@ -318,7 +301,7 @@ class Git(object):
 
         # Prepare the argument list
         git_args = ['git', '-c', 'diff.suppressBlankEmpty=false', dashify(cmd)]
-        opt_args = self.transform_kwargs(**kwargs)
+        opt_args = transform_kwargs(**kwargs)
         call = git_args + opt_args
         call.extend(args)
         try:
@@ -348,15 +331,52 @@ class Git(object):
             sys.exit(1)
 
 
+def transform_kwargs(**kwargs):
+    """Transform kwargs into git command line options
+
+    Callers can assume the following behavior:
+
+    Passing foo=None ignores foo, so that callers can
+    use default values of None that are ignored unless
+    set explicitly.
+
+    Passing foo=False ignore foo, for the same reason.
+
+    Passing foo={string-or-number} results in ['--foo=<value>']
+    in the resulting arguments.
+
+    """
+    args = []
+    types_to_stringify = (ustr, float, str) + int_types
+
+    for k, v in kwargs.items():
+        if len(k) == 1:
+            dashes = '-'
+            join = ''
+        else:
+            dashes = '--'
+            join = '='
+        # isinstance(False, int) is True, so we have to check bool first
+        if isinstance(v, bool):
+            if v:
+                args.append('%s%s' % (dashes, dashify(k)))
+            # else: pass  # False is ignored; flag=False inhibits --flag
+        elif isinstance(v, types_to_stringify):
+            args.append('%s%s%s%s' % (dashes, dashify(k), join, v))
+
+    return args
+
+
 def _print_win32_git_hint():
-    hint = ('\n'
-            'hint: If you have Git installed in a custom location, e.g.\n'
-            'hint: C:\\Tools\\Git, then you can create a file at\n'
-            'hint: ~/.config/git-cola/git-bindir with following text\n'
-            'hint: and git-cola will add the specified location to your $PATH\n'
-            'hint: automatically when starting cola:\n'
-            'hint:\n'
-            'hint: C:\\Tools\\Git\\bin\n')
+    hint = (
+        '\n'
+        'hint: If you have Git installed in a custom location, e.g.\n'
+        'hint: C:\\Tools\\Git, then you can create a file at\n'
+        'hint: ~/.config/git-cola/git-bindir with following text\n'
+        'hint: and git-cola will add the specified location to your $PATH\n'
+        'hint: automatically when starting cola:\n'
+        'hint:\n'
+        'hint: C:\\Tools\\Git\\bin\n')
     core.stderr(hint)
 
 

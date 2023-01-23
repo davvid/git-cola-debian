@@ -2,7 +2,7 @@
 
     git-cola is a powerful Git GUI with a slick and intuitive user interface.
 
-    Copyright (C) 2007-2017, David Aguilar and contributors
+    Copyright (C) 2007-2018, David Aguilar and contributors
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ New releases are available on the
 
 * [git](http://git-scm.com/) 1.6.3 or newer.
 
-* [Python](http://python.org/) 2.6, 2.7, and 3.2 or newer.
+* [Python](http://python.org/) 2.6 or newer (Python 2+3 compatible).
 
 * [QtPy](https://github.com/spyder-ide/qtpy) 1.1.0 or newer.
 
@@ -236,25 +236,9 @@ Download and install the following:
 
 * [Git for Windows](https://git-for-windows.github.io/)
 
-* [Python](https://www.python.org/downloads/)
-  * Python 3.4 is recommended.  Python 2.7 is also supported.
-  * [64-bit](https://www.python.org/ftp/python/3.4.4/python-3.4.4.amd64.msi)
-  * [32-bit](https://www.python.org/ftp/python/3.4.4/python-3.4.4.msi)
+* [Git Cola](https://github.com/git-cola/git-cola/releases)
 
-* [PyQt](https://riverbankcomputing.com/software/pyqt/download/)
-  * PyQt4 4.11 is recommended.  PyQt4 requires a matching Python version.
-  * [64-bit](http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.11.4/PyQt4-4.11.4-gpl-Py3.4-Qt4.8.7-x64.exe)
-  * [32-bit](http://sourceforge.net/projects/pyqt/files/PyQt4/PyQt-4.11.4/PyQt4-4.11.4-gpl-Py3.4-Qt4.8.7-x32.exe)
-
-* [Git Cola](https://github.com/git-cola/git-cola/downloads)
-
-Once these are installed you can run *git cola* from the Start menu or
-by double-clicking on the `git-cola.pyw` script.
-
-If you are developing *git cola* on Windows you can use `python.exe` to run
-directly from the source tree.  For example, from a Git Bash terminal:
-
-    /c/Python34/python.exe ./bin/git-cola
+Once these are installed you can run *git cola* from the Start menu.
 
 See "WINDOWS (continued)" below for more details.
 
@@ -287,13 +271,13 @@ See `git cola --help-commands` for the full list of commands.
     $ git cola --help-commands
     usage: git-cola [-h]
     
-                    {cola,am,archive,branch,browse,classic,config,
+                    {cola,am,archive,branch,browse,config,
                      dag,diff,fetch,find,grep,merge,pull,push,
                      rebase,remote,search,stash,tag,version}
                     ...
     
     valid commands:
-      {cola,am,archive,branch,browse,classic,config,
+      {cola,am,archive,branch,browse,config,
        dag,diff,fetch,find,grep,merge,pull,push,
        rebase,remote,search,stash,tag,version}
 
@@ -302,7 +286,6 @@ See `git cola --help-commands` for the full list of commands.
         archive             save an archive
         branch              create a branch
         browse              browse repository
-        classic             browse repository
         config              edit configuration
         dag                 start git-dag
         diff                view diffs
@@ -339,6 +322,27 @@ When submitting patches, consult the [contributing guidelines](CONTRIBUTING.md).
 
 # WINDOWS (continued)
 
+## Development
+
+In order to develop *git cola* on Windows you will need to install
+Python3 and pip.  Install PyQt5 using `pip install PyQt5`
+to make the PyQt5 bindings available to Python.
+
+Once these are installed you can use `python.exe` to run
+directly from the source tree.  For example, from a Git Bash terminal:
+
+    /c/Python36/python.exe ./bin/git-cola
+
+## Multiple Python versions
+
+If you have multiple versions of Python installed, the `contrib/win32/cola`
+launcher script might choose the newer version instead of the python
+that has PyQt installed.  In order to resolve this, you can set the
+`cola.pythonlocation` git configuration variable to tell cola where to
+find python.  For example:
+
+    git config --global cola.pythonlocation /c/Python36
+
 ## BUILDING WINDOWS INSTALLERS
 
 Windows installers are built using
@@ -347,22 +351,11 @@ Windows installers are built using
 
 * [NSIS](http://nsis.sourceforge.net/Main_Page) is also needed.
 
-To build the installer using *Pynsist*:
+To build the installer using *Pynsist* run:
 
-* If building from a non-Windows platform run
-  `./contrib/win32/fetch_pyqt_windows.sh`.
-  This will download a PyQt binary installer for Windows and unpack its files
-  into `pynsist_pkgs/`.
+   ./contrib/win32/run-pynsist.sh
 
-* Run `pynsist pynsist.cfg`.
-  The installer will be built in `build/nsis/`.
-
-Before *Pynsist*, installers were built using *InnoSetup*.
-The *InnoSetup* scripts are still available:
-
-    ./contrib/win32/create-installer.sh
-
-You have to make sure that the file */share/InnoSetup/ISCC.exe* exists.
+This will generate an installer in `build/nsis/`.
 
 ## WINDOWS HISTORY BROWSER CONFIGURATION UPGRADE
 
@@ -380,10 +373,6 @@ If you want to use *gitk* as your history browser open the
 *Preferences* screen and change the history browser command to:
 
     "C:/Program Files/Git/bin/sh.exe" --login -i C:/Git/bin/gitk
-
-Alternatively, if you'd like to use *git-dag* as your history browser, use:
-
-    C:/Python34/python.exe C:/git-cola/bin/git-dag
 
 *git-dag* became the default history browser on Windows in `v2.3`, so new
 users should not need to configure anything.

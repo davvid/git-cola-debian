@@ -1,5 +1,5 @@
 from __future__ import division, absolute_import, unicode_literals
-
+import functools
 import time
 
 from qtpy import QtCore
@@ -9,20 +9,25 @@ from qtpy.QtCore import Qt
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QDockWidget
 
+from ..i18n import N_
+from ..interaction import Interaction
 from ..settings import Settings, mklist
 from .. import core
 from .. import gitcfg
+from .. import hotkeys
+from .. import icons
 from .. import qtcompat
 from .. import qtutils
 from .. import utils
 from . import defs
 
 
+
 class WidgetMixin(object):
     """Mix-in for common utilities and serialization of widget state"""
 
     def __init__(self):
-        self._unmaximized_rect = None
+        self._unmaximized_rect = {}
 
     def center(self):
         parent = self.parent()
@@ -57,7 +62,8 @@ class WidgetMixin(object):
         return self.__class__.__name__.lower()
 
     def save_state(self, settings=None):
-        if gitcfg.current().get('cola.savewindowsettings', True):
+        cfg = gitcfg.current()
+        if cfg.get('cola.savewindowsettings', default=True):
             if settings is None:
                 settings = Settings()
                 settings.load()
@@ -87,10 +93,10 @@ class WidgetMixin(object):
         if not maximized:
             size = self.size()
             width, height = size.width(), size.height()
+            if not width or not height:
+                return
             x, y = self.x(), self.y()
-            # XXX can width and height ever not be over zero?
-            if width > 0 and height > 0:
-                self._unmaximized_rect = (x, y, width, height)
+            self._unmaximized_rect = dict(x=x, y=y, width=width, height=height)
 
     def restore_state(self, settings=None):
         if settings is None:
@@ -102,56 +108,49 @@ class WidgetMixin(object):
     def apply_state(self, state):
         """Imports data for view save/restore"""
         result = True
-        try:
-            width, height = int(state['width']), int(state['height'])
+
+        width = utils.asint(state.get('width'))
+        height = utils.asint(state.get('height'))
+        x = utils.asint(state.get('x'))
+        y = utils.asint(state.get('y'))
+
+        if width and height:
             self.resize(width, height)
-
-            x, y = int(state['x']), int(state['y'])
             self.move(x, y)
-
             # calling resize/move won't invoke QWidget::{resize,move}Event
             # so store the unmaximized size if we properly restored.
-            self._unmaximized_rect = (x, y, width, height)
-        except:
+            self._unmaximized_rect = dict(x=x, y=y, width=width, height=height)
+        else:
             result = False
-        try:
-            if state['maximized']:
-                try:
-                    if utils.is_win32() or utils.is_darwin():
-                        self.resize_to_desktop()
-                    else:
-                        self.showMaximized()
-                except:
-                    pass
-        except:
-            result = False
-        self._apply_state_applied = result
+
+        if state.get('maximized', False):
+            if utils.is_win32() or utils.is_darwin():
+                self.resize_to_desktop()
+            elif hasattr(self, 'showMaximized'):
+                self.showMaximized()
+
         return result
 
     def export_state(self):
         """Exports data for view save/restore"""
-        state = self.windowState()
-        maximized = bool(state & Qt.WindowMaximized)
+        window_state = self.windowState()
+        maximized = bool(window_state & Qt.WindowMaximized)
 
-        ret = {
+        state = {
             'maximized': maximized,
         }
 
         # when maximized we don't want to overwrite saved x/y/width/height with
         # desktop dimensions.
         if maximized:
-            rect = self._unmaximized_rect
-            try:
-                ret['x'], ret['y'], ret['width'], ret['height'] = rect
-            except:
-                pass
+            state.update(self._unmaximized_rect)
         else:
-            ret['width'] = self.width()
-            ret['height'] = self.height()
-            ret['x'] = self.x()
-            ret['y'] = self.y()
+            state['width'] = self.width()
+            state['height'] = self.height()
+            state['x'] = self.x()
+            state['y'] = self.y()
 
-        return ret
+        return state
 
     def save_settings(self, settings=None):
         return self.save_state(settings=settings)
@@ -240,6 +239,45 @@ class MainWindowMixin(WidgetMixin):
             widget.titleBarWidget().update_tooltips()
 
 
+class ListWidget(QtWidgets.QListWidget):
+    """QListWidget with vim j/k navigation hotkeys"""
+
+    def __init__(self, parent=None):
+        super(ListWidget, self).__init__(parent)
+
+        self.up_action = qtutils.add_action(
+            self, N_('Move Up'), self.move_up,
+            hotkeys.MOVE_UP, hotkeys.MOVE_UP_SECONDARY)
+
+        self.down_action = qtutils.add_action(
+            self, N_('Move Down'), self.move_down,
+            hotkeys.MOVE_DOWN, hotkeys.MOVE_DOWN_SECONDARY)
+
+    def selected_item(self):
+        return self.currentItem()
+
+    def selected_items(self):
+        return self.selectedItems()
+
+    def move_up(self):
+        self.move(-1)
+
+    def move_down(self):
+        self.move(1)
+
+    def move(self, direction):
+        item = self.selected_item()
+        if item:
+            row = (self.row(item) + direction) % self.count()
+        elif self.count() > 0:
+            row = (self.count() + direction) % self.count()
+        else:
+            return
+        new_item = self.item(row)
+        if new_item:
+            self.setCurrentItem(new_item)
+
+
 class TreeMixin(object):
 
     def __init__(self, widget, Base):
@@ -326,7 +364,9 @@ class TreeMixin(object):
         elif key == Qt.Key_Left and index.parent().isValid():
 
             # File entries have rowCount() == 0
-            if widget.model().itemFromIndex(index).rowCount() == 0:
+            model = widget.model()
+            if (hasattr(model, 'itemFromIndex')
+                    and model.itemFromIndex(index).rowCount() == 0):
                 widget.setCurrentIndex(index.parent())
 
             # Otherwise, do this for collapsed directories only
@@ -676,12 +716,19 @@ class ProgressAnimationThread(QtCore.QThread):
 
 
 class SpinBox(QtWidgets.QSpinBox):
-    def __init__(self, parent=None):
+
+    def __init__(self, parent=None, value=None,
+                 mini=1, maxi=99999, step=0, prefix='', suffix=''):
         QtWidgets.QSpinBox.__init__(self, parent)
-        self.setMinimum(1)
-        self.setMaximum(99999)
-        self.setPrefix('')
-        self.setSuffix('')
+        self.setPrefix(prefix)
+        self.setSuffix(suffix)
+        self.setWrapping(True)
+        self.setMinimum(mini)
+        self.setMaximum(maxi)
+        if step:
+            self.setSingleStep(step)
+        if value is not None:
+            self.setValue(value)
 
 
 def export_header_columns(widget, state):
@@ -705,3 +752,172 @@ def apply_header_columns(widget, state):
         columns = columns[:-1]
     for idx, size in enumerate(columns):
         header.resizeSection(idx, size)
+
+
+class MessageBox(WidgetMixin, QtWidgets.QMessageBox):
+
+    Base = QtWidgets.QMessageBox
+
+    def __init__(self, parent=None,
+                 title='', text='', details='', info='',
+                 icon=None, buttons=None, default=None):
+
+        QtWidgets.QMessageBox.__init__(self, parent)
+        WidgetMixin.__init__(self)
+
+        self.setMouseTracking(True)
+        self.setSizeGripEnabled(True)
+        self.setTextFormat(Qt.PlainText)
+        self.setWindowModality(Qt.WindowModal)
+        if title:
+            self.setWindowTitle(title)
+        if text:
+            self.setText(text)
+        if info:
+            self.setInformativeText(info)
+        if details:
+            self.setDetailedText(details)
+        if icon:
+            self.setIcon(icon)
+        if buttons:
+            self.setStandardButtons(buttons)
+        if default:
+            self.setDefaultButton(default)
+
+        # Allow the messagebox to be moved like a dialog
+        flags = self.windowFlags()
+        flags = flags & ~Qt.MSWindowsFixedSizeDialogHint
+        flags = flags & ~Qt.Popup
+        flags = flags | Qt.Dialog
+        self.setWindowFlags(flags)
+
+        self.init_size()
+
+    def event(self, event):
+        res = QtWidgets.QMessageBox.event(self, event)
+        event_type = event.type()
+        if (event_type == QtCore.QEvent.MouseMove or
+                event_type == QtCore.QEvent.MouseButtonPress):
+            maxi = QtCore.QSize(defs.max_size, defs.max_size)
+            self.setMaximumSize(maxi)
+            text = self.findChild(QtWidgets.QTextEdit)
+            if text is not None:
+                expand = QtWidgets.QSizePolicy.Expanding
+                text.setSizePolicy(QtWidgets.QSizePolicy(expand, expand))
+                text.setMaximumSize(maxi)
+        return res
+
+    def run(self):
+        result = self.exec_()
+        self.save_settings()
+        return result
+
+
+def confirm(title, text, informative_text, ok_text,
+            icon=None, default=True,
+            cancel_text=None, cancel_icon=None):
+    """Confirm that an action should take place"""
+    msgbox = MessageBox(
+        parent=qtutils.active_window(),
+        title=title, text=text, info=informative_text)
+
+    icon = icons.mkicon(icon, icons.ok)
+    ok = msgbox.addButton(ok_text, QtWidgets.QMessageBox.ActionRole)
+    ok.setIcon(icon)
+
+    cancel = msgbox.addButton(QtWidgets.QMessageBox.Cancel)
+    cancel_icon = icons.mkicon(cancel_icon, icons.close)
+    cancel.setIcon(cancel_icon)
+    if cancel_text:
+        cancel.setText(cancel_text)
+
+    if default:
+        msgbox.setDefaultButton(ok)
+    else:
+        msgbox.setDefaultButton(cancel)
+
+    msgbox.run()
+    return msgbox.clickedButton() == ok
+
+
+def critical(title, message=None, details=None):
+    """Show a warning with the provided title and message."""
+    if message is None:
+        message = title
+    mbox = MessageBox(
+        parent=qtutils.active_window(),
+        title=title, text=message, details=details,
+        icon=QtWidgets.QMessageBox.Critical,
+        buttons=QtWidgets.QMessageBox.Close,
+        default=QtWidgets.QMessageBox.Close)
+    mbox.run()
+
+
+def command_error(title, cmd, status, out, err):
+    """Report an error message about a failed command"""
+    details = Interaction.format_out_err(out, err)
+    message = Interaction.format_command_status(cmd, status)
+    critical(title, message=message, details=details)
+
+
+def information(title, message=None, details=None, informative_text=None):
+    """Show information with the provided title and message."""
+    if message is None:
+        message = title
+    mbox = MessageBox(
+        parent=qtutils.active_window(),
+        title=title, text=message,
+        details=details, info=informative_text,
+        buttons=QtWidgets.QMessageBox.Close,
+        default=QtWidgets.QMessageBox.Close)
+    # Render into a 1-inch wide pixmap
+    pixmap = icons.cola().pixmap(defs.large_icon)
+    mbox.setIconPixmap(pixmap)
+    mbox.run()
+
+
+def question(title, msg, default=True):
+    """Launches a QMessageBox question with the provided title and message.
+    Passing "default=False" will make "No" the default choice."""
+    yes = QtWidgets.QMessageBox.Yes
+    no = QtWidgets.QMessageBox.No
+    buttons = yes | no
+    if default:
+        default = yes
+    else:
+        default = no
+
+    parent = qtutils.active_window()
+    QMessageBox = QtWidgets.QMessageBox
+    result = QMessageBox.question(parent, title, msg, buttons, default)
+    return result == QtWidgets.QMessageBox.Yes
+
+
+def save_as(filename, title):
+    return qtutils.save_as(filename, title=title)
+
+
+def async_command(title, cmd, runtask):
+    cmd_partial = functools.partial(core.run_command, cmd)
+    task = qtutils.SimpleTask(qtutils.active_window(), cmd_partial)
+
+    result_partial = functools.partial(async_command_result, title, cmd)
+    task.connect(result_partial)
+    runtask.start(task)
+
+
+def async_command_result(title, cmd, result):
+    status, out, err = result
+    cmd_string = core.list2cmdline(cmd)
+    Interaction.command(title, cmd_string, status, out, err)
+
+
+def install():
+    """Install the GUI-model interaction hooks"""
+    Interaction.critical = staticmethod(critical)
+    Interaction.confirm = staticmethod(confirm)
+    Interaction.question = staticmethod(question)
+    Interaction.information = staticmethod(information)
+    Interaction.command_error = staticmethod(command_error)
+    Interaction.save_as = staticmethod(save_as)
+    Interaction.async_command = staticmethod(async_command)

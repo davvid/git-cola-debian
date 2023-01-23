@@ -8,6 +8,7 @@ from .. import cmds
 from .. import icons
 from .. import qtutils
 from ..i18n import N_
+from ..interaction import Interaction
 from . import defs
 from . import completion
 from . import standard
@@ -106,7 +107,8 @@ class CreateTag(standard.Dialog):
         qtutils.connect_button(self.close_button, self.close)
         qtutils.connect_button(self.create_button, self.create_tag)
 
-        self.init_state(settings, self.resize, defs.scale(720), defs.scale(210))
+        self.init_state(settings, self.resize,
+                        defs.scale(720), defs.scale(210))
 
     def create_tag(self):
         """Verifies inputs and emits a notifier tag message."""
@@ -117,18 +119,21 @@ class CreateTag(standard.Dialog):
         sign_tag = self.sign_tag.isChecked()
 
         if not revision:
-            qtutils.critical(N_('Missing Revision'),
-                             N_('Please specify a revision to tag.'))
+            Interaction.critical(
+                N_('Missing Revision'),
+                N_('Please specify a revision to tag.'))
             return
         if not tag_name:
-            qtutils.critical(N_('Missing Name'),
-                             N_('Please specify a name for the new tag.'))
+            Interaction.critical(
+                N_('Missing Name'),
+                N_('Please specify a name for the new tag.'))
             return
 
         status, out, err = cmds.do(cmds.Tag, tag_name, revision,
                                    sign=sign_tag, message=tag_msg)
         if status == 0:
-            qtutils.information(N_('Tag Created'),
-                                N_('Created a new tag named "%s"') % tag_name,
-                                details=tag_msg or None)
+            Interaction.information(
+                N_('Tag Created'),
+                N_('Created a new tag named "%s"') % tag_name,
+                details=tag_msg or None)
             self.close()

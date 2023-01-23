@@ -44,7 +44,7 @@ class StartupDialog(standard.Dialog):
         self.new_button = qtutils.create_button(
                 text=N_('New...'), icon=icons.new())
         self.open_button = qtutils.create_button(
-                text=N_('Open...'), icon=icons.repo())
+                text=N_('Open...'), icon=icons.folder())
         self.clone_button = qtutils.create_button(
                 text=N_('Clone...'), icon=icons.cola())
         self.close_button = qtutils.close_button()
@@ -112,6 +112,7 @@ class StartupDialog(standard.Dialog):
         self.bookmarks.activated.connect(self.open_bookmark)
 
         self.init_state(settings, self.resize_widget)
+        self.setFocusProxy(self.bookmarks)
         self.bookmarks.setFocus(True)
 
     def resize_widget(self):
@@ -149,7 +150,7 @@ class StartupDialog(standard.Dialog):
                            self.clone_repo_done, False)
 
     def clone_repo_done(self, task):
-        if task.cmd and task.cmd.ok:
+        if task.cmd and task.cmd.status == 0:
             self.repodir = task.destdir
             self.accept()
         else:

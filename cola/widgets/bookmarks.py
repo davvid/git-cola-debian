@@ -16,6 +16,7 @@ from .. import icons
 from .. import qtutils
 from .. import utils
 from ..i18n import N_
+from ..interaction import Interaction
 from ..models import prefs
 from ..settings import Settings
 from ..widgets import defs
@@ -219,7 +220,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.apply_fn(self.set_default_item)
 
     def set_default_item(self, item):
-        cmds.do(cmds.SetDefaultRepo, item.path, item.name)
+        cmds.do(cmds.SetDefaultRepo, item.path)
         self.refresh()
         self.default_changed.emit()
 
@@ -228,7 +229,7 @@ class BookmarksTreeWidget(standard.TreeWidget):
         self.default_changed.emit()
 
     def clear_default_item(self, item):
-        cmds.do(cmds.SetDefaultRepo, None, None)
+        cmds.do(cmds.SetDefaultRepo, None)
         self.refresh()
 
     def rename_repo(self):
@@ -287,8 +288,8 @@ class BookmarksTreeWidget(standard.TreeWidget):
             self.settings.save()
             self.refresh()
         else:
-            qtutils.critical(N_('Error'),
-                             N_('%s is not a Git repository.') % path)
+            Interaction.critical(
+                N_('Error'), N_('%s is not a Git repository.') % path)
 
     def delete_bookmark(self):
         """Removes a bookmark from the bookmarks list"""
@@ -312,7 +313,8 @@ class BuildItem(object):
     def __init__(self):
         self.star_icon = icons.star()
         self.folder_icon = icons.folder()
-        self.default_repo = gitcfg.current().get('cola.defaultrepo')
+        cfg = gitcfg.current()
+        self.default_repo = cfg.get('cola.defaultrepo')
 
     def get(self, path, name):
         is_default = self.default_repo == path
