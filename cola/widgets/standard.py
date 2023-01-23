@@ -130,7 +130,7 @@ class MainWindowMixin(WidgetMixin):
         else:
             from_base64 = QtCore.QByteArray.fromBase64
             result = self.restoreState(
-                    from_base64(str(windowstate)),
+                    from_base64(core.encode(windowstate)),
                     self.widget_version) and result
         self.lock_layout = state.get('lock_layout', self.lock_layout)
         self.update_dockwidget_lock_state()
