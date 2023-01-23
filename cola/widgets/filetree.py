@@ -1,8 +1,9 @@
+from __future__ import absolute_import, division, unicode_literals
+
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 
 from cola import icons
-from cola.compat import ustr
 from cola.widgets import standard
 
 
@@ -24,14 +25,14 @@ class FileTree(standard.TreeWidget):
             item = QtGui.QTreeWidgetItem()
             item.setIcon(0, icon)
             item.setText(0, filename)
-            item.setData(0, QtCore.Qt.UserRole, QtCore.QVariant(filename))
+            item.setData(0, QtCore.Qt.UserRole, filename)
             items.append(item)
         self.addTopLevelItems(items)
         if select:
             self.setItemSelected(items[0], True)
 
     def filename_from_item(self, item):
-        return ustr(item.data(0, QtCore.Qt.UserRole).toPyObject())
+        return item.data(0, QtCore.Qt.UserRole)
 
     def has_selection(self):
         return bool(self.selectedItems())

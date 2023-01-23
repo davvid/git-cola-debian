@@ -2,7 +2,6 @@ from __future__ import division, absolute_import, unicode_literals
 
 import os
 import re
-import subprocess
 import sys
 from fnmatch import fnmatch
 from io import StringIO
@@ -43,8 +42,10 @@ class BaseCommand(object):
 
     DISABLED = False
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.undoable = False
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def is_undoable(self):
         """Can this be undone?"""
@@ -63,8 +64,8 @@ class BaseCommand(object):
 
 class ConfirmAction(BaseCommand):
 
-    def __init__(self):
-        BaseCommand.__init__(self)
+    def __init__(self, **kwargs):
+        BaseCommand.__init__(self, **kwargs)
 
     def ok_to_run(self):
         return True
@@ -109,9 +110,12 @@ class ConfirmAction(BaseCommand):
 class ModelCommand(BaseCommand):
     """Commands that manipulate the main models"""
 
-    def __init__(self):
-        BaseCommand.__init__(self)
+    def __init__(self, **kwargs):
+        # Note: self.model is set before calling the base class constructor
+        # to allow being having the `model` value be overridden by passing
+        # `model=xxx` during construction.
         self.model = main.model()
+        BaseCommand.__init__(self, **kwargs)
 
 
 class Command(ModelCommand):
@@ -225,16 +229,17 @@ class ApplyDiffSelection(Command):
             return
 
         cfg = gitcfg.current()
-        tmp_path = utils.tmp_filename('patch')
+        encoding = cfg.file_encoding(self.model.filename)
+        tmp_file = utils.tmp_filename('patch')
         try:
-            core.write(tmp_path, patch,
-                       encoding=cfg.file_encoding(self.model.filename))
+            core.write(tmp_file, patch, encoding=encoding)
             if self.apply_to_worktree:
-                status, out, err = self.model.apply_diff_to_worktree(tmp_path)
+                status, out, err = self.model.apply_diff_to_worktree(tmp_file)
             else:
-                status, out, err = self.model.apply_diff(tmp_path)
+                status, out, err = self.model.apply_diff(tmp_file)
         finally:
-            os.unlink(tmp_path)
+            core.unlink(tmp_file)
+
         Interaction.log_status(status, out, err)
         self.model.update_file_status(update_index=True)
 
@@ -374,6 +379,55 @@ class ResetMode(Command):
         self.model.update_file_status()
 
 
+class ResetCommand(ConfirmAction):
+
+    def __init__(self, ref):
+        ConfirmAction.__init__(self, model=main.model(), ref=ref)
+
+    def action(self):
+        status, out, err = self.reset()
+        Interaction.log_status(status, out, err)
+        return status, out, err
+
+    def success(self):
+        self.model.update_file_status()
+
+    def confirm(self):
+        raise NotImplemented('confirm() must be overridden')
+
+    def reset(self):
+        raise NotImplemented('reset() must be overridden')
+
+
+class ResetBranchHead(ResetCommand):
+
+    def confirm(self):
+        title = N_('Reset Branch')
+        question = N_('Point the current branch head to a new commit?')
+        info = N_('The branch will be reset using "git reset --mixed %s"')
+        ok_btn = N_('Reset Branch')
+        info = info % self.ref
+        return Interaction.confirm(title, question, info, ok_btn)
+
+    def reset(self):
+        git = self.model.git
+        return git.reset(self.ref, '--', mixed=True)
+
+
+class ResetWorktree(ResetCommand):
+
+    def confirm(self):
+        title = N_('Reset Worktree')
+        question = N_('Reset worktree?')
+        info = N_('The worktree will be reset using "git reset --merge %s"')
+        ok_btn = N_('Reset Worktree')
+        info = info % self.ref
+        return Interaction.confirm(title, question, info, ok_btn)
+
+    def reset(self):
+        return self.model.git.reset(self.ref, '--', merge=True)
+
+
 class Commit(ResetMode):
     """Attempt to create a new commit."""
 
@@ -390,18 +444,18 @@ class Commit(ResetMode):
         # Create the commit message file
         comment_char = prefs.comment_char()
         msg = self.strip_comments(self.msg, comment_char=comment_char)
-        tmpfile = utils.tmp_filename('commit-message')
+        tmp_file = utils.tmp_filename('commit-message')
         try:
-            core.write(tmpfile, msg)
+            core.write(tmp_file, msg)
 
             # Run 'git commit'
-            status, out, err = self.model.git.commit(F=tmpfile,
+            status, out, err = self.model.git.commit(F=tmp_file,
                                                      v=True,
                                                      gpg_sign=self.sign,
                                                      amend=self.amend,
                                                      no_verify=self.no_verify)
         finally:
-            core.unlink(tmpfile)
+            core.unlink(tmp_file)
 
         if status == 0:
             ResetMode.do(self)
@@ -1018,18 +1072,13 @@ class OpenRepo(Command):
 
     def do(self):
         git = self.model.git
-        old_worktree = git.worktree()
-        if not self.model.set_worktree(self.repo_path):
-            self.model.set_worktree(old_worktree)
-            return
-        new_worktree = git.worktree()
-        core.chdir(new_worktree)
-        self.model.set_directory(self.repo_path)
-        cfg = gitcfg.current()
-        cfg.reset()
-        fsmonitor.instance().stop()
-        fsmonitor.instance().start()
-        self.model.update_status()
+        old_repo = git.gitcwd()
+        if self.model.set_worktree(self.repo_path):
+            fsmonitor.current().stop()
+            fsmonitor.current().start()
+            self.model.update_status()
+        else:
+            self.model.set_worktree(old_repo)
 
 
 class Clone(Command):
@@ -1214,7 +1263,7 @@ class Refresh(Command):
 
     def do(self):
         self.model.update_status(update_index=True)
-        fsmonitor.instance().refresh()
+        fsmonitor.current().refresh()
 
 
 class RevertEditsCommand(ConfirmAction):
@@ -1347,7 +1396,7 @@ class RunConfigAction(Command):
         elif opts.get('confirm'):
             title = os.path.expandvars(opts.get('title'))
             prompt = os.path.expandvars(opts.get('prompt'))
-            if Interaction.question(title, prompt):
+            if not Interaction.question(title, prompt):
                 return
         if rev:
             compat.setenv('REVISION', rev)
@@ -1613,10 +1662,12 @@ class Tag(Command):
         log_msg = (N_('Tagging "%(revision)s" as "%(name)s"') %
                    dict(revision=self._revision, name=self._name))
         opts = {}
+        tmp_file = None
         try:
             if self._message:
-                opts['F'] = utils.tmp_filename('tag-message')
-                core.write(opts['F'], self._message)
+                tmp_file = utils.tmp_filename('tag-message')
+                opts['F'] = tmp_file
+                core.write(tmp_file, self._message)
 
             if self._sign:
                 log_msg += ' (%s)' % N_('GPG-signed')
@@ -1626,8 +1677,8 @@ class Tag(Command):
             status, output, err = self.model.git.tag(self._name,
                                                      self._revision, **opts)
         finally:
-            if 'F' in opts:
-                os.unlink(opts['F'])
+            if tmp_file:
+                core.unlink(tmp_file)
 
         if output:
             log_msg += '\n' + (N_('Output: %s') % output)

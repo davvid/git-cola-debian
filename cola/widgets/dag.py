@@ -28,7 +28,6 @@ from cola.widgets import defs
 from cola.widgets import diff
 from cola.widgets import filelist
 from cola.widgets import standard
-from cola.compat import ustr
 
 
 def git_dag(model, args=None, settings=None):
@@ -63,11 +62,21 @@ class ViewerMixin(object):
     def selected_sha1(self):
         item = self.selected_item()
         if item is None:
-            return None
-        return item.commit.sha1
+            result = None
+        else:
+            result = item.commit.sha1
+        return result
 
     def selected_sha1s(self):
         return [i.commit for i in self.selected_items()]
+
+    def with_oid(self, fn):
+        oid = self.selected_sha1()
+        if oid:
+            result = fn(oid)
+        else:
+            result = None
+        return result
 
     def diff_selected_this(self):
         clicked_sha1 = self.clicked.sha1
@@ -82,41 +91,28 @@ class ViewerMixin(object):
                   clicked_sha1, selected_sha1)
 
     def cherry_pick(self):
-        sha1 = self.selected_sha1()
-        if sha1 is None:
-            return
-        cmds.do(cmds.CherryPick, [sha1])
+        self.with_oid(lambda oid: cmds.do(cmds.CherryPick, [oid]))
 
     def copy_to_clipboard(self):
-        sha1 = self.selected_sha1()
-        if sha1 is None:
-            return
-        qtutils.set_clipboard(sha1)
+        self.with_oid(lambda oid: qtutils.set_clipboard(oid))
 
     def create_branch(self):
-        sha1 = self.selected_sha1()
-        if sha1 is None:
-            return
-        createbranch.create_new_branch(revision=sha1)
+        self.with_oid(lambda oid: createbranch.create_new_branch(revision=oid))
 
     def create_tag(self):
-        sha1 = self.selected_sha1()
-        if sha1 is None:
-            return
-        createtag.create_tag(ref=sha1)
+        self.with_oid(lambda oid: createtag.create_tag(ref=oid))
 
     def create_tarball(self):
-        sha1 = self.selected_sha1()
-        if sha1 is None:
-            return
-        short_sha1 = sha1[:7]
-        archive.GitArchiveDialog.save_hashed_objects(sha1, short_sha1, self)
+        self.with_oid(lambda oid: archive.show_save_dialog(oid, parent=self))
+
+    def reset_branch_head(self):
+        self.with_oid(lambda oid: cmds.do(cmds.ResetBranchHead, ref=oid))
+
+    def reset_worktree(self):
+        self.with_oid(lambda oid: cmds.do(cmds.ResetWorktree, ref=oid))
 
     def save_blob_dialog(self):
-        sha1 = self.selected_sha1()
-        if sha1 is None:
-            return
-        return browse.BrowseDialog.browse(sha1)
+        self.with_oid(lambda oid: browse.BrowseDialog.browse(oid))
 
     def context_menu_actions(self):
         return {
@@ -141,6 +137,12 @@ class ViewerMixin(object):
         'cherry_pick':
             qtutils.add_action(self, N_('Cherry Pick'),
                                self.cherry_pick),
+        'reset_branch_head':
+            qtutils.add_action(self, N_('Reset Branch Head'),
+                               self.reset_branch_head),
+        'reset_worktree':
+            qtutils.add_action(self, N_('Reset Worktree'),
+                               self.reset_worktree),
         'save_blob':
             qtutils.add_action(self, N_('Grab File...'),
                                self.save_blob_dialog),
@@ -171,19 +173,19 @@ class ViewerMixin(object):
         self.menu_actions['diff_this_selected'].setEnabled(can_diff)
         self.menu_actions['diff_selected_this'].setEnabled(can_diff)
 
-        self.menu_actions['create_branch'].setEnabled(has_single_selection)
-        self.menu_actions['create_tag'].setEnabled(has_single_selection)
-
         self.menu_actions['cherry_pick'].setEnabled(has_single_selection)
-        self.menu_actions['create_patch'].setEnabled(has_selection)
-        self.menu_actions['create_tarball'].setEnabled(has_single_selection)
-
-        self.menu_actions['save_blob'].setEnabled(has_single_selection)
         self.menu_actions['copy'].setEnabled(has_single_selection)
+        self.menu_actions['create_branch'].setEnabled(has_single_selection)
+        self.menu_actions['create_patch'].setEnabled(has_selection)
+        self.menu_actions['create_tag'].setEnabled(has_single_selection)
+        self.menu_actions['create_tarball'].setEnabled(has_single_selection)
+        self.menu_actions['reset_branch_head'].setEnabled(has_single_selection)
+        self.menu_actions['reset_worktree'].setEnabled(has_single_selection)
+        self.menu_actions['save_blob'].setEnabled(has_single_selection)
 
     def context_menu_event(self, event):
         self.update_menu_actions(event)
-        menu = QtGui.QMenu(self)
+        menu = qtutils.create_menu(N_('Actions'), self)
         menu.addAction(self.menu_actions['diff_this_selected'])
         menu.addAction(self.menu_actions['diff_selected_this'])
         menu.addSeparator()
@@ -193,6 +195,10 @@ class ViewerMixin(object):
         menu.addAction(self.menu_actions['cherry_pick'])
         menu.addAction(self.menu_actions['create_patch'])
         menu.addAction(self.menu_actions['create_tarball'])
+        menu.addSeparator()
+        reset_menu = menu.addMenu(N_('Reset'))
+        reset_menu.addAction(self.menu_actions['reset_branch_head'])
+        reset_menu.addAction(self.menu_actions['reset_worktree'])
         menu.addSeparator()
         menu.addAction(self.menu_actions['save_blob'])
         menu.addAction(self.menu_actions['copy'])
@@ -494,7 +500,7 @@ class GitDAG(standard.MainWindow):
         self.treewidget.setFocus()
 
     def text_changed(self, txt):
-        self.ctx.ref = ustr(txt)
+        self.ctx.ref = txt
         self.update_window_title()
 
     def update_window_title(self):
@@ -721,7 +727,7 @@ class Edge(QtGui.QGraphicsItem):
 
         # Choose a new color for new branch edges
         if self.source.x() < self.dest.x():
-            color = EdgeColor.next()
+            color = EdgeColor.cycle()
             line = Qt.SolidLine
         elif self.source.x() != self.dest.x():
             color = EdgeColor.current()
@@ -814,7 +820,7 @@ class EdgeColor(object):
              ]
 
     @classmethod
-    def next(cls):
+    def cycle(cls):
         cls.current_color_index += 1
         cls.current_color_index %= len(cls.colors)
         color = cls.colors[cls.current_color_index]
@@ -905,7 +911,7 @@ class Commit(QtGui.QGraphicsItem):
             self.scene().parent().set_selecting(False)
 
             # Cache the pen for use in paint()
-            if value.toPyObject():
+            if value:
                 self.brush = self.commit_selected_color
                 color = self.selected_outline_color
             else:
@@ -1527,3 +1533,9 @@ class GraphView(ViewerMixin, QtGui.QGraphicsView):
             self.wheel_zoom(event)
         else:
             self.wheel_pan(event)
+
+
+# Glossary
+# ========
+# oid -- Git objects IDs (i.e. SHA-1 IDs)
+# ref -- Git references that resolve to a commit-ish (HEAD, branches, tags)

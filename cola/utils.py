@@ -103,21 +103,7 @@ def basename(path):
 
 
 def strip_one(path):
-    """Strip one level of directory
-
-    >>> strip_one('/usr/bin/git')
-    u'bin/git'
-
-    >>> strip_one('local/bin/git')
-    u'bin/git'
-
-    >>> strip_one('bin/git')
-    u'git'
-
-    >>> strip_one('git')
-    u'git'
-
-    """
+    """Strip one level of directory"""
     return path.strip('/').split('/', 1)[-1]
 
 
@@ -179,15 +165,10 @@ else:
 
 
 def tmp_filename(label):
-    label = label.replace('/', '-').replace('\\', '-')
-    fd = tempfile.NamedTemporaryFile(dir=tmpdir(), prefix=label+'-')
+    label = 'git-cola-' + label.replace('/', '-').replace('\\', '-')
+    fd = tempfile.NamedTemporaryFile(prefix=label+'-')
     fd.close()
     return fd.name
-
-
-@memoize
-def tmpdir():
-    return tempfile.mkdtemp(prefix='git-cola-')
 
 
 def is_linux():

@@ -13,11 +13,10 @@ from cola import gitcfg
 from cola import hotkeys
 from cola import icons
 from cola import utils
-from cola import resources
 from cola.i18n import N_
 from cola.interaction import Interaction
+from cola.compat import int_types
 from cola.compat import ustr
-from cola.compat import PY3
 from cola.models import prefs
 from cola.widgets import defs
 
@@ -75,11 +74,6 @@ def box(cls, margin, spacing, *items):
     layout = cls()
     layout.setMargin(margin)
     layout.setSpacing(spacing)
-
-    if PY3:
-        int_types = (int,)
-    else:
-        int_types = (int, long)
 
     for i in items:
         if isinstance(i, QtGui.QWidget):
@@ -146,16 +140,7 @@ def prompt(msg, title=None, text=''):
         title = msg
     result = QtGui.QInputDialog.getText(active_window(), msg, title,
                                         QtGui.QLineEdit.Normal, text)
-    return (ustr(result[0]), result[1])
-
-
-def create_listwidget_item(text, filename):
-    """Creates a QListWidgetItem with text and the icon at filename."""
-    item = QtGui.QListWidgetItem()
-    item.setIcon(QtGui.QIcon(filename))
-    item.setIconSize(QtCore.QSize(defs.small_icon, defs.small_icon))
-    item.setText(text)
-    return item
+    return (result[0], result[1])
 
 
 class TreeWidgetItem(QtGui.QTreeWidgetItem):
@@ -344,8 +329,8 @@ def selected_items(list_widget, items):
 
 def open_file(title, directory=None):
     """Creates an Open File dialog and returns a filename."""
-    return ustr(QtGui.QFileDialog
-                        .getOpenFileName(active_window(), title, directory))
+    return (QtGui.QFileDialog
+                 .getOpenFileName(active_window(), title, directory))
 
 
 def open_files(title, directory=None, filter=None):
@@ -359,15 +344,14 @@ def opendir_dialog(title, path):
 
     flags = (QtGui.QFileDialog.ShowDirsOnly |
              QtGui.QFileDialog.DontResolveSymlinks)
-    return ustr(QtGui.QFileDialog
-                     .getExistingDirectory(active_window(),
-                                           title, path, flags))
+    return (QtGui.QFileDialog
+                 .getExistingDirectory(active_window(), title, path, flags))
 
 
 def save_as(filename, title='Save As...'):
     """Creates a Save File dialog and returns a filename."""
-    return ustr(QtGui.QFileDialog
-                        .getSaveFileName(active_window(), title, filename))
+    return (QtGui.QFileDialog
+                 .getSaveFileName(active_window(), title, filename))
 
 
 def copy_path(filename, absolute=True):
@@ -424,6 +408,8 @@ def add_action_with_status_tip(widget, text, tip, fn, *shortcuts):
 
 def _add_action(widget, text, tip, fn, connect, *shortcuts):
     action = QtGui.QAction(text, widget)
+    if hasattr(action, 'setIconVisibleInMenu'):
+        action.setIconVisibleInMenu(True)
     if tip:
         action.setStatusTip(tip)
     connect(action, fn)
@@ -466,7 +452,8 @@ def create_treeitem(filename, staged=False, deleted=False, untracked=False):
 
     """
     icon_name = icons.status(filename, deleted, staged, untracked)
-    return TreeWidgetItem(filename, resources.icon(icon_name), deleted=deleted)
+    return TreeWidgetItem(filename, icons.name_from_basename(icon_name),
+                          deleted=deleted)
 
 
 def add_close_action(widget):
@@ -504,8 +491,7 @@ def default_monospace_font():
 def diff_font_str():
     font_str = gitcfg.current().get(prefs.FONTDIFF)
     if font_str is None:
-        font = default_monospace_font()
-        font_str = ustr(font.toString())
+        font_str = default_monospace_font().toString()
     return font_str
 
 
@@ -720,8 +706,7 @@ def create_dock(title, parent, stretch=True):
 
 def create_menu(title, parent):
     """Create a menu and set its title."""
-    qmenu = QtGui.QMenu(parent)
-    qmenu.setTitle(title)
+    qmenu = QtGui.QMenu(title, parent)
     return qmenu
 
 

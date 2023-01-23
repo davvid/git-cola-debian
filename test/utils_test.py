@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-from __future__ import unicode_literals
 
-import shutil
+from __future__ import absolute_import, division, unicode_literals
+
 import os
 import unittest
 
+from cola import core
 from cola import utils
+
 
 class ColaUtilsTestCase(unittest.TestCase):
     """Tests the cola.utils module."""
@@ -50,31 +52,36 @@ class ColaUtilsTestCase(unittest.TestCase):
         expect = set(['foo///bar///baz'])
         self.assertEqual(expect, paths)
 
-
-    def test_tmpdir_gives_consistent_results(self):
-        utils.tmpdir.func.cache.clear()
-
-        first = utils.tmpdir()
-        second = utils.tmpdir()
-        third = utils.tmpdir()
-
-        self.assertEqual(first, second)
-        self.assertEqual(first, third)
-
-        shutil.rmtree(first)
-
     def test_tmp_filename_gives_good_file(self):
-        utils.tmpdir.func.cache.clear()
-
-        tmpdir = utils.tmpdir()
         first = utils.tmp_filename('test')
         second = utils.tmp_filename('test')
 
-        self.assertNotEqual(first, second)
-        self.assertTrue(first.startswith(os.path.join(tmpdir, 'test')))
-        self.assertTrue(second.startswith(os.path.join(tmpdir, 'test')))
+        self.assertFalse(core.exists(first))
+        self.assertFalse(core.exists(second))
 
-        shutil.rmtree(tmpdir)
+        self.assertNotEqual(first, second)
+        self.assertTrue(os.path.basename(first).startswith('git-cola-test'))
+        self.assertTrue(os.path.basename(second).startswith('git-cola-test'))
+
+    def test_strip_one_abspath(self):
+        expect = 'bin/git'
+        actual = utils.strip_one('/usr/bin/git')
+        self.assertEqual(expect, actual)
+
+    def test_strip_one_relpath(self):
+        expect = 'git'
+        actual = utils.strip_one('bin/git')
+        self.assertEqual(expect, actual)
+
+    def test_strip_one_nested_relpath(self):
+        expect = 'bin/git'
+        actual = utils.strip_one('local/bin/git')
+        self.assertEqual(expect, actual)
+
+    def test_strip_one_basename(self):
+        expect = 'git'
+        actual = utils.strip_one('git')
+        self.assertEqual(expect, actual)
 
 
 if __name__ == '__main__':

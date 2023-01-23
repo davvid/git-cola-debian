@@ -11,6 +11,7 @@ import select
 from threading import Lock
 
 from cola import utils
+from cola.decorators import memoize
 
 AVAILABLE = None
 
@@ -50,10 +51,10 @@ class _Monitor(QtCore.QObject):
         self._thread_class = thread_class
         self._thread = None
 
-    def start(self):
+    def start(self, refs_only=False):
         if self._thread_class is not None:
             assert self._thread is None
-            self._thread = self._thread_class(self)
+            self._thread = self._thread_class(self, refs_only)
             self._thread.start()
 
     def stop(self):
@@ -74,9 +75,10 @@ class _BaseThread(QtCore.QThread):
     #: modifications into a single signal.
     _NOTIFICATION_DELAY = 888
 
-    def __init__(self, monitor):
+    def __init__(self, monitor, refs_only):
         QtCore.QThread.__init__(self)
         self._monitor = monitor
+        self._refs_only = refs_only
         self._running = True
         self._pending = False
 
@@ -112,10 +114,16 @@ if AVAILABLE == 'inotify':
                 inotify.IN_ONLYDIR
         )
 
-        def __init__(self, monitor):
-            _BaseThread.__init__(self, monitor)
-            self._worktree = core.abspath(git.worktree())
-            self._git_dir = git.git_dir()
+        def __init__(self, monitor, refs_only):
+            _BaseThread.__init__(self, monitor, refs_only)
+            if refs_only:
+                worktree = None
+            else:
+                worktree = git.worktree()
+                if worktree is not None:
+                    worktree = core.abspath(worktree)
+            self._worktree = worktree
+            self._git_dir = git.git_path()
             self._lock = Lock()
             self._inotify_fd = None
             self._pipe_r = None
@@ -124,6 +132,7 @@ if AVAILABLE == 'inotify':
             self._worktree_wd_map = {}
             self._git_dir_wds = set()
             self._git_dir_wd_map = {}
+            self._git_dir_wd = None
 
         @staticmethod
         def _log_out_of_wds_message():
@@ -188,11 +197,13 @@ if AVAILABLE == 'inotify':
                 if self._inotify_fd is None:
                     return
                 try:
-                    tracked_dirs = set(os.path.dirname(
-                                           os.path.join(self._worktree, path))
-                                       for path in gitcmds.tracked_files())
-                    self._refresh_watches(tracked_dirs, self._worktree_wds,
-                                          self._worktree_wd_map)
+                    if self._worktree is not None:
+                        tracked_dirs = set(
+                                os.path.dirname(os.path.join(self._worktree,
+                                                             path))
+                                for path in gitcmds.tracked_files())
+                        self._refresh_watches(tracked_dirs, self._worktree_wds,
+                                              self._worktree_wd_map)
                     git_dirs = set()
                     git_dirs.add(self._git_dir)
                     for dirpath, dirnames, filenames in core.walk(
@@ -200,6 +211,7 @@ if AVAILABLE == 'inotify':
                         git_dirs.add(dirpath)
                     self._refresh_watches(git_dirs, self._git_dir_wds,
                                           self._git_dir_wd_map)
+                    self._git_dir_wd = self._git_dir_wd_map[self._git_dir]
                 except OSError as e:
                     if e.errno == errno.ENOSPC:
                         self._log_out_of_wds_message()
@@ -242,28 +254,31 @@ if AVAILABLE == 'inotify':
                     wd_set.add(wd)
                     wd_map[path] = wd
 
-        def _filter_event(self, wd, mask, name):
-            # An event is relevant iff:
-            # 1) it is an event queue overflow
-            # 2) the wd is for the worktree
-            # 3) the wd is for the git dir and
-            #    a) the event is for a file, and
-            #    b) the file name does not end with ".lock"
+        def _event_is_relevant(self, wd, mask, name):
             if mask & inotify.IN_Q_OVERFLOW:
                 return True
-            if mask & self._TRIGGER_MASK:
-                if wd in self._worktree_wds:
+            elif not mask & self._TRIGGER_MASK:
+                return False
+            elif wd in self._worktree_wds:
+                return True
+            elif mask & inotify.IN_ISDIR:
+                return False
+            elif wd == self._git_dir_wd:
+                name = core.decode(name)
+                if name == 'HEAD':
                     return True
-                if (wd in self._git_dir_wds
-                        and not mask & inotify.IN_ISDIR
-                        and not core.decode(name).endswith('.lock')):
+                elif not self._refs_only and name == 'index':
                     return True
-            return False
+            elif (wd in self._git_dir_wds
+                    and not core.decode(name).endswith('.lock')):
+                return True
+            else:
+                return False
 
         def _handle_events(self):
             for wd, mask, cookie, name in \
                     inotify.read_events(self._inotify_fd):
-                if self._filter_event(wd, mask, name):
+                if self._event_is_relevant(wd, mask, name):
                     self._pending = True
 
         def stop(self):
@@ -333,11 +348,17 @@ if AVAILABLE == 'pywin32':
                   win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
                   win32con.FILE_NOTIFY_CHANGE_SECURITY)
 
-        def __init__(self, monitor):
-            _BaseThread.__init__(self, monitor)
-            self._worktree = self._transform_path(core.abspath(git.worktree()))
+        def __init__(self, monitor, refs_only):
+            _BaseThread.__init__(self, monitor, refs_only)
+            if refs_only:
+                worktree = None
+            else:
+                worktree = git.worktree()
+                if worktree is not None:
+                    worktree = self._transform_path(core.abspath(worktree))
+            self._worktree = worktree
             self._worktree_watch = None
-            self._git_dir = self._transform_path(core.abspath(git.git_dir()))
+            self._git_dir = self._transform_path(core.abspath(git.git_path()))
             self._git_dir_watch = None
             self._stop_event_lock = Lock()
             self._stop_event = None
@@ -361,14 +382,18 @@ if AVAILABLE == 'pywin32':
                     self._stop_event = win32event.CreateEvent(None, True,
                                                               False, None)
 
-                self._worktree_watch = _Win32Watch(self._worktree, self._FLAGS)
+                events = [self._stop_event]
+
+                if self._worktree is not None:
+                    self._worktree_watch = _Win32Watch(self._worktree,
+                                                       self._FLAGS)
+                    events.append(self._worktree_watch.event)
+
                 self._git_dir_watch = _Win32Watch(self._git_dir, self._FLAGS)
+                events.append(self._git_dir_watch.event)
 
                 self._log_enabled_message()
 
-                events = [self._worktree_watch.event,
-                          self._git_dir_watch.event,
-                          self._stop_event]
                 while self._running:
                     if self._pending:
                         timeout = self._NOTIFICATION_DELAY
@@ -393,17 +418,23 @@ if AVAILABLE == 'pywin32':
                     self._git_dir_watch.close()
 
         def _handle_results(self):
-            for action, path in self._worktree_watch.read():
-                if not self._running:
-                    break
-                path = self._worktree + '/' + self._transform_path(path)
-                if (path != self._git_dir
-                        and not path.startswith(self._git_dir + '/')):
-                    self._pending = True
+            if self._worktree_watch is not None:
+                for action, path in self._worktree_watch.read():
+                    if not self._running:
+                        break
+                    path = self._worktree + '/' + self._transform_path(path)
+                    if (path != self._git_dir
+                            and not path.startswith(self._git_dir + '/')):
+                        self._pending = True
             for action, path in self._git_dir_watch.read():
                 if not self._running:
                     break
-                if not path.endswith('.lock'):
+                path = self._transform_path(path)
+                if path.endswith('.lock'):
+                    continue
+                if path == 'head' or path.startswith('refs/'):
+                    self._pending = True
+                elif not self._refs_only and path == 'index':
                     self._pending = True
 
         def stop(self):
@@ -414,13 +445,9 @@ if AVAILABLE == 'pywin32':
             self.wait()
 
 
-_instance = None
-
-def instance():
-    global _instance
-    if _instance is None:
-        _instance = _create_instance()
-    return _instance
+@memoize
+def current():
+    return _create_instance()
 
 
 def _create_instance():

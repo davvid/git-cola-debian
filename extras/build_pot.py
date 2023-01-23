@@ -1,10 +1,20 @@
 """build_pot command for setup.py"""
 
+from __future__  import absolute_import, division, unicode_literals
+
 import os
 import glob
 from distutils import log
 from distutils.core import Command
 from distutils.errors import DistutilsOptionError
+
+
+def encode(string):
+    try:
+        result = string.encode('utf-8')
+    except:
+        result = string
+    return result
 
 
 class build_pot(Command):
@@ -16,13 +26,16 @@ class build_pot(Command):
     #   - long name,
     #   - short name (None if no short name),
     #   - help string.
-    user_options = [('build-dir=', 'd', 'Directory to put POT file'),
-                    ('output=', 'o', 'POT filename'),
-                    ('lang=', None, 'Comma-separated list of languages '
-                                    'to update po-files'),
-                    ('no-lang', 'N', "Don't update po-files"),
-                    ('english', 'E', 'Regenerate English PO file'),
-                   ]
+    user_options = [(str('build-dir='), str('d'),
+                        'Directory to put POT file'),
+                    (str('output='), str('o'),
+                        'POT filename'),
+                    (str('lang='), None,
+                        'Comma-separated list of languages to update po-files'),
+                    (str('no-lang'), str('N'),
+                        "Don't update po-files"),
+                    (str('english'), str('E'),
+                        'Regenerate English PO file')]
     boolean_options = ['no-lang', 'english']
 
     def initialize_options(self):
@@ -53,7 +66,7 @@ class build_pot(Command):
             dst = src
         f = open(dst, 'wb')
         try:
-            f.write(content)
+            f.write(encode(content))
         finally:
             f.close()
 

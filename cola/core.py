@@ -44,8 +44,7 @@ def decode(enc, encoding=None, errors='strict'):
             return enc.decode(encoding, errors)
         except:
             pass
-    # this shouldn't ever happen... FIXME
-    return ustr(enc)
+    return enc.decode('utf-8', errors='ignore')
 
 
 def encode(string, encoding=None):
@@ -65,7 +64,7 @@ def mkpath(path, encoding=None):
 
 
 def list2cmdline(cmd):
-    return subprocess.list2cmdline(map(decode, cmd))
+    return subprocess.list2cmdline([decode(c) for c in cmd])
 
 
 def read(filename, size=-1, encoding=None, errors='strict'):
@@ -115,7 +114,7 @@ def start_command(cmd, cwd=None, add_env=None,
     This provides a simpler interface to the subprocess module.
 
     """
-    env = None
+    env = extra.pop('env', None)
     if add_env is not None:
         env = os.environ.copy()
         env.update(add_env)
@@ -127,7 +126,8 @@ def start_command(cmd, cwd=None, add_env=None,
     # Additionally, the preferred usage on Python3 is to pass unicode
     # strings to subprocess.  Python will automatically encode into the
     # default encoding (utf-8) when it gets unicode strings.
-    cmd = prep_for_subprocess(cmd)
+    shell = extra.get('shell', False)
+    cmd = prep_for_subprocess(cmd, shell=shell)
 
     if WIN32 and cwd == getcwd():
         # Windows cannot deal with passing a cwd that contains unicode
@@ -146,13 +146,19 @@ def start_command(cmd, cwd=None, add_env=None,
                             universal_newlines=universal_newlines, **extra)
 
 
-def prep_for_subprocess(cmd):
+def prep_for_subprocess(cmd, shell=False):
     """Decode on Python3, encode on Python2"""
     # See the comment in start_command()
-    if PY3:
-        cmd = [decode(c) for c in cmd]
+    if shell:
+        if PY3:
+            cmd = decode(cmd)
+        else:
+            cmd = encode(cmd)
     else:
-        cmd = [encode(c) for c in cmd]
+        if PY3:
+            cmd = [decode(c) for c in cmd]
+        else:
+            cmd = [encode(c) for c in cmd]
     return cmd
 
 

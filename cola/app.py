@@ -35,18 +35,12 @@ EX_UNAVAILABLE = 69
 
 
 try:
-    import sip
+    from cola import sipcompat
 except ImportError:
     sys.stderr.write(errmsg)
     sys.exit(EX_UNAVAILABLE)
 
-sip.setapi('QString', 1)
-sip.setapi('QDate', 1)
-sip.setapi('QDateTime', 1)
-sip.setapi('QTextStream', 1)
-sip.setapi('QTime', 1)
-sip.setapi('QUrl', 1)
-sip.setapi('QVariant', 1)
+sipcompat.initialize()
 
 try:
     from PyQt4 import QtCore
@@ -55,7 +49,6 @@ except ImportError:
     sys.exit(EX_UNAVAILABLE)
 
 from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
 from PyQt4.QtCore import SIGNAL
 
 # Import cola modules
@@ -72,7 +65,6 @@ from cola import qtutils
 from cola import resources
 from cola import utils
 from cola import version
-from cola.compat import ustr
 from cola.decorators import memoize
 from cola.i18n import N_
 from cola.interaction import Interaction
@@ -170,7 +162,7 @@ class ColaApplication(object):
         qtutils.install()
         icons.install()
 
-        QtCore.QObject.connect(fsmonitor.instance(), SIGNAL('files_changed'),
+        QtCore.QObject.connect(fsmonitor.current(), SIGNAL('files_changed'),
                                self._update_files)
 
         if gui:
@@ -221,8 +213,8 @@ class ColaQApplication(QtGui.QApplication):
         """Save session data"""
         if self.view is None:
             return
-        sid = ustr(session_mgr.sessionId())
-        skey = ustr(session_mgr.sessionKey())
+        sid = session_mgr.sessionId()
+        skey = session_mgr.sessionKey()
         session_id = '%s_%s' % (sid, skey)
         session = Session(session_id, repo=core.getcwd())
         self.view.save_state(settings=session)
@@ -247,10 +239,6 @@ def process_args(args):
                     'Please specify a correct --repo <path>.') % repo
         core.stderr(errmsg)
         sys.exit(EX_USAGE)
-
-    # We do everything relative to the repo root
-    os.chdir(args.repo)
-    return repo
 
 
 def restore_session(args):
@@ -281,7 +269,7 @@ def application_init(args, update=False):
     return ApplicationContext(args, app, cfg, model)
 
 
-def application_start(context, view):
+def application_start(context, view, monitor_refs_only=False):
     """Show the GUI and start the main event loop"""
     # Store the view for session management
     context.app.set_view(view)
@@ -295,7 +283,7 @@ def application_start(context, view):
     init_update_task(view, runtask, context.model)
 
     # Start the filesystem monitor thread
-    fsmonitor.instance().start()
+    fsmonitor.current().start(monitor_refs_only)
 
     msg_timer = QtCore.QTimer()
     msg_timer.setSingleShot(True)
@@ -306,11 +294,8 @@ def application_start(context, view):
     result = context.app.exec_()
 
     # All done, cleanup
-    fsmonitor.instance().stop()
+    fsmonitor.current().stop()
     QtCore.QThreadPool.globalInstance().waitForDone()
-
-    tmpdir = utils.tmpdir()
-    shutil.rmtree(tmpdir, ignore_errors=True)
 
     return result
 
@@ -362,8 +347,6 @@ def new_model(app, repo, prompt=False, settings=None):
             sys.exit(EX_NOINPUT)
         valid = model.set_worktree(gitdir)
 
-    # Finally, go to the root of the git repo
-    os.chdir(model.git.worktree())
     return model
 
 

@@ -18,7 +18,6 @@ from cola.models import selection
 from cola.widgets import completion
 from cola.widgets import defs
 from cola.widgets import filetree
-from cola.compat import ustr
 
 
 def run():
@@ -54,7 +53,7 @@ def launch(left=None, right=None, paths=None,
             status, out, err = git.rev_list(left, parents=True, n=1)
             Interaction.log_status(status, out, err)
             if status:
-                raise StandardError('git rev-list command failed')
+                raise OSError('git rev-list command failed')
 
             if len(out.split()) >= 2:
                 # Commit has a parent, so we can take its child as requested
@@ -165,7 +164,7 @@ class FileDiffDialog(QtGui.QDialog):
         self.expr.setFocus()
 
     def text_changed(self, txt):
-        self.diff_expr = ustr(txt)
+        self.diff_expr = txt
         self.refresh()
 
     def refresh(self):
