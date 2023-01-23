@@ -13,7 +13,9 @@ from cola import utils
 from cola import gitcmd
 from cola import gitcfg
 from cola import gitcmds
-from cola.models.observable import ObservableModel
+from cola.compat import set
+from cola import serializer
+from cola.models.observable import ObservableModel, OMSerializer
 
 # Static GitConfig instance
 _config = gitcfg.instance()
@@ -29,6 +31,10 @@ def model():
     return _instance
 
 
+class MainSerializer(OMSerializer):
+    def post_decode_hook(self):
+        OMSerializer.post_decode_hook(self)
+        self.obj.generate_remote_helpers()
 
 class MainModel(ObservableModel):
     """Provides a friendly wrapper for doing common git operations."""
@@ -86,6 +92,7 @@ class MainModel(ObservableModel):
         self.untracked = []
         self.unmerged = []
         self.upstream_changed = []
+        self.submodules = set()
 
         #####################################################
         # Refs
@@ -102,6 +109,10 @@ class MainModel(ObservableModel):
         self.generate_remote_helpers()
         if cwd:
             self.use_worktree(cwd)
+
+        #####################################################
+        # Dag
+        self._commits = []
 
     def read_only(self):
         return self.mode in self.modes_read_only
@@ -156,7 +167,7 @@ class MainModel(ObservableModel):
             'merge_keepbackup': True,
             'diff_tool': os.getenv('GIT_DIFF_TOOL', 'xxdiff'),
             'merge_tool': os.getenv('GIT_MERGE_TOOL', 'xxdiff'),
-            'gui_editor': os.getenv('EDITOR', 'gvim'),
+            'gui_editor': os.getenv('VISUAL', os.getenv('EDITOR', 'gvim')),
             'gui_historybrowser': 'gitk',
         }
 
@@ -250,7 +261,8 @@ class MainModel(ObservableModel):
         return self.config_set(param, value, local=is_local)
 
     def editor(self):
-        return self.gui_config('editor')
+        app = self.gui_config('editor')
+        return {'vim': 'gvim'}.get(app, app)
 
     def history_browser(self):
         return self.gui_config('historybrowser')
@@ -278,7 +290,7 @@ class MainModel(ObservableModel):
 
     def prev_commitmsg(self):
         """Queries git for the latest commit message."""
-        return core.decode(self.git.log('-1', pretty='format:%s%n%n%b'))
+        return core.decode(self.git.log('-1', no_color=True, pretty='format:%s%n%n%b'))
 
     def update_status(self):
         # Give observers a chance to respond
@@ -294,12 +306,14 @@ class MainModel(ObservableModel):
         self.set_trackedbranch(gitcmds.tracked_branch())
         self.set_currentbranch(gitcmds.current_branch())
 
-        (self.staged,
-         self.modified,
-         self.unmerged,
-         self.untracked,
-         self.upstream_changed) = gitcmds.worktree_state(head=head,
-                                                staged_only=staged_only)
+        state = gitcmds.worktree_state_dict(head=head, staged_only=staged_only)
+        self.staged = state.get('staged', [])
+        self.modified = state.get('modified', [])
+        self.unmerged = state.get('unmerged', [])
+        self.untracked = state.get('untracked', [])
+        self.upstream_changed = state.get('upstream_changed', [])
+        self.submodules = state.get('submodules', set())
+
         # NOTE: the model's unstaged list holds an aggregate of the
         # the modified, unmerged, and untracked file lists.
         self.set_unstaged(self.modified + self.unmerged + self.untracked)
@@ -422,7 +436,7 @@ class MainModel(ObservableModel):
             try:
                 k, v = line.split('=', 1)
             except:
-                # the user has an invalid entry in their git config
+                # value-less entry in .gitconfig
                 continue
             v = core.decode(v)
             k = k.replace('.','_') # git -> model
@@ -555,11 +569,6 @@ class MainModel(ObservableModel):
         else:
             return pstr
 
-    def describe(self, revid, descr):
-        version = self.git.describe(revid, tags=True, always=True,
-                                    abbrev=4)
-        return version + ' - ' + descr
-
     def is_commit_published(self):
         head = self.git.rev_parse('HEAD')
         return bool(self.git.branch(r=True, contains=head))
@@ -595,3 +604,5 @@ class MainModel(ObservableModel):
         if self.directory:
             return self.directory
         return os.getcwd()
+
+serializer.handlers[MainModel] = MainSerializer

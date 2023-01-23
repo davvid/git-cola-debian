@@ -1,3 +1,5 @@
+import os
+
 from PyQt4 import QtGui
 from PyQt4.QtCore import SIGNAL
 
@@ -5,6 +7,7 @@ import cola
 from cola import signals
 from cola import qtutils
 from cola import utils
+from cola.compat import set
 from cola.qtutils import SLOT
 
 
@@ -60,7 +63,7 @@ class StatusWidget(QtGui.QWidget):
 
         # Handle these events here
         self.tree.contextMenuEvent = self.tree_context_menu_event
-        self.tree.mousePressEvent = self.tree_click
+        self.tree.mouseReleaseEvent = self.tree_click
 
         self.expanded_items = set()
         self.model = cola.model()
@@ -98,35 +101,37 @@ class StatusWidget(QtGui.QWidget):
                             updated_untracked)
 
         # Updating the status resets the repo status tree so
-        # restore the selected items and re-run the diff
-        showdiff = False
-        mode = self.mode
-        if mode == self.model.mode_worktree:
-            # Update unstaged items
-            if unstaged:
-                for item in unstaged:
-                    if item in updated_unstaged:
-                        idx = updated_unstaged.index(item)
-                        item = self.unstaged_item(idx)
-                        if item:
-                            showdiff = True
-                            item.setSelected(True)
-                            self.tree.setCurrentItem(item)
-                            self.tree.setItemSelected(item, True)
+        # restore the selected items which re-runs the diff
+        def select_item(item):
+            if not item:
+                return
+            self.tree.setItemSelected(item, True)
+            parent = item.parent()
+            if parent:
+                self.tree.scrollToItem(parent)
+            self.tree.scrollToItem(item)
 
-        elif mode in (self.model.mode_index, self.model.mode_amend):
-            # Ditto for staged items
-            if staged:
-                for item in staged:
-                    if item in updated_staged:
-                        idx = updated_staged.index(item)
-                        item = self.staged_item(idx)
-                        if item:
-                            showdiff = True
-                            item.setSelected(True)
-                            self.tree.setCurrentItem(item)
-                            self.tree.setItemSelected(item, True)
+        def select_unstaged(item):
+            idx = updated_unstaged.index(item)
+            select_item(self.unstaged_item(idx))
 
+        def select_staged(item):
+            idx = updated_staged.index(item)
+            select_item(self.staged_item(idx))
+
+        # Update newly-staged items
+        for item in unstaged:
+            if item in updated_unstaged:
+                select_unstaged(item)
+            elif item in updated_staged:
+                select_staged(item)
+
+        # Update newly unstaged items
+        for item in staged:
+            if item in updated_staged:
+                select_staged(item)
+            elif item in updated_unstaged:
+                select_unstaged(item)
 
     def staged_item(self, itemidx):
         return self._subtree_item(self.idx_staged, itemidx)
@@ -161,12 +166,21 @@ class StatusWidget(QtGui.QWidget):
     def about_to_update(self):
         self.old_selection = self.selection()
 
+        self.old_scroll = None
+        vscroll = self.tree.verticalScrollBar()
+        if vscroll:
+            self.old_scroll = vscroll.value()
+
     def updated(self):
         """Update display from model data."""
         self.set_staged(self.model.staged)
         self.set_modified(self.model.modified)
         self.set_unmerged(self.model.unmerged)
         self.set_untracked(self.model.untracked)
+
+        vscroll = self.tree.verticalScrollBar()
+        if vscroll and self.old_scroll is not None:
+            vscroll.setValue(self.old_scroll)
 
         self.restore_selection()
 
@@ -240,7 +254,13 @@ class StatusWidget(QtGui.QWidget):
         staged, modified, unmerged, untracked = self.selection()
         menu = QtGui.QMenu(self)
 
-        if staged:
+        if staged and staged[0] in cola.model().submodules:
+            menu.addAction(self.tr('Unstage Selected'),
+                           SLOT(signals.unstage, self.staged()))
+            menu.addAction(self.tr('Launch git-cola'),
+                           SLOT(signals.open_repo, os.path.abspath(staged[0])))
+            return menu
+        elif staged:
             menu.addAction(self.tr('Unstage Selected'),
                            SLOT(signals.unstage, self.staged()))
             menu.addSeparator()
@@ -264,16 +284,23 @@ class StatusWidget(QtGui.QWidget):
                            SLOT(signals.stage, self.unmerged()))
             return menu
 
+        modified_submodule = (modified and
+                              modified[0] in cola.model().submodules)
         enable_staging = self.model.enable_staging()
         if enable_staging:
             menu.addAction(self.tr('Stage Selected'),
                            SLOT(signals.stage, self.unstaged()))
             menu.addSeparator()
 
-        menu.addAction(self.tr('Launch Editor'),
-                       SLOT(signals.edit, self.unstaged()))
+        if modified_submodule:
+            menu.addAction(self.tr('Launch git-cola'),
+                           SLOT(signals.open_repo,
+                                os.path.abspath(modified[0])))
+        else:
+            menu.addAction(self.tr('Launch Editor'),
+                           SLOT(signals.edit, self.unstaged()))
 
-        if modified and enable_staging:
+        if modified and enable_staging and not modified_submodule:
             menu.addAction(self.tr('Launch Diff Tool'),
                            SLOT(signals.difftool, False, self.modified()))
             menu.addSeparator()
@@ -391,7 +418,7 @@ class StatusWidget(QtGui.QWidget):
         the same appropriate action.
 
         """
-        result = QtGui.QTreeWidget.mousePressEvent(self.tree, event)
+        result = QtGui.QTreeWidget.mouseReleaseEvent(self.tree, event)
 
         # Sync the selection model
         s, m, um, ut = self.selection()
@@ -405,7 +432,7 @@ class StatusWidget(QtGui.QWidget):
             items = self.tree.selectedItems()
             self.tree.blockSignals(True)
             for i in items:
-                i.setSelected(False)
+                self.tree.setItemSelected(i, False)
             self.tree.blockSignals(False)
             return result
 
@@ -418,9 +445,11 @@ class StatusWidget(QtGui.QWidget):
             return result
 
         # Handle when the icons are clicked
-        # TODO query Qt for the event position relative to the icon.
+        indent = self.tree.indentation()
         xpos = event.pos().x()
-        if xpos > 45 and xpos < 59:
+        indent = indent * 2
+        iconwidth = 22
+        if indent < xpos < indent + iconwidth:
             if staged:
                 cola.notifier().broadcast(signals.unstage, self.staged())
             else:

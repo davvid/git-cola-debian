@@ -9,9 +9,13 @@ from cola import gitcfg
 from cola import errors
 from cola import utils
 from cola import version
+from cola.compat import set
 
 git = gitcmd.instance()
 config = gitcfg.instance()
+
+class InvalidRepositoryError(StandardError):
+    pass
 
 
 def default_remote():
@@ -33,44 +37,55 @@ def all_files():
 
 
 class _current_branch:
-    """Cache for current_branch()."""
-    data = None
+    """Cache for current_branch()"""
+    key = None
     value = None
 
-
 def current_branch():
-    """Find the current branch."""
+    """Return the current branch"""
     head = git.git_path('HEAD')
     try:
-        data = utils.slurp(head)
-        if _current_branch.data == data:
+        key = os.stat(head).st_mtime
+        if _current_branch.key == key:
             return _current_branch.value
     except OSError, e:
         pass
-    # Handle legacy .git/HEAD symlinks
+    data = git.rev_parse('HEAD', with_stderr=True, symbolic_full_name=True)
+    if data.startswith('fatal:'):
+        # git init -- read .git/HEAD.  We could do this unconditionally
+        # and avoid the subprocess call.  It's probably time to start
+        # using dulwich.
+        data = _read_git_head(head)
+
+    for refs_prefix in ('refs/heads/', 'refs/remotes/'):
+        if data.startswith(refs_prefix):
+            value = data[len(refs_prefix):]
+            _current_branch.key = key
+            _current_branch.value = value
+            return value
+    # Detached head
+    return data
+
+
+def _read_git_head(head, default='master'):
+    """Pure-python .git/HEAD reader"""
+    # Legacy .git/HEAD symlinks
     if os.path.islink(head):
         refs_heads = os.path.realpath(git.git_path('refs', 'heads'))
         path = os.path.abspath(head).replace('\\', '/')
         if path.startswith(refs_heads + '/'):
-            value = path[len(refs_heads)+1:]
-            _current_branch.value = value
-            _current_branch.data = data
-            return value
-        return ''
+            return path[len(refs_heads)+1:]
 
-    # Handle the common .git/HEAD "ref: refs/heads/master" file
-    if os.path.isfile(head):
-        value = data.rstrip()
-        ref_prefix = 'ref: refs/heads/'
-        if value.startswith(ref_prefix):
-            value = value[len(ref_prefix):]
+    # Common .git/HEAD "ref: refs/heads/master" file
+    elif os.path.isfile(head):
+        data = utils.slurp(head).rstrip()
+        ref_prefix = 'ref: '
+        if data.startswith(ref_prefix):
+            return data[len(ref_prefix):]
+        # Detached head
+        return data
 
-        _current_branch.data = data
-        _current_branch.value = value
-        return value
-
-    # This shouldn't happen
-    return ''
+    return default
 
 
 def branch_list(remote=False):
@@ -193,6 +208,7 @@ def diff_helper(commit=None,
     # The '--patience' option did not appear until git 1.6.2
     # so don't allow it to be used on version previous to that
     patience = version.check('patience', version.git_version())
+    submodule = version.check('diff-submodule', version.git_version())
 
     diffoutput = git.diff(R=reverse,
                           M=True,
@@ -202,14 +218,20 @@ def diff_helper(commit=None,
                           with_raw_output=True,
                           with_stderr=True,
                           patience=patience,
+                          submodule=submodule,
                           *argv)
-
     # Handle 'git init'
     if diffoutput.startswith('fatal:'):
         if with_diff_header:
             return ('', '')
         else:
             return ''
+
+    if diffoutput.startswith('Submodule'):
+        if with_diff_header:
+            return ('', diffoutput)
+        else:
+            return diffoutput
 
     output = StringIO()
 
@@ -290,27 +312,17 @@ def export_patchset(start, end, output='patches', **kwargs):
 
 
 def unstage_paths(args):
-    """
-    Unstages paths from the staging area
-
-    This handles the git init case, which is why it's not
-    just 'git reset name'.  For the git init case this falls
-    back to 'git rm --cached'.
-
-    """
-    # fake the status because 'git reset' returns 1
-    # regardless of success/failure
-    status = 0
-    output = git.reset('--', with_stderr=True, *set(args))
+    status, output = git.reset('--', with_stderr=True, with_status=True,
+                               *set(args))
+    if status != 128:
+        return (status, output)
     # handle git init: we have to use 'git rm --cached'
     # detect this condition by checking if the file is still staged
-    state = worktree_state()
-    staged = state[0]
-    rmargs = [a for a in args if a in staged]
-    if not rmargs:
-        return (status, output)
-    output += git.rm('--', cached=True, with_stderr=True, *rmargs)
-
+    status, output = git.update_index('--',
+                                      force_remove=True,
+                                      with_status=True,
+                                      with_stderr=True,
+                                      *set(args))
     return (status, output)
 
 
@@ -322,6 +334,21 @@ def worktree_state(head='HEAD', staged_only=False):
     upstream.
 
     """
+    state = worktree_state_dict(head=head, staged_only=staged_only)
+    return(state.get('staged', []),
+           state.get('modified', []),
+           state.get('unmerged', []),
+           state.get('untracked', []),
+           state.get('upstream_changed', []))
+
+
+def worktree_state_dict(head='HEAD', staged_only=False):
+    """Return a dict of files in various states of being
+
+    :rtype: dict, keys are staged, unstaged, untracked, unmerged,
+            changed_upstream, and submodule.
+
+    """
     git.update_index(refresh=True)
     if staged_only:
         return _branch_status(head)
@@ -329,8 +356,12 @@ def worktree_state(head='HEAD', staged_only=False):
     staged_set = set()
     modified_set = set()
 
-    (staged, modified, unmerged, untracked, upstream_changed) = (
-            [], [], [], [], [])
+    staged = []
+    modified = []
+    unmerged = []
+    untracked = []
+    upstream_changed = []
+    submodules = set()
     try:
         output = git.diff_index(head,
                                 cached=True,
@@ -341,6 +372,8 @@ def worktree_state(head='HEAD', staged_only=False):
             rest, name = line.split('\t', 1)
             status = rest[-1]
             name = eval_path(name)
+            if '160000' in rest[1:14]:
+                submodules.add(name)
             if status  == 'M':
                 staged.append(name)
                 staged_set.add(name)
@@ -370,14 +403,15 @@ def worktree_state(head='HEAD', staged_only=False):
         if output.startswith('fatal:'):
             raise errors.GitInitError('git init')
         for line in output.splitlines():
-            info, name = line.split('\t', 1)
-            status = info.split()[-1]
+            rest , name = line.split('\t', 1)
+            status = rest[-1]
+            name = eval_path(name)
+            if '160000' in rest[1:13]:
+                submodules.add(name)
             if status == 'M' or status == 'D':
-                name = eval_path(name)
                 if name not in modified_set:
                     modified.append(name)
             elif status == 'A':
-                name = eval_path(name)
                 # newly-added yet modified
                 if (name not in modified_set and not staged_only and
                         is_modified(name)):
@@ -415,7 +449,12 @@ def worktree_state(head='HEAD', staged_only=False):
     untracked.sort()
     upstream_changed.sort()
 
-    return (staged, modified, unmerged, untracked, upstream_changed)
+    return {'staged': staged,
+            'modified': modified,
+            'unmerged': unmerged,
+            'untracked': untracked,
+            'upstream_changed': upstream_changed,
+            'submodules': submodules}
 
 
 def _branch_status(branch):
@@ -431,16 +470,24 @@ def _branch_status(branch):
                               with_status=True,
                               *branch.strip().split())
     if status != 0:
-        return ([], [], [], [], [])
+        return {}
 
     staged = map(core.decode, [n for n in output.split('\0') if n])
-    return (staged, [], [], [], staged)
+    return {'staged': staged,
+            'upstream_changed': staged}
 
 
 def merge_base_to(ref):
     """Given `ref`, return $(git merge-base ref HEAD)..ref."""
     base = git.merge_base('HEAD', ref)
     return '%s..%s' % (base, ref)
+
+
+def merge_base_parent(branch):
+    tracked = tracked_branch(branch=branch)
+    if tracked:
+        return '%s..%s' % (tracked, branch)
+    return 'master..%s' % branch
 
 
 def is_modified(name):
@@ -511,7 +558,7 @@ def log_helper(all=False, extra_args=None):
     args = []
     if extra_args:
         args = extra_args
-    output = git.log(pretty='oneline', all=all, *args)
+    output = git.log(pretty='oneline', no_color=True, all=all, *args)
     for line in map(core.decode, output.splitlines()):
         match = REV_LIST_REGEX.match(line)
         if match:
@@ -551,6 +598,9 @@ def abort_merge():
         merge_msg_path = merge_message_path()
 
 
-def merge_message():
+def merge_message(revision):
     """Return a merge message for FETCH_HEAD."""
-    return git.fmt_merge_msg('--file', git.git_path('FETCH_HEAD'))
+    fetch_head = git.git_path('FETCH_HEAD')
+    if os.path.exists(fetch_head):
+        return git.fmt_merge_msg('--file', fetch_head)
+    return "Merge branch '%s'" % revision

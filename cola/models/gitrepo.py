@@ -12,6 +12,7 @@ from cola import core
 from cola import utils
 from cola import qtutils
 from cola import version
+from cola.compat import set
 
 
 # Custom event type for GitRepoInfoEvents
@@ -250,6 +251,7 @@ class GitRepoInfoTask(QRunnable):
             log_line = cola.model().git.log('-1', '--', self.path,
                                             M=True,
                                             all=True,
+                                            no_color=True,
                                             pretty='format:%ar%x00%s%x00%an')
             if log_line:
                 log_line = core.decode(log_line)

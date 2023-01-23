@@ -3,16 +3,27 @@ import re
 import os
 import sys
 import stat
+import shutil
+import platform
 from glob import glob
 
 from distutils.core import setup
 from distutils.command import build_scripts
+
+try:
+    from extras import cmdclass
+except ImportError:
+    cmdclass = {}
+
+# Prevent distuils from changing "#!/usr/bin/env python"
 build_scripts.first_line_re = re.compile('^should not match$')
 
+# Look for modules in the root and thirdparty directories
+srcdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(srcdir, 'thirdparty'))
+sys.path.insert(0, srcdir)
+
 from cola import version
-from cola import utils
-from cola import resources
-from cola import core
 
 # --standalone prevents installing thirdparty libraries
 if '--standalone' in sys.argv:
@@ -25,18 +36,17 @@ else:
 def main():
     # ensure readable files
     old_mask = os.umask(0022)
-    if sys.argv[1] in ('install', 'build'):
-        _setup_environment()
-        _check_python_version()
-        _check_git_version()
-        _check_pyqt_version()
-        _build_translations()      # msgfmt: .po -> .qm
+
+    _check_python_version()
+    _setup_environment()
+    _check_git_version()
+    _check_pyqt_version()
 
     # First see if there is a version file (included in release tarballs),
     # then try git-describe, then default.
     builtin_version = os.path.join('cola', 'builtin_version.py')
     if os.path.exists('version') and not os.path.exists(builtin_version):
-        shutils.copy('version', builtin_version)
+        shutil.copy('version', builtin_version)
 
     elif os.path.exists('.git'):
         version.write_builtin_version()
@@ -50,7 +60,7 @@ def _setup_environment():
     if sys.platform != 'win32':
         return
     path = os.environ['PATH']
-    win32 = os.path.join(os.path.dirname(__file__), 'win32')
+    win32 = os.path.join(srcdir, 'win32')
     os.environ['PATH'] = win32 + os.pathsep + path
 
 def _run_setup():
@@ -72,33 +82,33 @@ def _run_setup():
 
     setup(name = 'git-cola',
           version = version.version(),
+          description = 'A highly caffeinated git GUI',
           license = 'GPLv2',
-          author = 'David Aguilar and contributors',
-          author_email = 'davvid@gmail.com',
+          author = 'The git-cola community',
+          author_email = 'git-cola@googlegroups.com',
           url = 'http://cola.tuxfamily.org/',
-          description = 'git-cola',
-          long_description = 'A highly caffeinated Git GUI',
+          long_description = 'A highly caffeinated git GUI',
           scripts = scripts,
-          packages = [],
+          cmdclass = cmdclass,
           data_files = cola_data_files())
 
 
 def cola_data_files(standalone=_standalone):
-    data = [_app_path('share/git-cola/qm', '*.qm'),
-            _app_path('share/git-cola/icons', '*.png'),
+    data = [_app_path('share/git-cola/icons', '*.png'),
             _app_path('share/git-cola/icons', '*.svg'),
             _app_path('share/git-cola/styles', '*.qss'),
             _app_path('share/git-cola/styles/images', '*.png'),
             _app_path('share/applications', '*.desktop'),
             _app_path('share/doc/git-cola', '*.txt'),
-            _lib_path('cola/*.py'),
-            _lib_path('cola/models/*.py'),
-            _lib_path('cola/controllers/*.py'),
-            _lib_path('cola/views/*.py')]
+            _app_path('share/locale', '*/LC_MESSAGES/git-cola.mo'),
+            _package('cola'),
+            _package('cola.models'),
+            _package('cola.controllers'),
+            _package('cola.views')]
 
     if not standalone:
-        data.extend([_lib_path('jsonpickle/*.py'),
-                     _lib_path('simplejson/*.py')])
+        data.extend([_thirdparty_package('jsonpickle'),
+                     _thirdparty_package('simplejson')])
 
     if sys.platform == 'darwin':
         data.append(_app_path('share/git-cola/bin', 'ssh-askpass-darwin'))
@@ -106,10 +116,18 @@ def cola_data_files(standalone=_standalone):
         data.append(_app_path('share/git-cola/bin', 'ssh-askpass'))
     return data
 
-def _lib_path(entry):
-    dirname = os.path.dirname(entry)
-    app_dir = os.path.join('share/git-cola/lib', dirname)
-    return (app_dir, glob(entry))
+
+def _package(package, subdir=None):
+    subdirs = package.split('.')
+    app_dir = os.path.join('share', 'git-cola', 'lib', *subdirs)
+    if subdir:
+        subdirs.insert(0, subdir)
+    src_dir = os.path.join(*subdirs)
+    return (app_dir, glob(os.path.join(src_dir, '*.py')))
+
+
+def _thirdparty_package(package):
+    return _package(package, subdir='thirdparty')
 
 
 def _app_path(dirname, entry):
@@ -119,7 +137,7 @@ def _app_path(dirname, entry):
 def _check_python_version():
     """Check the minimum Python version
     """
-    pyver = '.'.join(map(lambda x: str(x), sys.version_info))
+    pyver = platform.python_version()
     if not version.check('python', pyver):
         print >> sys.stderr, ('Python version %s or newer required.  '
                               'Found %s' % (version.get('python'), pyver))
@@ -134,6 +152,7 @@ def _check_git_version():
                               'Found %s' % (version.get('git'),
                                             version.git_version()))
         sys.exit(1)
+
 
 def _check_pyqt_version():
     """Check the minimum PyQt version
@@ -150,25 +169,6 @@ def _check_pyqt_version():
     print >> sys.stderr, ('PyQt4 version %s or newer required.  '
                           'Found %s' % (version.get('pyqt'), pyqtver))
     sys.exit(1)
-
-
-def _dirty(src, dst):
-    if not os.path.exists(dst):
-        return True
-    srcstat = os.stat(src)
-    dststat = os.stat(dst)
-    return srcstat[stat.ST_MTIME] > dststat[stat.ST_MTIME]
-
-
-def _build_translations():
-    print 'running build_translations'
-    sources = glob(resources.share('po', '*.po'))
-    sources = glob('share/git-cola/po/*.po')
-    for src in sources:
-        dst = resources.qm(os.path.basename(src)[:-3])
-        if _dirty(src, dst):
-            print '\tmsgfmt --qt %s -o %s' % (src, dst)
-            utils.run_cmd(['msgfmt', '--qt', src, '-o', dst])
 
 
 if __name__ == '__main__':

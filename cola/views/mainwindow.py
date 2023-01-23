@@ -5,7 +5,9 @@ from PyQt4.QtCore import Qt
 import cola
 from cola import settings
 from cola import qtutils
+from cola import qt
 from cola.views import log
+from cola.views import dag
 from cola.qtutils import tr
 from cola.views import status
 from cola.views.standard import create_standard_widget
@@ -23,28 +25,23 @@ class MainWindow(MainWindowBase):
                             QtGui.QMainWindow.AnimatedDocks)
         # "Actions" widget
         self.actiondockwidget = self.create_dock('Actions')
-        self.actiondockwidgetcontents = QtGui.QWidget()
-        self.actiondockwidgetcontents.setContentsMargins(2, 2, 2, 2)
-        self.actiondockwidgetlayout =\
-                QtGui.QVBoxLayout(self.actiondockwidgetcontents)
-        self.actiondockwidgetlayout.setSpacing(3)
-        self.actiondockwidgetlayout.setMargin(3)
+        self.actiondockwidgetcontents = qt.QFlowLayoutWidget(parent=self)
 
-        layout = self.actiondockwidgetlayout
-        self.rescan_button = self.create_button('Rescan', layout)
-        self.stage_button = self.create_button('Stage', layout)
-        self.unstage_button = self.create_button('Unstage', layout)
-        self.fetch_button = self.create_button('Fetch', layout)
-        self.push_button = self.create_button('Push', layout)
-        self.pull_button = self.create_button('Pull', layout)
-        self.stash_button = self.create_button('Stash', layout)
-        self.alt_button = self.create_button('Exit Diff Mode', layout)
+        layout = self.actiondockwidgetcontents.layout()
+        self.rescan_button = qt.create_button('Rescan', layout)
+        self.stage_button = qt.create_button('Stage', layout)
+        self.unstage_button = qt.create_button('Unstage', layout)
+        self.fetch_button = qt.create_button('Fetch', layout)
+        self.push_button = qt.create_button('Push', layout)
+        self.pull_button = qt.create_button('Pull', layout)
+        self.stash_button = qt.create_button('Stash', layout)
+        self.alt_button = qt.create_button('Exit Diff Mode', layout)
         self.alt_button.hide()
 
         self.action_spacer = QtGui.QSpacerItem(1, 1,
-                                               QtGui.QSizePolicy.Minimum,
+                                               QtGui.QSizePolicy.MinimumExpanding,
                                                QtGui.QSizePolicy.MinimumExpanding)
-        self.actiondockwidgetlayout.addItem(self.action_spacer)
+        self.actiondockwidgetcontents.layout().addItem(self.action_spacer)
         self.actiondockwidget.setWidget(self.actiondockwidgetcontents)
 
         # "Repository Status" widget
@@ -56,7 +53,7 @@ class MainWindow(MainWindowBase):
         self.commitdockwidgetcontents = QtGui.QWidget()
 
         self.commitdockwidgetlayout = QtGui.QVBoxLayout(self.commitdockwidgetcontents)
-        self.commitdockwidgetlayout.setMargin(3)
+        self.commitdockwidgetlayout.setMargin(4)
 
         self.vboxlayout = QtGui.QVBoxLayout()
         self.vboxlayout.setSpacing(0)
@@ -72,14 +69,15 @@ class MainWindow(MainWindowBase):
 
         self.hboxlayout = QtGui.QHBoxLayout()
         self.hboxlayout.setSpacing(3)
+        self.hboxlayout.setContentsMargins(2, 6, 2, 0)
 
         # Sign off and commit buttons
-        self.signoff_button = self.create_button('Sign Off')
-        self.commit_button = self.create_button('Commit@@verb')
+        self.signoff_button = qt.create_button('Sign Off')
+        self.commit_button = qt.create_button('Commit@@verb')
 
         # Position display
         self.position_label = QtGui.QLabel(self.actiondockwidgetcontents)
-        self.position_label.setAlignment(QtCore.Qt.AlignLeft)
+        self.position_label.setAlignment(Qt.AlignLeft)
 
         # Spacer between position and amend
         self.spacer = QtGui.QSpacerItem(1, 1,
@@ -116,7 +114,11 @@ class MainWindow(MainWindowBase):
         self.display_text.setReadOnly(True)
         self.display_text.setAcceptRichText(False)
         self.display_text.setCursorWidth(2)
-        self.display_text.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByKeyboard|QtCore.Qt.LinksAccessibleByMouse|QtCore.Qt.TextBrowserInteraction|QtCore.Qt.TextSelectableByKeyboard|QtCore.Qt.TextSelectableByMouse)
+        self.display_text.setTextInteractionFlags(Qt.LinksAccessibleByKeyboard |
+                                                  Qt.LinksAccessibleByMouse |
+                                                  Qt.TextBrowserInteraction |
+                                                  Qt.TextSelectableByKeyboard |
+                                                  Qt.TextSelectableByMouse)
 
         self.diffdockwidgetlayout.addWidget(self.display_text)
         self.diffdockwidget.setWidget(self.diffdockwidgetcontents)
@@ -189,12 +191,13 @@ class MainWindow(MainWindowBase):
         self.menu_rebase_branch = self.create_action('Rebase...')
         self.menu_branch_review = self.create_action('Review...')
         self.menu_classic = self.create_action('Cola Classic...')
+        self.menu_dag = self.create_action('DAG...')
 
         # Create the application menu
         self.menubar = QtGui.QMenuBar(self)
 
         # File Menu
-        self.file_menu = self.create_menu('File', self.menubar)
+        self.file_menu = self.create_menu('&File', self.menubar)
         self.file_menu.addAction(self.menu_open_repo)
         self.file_menu.addAction(self.menu_clone_repo)
         self.file_menu.addSeparator()
@@ -211,7 +214,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.file_menu.menuAction())
 
         # Edit Menu
-        self.edit_menu = self.create_menu('Edit', self.menubar)
+        self.edit_menu = self.create_menu('&Edit', self.menubar)
         self.edit_menu.addAction(self.menu_undo)
         self.edit_menu.addAction(self.menu_redo)
         self.edit_menu.addSeparator()
@@ -227,7 +230,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.edit_menu.menuAction())
 
         # Commit Menu
-        self.commit_menu = self.create_menu('Commit', self.menubar)
+        self.commit_menu = self.create_menu('Co&mmit', self.menubar)
         self.commit_menu.addAction(self.menu_stage_modified)
         self.commit_menu.addAction(self.menu_stage_untracked)
         self.commit_menu.addSeparator()
@@ -239,7 +242,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.commit_menu.menuAction())
 
         # Branch Menu
-        self.branch_menu = self.create_menu('Branch', self.menubar)
+        self.branch_menu = self.create_menu('B&ranch', self.menubar)
         self.branch_menu.addAction(self.menu_branch_review)
         self.branch_menu.addSeparator()
         self.branch_menu.addAction(self.menu_create_branch)
@@ -258,7 +261,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.branch_menu.menuAction())
 
         # Search Menu
-        self.search_menu = self.create_menu('Search', self.menubar)
+        self.search_menu = self.create_menu('&Search', self.menubar)
         self.search_menu.addAction(self.menu_search_date_range)
         self.search_menu.addAction(self.menu_search_grep)
         self.search_menu.addSeparator()
@@ -277,7 +280,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.search_menu.menuAction())
 
         # Actions menu
-        self.actions_menu = self.create_menu('Actions', self.menubar)
+        self.actions_menu = self.create_menu('Act&ions', self.menubar)
         self.actions_menu.addAction(self.menu_merge_local)
         self.actions_menu.addAction(self.menu_stash)
         self.actions_menu.addSeparator()
@@ -291,7 +294,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.actions_menu.menuAction())
 
         # Diff Menu
-        self.diff_menu = self.create_menu('Diff', self.menubar)
+        self.diff_menu = self.create_menu('&Diff', self.menubar)
         self.diff_menu.addAction(self.menu_branch_diff)
         self.diff_menu.addAction(self.menu_diff_expression)
         self.diff_menu.addSeparator()
@@ -304,8 +307,10 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.diff_menu.menuAction())
 
         # Tools Menu
-        self.tools_menu = self.create_menu('Tools', self.menubar)
+        self.tools_menu = self.create_menu('&Tools', self.menubar)
         self.tools_menu.addAction(self.menu_classic)
+        self.tools_menu.addAction(self.menu_dag)
+        self.tools_menu.addSeparator()
         self.tools_menu.addAction(self.diffdockwidget.toggleViewAction())
         self.tools_menu.addAction(self.actiondockwidget.toggleViewAction())
         self.tools_menu.addAction(self.commitdockwidget.toggleViewAction())
@@ -314,7 +319,7 @@ class MainWindow(MainWindowBase):
         self.menubar.addAction(self.tools_menu.menuAction())
 
         # Help Menu
-        self.help_menu = self.create_menu('Help', self.menubar)
+        self.help_menu = self.create_menu('&Help', self.menubar)
         self.help_menu.addAction(self.menu_help_docs)
         self.help_menu.addAction(self.menu_help_about)
         # Add to menubar
@@ -372,14 +377,6 @@ class MainWindow(MainWindowBase):
         action = QtGui.QAction(self)
         action.setText(tr(title))
         return action
-
-    def create_button(self, text, layout=None):
-        """Create a button, set its title, and add it to the parent."""
-        button = QtGui.QPushButton()
-        button.setText(tr(text))
-        if layout:
-            layout.addWidget(button)
-        return button
 
     def closeEvent(self, event):
         """Save state in the settings manager."""

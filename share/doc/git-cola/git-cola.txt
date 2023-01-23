@@ -3,7 +3,7 @@ git-cola(1)
 
 NAME
 ----
-git-cola - A highly caffeinated Git GUI
+git-cola - A highly caffeinated git GUI
 
 SYNOPSIS
 --------
@@ -11,23 +11,33 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-'git-cola' is a powerful Git GUI written in Python.
-It has many unique features that make Git's advanced
+'git-cola' is a powerful git GUI written in Python.
+It has many unique features that make git's advanced
 features simple and accessible.
 
 See below for a full list of options and usage information.
 
 OPTIONS
 -------
+--classic::
+	Launch the standalone 'cola classic' tool.
 
+-r::
 --repo=<path>::
 	Run 'git-cola' on the git repository in <path>.
+	Defaults to the current directory.
 
+-s::
 --style=<style>::
 	Launch 'git-cola' with a different stylesheet.
 
---classic::
-	Launch the standalone 'cola classic' tool.
+-v::
+--version::
+	Prints the 'git-cola' version and exits.
+
+-g::
+--git-path::
+	Specifies the path to the 'git' binary.
 
 GUI STYLES
 ----------
@@ -36,7 +46,6 @@ Specify `--style=dark` or provide an external stylesheet with `--style=PATH`.
 
 CONFIG VARIABLES
 ----------------
-
 cola.savewindowsettings::
 	Whether 'git-cola' should remember its window settings.
 
@@ -55,11 +64,9 @@ gui.historybrowser::
 
 diff.tool::
 	The default diff tool to use.
-	The config variable overrides the GIT_DIFF_TOOL environment variable.
 
 merge.tool::
 	The default merge tool to use.
-	The config variable overrides the GIT_MERGE_TOOL environment variable.
 
 user.email::
 	Your email address to be recorded in any newly created commits.
@@ -74,38 +81,33 @@ user.name::
 
 See linkgit:git-config[1] for more details.
 
-
 ENVIRONMENT VARIABLES
 ---------------------
-
 EDITOR::
 	Specifies the default editor to use.
 	This is ignored when the git config variable `gui.editor` is defined.
 
-GIT_DIFF_TOOL::
-	Specifies the default diff tool to use.
-	This is ignored when the git config variable `diff.tool` is defined.
+GIT_PYTHON_TRACE::
+	When defined, prints git commands and status to the terminal.
+	Print more information when set to the value 'full'.
 
-GIT_MERGE_TOOL::
-	Specifies the default merge tool to use.
-	This is ignored when the git config variable `merge.tool` is defined.
-
+GIT_COLA_TRACE::
+	When defined, 'git-cola' outputs the 'git' commands it executes
+	into the 'Command Output' log viewer.
 
 SOURCE
 ------
-
 A 'git-cola' development repository can be obtained via git:
 
 	git clone git://github.com/davvid/git-cola.git
 
 
-STYLESHEETS
------------
-
-git-cola ships with an alternative stylesheet called 'dark'.
+GUI THEMES
+----------
+'git-cola' ships with an alternative stylesheet called 'dark'.
 You can use this stylesheet by running `git cola --style=dark`.
 
-You can also skin git-cola by providing your own Qt stylesheet.
+You can also skin 'git-cola' by providing your own Qt stylesheet.
 E.g. `git cola --style=/path/to/style.qss`.
 
 Built-in styles can be found in `/usr/share/git-cola/styles`.
@@ -117,14 +119,13 @@ LINKS
 	http://cola.tuxfamily.org/
 
 'git-cola' sources on github::
-	http://github.com/davvid/git-cola/tree/master
+	http://github.com/davvid/git-cola
 
 
 SEE ALSO
 --------
 linkgit:git-difftool[1]::
 	Compare changes using common merge tools.
-	(New in git-1.6.3).
 
 linkgit:gitk[1]::
 	The git repository browser.  Shows branches, commit history

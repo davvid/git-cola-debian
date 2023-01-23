@@ -1,10 +1,10 @@
 import os
 import sys
 import copy
+import fnmatch
 
 from cola import core
 from cola import gitcmd
-from cola import utils
 
 
 _config = None
@@ -16,18 +16,21 @@ def instance():
     return _config
 
 
-def _find_in_path(app):
-    """Find a program in $PATH."""
-    is_win32 = sys.platform == 'win32'
-    for path in os.environ.get('PATH', '').split(os.pathsep):
-        candidate = os.path.join(path, app)
-        if os.path.exists(candidate):
-            return candidate
-        if is_win32:
-            candidate = os.path.join(path, app + '.exe')
-            if os.path.exists(candidate):
-                return candidate
-    return None
+def _appendifexists(category, path, result):
+    try:
+        mtime = os.stat(path).st_mtime
+        result.append((category, path, mtime))
+    except OSError:
+        pass
+
+
+def _stat_info():
+    data = []
+    # Try /etc/gitconfig as a fallback for the system config
+    _appendifexists('system', '/etc/gitconfig', data)
+    _appendifexists('user', os.path.expanduser('~/.gitconfig'), data)
+    _appendifexists('repo', gitcmd.instance().git_path('config'), data)
+    return data
 
 
 class GitConfig(object):
@@ -38,6 +41,7 @@ class GitConfig(object):
         self._system = {}
         self._user = {}
         self._repo = {}
+        self._all = {}
         self._cache_key = None
         self._configs = []
         self._config_files = {}
@@ -47,6 +51,7 @@ class GitConfig(object):
         self._system = {}
         self._user = {}
         self._repo = {}
+        self._all = {}
         self._configs = []
         self._config_files = {}
         self._find_config_files()
@@ -56,6 +61,9 @@ class GitConfig(object):
 
     def repo(self):
         return copy.deepcopy(self._repo)
+
+    def all(self):
+        return copy.deepcopy(self._all)
 
     def _find_config_files(self):
         """
@@ -67,33 +75,11 @@ class GitConfig(object):
 
         """
         # Try the git config in git's installation prefix
-        git_path = _find_in_path('git')
-        if git_path:
-            bin_dir = os.path.dirname(git_path)
-            prefix = os.path.dirname(bin_dir)
-            system_config = os.path.join(prefix, 'etc', 'gitconfig')
-            if os.path.exists(system_config):
-                self._config_files['system'] = system_config
-                self._configs.append(system_config)
-
-        # Try /etc/gitconfig as a fallback for the system config
-        if 'system' not in self._config_files:
-            system_config = '/etc/gitconfig'
-            if os.path.exists(system_config):
-                self._config_files['system'] = system_config
-                self._configs.append(system_config)
-
-        # Check for the user config
-        user_config = os.path.expanduser('~/.gitconfig')
-        if os.path.exists(user_config):
-            self._config_files['user'] = user_config
-            self._configs.append(user_config)
-
-        # Check for the repo config
-        repo_config = self.git.git_path('config')
-        if os.path.exists(repo_config):
-            self._config_files['repo'] = repo_config
-            self._configs.append(repo_config)
+        statinfo = _stat_info()
+        self._configs = map(lambda x: x[1], statinfo)
+        self._config_files = {}
+        for (cat, path, mtime) in statinfo:
+            self._config_files[cat] = path
 
     def update(self):
         """Read config values from git."""
@@ -108,7 +94,7 @@ class GitConfig(object):
         Updates the cache and returns False when the cache does not match.
 
         """
-        cache_key = map(utils.slurp, self._configs)
+        cache_key = _stat_info()
         if not self._cache_key or cache_key != self._cache_key:
             self._cache_key = cache_key
             return False
@@ -116,9 +102,7 @@ class GitConfig(object):
 
     def _read_configs(self):
         """Read git config value into the system, user and repo dicts."""
-        self._system = {}
-        self._user = {}
-        self._repo = {}
+        self.reset()
 
         if 'system' in self._config_files:
             self._system = self.read_config(self._config_files['system'])
@@ -128,6 +112,10 @@ class GitConfig(object):
 
         if 'repo' in self._config_files:
             self._repo = self.read_config(self._config_files['repo'])
+
+        self._all = {}
+        for dct in (self._system, self._user, self._repo):
+            self._all.update(dct)
 
     def read_config(self, path):
         """Return git config data from a path as a dictionary."""
@@ -141,6 +129,10 @@ class GitConfig(object):
                 # the user has an invalid entry in their git config
                 continue
             v = core.decode(v)
+            if v == 'yes':
+                v = 'true'
+            elif v == 'no':
+                v = 'false'
             if v == 'true' or v == 'false':
                 v = bool(eval(v.title()))
             try:
@@ -153,7 +145,36 @@ class GitConfig(object):
     def get(self, key, default=None):
         """Return the string value for a config key."""
         self.update()
-        for dct in (self._repo, self._user, self._system):
-            if key in dct:
-                return dct[key]
-        return default
+        return self._all.get(key, default)
+
+    def find(self, pat):
+        result = {}
+        for key, val in self._all.items():
+            if fnmatch.fnmatch(key, pat):
+                result[key] = val
+        return result
+
+    def get_encoding(self, default='utf-8'):
+        return self.get('gui.encoding', default=default)
+
+    guitool_opts = ('cmd', 'needsfile', 'noconsole', 'norescan', 'confirm',
+                    'argprompt', 'revprompt', 'revunmerged', 'title', 'prompt')
+
+    def get_guitool_opts(self, name):
+        """Return the guitool.<name> namespace as a dict"""
+        keyprefix = 'guitool.' + name + '.'
+        opts = {}
+        for cfg in self.guitool_opts:
+            value = self.get(keyprefix + cfg)
+            if value is None:
+                continue
+            opts[cfg] = value
+        return opts
+
+    def get_guitool_names(self):
+        cmds = []
+        guitools = self.find('guitool.*.cmd')
+        for name, cmd in guitools.items():
+            name = name[len('guitool.'):-len('.cmd')]
+            cmds.append(name)
+        return cmds

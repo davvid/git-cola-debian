@@ -28,9 +28,11 @@ class CompareModel(observable.ObservableModel):
         if filename:
             rev_list = self.git.log('--', filename,
                                     max_count=num_results,
+                                    no_color=True,
                                     pretty='oneline')
         else:
             rev_list = self.git.log(max_count=num_results,
+                                    no_color=True,
                                     pretty='oneline', all=True)
 
         commit_list = gitcmds.parse_rev_list(rev_list)
@@ -49,6 +51,11 @@ class CompareModel(observable.ObservableModel):
         self.set_revisions_end(commits)
 
         return commits
+
+    def describe(self, revid, descr):
+        version = self.git.describe(revid, tags=True, always=True,
+                                    abbrev=4)
+        return version + ' - ' + descr
 
 
 class BranchCompareModel(observable.ObservableModel):

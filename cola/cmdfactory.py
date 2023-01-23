@@ -1,7 +1,7 @@
 """
 Maps Qt signals to Command objects.
 
-The command factory listens to the global notifier and
+The command factory connects to the global notifier and
 creates commands objects as registered signals are
 encountered.
 
@@ -40,9 +40,10 @@ class CommandFactory(object):
         self.undostack = []
         self.redostack = []
         self.signal_to_command = {}
+        self.callbacks = {}
 
-        cola.notifier().listen(signals.undo, self.undo)
-        cola.notifier().listen(signals.redo, self.redo)
+        cola.notifier().connect(signals.undo, self.undo)
+        cola.notifier().connect(signals.redo, self.redo)
 
         self.model = cola.model()
         self.model.add_observer(self)
@@ -50,7 +51,16 @@ class CommandFactory(object):
     def add_command(self, signal, command):
         """Register a signal/command pair."""
         self.signal_to_command[signal] = command
-        cola.notifier().listen(signal, self.cmdrunner(signal))
+        cola.notifier().connect(signal, self.cmdrunner(signal))
+
+    def add_command_wrapper(self, cmd_wrapper):
+        self.callbacks.update(cmd_wrapper.callbacks)
+
+    def prompt_user(self, name, *args, **opts):
+        try:
+            return self.callbacks[name](*args, **opts)
+        except KeyError:
+            raise NotImplementedError('No callback for "%s' % name)
 
     def notify(self, *params):
         """

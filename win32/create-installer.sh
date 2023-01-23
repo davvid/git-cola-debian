@@ -6,7 +6,7 @@ if ! test -d win32; then
 fi
 
 # Add Python and Gettext to our path
-PATH=/c/Python26:"/c/Program Files/Gnu/bin":"$PWD"/win32:"$PATH"
+PATH=/c/Python26:/bin:/usr/bin:/mingw/bin:"/c/Program Files/Gnu/bin":win32:"$PATH"
 export PATH
 
 VERSION=$(bin/git-cola version | awk '{print $3}')
@@ -28,7 +28,7 @@ done
 
 BASENAME=git-cola-$VERSION
 ETC=$BASENAME/etc
-ROOT="$PWD"/$BASENAME
+ROOT=$BASENAME
 TARGET="$ROOT".exe
 
 echo "Building installer for git-cola $VERSION"
