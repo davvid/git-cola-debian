@@ -11,10 +11,10 @@ msgstr ""
 "PO-Revision-Date: 2008-03-14 07:23+0100\n"
 "Last-Translator: Peter Karlsson <peter@softwolves.pp.se>\n"
 "Language-Team: Swedish\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
 
 msgid ""
 "\n"
@@ -354,6 +354,12 @@ msgstr "Fjärr"
 msgid "Add Separator"
 msgstr ""
 
+msgid "Add Submodule"
+msgstr ""
+
+msgid "Add Submodule..."
+msgstr ""
+
 msgid "Add Toolbar"
 msgstr ""
 
@@ -376,6 +382,9 @@ msgstr ""
 msgid "Add remote"
 msgstr "Fjärr"
 
+msgid "Add this submodule?"
+msgstr ""
+
 msgid "Add to .gitignore"
 msgstr ""
 
@@ -383,6 +392,12 @@ msgid "Add to Git Annex"
 msgstr ""
 
 msgid "Add to Git LFS"
+msgstr ""
+
+msgid "Add to exclusions"
+msgstr ""
+
+msgid "Add to local .git/info/exclude"
 msgstr ""
 
 #, fuzzy
@@ -476,6 +491,12 @@ msgstr ""
 msgid "Auto-Wrap Lines"
 msgstr ""
 
+msgid "Autocomplete Paths"
+msgstr ""
+
+msgid "Automatically Load Commit Message Template"
+msgstr ""
+
 msgid "Basic Regexp"
 msgstr ""
 
@@ -516,6 +537,9 @@ msgstr "Grenar"
 
 msgid "Branch Name"
 msgstr "Namn på gren"
+
+msgid "Branch name"
+msgstr ""
 
 #, fuzzy, python-format
 msgid "Branch: %s"
@@ -590,10 +614,16 @@ msgstr ""
 msgid "Changed Upstream"
 msgstr ""
 
+msgid "Check Published Commits when Amending"
+msgstr ""
+
 msgid "Check Spelling"
 msgstr ""
 
 msgid "Check spelling"
+msgstr ""
+
+msgid "Check whether a commit has been published when amending"
 msgstr ""
 
 msgid "Checkout"
@@ -785,6 +815,9 @@ msgstr ""
 msgid "Create a new remote branch?"
 msgstr "Skapa ny gren"
 
+msgid "Create a shallow clone with history truncated to the specified number of revisions.  0 performs a full clone."
+msgstr ""
+
 msgid "Create..."
 msgstr "Skapa..."
 
@@ -864,6 +897,10 @@ msgstr "Ta bort fjärrgren"
 msgid "Delete Remote Branch..."
 msgstr "Ta bort fjärrgren"
 
+#, python-format
+msgid "Delete branch \"%s\"?"
+msgstr ""
+
 #, fuzzy
 msgid "Delete remote"
 msgstr "Ta bort fjärrgren"
@@ -874,10 +911,6 @@ msgstr "Ta bort fjärrgren"
 
 #, fuzzy
 msgid "Delete remote?"
-msgstr "Ta bort fjärrgren"
-
-#, fuzzy
-msgid "Delete selected branch?"
 msgstr "Ta bort fjärrgren"
 
 #, fuzzy
@@ -894,6 +927,9 @@ msgstr ""
 #, fuzzy
 msgid "Deletions"
 msgstr "Ta bort"
+
+msgid "Depth"
+msgstr ""
 
 #, fuzzy
 msgid "Detach"
@@ -937,6 +973,9 @@ msgstr "Alternativ"
 #, fuzzy
 msgid "Directory Exists"
 msgstr "Katalog:"
+
+msgid "Disable"
+msgstr ""
 
 msgid "Display Untracked Files"
 msgstr ""
@@ -996,6 +1035,9 @@ msgstr "E-postadress"
 msgid "Email contributor"
 msgstr ""
 
+msgid "Enable path autocompletion in tools"
+msgstr ""
+
 msgid "Enabled"
 msgstr ""
 
@@ -1048,6 +1090,10 @@ msgstr ""
 #, fuzzy
 msgid "Error creating stash"
 msgstr "Skapa gren"
+
+#, python-format
+msgid "Error deleting branch \"%s\""
+msgstr ""
 
 #, python-format
 msgid "Error deleting remote \"%s\""
@@ -1301,10 +1347,7 @@ msgstr ""
 msgid "Help - Find Files"
 msgstr ""
 
-msgid "Help - git-xbase"
-msgstr ""
-
-msgid "Hide Details.."
+msgid "Help - git-cola-sequence-editor"
 msgstr ""
 
 msgid "High DPI"
@@ -1338,6 +1381,9 @@ msgstr ""
 msgid "Ignore filename or pattern"
 msgstr ""
 
+msgid "Ignore..."
+msgstr ""
+
 #, fuzzy
 msgid "Include tags "
 msgstr "Ta med taggar"
@@ -1368,6 +1414,9 @@ msgstr ""
 #, fuzzy
 msgid "Invalid Revision"
 msgstr "Ogiltig revision: %s"
+
+msgid "Japanese translation"
+msgstr ""
 
 msgid "Keep *.orig Merge Backups"
 msgstr ""
@@ -1795,6 +1844,15 @@ msgstr "Gör om"
 msgid "Reduce commit history to minimum"
 msgstr ""
 
+msgid "Reference Repository"
+msgstr ""
+
+msgid "Reference URL"
+msgstr ""
+
+msgid "Reference repository to use when cloning (optional)"
+msgstr ""
+
 msgid "Refresh"
 msgstr "Uppdatera"
 
@@ -1899,6 +1957,9 @@ msgstr "Ta bort gren"
 #, fuzzy
 msgid "Reset Hard"
 msgstr "Ta bort gren"
+
+msgid "Reset Layout"
+msgstr ""
 
 #, fuzzy
 msgid "Reset Merge"
@@ -2205,10 +2266,6 @@ msgstr ""
 msgid "Shortcuts"
 msgstr ""
 
-#, fuzzy
-msgid "Show Details..."
-msgstr "Ta bort..."
-
 msgid "Show Diffstat After Merge"
 msgstr "Visa diffstatistik efter sammanslagning"
 
@@ -2389,6 +2446,15 @@ msgstr ""
 msgid "Stop tracking paths"
 msgstr ""
 
+msgid "Submodule URL (can be relative, ex: ../repo.git)"
+msgstr ""
+
+msgid "Submodule branch to track (optional)"
+msgstr ""
+
+msgid "Submodule path within the current repository (optional)"
+msgstr ""
+
 msgid "Submodules"
 msgstr ""
 
@@ -2456,6 +2522,12 @@ msgstr "Revisionsuttrycket är tomt."
 
 #, python-format
 msgid ""
+"The submodule will be added using\n"
+"\"%s\""
+msgstr ""
+
+#, python-format
+msgid ""
 "The submodule will be updated using\n"
 "\"%s\""
 msgstr ""
@@ -2502,6 +2574,9 @@ msgstr ""
 msgid "Toggle Enabled"
 msgstr ""
 
+msgid "Toggle image diff"
+msgstr ""
+
 msgid "Toggle the branches filter"
 msgstr ""
 
@@ -2516,6 +2591,9 @@ msgid "Tracking branch"
 msgstr "Spårande gren"
 
 msgid "Traditional Chinese (Taiwan) translation"
+msgstr ""
+
+msgid "Translation"
 msgstr ""
 
 msgid "Translators"
@@ -2704,10 +2782,19 @@ msgstr ""
 msgid "git-cola diff"
 msgstr ""
 
+msgid "git://git.example.com/repo.git"
+msgstr ""
+
 msgid "grep result..."
 msgstr ""
 
 msgid "hotkeys.html"
+msgstr ""
+
+msgid "path/to/submodule"
+msgstr ""
+
+msgid "title"
 msgstr ""
 
 msgid "unknown"
@@ -2964,6 +3051,10 @@ msgstr ""
 
 #~ msgid "Delete Only If Merged Into"
 #~ msgstr "Ta bara bort om sammanslagen med"
+
+#, fuzzy
+#~ msgid "Delete selected branch?"
+#~ msgstr "Ta bort fjärrgren"
 
 #~ msgid "Destination Repository"
 #~ msgstr "Destinationsarkiv"
@@ -3421,6 +3512,10 @@ msgstr ""
 #~ msgid "Shared only available for local repository."
 #~ msgstr "Delat är endast tillgängligt för lokala arkiv."
 
+#, fuzzy
+#~ msgid "Show Details..."
+#~ msgstr "Ta bort..."
+
 #~ msgid "Show Less Context"
 #~ msgstr "Visa mindre sammanhang"
 
@@ -3479,8 +3574,8 @@ msgstr ""
 #~ msgid "Success"
 #~ msgstr "Lyckades"
 
-#~ msgid "The 'master' branch has not been initialized."
-#~ msgstr "Grenen \"master\" har inte initierats."
+#~ msgid "The 'main' branch has not been initialized."
+#~ msgstr "Grenen \"main\" har inte initierats."
 
 #~ msgid "The following branches are not completely merged into %s:"
 #~ msgstr "Följande grenar är inte till fullo sammanslagna med %s:"

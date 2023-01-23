@@ -83,11 +83,22 @@ def uncheck(value, *checkboxes):
 def strip_remotes(remote_branches):
     """Strip the <remote>/ prefixes from branches
 
-    e.g. "origin/master" becomes "master".
+    e.g. "origin/main" becomes "main".
 
     """
     branches = [utils.strip_one(branch) for branch in remote_branches]
     return [branch for branch in branches if branch != 'HEAD']
+
+
+def get_default_remote(context):
+    """Get the name of the default remote to use for pushing.
+
+    This will be the remote the branch is set to track, if it is set. If it
+    is not, remote.pushDefault will be used (or origin if not set)
+
+    """
+    upstream_remote = gitcmds.upstream_remote(context)
+    return upstream_remote or context.cfg.get('remote.pushDefault', default='origin')
 
 
 class ActionTask(qtutils.Task):
@@ -273,7 +284,7 @@ class RemoteActionDialog(standard.Dialog):
         )
         self.setLayout(self.main_layout)
 
-        default_remote = gitcmds.upstream_remote(context) or 'origin'
+        default_remote = get_default_remote(context)
 
         remotes = model.remotes
         if default_remote in remotes:
@@ -345,7 +356,7 @@ class RemoteActionDialog(standard.Dialog):
 
     def set_field_defaults(self):
         """Set sensible initial defaults"""
-        # Default to "git fetch origin master"
+        # Default to "git fetch origin main"
         action = self.action
         if action in (FETCH, PULL):
             self.local_branch.setText('')

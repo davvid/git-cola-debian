@@ -50,7 +50,8 @@ class WidgetMixin(object):
             shown = self.isVisible()
             # earlier show() fools Windows focus stealing prevention. the main
             # window is blocked for the duration of "git rebase" and we don't
-            # want to present a blocked window with git-xbase hidden somewhere.
+            # want to present a blocked window with git-cola-sequence-editor
+            # hidden somewhere.
             self.show()
             self.setWindowState(Qt.WindowMaximized)
             if not shown:
@@ -68,14 +69,12 @@ class WidgetMixin(object):
             save = cfg.get('cola.savewindowsettings', default=True)
         if save:
             if settings is None:
-                settings = Settings()
-                settings.load()
+                settings = Settings.read()
             settings.save_gui_state(self)
 
     def restore_state(self, settings=None):
         if settings is None:
-            settings = Settings()
-            settings.load()
+            settings = Settings.read()
         state = settings.get_gui_state(self)
         if state:
             result = self.apply_state(state)
@@ -144,6 +143,7 @@ class WidgetMixin(object):
 
 
 class MainWindowMixin(WidgetMixin):
+
     def __init__(self):
         WidgetMixin.__init__(self)
         # Dockwidget options
@@ -169,8 +169,11 @@ class MainWindowMixin(WidgetMixin):
     def save_settings(self, settings=None):
         if settings is None:
             context = getattr(self, 'context', None)
-            settings = Settings()
-            settings.load()
+            if context is None:
+                settings = Settings.read()
+            else:
+                settings = context.settings
+                settings.load()
             settings.add_recent(core.getcwd(), prefs.maxrecent(context))
         return WidgetMixin.save_settings(self, settings=settings)
 

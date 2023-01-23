@@ -14,13 +14,13 @@ from ..models import selection
 from ..widgets import gitignore
 from ..widgets import standard
 from ..qtutils import get
+from ..settings import Settings
 from .. import actions
 from .. import cmds
 from .. import core
 from .. import hotkeys
 from .. import icons
 from .. import qtutils
-from .. import settings
 from .. import utils
 from . import common
 from . import completion
@@ -647,10 +647,8 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
         copy_menu.addAction(self.copy_leading_path_action)
         copy_menu.addAction(self.copy_basename_action)
 
-        current_settings = settings.Settings()
-        current_settings.load()
-
-        copy_formats = current_settings.copy_formats
+        settings = Settings.read()
+        copy_formats = settings.copy_formats
         if copy_formats:
             copy_menu.addSeparator()
 
@@ -1048,7 +1046,19 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
         deleted = item.deleted
         image = self.image_formats.ok(path)
 
-        # Images are diffed differently
+        # Update the diff text
+        if staged:
+            cmds.do(cmds.DiffStaged, context, path, deleted=deleted)
+        elif modified:
+            cmds.do(cmds.Diff, context, path, deleted=deleted)
+        elif unmerged:
+            cmds.do(cmds.Diff, context, path)
+        elif untracked:
+            cmds.do(cmds.ShowUntracked, context, path)
+
+        # Images are diffed differently.
+        # DiffImage transitions the diff mode to image.
+        # DiffText transitions the diff mode to text.
         if image:
             cmds.do(
                 cmds.DiffImage,
@@ -1060,14 +1070,8 @@ class StatusTreeWidget(QtWidgets.QTreeWidget):
                 unmerged,
                 untracked,
             )
-        elif staged:
-            cmds.do(cmds.DiffStaged, context, path, deleted=deleted)
-        elif modified:
-            cmds.do(cmds.Diff, context, path, deleted=deleted)
-        elif unmerged:
-            cmds.do(cmds.Diff, context, path)
-        elif untracked:
-            cmds.do(cmds.ShowUntracked, context, path)
+        else:
+            cmds.do(cmds.DiffText, context)
 
     def select_header(self):
         """Select an active header, which triggers a diffstat"""
@@ -1239,10 +1243,12 @@ def customize_copy_actions(context, parent):
 
 
 class CustomizeCopyActions(standard.Dialog):
+
     def __init__(self, context, parent):
         standard.Dialog.__init__(self, parent=parent)
         self.setWindowTitle(N_('Custom Copy Actions'))
 
+        self.context = context
         self.table = QtWidgets.QTableWidget(self)
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels([N_('Action Name'), N_('Format String')])
@@ -1284,14 +1290,14 @@ class CustomizeCopyActions(standard.Dialog):
 
         self.init_size(parent=parent)
 
-        self.settings = settings.Settings()
         QtCore.QTimer.singleShot(0, self.reload_settings)
 
     def reload_settings(self):
         # Called once after the GUI is initialized
-        self.settings.load()
+        settings = self.context.settings
+        settings.load()
         table = self.table
-        for entry in self.settings.copy_formats:
+        for entry in settings.copy_formats:
             name_string = entry.get('name', '')
             format_string = entry.get('format', '')
             if name_string and format_string:
@@ -1348,11 +1354,12 @@ class CustomizeCopyActions(standard.Dialog):
                 }
                 copy_formats.append(entry)
 
-        while self.settings.copy_formats:
-            self.settings.copy_formats.pop()
+        settings = self.context.settings
+        while settings.copy_formats:
+            settings.copy_formats.pop()
 
-        self.settings.copy_formats.extend(copy_formats)
-        self.settings.save()
+        settings.copy_formats.extend(copy_formats)
+        settings.save()
 
         self.accept()
 
