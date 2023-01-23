@@ -350,6 +350,7 @@ def worktree_state_dict(head='HEAD', staged_only=False):
 
     """
     git.update_index(refresh=True)
+
     if staged_only:
         return _branch_status(head)
 
@@ -363,9 +364,7 @@ def worktree_state_dict(head='HEAD', staged_only=False):
     upstream_changed = []
     submodules = set()
     try:
-        output = git.diff_index(head,
-                                cached=True,
-                                with_stderr=True)
+        output = git.diff_index(head, cached=True, with_stderr=True)
         if output.startswith('fatal:'):
             raise errors.GitInitError('git init')
         for line in output.splitlines():
